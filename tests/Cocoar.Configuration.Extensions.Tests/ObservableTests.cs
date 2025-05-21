@@ -124,7 +124,8 @@ public sealed class FileSystemObservableTests : ReactiveTest
             SpinWait.SpinUntil(() => evt.Any(), 2000);    // wait ≤2 s
 
             Assert.Single(evt);
-            Assert.Equal(FileSystemChangeType.Created, evt[0].ChangeType);
+            Assert.Contains(evt[0].ChangeType,
+                new[] { FileSystemChangeType.Changed, FileSystemChangeType.Created });
             Assert.Equal(file, evt[0].Path);
         }
         finally

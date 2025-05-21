@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Cocoar.Configuration.Extensions;
 
-public sealed class FileConfigSourceProvider : IConfigSourceProvider
+public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileConfigSourceProviderOptions>
 {
     private string _currentPath;
     private JsonElement? _cachedJson;
@@ -11,23 +11,24 @@ public sealed class FileConfigSourceProvider : IConfigSourceProvider
 
     private readonly IObservable<ConfigChangeNotification> _changes;
 
-    public string SourceKind => "File";
-    public string SourceIdentifier => _currentPath;
+    public override string SourceKind => "File";
+    public override string SourceIdentifier => _currentPath;
 
-    public FileConfigSourceProvider(string filePath, TimeSpan? debounce = null)
+    public FileConfigSourceProvider(FileConfigSourceProviderOptions options): base(options)
     {
+        var filePath = options.Path;
         if (!Path.IsPathRooted(filePath))
             filePath = Path.GetFullPath(filePath);
 
         _currentPath = filePath;
-        _debounce = debounce ?? TimeSpan.FromMilliseconds(300);
+        _debounce = options.DebounceTime ?? TimeSpan.FromMilliseconds(300);
 
         _changes = Observable.Defer(BuildWatcherStream)
             .Publish()
             .RefCount();
     }
     
-    public async Task<JsonElement?> GetValueAsync(string? part = null, CancellationToken ct = default)
+    public override async Task<JsonElement?> GetValueAsync(string? part = null, CancellationToken ct = default)
     {
         if (_cachedJson is null) // lazy first-time load
             _cachedJson = LoadCurrent();
@@ -44,7 +45,7 @@ public sealed class FileConfigSourceProvider : IConfigSourceProvider
             : null;
     }
 
-    public IObservable<ConfigChangeNotification> Changes(string? part = null) =>
+    public override IObservable<ConfigChangeNotification> Changes(string? part = null) =>
         part is null
             ? _changes
             : _changes.Select(c =>
@@ -106,3 +107,5 @@ public sealed class FileConfigSourceProvider : IConfigSourceProvider
             ? section
             : null;
 }
+
+public record FileConfigSourceProviderOptions(string Path, TimeSpan? DebounceTime = null);

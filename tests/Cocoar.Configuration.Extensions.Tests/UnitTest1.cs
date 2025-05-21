@@ -1,9 +1,10 @@
-﻿using System.IO;
+﻿using Cocoar.Configuration.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Cocoar.Configuration.Extensions;
 using Xunit;
 
 public class FileConfigSourceProviderTests
@@ -14,7 +15,7 @@ public class FileConfigSourceProviderTests
         // Arrange
         var tempPath = Path.GetTempFileName();
         File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
-        var provider = new FileConfigSourceProvider(tempPath);
+        var provider = new FileConfigSourceProvider(new FileConfigSourceProviderOptions(tempPath));
 
         // Act
         var result = await provider.GetValueAsync("SectionA");
@@ -38,8 +39,7 @@ public class FileConfigSourceProviderTests
         File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
 
         // shorten debounce for faster tests (100 ms is plenty)
-        var provider = new FileConfigSourceProvider(tempPath,
-            debounce: TimeSpan.FromMilliseconds(100));
+        var provider = new FileConfigSourceProvider(new FileConfigSourceProviderOptions(tempPath, TimeSpan.FromMilliseconds(100)));
 
         // ① subscribe (starts watcher)  ② convert to Task (actually subscribes)
         var changeTask = provider
@@ -64,20 +64,25 @@ public class FileConfigSourceProviderTests
         // cleanup
         File.Delete(tempPath);
     }
-    
+
     [Fact]
     public async Task ConfigManager_ReturnsConfigFromFileProvider()
     {
         var tempPath = Path.GetTempFileName();
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration([
+            new ConfigRule(typeof(FileConfigSourceProvider), new FileConfigSourceProviderOptions(tempPath), "file1",
+                typeof(IMySectionSettings), "SectionA")
+        ]);
+
+        var sp = services.BuildServiceProvider();
+        
+
         try
         {
             File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
-            var provider = new FileConfigSourceProvider(tempPath);
 
-            var manager = new ConfigManager([
-                new ConfigRule<FileConfigSourceProvider>("file1", typeof(IMySectionSettings), "SectionA")
-            ]);
-            // manager.RegisterProvider("file1", provider);
+            var manager = sp.GetRequiredService<ConfigManager>();
 
             var result = manager.GetConfig(typeof(IMySectionSettings));
             Assert.NotNull(result);

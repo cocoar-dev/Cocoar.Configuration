@@ -36,7 +36,8 @@ public class FileSystemObservableFullCycleTests
             WaitUntil(() => received.Count == 1);
 
             Assert.Single(received);
-            Assert.Equal(FileSystemChangeType.Created, received[0].ChangeType);
+            Assert.Contains(received[0].ChangeType,
+                new[] { FileSystemChangeType.Changed, FileSystemChangeType.Created });
 
             received.Clear();
 

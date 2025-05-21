@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Extensions;
 
@@ -10,7 +11,7 @@ public class ConfigManager
     private volatile Dictionary<Type, JsonElement> _configs = new();
     private bool _initialized = false;
     private readonly IServiceProvider _serviceProvider;
-    private readonly ConcurrentDictionary<(Type type, string key), IConfigSourceProvider> _providerCache = new();
+    private readonly ConcurrentDictionary<(Type type, string key), ConfigSourceProvider> _providerCache = new();
     public ConfigManager(IServiceProvider serviceProvider, IEnumerable<ConfigRule> rules)
     {
         _serviceProvider = serviceProvider;
@@ -34,10 +35,10 @@ public class ConfigManager
 
         foreach (var rule in _rules)
         {
-            var provider = GetOrCreateProvider(rule.ProviderType, rule.ProviderKey);
-
-            // await the provider for the correct section/part
-            var value = await provider.GetValueAsync(rule.SectionName, cancellationToken);
+            var provider = GetOrCreateProvider(rule);
+            
+                // await the provider for the correct section/part
+                var value = await provider.GetValueAsync(rule.SectionName, cancellationToken);
             if (!value.HasValue)
                 continue;
 
@@ -66,37 +67,42 @@ public class ConfigManager
         return newValue;
     }
     
-    private IConfigSourceProvider GetOrCreateProvider(Type providerType, string providerKey)
+    private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)
     {
-        var cacheKey = (providerType, providerKey);
+        var cacheKey = (rule.ProviderType, rule.ProviderKey);
+
+        
 
         if (_providerCache.TryGetValue(cacheKey, out var existing))
             return existing;
 
         // Try DI first
-        IConfigSourceProvider? provider = _serviceProvider.GetService(providerType) as IConfigSourceProvider;
+        ConfigSourceProvider? provider = _serviceProvider.GetService(rule.ProviderType) as ConfigSourceProvider;
 
+       
         // If not in DI, try to create manually (with key)
         if (provider == null)
         {
-            provider = Activator.CreateInstance(providerType, providerKey) as IConfigSourceProvider;
+            if (rule.ProviderOptions is not null)
+            {
+                provider =
+                    ActivatorUtilities.CreateInstance(_serviceProvider, rule.ProviderType, rule.ProviderOptions) as
+                        ConfigSourceProvider;
+            }
+            else
+            {
+                provider =
+                    ActivatorUtilities.CreateInstance(_serviceProvider, rule.ProviderType) as
+                        ConfigSourceProvider;
+            }
+            //provider = Activator.CreateInstance(providerType, providerKey) as ConfigSourceProvider;
         }
 
         if (provider == null)
-            throw new InvalidOperationException($"Could not create provider {providerType.Name} with key '{providerKey}'.");
+            throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key '{rule.ProviderKey}'.");
 
         _providerCache[cacheKey] = provider;
         return provider;
     }
 }
 
-// For now, you may need to adjust ConfigRule to store the provider key, contract type, section name:
-public record ConfigRule(Type ProviderType, string ProviderKey, Type ConfigContract, string? SectionName = null, ConfigLifetime? Lifetime = null);
-public record ConfigRule<T>(string ProviderKey, Type ConfigContract, string? SectionName = null, ConfigLifetime? Lifetime = null): ConfigRule(typeof(T), ProviderKey, ConfigContract, SectionName, Lifetime);
-
-public enum ConfigLifetime
-{
-    Singleton,
-    Scoped,
-    Transient
-}
