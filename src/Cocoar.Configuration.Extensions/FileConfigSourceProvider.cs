@@ -1,4 +1,5 @@
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Text.Json;
 
 namespace Cocoar.Configuration.Extensions;
@@ -11,12 +12,9 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileConfigSo
 
     private readonly IObservable<ConfigChangeNotification> _changes;
 
-    public override string SourceKind => "File";
-    public override string SourceIdentifier => _currentPath;
-
     public FileConfigSourceProvider(FileConfigSourceProviderOptions options): base(options)
     {
-        var filePath = options.Path;
+        var filePath = options.AbsolutePath;
         if (!Path.IsPathRooted(filePath))
             filePath = Path.GetFullPath(filePath);
 
@@ -58,7 +56,7 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileConfigSo
     // ── private helpers ─────────────────────────────────────────────────────
     private IObservable<ConfigChangeNotification> BuildWatcherStream()
     {
-        var dir = Path.GetDirectoryName(_currentPath)!;
+        var dir = this.ProviderOptions.Directory;
 
         var fs = new FileSystemObservable(
             dir,
@@ -108,4 +106,30 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileConfigSo
             : null;
 }
 
-public record FileConfigSourceProviderOptions(string Path, TimeSpan? DebounceTime = null);
+public class FileConfigSourceProviderOptions: IConfigSourceProviderConfig
+{
+
+    private static readonly string _basePath = Path.GetDirectoryName((Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly()).FullName!)!;
+    
+    public string AbsolutePath { get; }
+    public string FileName { get;}
+    public string Directory { get; }
+    
+    public TimeSpan? DebounceTime { get;}
+    
+    
+    
+    public FileConfigSourceProviderOptions(string path, TimeSpan? debounceTime = null)
+    {
+        DebounceTime = debounceTime;
+        AbsolutePath = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(_basePath, path));
+        FileName = Path.GetFileName(AbsolutePath);
+        Directory = Path.GetDirectoryName(AbsolutePath)!;
+    }
+
+
+    public string CalculateKey()
+    {
+        return AbsolutePath;
+    }
+}

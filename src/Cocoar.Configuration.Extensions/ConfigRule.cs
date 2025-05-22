@@ -7,18 +7,26 @@ using System.Threading.Tasks;
 namespace Cocoar.Configuration.Extensions;
 
 // For now, you may need to adjust ConfigRule to store the provider key, contract type, section name:
-public record ConfigRule(Type ProviderType, object? ProviderOptions, string ProviderKey, Type ConfigContract, string? SectionName = null, ConfigLifetime? Lifetime = null);
-//public record ConfigRule<TProvider>(string ProviderKey, Type ConfigContract, string? SectionName = null, ConfigLifetime? Lifetime = null)
-//    : ConfigRule(typeof(TProvider), null, ProviderKey, ConfigContract, SectionName, Lifetime)
-//    where TProvider : ConfigSourceProvider;
-//public record ConfigRule<TProvider, TOptions>(string ProviderKey, TOptions ProviderOptions, Type ConfigContract, string? SectionName = null, ConfigLifetime? Lifetime = null)
-//    : ConfigRule(typeof(TProvider), ProviderOptions, ProviderKey, ConfigContract, SectionName, Lifetime)
-//    where TProvider : ConfigSourceProvider<TOptions>
-//    where TOptions : class
-//{
-//    public new TOptions ProviderOptions { get; init; } = ProviderOptions;
-//}
-
+public record ConfigRule(
+    Type ProviderType,
+    IConfigSourceProviderConfig? ProviderOptions,
+    Type ConfigContract,
+    string? SectionName = null,
+    ConfigLifetime? Lifetime = null)
+{
+    public static ConfigRule Create<TProvider>(Type configContract, string? sectionName = null, ConfigLifetime? lifetime = null)
+        where TProvider : ConfigSourceProvider
+    {
+        return new ConfigRule(typeof(TProvider), null, configContract, sectionName, lifetime);
+    }
+    
+    public static ConfigRule Create<TProvider, TOptions>(TOptions providerOptions, Type configContract, string? sectionName = null, ConfigLifetime? lifetime = null)
+        where TProvider : ConfigSourceProvider<TOptions>
+        where TOptions : IConfigSourceProviderConfig
+    {
+        return new ConfigRule(typeof(TProvider), providerOptions, configContract, sectionName, lifetime);
+    }
+}
 
 public enum ConfigLifetime
 {

@@ -69,7 +69,10 @@ public class ConfigManager
     
     private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)
     {
-        var cacheKey = (rule.ProviderType, rule.ProviderKey);
+
+
+
+        var cacheKey = (rule.ProviderType, rule.ProviderOptions is null ? rule.ProviderType.FullName! : rule.ProviderOptions.CalculateKey());
 
         
 
@@ -99,7 +102,7 @@ public class ConfigManager
         }
 
         if (provider == null)
-            throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key '{rule.ProviderKey}'.");
+            throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key ''.");
 
         _providerCache[cacheKey] = provider;
         return provider;

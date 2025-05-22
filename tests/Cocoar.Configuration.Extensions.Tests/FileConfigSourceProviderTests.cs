@@ -1,11 +1,9 @@
-﻿using Cocoar.Configuration.Extensions;
-using Microsoft.Extensions.DependencyInjection;
-using System.IO;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Xunit;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Cocoar.Configuration.Extensions.Tests;
 
 public class FileConfigSourceProviderTests
 {
@@ -68,11 +66,11 @@ public class FileConfigSourceProviderTests
     [Fact]
     public async Task ConfigManager_ReturnsConfigFromFileProvider()
     {
+        
         var tempPath = Path.GetTempFileName();
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            new ConfigRule(typeof(FileConfigSourceProvider), new FileConfigSourceProviderOptions(tempPath), "file1",
-                typeof(IMySectionSettings), "SectionA")
+            ConfigRule.Create<FileConfigSourceProvider, FileConfigSourceProviderOptions>(new FileConfigSourceProviderOptions(tempPath), typeof(IMySectionSettings), "SectionA"), 
         ]);
 
         var sp = services.BuildServiceProvider();
