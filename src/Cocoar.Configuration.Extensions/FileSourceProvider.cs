@@ -5,14 +5,14 @@ using System.Text.Json;
 
 namespace Cocoar.Configuration.Extensions;
 
-public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>
+public sealed class FileSourceProvider : ConfigSourceProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>
 {
     private readonly FileSourceProviderOptions _providerOptions;
     private readonly ConcurrentDictionary<string, JsonElement?> _fileCache = new();
     private readonly ConcurrentDictionary<string, IObservable<ConfigChangeNotification>> _changeStreams = new();
     private readonly FileSystemObservable _fsObservable;
 
-    public FileConfigSourceProvider(FileSourceProviderOptions options) : base(options)
+    public FileSourceProvider(FileSourceProviderOptions options) : base(options)
     {
         _providerOptions = options;
         _fsObservable = new FileSystemObservable(
@@ -39,13 +39,13 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileSourcePr
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(queryOptions.SectionName))
+        if (string.IsNullOrWhiteSpace(queryOptions.MemberPath))
         {
             return value;
         }
 
         return value.Value.ValueKind == JsonValueKind.Object &&
-               value.Value.TryGetProperty(queryOptions.SectionName, out var section)
+               value.Value.TryGetProperty(queryOptions.MemberPath, out var section)
             ? section
             : null;
     }
@@ -62,12 +62,12 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileSourcePr
                     var oldValue = _fileCache.TryGetValue(fn, out var oldVal) ? oldVal : null;
                     var newValue = LoadFile(fn);
 
-                    if (queryOptions.SectionName != null)
+                    if (queryOptions.MemberPath != null)
                     {
                         if (oldValue != null)
                         {
                             oldValue = oldValue.Value.ValueKind == JsonValueKind.Object &&
-                                       oldValue.Value.TryGetProperty(queryOptions.SectionName, out var section)
+                                       oldValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
                                 ? section
                                 : null;
                         }
@@ -75,7 +75,7 @@ public sealed class FileConfigSourceProvider : ConfigSourceProvider<FileSourcePr
                         if (newValue != null)
                         {
                             newValue = newValue.Value.ValueKind == JsonValueKind.Object &&
-                                       newValue.Value.TryGetProperty(queryOptions.SectionName, out var section)
+                                       newValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
                                 ? section
                                 : null;
                         }

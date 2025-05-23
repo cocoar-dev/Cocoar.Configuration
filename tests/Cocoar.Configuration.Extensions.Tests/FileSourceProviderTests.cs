@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Extensions.Tests;
 
-public class FileConfigSourceProviderTests
+public class FileSourceProviderTests
 {
     [Fact]
     public async Task GetValueAsync_ReturnsSection_WhenJsonFileExists()
@@ -13,7 +13,7 @@ public class FileConfigSourceProviderTests
         // Arrange
         var tempPath = Path.GetTempFileName();
         File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
-        var provider = new FileConfigSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
 
         // Act
         var result = await provider.GetValueAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath),"SectionA"));
@@ -37,7 +37,7 @@ public class FileConfigSourceProviderTests
         File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
 
         // shorten debounce for faster tests (100 ms is plenty)
-        var provider = new FileConfigSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!, TimeSpan.FromMilliseconds(100)));
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!, TimeSpan.FromMilliseconds(100)));
 
         // ① subscribe (starts watcher)  ② convert to Task (actually subscribes)
         var changeTask = provider
@@ -70,7 +70,7 @@ public class FileConfigSourceProviderTests
         var tempPath = Path.GetTempFileName();
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            ConfigRule.Create<FileConfigSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>( new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!), new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA") , typeof(IMySectionSettings)), 
+            ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>( new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!), new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA") , typeof(IMySectionSettings)), 
         ]);
 
         var sp = services.BuildServiceProvider();

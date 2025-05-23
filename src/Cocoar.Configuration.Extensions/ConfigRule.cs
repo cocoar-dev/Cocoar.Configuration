@@ -9,22 +9,23 @@ namespace Cocoar.Configuration.Extensions;
 // For now, you may need to adjust ConfigRule to store the provider key, contract type, section name:
 public record ConfigRule(
     Type ProviderType,
-    IConfigSourceProviderConfig? ProviderOptions,
+    ISourceProviderInstanceOptions ProviderOptions,
+    ISourceProviderQueryOptions QueryOptions,
     Type ConfigContract,
-    string? SectionName = null,
     ConfigLifetime? Lifetime = null)
 {
-    public static ConfigRule Create<TProvider>(Type configContract, string? sectionName = null, ConfigLifetime? lifetime = null)
-        where TProvider : ConfigSourceProvider
-    {
-        return new ConfigRule(typeof(TProvider), null, configContract, sectionName, lifetime);
-    }
+    // public static ConfigRule Create<TProvider,TQueryOptions>(TQueryOptions queryOptions, Type configContract,  ConfigLifetime? lifetime = null)
+    //     where TProvider : ConfigSourceProvider
+    // {
+    //     return new ConfigRule(typeof(TProvider), null, queryOptions, configContract, lifetime);
+    // }
     
-    public static ConfigRule Create<TProvider, TOptions>(TOptions providerOptions, Type configContract, string? sectionName = null, ConfigLifetime? lifetime = null)
-        where TProvider : ConfigSourceProvider<TOptions>
-        where TOptions : IConfigSourceProviderConfig
+    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, Type configContract, ConfigLifetime? lifetime = null)
+        where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
+        where TOptions : ISourceProviderInstanceOptions
+    where TQueryOptions: ISourceProviderQueryOptions
     {
-        return new ConfigRule(typeof(TProvider), providerOptions, configContract, sectionName, lifetime);
+        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, configContract, lifetime);
     }
 }
 
