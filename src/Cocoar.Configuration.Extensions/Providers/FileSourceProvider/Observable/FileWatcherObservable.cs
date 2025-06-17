@@ -1,7 +1,6 @@
-
 using System.Reactive.Linq;
 
-namespace Cocoar.Configuration.Extensions;
+namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 
 public sealed class FileSystemObservable : IObservable<FileSystemChange>
 {
@@ -20,7 +19,7 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
         Func<FileSystemChange, string> key = options.IdentityMode switch
         {
             PathIdentityMode.CurrentOrOldPath => ch => ch.OldPath ?? ch.Path,
-            _                                  => ch => ch.Path
+            _ => ch => ch.Path
         };
 
         // cold stream that owns the watcher
@@ -30,8 +29,8 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
                 var fsw = new FileSystemWatcher(directory, options.Filter)
                 {
                     IncludeSubdirectories = options.IncludeSubdirectories,
-                    NotifyFilter          = options.NotifyFilters,
-                    EnableRaisingEvents   = true
+                    NotifyFilter = options.NotifyFilters,
+                    EnableRaisingEvents = true
                 };
 
                 IObservable<FileSystemChange> merged = Observable.Merge(
@@ -39,17 +38,14 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
                         (fs, h) => fs.Created += h,
                         (fs, h) => fs.Created -= h,
                         FileSystemChangeType.Created),
-
                     From(fsw,
                         (fs, h) => fs.Changed += h,
                         (fs, h) => fs.Changed -= h,
                         FileSystemChangeType.Changed),
-
                     From(fsw,
                         (fs, h) => fs.Deleted += h,
                         (fs, h) => fs.Deleted -= h,
                         FileSystemChangeType.Deleted),
-
                     Observable
                         .FromEventPattern<RenamedEventHandler, RenamedEventArgs>(
                             h => fsw.Renamed += h,
@@ -65,16 +61,16 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
 
                 // helper that takes explicit add/remove delegates
                 static IObservable<FileSystemChange> From(
-                    FileSystemWatcher                 watcher,
-                    Action<FileSystemWatcher,FileSystemEventHandler> add,
-                    Action<FileSystemWatcher,FileSystemEventHandler> remove,
-                    FileSystemChangeType              type)
+                    FileSystemWatcher watcher,
+                    Action<FileSystemWatcher, FileSystemEventHandler> add,
+                    Action<FileSystemWatcher, FileSystemEventHandler> remove,
+                    FileSystemChangeType type)
                     => Observable
-                        .FromEventPattern<FileSystemEventHandler,FileSystemEventArgs>(
+                        .FromEventPattern<FileSystemEventHandler, FileSystemEventArgs>(
                             h => add(watcher, h),
                             h => remove(watcher, h))
                         .Select(ep => ep.EventArgs)
-                        .Select(a  => new FileSystemChange(type, a.FullPath));
+                        .Select(a => new FileSystemChange(type, a.FullPath));
             });
 
         // optional per-file debounce
@@ -84,7 +80,7 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
                 .GroupBy(key)
                 .SelectMany(g => g.Throttle(win));
         }
-            
+
         // share & ref-count
         _shared = raw.Publish().RefCount();
     }

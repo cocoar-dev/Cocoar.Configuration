@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Extensions;
+namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 
 public enum PathIdentityMode
 {

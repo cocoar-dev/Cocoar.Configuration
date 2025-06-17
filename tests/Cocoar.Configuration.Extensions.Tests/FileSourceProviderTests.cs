@@ -1,6 +1,9 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text.Json;
+using Cocoar.Configuration.Extensions.Extensions;
+using Cocoar.Configuration.Extensions.Providers;
+using Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Extensions.Tests;
@@ -11,8 +14,7 @@ public class FileSourceProviderTests
     public async Task GetValueAsync_ReturnsSection_WhenJsonFileExists()
     {
         // Arrange
-        var tempPath = Path.GetTempFileName();
-        File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
+        var tempPath = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
         var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
 
         // Act
@@ -23,10 +25,7 @@ public class FileSourceProviderTests
         Assert.Equal(JsonValueKind.Object, result!.Value.ValueKind);
         Assert.True(result.Value.TryGetProperty("Enabled", out var enabled));
         Assert.Equal(JsonValueKind.True, enabled.ValueKind);
-
-        // Cleanup
-
-        File.Delete(tempPath);
+        
     }
     
     [Fact]
@@ -70,7 +69,7 @@ public class FileSourceProviderTests
         var tempPath = Path.GetTempFileName();
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>( new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!), new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA") , typeof(IMySectionSettings)), 
+            FileSourceProvider.CreateRule<IMySectionSettings, TestClass>(tempPath,"SectionA"),
         ]);
 
         var sp = services.BuildServiceProvider();
@@ -82,10 +81,10 @@ public class FileSourceProviderTests
 
             var manager = sp.GetRequiredService<ConfigManager>();
 
-            var result = manager.GetConfig(typeof(IMySectionSettings));
+            var result = manager.GetConfig<IMySectionSettings>();
             Assert.NotNull(result);
-            Assert.True(result.Value.TryGetProperty("Enabled", out var enabled));
-            Assert.Equal(JsonValueKind.True, enabled.ValueKind);
+            Assert.True(result.Enabled);
+            
         }
         finally
         {
@@ -93,6 +92,45 @@ public class FileSourceProviderTests
         }
     }
 
-    public interface IMySectionSettings { }
+    [Fact]
+    public async Task FileProvider_Merge_TwoFiles()
+    {
+        // Arrange
+        var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
+        var config2 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config2.json"));
+        
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration([
+            FileSourceProvider.CreateRule<TestClass>(config1, "SectionA"),
+            FileSourceProvider.CreateRule<TestClass>(config2, "SectionA"),
+        ]);
+
+        var sp = services.BuildServiceProvider();
+        
+        var manager = sp.GetRequiredService<ConfigManager>();
+        var result = manager.GetConfig<TestClass>();
+        
+        
+        // Assert
+        Assert.NotNull(result);
+        
+        // Merge logic would go here, for now just check both are loaded
+        Assert.Equal(false, result.Enabled);
+        Assert.Equal(42, result.Value);
+        Assert.Equal("Leer", result.StringValue);
+
+    }
+
+    public interface IMySectionSettings
+    {
+        bool Enabled { get; }
+    }
     
+}
+
+public class TestClass: FileSourceProviderTests.IMySectionSettings
+{
+    public bool Enabled { get; set; }
+    public int Value { get; set; } = 2;
+    public string StringValue { get; set; } = "Leer";
 }

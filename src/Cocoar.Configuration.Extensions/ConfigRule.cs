@@ -1,31 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Cocoar.Configuration.Extensions;
 
-// For now, you may need to adjust ConfigRule to store the provider key, contract type, section name:
 public record ConfigRule(
     Type ProviderType,
     ISourceProviderInstanceOptions ProviderOptions,
     ISourceProviderQueryOptions QueryOptions,
-    Type ConfigContract,
+    ConfigTypeDefinition ConfigContract,
     ConfigLifetime? Lifetime = null)
 {
-    // public static ConfigRule Create<TProvider,TQueryOptions>(TQueryOptions queryOptions, Type configContract,  ConfigLifetime? lifetime = null)
-    //     where TProvider : ConfigSourceProvider
-    // {
-    //     return new ConfigRule(typeof(TProvider), null, queryOptions, configContract, lifetime);
-    // }
-    
-    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, Type configContract, ConfigLifetime? lifetime = null)
-        where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
+    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigTypeDefinition typeDefinition, ConfigLifetime? lifetime = null)
+        where TProvider : Providers.ConfigSourceProvider<TOptions, TQueryOptions>
         where TOptions : ISourceProviderInstanceOptions
-    where TQueryOptions: ISourceProviderQueryOptions
+        where TQueryOptions: ISourceProviderQueryOptions
     {
-        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, configContract, lifetime);
+        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, typeDefinition, lifetime);
     }
 }
 
@@ -35,3 +22,19 @@ public enum ConfigLifetime
     Scoped,
     Transient
 }
+
+
+public record ConfigTypeDefinition(Type ConfigType, Type? ImplementationType = null)
+{
+    public virtual bool Equals(ConfigTypeDefinition? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+        return ConfigType == other.ConfigType;
+    }
+
+    public override int GetHashCode()
+    {
+        return ConfigType.GetHashCode();
+    }
+};

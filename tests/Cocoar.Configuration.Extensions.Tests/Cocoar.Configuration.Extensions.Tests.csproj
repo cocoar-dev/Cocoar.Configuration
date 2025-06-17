@@ -26,4 +26,13 @@
       <ProjectReference Include="..\Cocoar.Configuration.Extensions\Cocoar.Configuration.Extensions.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="TestConfigFiles\config1.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="TestConfigFiles\config2.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

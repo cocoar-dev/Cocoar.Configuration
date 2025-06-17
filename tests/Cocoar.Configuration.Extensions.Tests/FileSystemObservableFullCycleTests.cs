@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Cocoar.Configuration.Extensions;
+using Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 using Xunit;
 
 public class FileSystemObservableFullCycleTests

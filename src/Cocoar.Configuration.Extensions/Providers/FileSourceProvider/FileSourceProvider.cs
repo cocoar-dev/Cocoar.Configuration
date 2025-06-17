@@ -1,29 +1,22 @@
 using System.Collections.Concurrent;
 using System.Reactive.Linq;
-using System.Reflection;
 using System.Text.Json;
 
-namespace Cocoar.Configuration.Extensions;
+namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 
-public sealed class FileSourceProvider : ConfigSourceProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>
+public sealed class FileSourceProvider(FileSourceProviderOptions options)
+    : ConfigSourceProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>(options)
 {
-    private readonly FileSourceProviderOptions _providerOptions;
     private readonly ConcurrentDictionary<string, JsonElement?> _fileCache = new();
     private readonly ConcurrentDictionary<string, IObservable<ConfigChangeNotification>> _changeStreams = new();
-    private readonly FileSystemObservable _fsObservable;
-
-    public FileSourceProvider(FileSourceProviderOptions options) : base(options)
-    {
-        _providerOptions = options;
-        _fsObservable = new FileSystemObservable(
-            options.Directory,
-            new FileSystemObservableOptions
-            {
-                Filter = "*",
-                DebounceTime = options.DebounceTime,
-                IdentityMode = PathIdentityMode.CurrentOrOldPath
-            });
-    }
+    private readonly FileSystemObservable _fsObservable = new(
+        options.Directory,
+        new FileSystemObservableOptions
+        {
+            Filter = "*",
+            DebounceTime = options.DebounceTime,
+            IdentityMode = PathIdentityMode.CurrentOrOldPath
+        });
 
     public override async Task<JsonElement?> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
@@ -57,9 +50,9 @@ public sealed class FileSourceProvider : ConfigSourceProvider<FileSourceProvider
             _fsObservable
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
-                .Select(ev =>
+                .Select(_ =>
                 {
-                    var oldValue = _fileCache.TryGetValue(fn, out var oldVal) ? oldVal : null;
+                    var oldValue = _fileCache.GetValueOrDefault(fn);
                     var newValue = LoadFile(fn);
 
                     if (queryOptions.MemberPath != null)
@@ -93,7 +86,7 @@ public sealed class FileSourceProvider : ConfigSourceProvider<FileSourceProvider
     {
         try
         {
-            var fullPath = Path.Combine(_providerOptions.Directory, filename);
+            var fullPath = Path.Combine(ProviderOptions.Directory, filename);
             if (!File.Exists(fullPath)) return null;
             var json = File.ReadAllText(fullPath);
             return JsonDocument.Parse(json).RootElement.Clone();
@@ -103,21 +96,22 @@ public sealed class FileSourceProvider : ConfigSourceProvider<FileSourceProvider
             return null;
         }
     }
-}
-
-public class FileSourceProviderOptions(string directory, TimeSpan? debounceTime = null)
-    : ISourceProviderInstanceOptions
-{
-    private static readonly string BasePath = Path.GetDirectoryName((Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly()).Location)!;
-    public string Directory { get; } = Path.IsPathRooted(directory) ? directory : Path.GetFullPath(Path.Combine(BasePath, directory));
-    public TimeSpan? DebounceTime { get;} = debounceTime;
-}
-
-
-public record FileSourceProviderQueryOptions(string Filename, string? MemberPath = null, string? MemberWrapper = null): ISourceProviderQueryOptions;
-
-public interface ISourceProviderQueryOptions
-{
-    string? MemberPath { get; }
-    string? MemberWrapper { get; }
+    
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null)
+    {
+        var directory = Path.GetDirectoryName(filepath);
+        var filename = Path.GetFileName(filepath);
+        var options = new FileSourceProviderOptions(directory, debounceTime);
+        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)));
+    }
+    
+    public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null)
+    {
+        var directory = Path.GetDirectoryName(filepath);
+        var filename = Path.GetFileName(filepath);
+        var options = new FileSourceProviderOptions(directory, debounceTime);
+        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType)));
+    }
 }
