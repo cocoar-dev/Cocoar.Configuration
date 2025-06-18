@@ -5,15 +5,18 @@ public record ConfigRule(
     ISourceProviderInstanceOptions ProviderOptions,
     ISourceProviderQueryOptions QueryOptions,
     ConfigTypeDefinition ConfigContract,
-    ConfigLifetime? Lifetime = null)
+    ConfigLifetime? Lifetime = null,
+    Func<bool>? UseWhen = null
+    )
 {
-    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigTypeDefinition typeDefinition, ConfigLifetime? lifetime = null)
+    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigTypeDefinition typeDefinition, ConfigLifetime? lifetime = null, Func<bool>? useWhen = null)
         where TProvider : Providers.ConfigSourceProvider<TOptions, TQueryOptions>
         where TOptions : ISourceProviderInstanceOptions
         where TQueryOptions: ISourceProviderQueryOptions
     {
-        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, typeDefinition, lifetime);
+        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, typeDefinition, lifetime, useWhen);
     }
+
 }
 
 public enum ConfigLifetime

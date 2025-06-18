@@ -34,6 +34,11 @@ public class ConfigManager
         var tempFlatMaps = new Dictionary<ConfigTypeDefinition, Dictionary<string, JsonElement>>();
         foreach (var rule in _rules)
         {
+            if (rule.UseWhen != null && !rule.UseWhen.Invoke())
+            {
+                continue;
+            }
+
             var provider = GetOrCreateProvider(rule);
             var value = await provider.GetValueAsync(rule.QueryOptions, cancellationToken);
             if (!value.HasValue)

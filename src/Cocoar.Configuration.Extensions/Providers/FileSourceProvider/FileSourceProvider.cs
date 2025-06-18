@@ -97,13 +97,18 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         }
     }
     
-    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null)
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null)
     {
         var directory = Path.GetDirectoryName(filepath);
         var filename = Path.GetFileName(filepath);
         var options = new FileSourceProviderOptions(directory, debounceTime);
         var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
-        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)));
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
+            options, 
+            queryOptions, 
+            new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
+            useWhen: useWhen
+            );
     }
     
     public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null)
