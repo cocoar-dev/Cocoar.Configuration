@@ -1,3 +1,3 @@
-namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Extensions.Providers;
 
 public enum FileSystemChangeType { Created, Changed, Deleted, Renamed }

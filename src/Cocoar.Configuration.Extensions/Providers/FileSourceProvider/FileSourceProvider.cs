@@ -26,21 +26,22 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             value = LoadFile(filename);
             _fileCache[filename] = value;
         }
-        
         if (value == null)
         {
             return null;
         }
 
-        if (string.IsNullOrWhiteSpace(queryOptions.MemberPath))
+        JsonElement? result = value;
+        if (!string.IsNullOrWhiteSpace(queryOptions.MemberPath))
         {
-            return value;
+            result = value.Value.ValueKind == JsonValueKind.Object &&
+                     value.Value.TryGetProperty(queryOptions.MemberPath, out var section)
+                ? section
+                : null;
         }
 
-        return value.Value.ValueKind == JsonValueKind.Object &&
-               value.Value.TryGetProperty(queryOptions.MemberPath, out var section)
-            ? section
-            : null;
+        // Use the base class helper to wrap if needed
+        return WrapIfNeeded(result, queryOptions.MemberWrapper);
     }
 
     public override IObservable<ConfigChangeNotification> Changes(FileSourceProviderQueryOptions queryOptions)
@@ -55,27 +56,34 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                     var oldValue = _fileCache.GetValueOrDefault(fn);
                     var newValue = LoadFile(fn);
 
+                    JsonElement? oldSection = oldValue;
+                    JsonElement? newSection = newValue;
+
                     if (queryOptions.MemberPath != null)
                     {
                         if (oldValue != null)
                         {
-                            oldValue = oldValue.Value.ValueKind == JsonValueKind.Object &&
-                                       oldValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
+                            oldSection = oldValue.Value.ValueKind == JsonValueKind.Object &&
+                                         oldValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
                                 ? section
                                 : null;
                         }
 
                         if (newValue != null)
                         {
-                            newValue = newValue.Value.ValueKind == JsonValueKind.Object &&
-                                       newValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
+                            newSection = newValue.Value.ValueKind == JsonValueKind.Object &&
+                                         newValue.Value.TryGetProperty(queryOptions.MemberPath, out var section)
                                 ? section
                                 : null;
                         }
                     }
 
+                    // Use the base class helper to wrap if needed
+                    oldSection = WrapIfNeeded(oldSection, queryOptions.MemberWrapper);
+                    newSection = WrapIfNeeded(newSection, queryOptions.MemberWrapper);
+
                     _fileCache[fn] = newValue;
-                    return new ConfigChangeNotification(fn, newValue, oldValue);
+                    return new ConfigChangeNotification(fn, newSection, oldSection);
                 })
                 .Publish()
                 .RefCount()

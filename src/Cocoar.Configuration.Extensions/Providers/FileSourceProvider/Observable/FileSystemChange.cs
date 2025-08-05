@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Extensions.Providers;
 
 public sealed record FileSystemChange(
     FileSystemChangeType ChangeType,

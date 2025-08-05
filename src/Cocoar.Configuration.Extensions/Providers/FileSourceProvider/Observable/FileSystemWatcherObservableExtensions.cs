@@ -1,6 +1,6 @@
 using System.Reactive.Linq;
 
-namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Extensions.Providers;
 
 public static class FileSystemWatcherObservableExtensions
 {

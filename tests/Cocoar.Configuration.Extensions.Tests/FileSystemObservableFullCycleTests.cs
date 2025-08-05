@@ -1,14 +1,10 @@
 // -----------------------------------------------------------------------------
 // File: FileSystemObservableFullCycleTests.cs
 // -----------------------------------------------------------------------------
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using Cocoar.Configuration.Extensions;
-using Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
-using Xunit;
+
+using Cocoar.Configuration.Extensions.Providers;
+
+namespace Cocoar.Configuration.Extensions.Tests;
 
 public class FileSystemObservableFullCycleTests
 {

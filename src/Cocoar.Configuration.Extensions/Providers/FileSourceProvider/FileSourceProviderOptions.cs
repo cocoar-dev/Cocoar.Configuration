@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Extensions.Providers;
 
 public class FileSourceProviderOptions(string directory, TimeSpan? debounceTime = null)
     : ISourceProviderInstanceOptions

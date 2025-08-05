@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using Cocoar.Configuration.Extensions;
+using Cocoar.Configuration.Extensions.Providers;
 using Cocoar.Configuration.Extensions.Providers.FileSourceProvider;
 using Microsoft.Reactive.Testing;
 using Xunit;

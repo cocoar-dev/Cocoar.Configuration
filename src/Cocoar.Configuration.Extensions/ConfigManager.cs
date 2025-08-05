@@ -107,8 +107,19 @@ public class ConfigManager
     public T? GetConfig<T>()
     {
         var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T));
-        
-        return configType is null ? default : _configs.TryGetValue(configType, out var value) ? (T?)value.Deserialize(configType.ImplementationType ?? configType.ConfigType): default;
+        if (configType is null || !_configs.TryGetValue(configType, out var value))
+            return default;
+
+        var options = new JsonSerializerOptions();
+        // Register converters for common primitives
+        options.Converters.Add(new StringToPrimitiveConverter<bool>());
+        options.Converters.Add(new StringToPrimitiveConverter<int>());
+        options.Converters.Add(new StringToPrimitiveConverter<double>());
+        options.Converters.Add(new StringToPrimitiveConverter<float>());
+        options.Converters.Add(new StringToPrimitiveConverter<long>());
+        options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
+
+        return (T?)value.Deserialize(configType.ImplementationType ?? configType.ConfigType, options);
     }
 
     public object? GetConfig(Type type)
