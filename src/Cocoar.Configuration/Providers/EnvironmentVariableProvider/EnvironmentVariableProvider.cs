@@ -36,6 +36,9 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
 
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)
     {
+        if (string.IsNullOrWhiteSpace(key))
+            return;
+
         var parts = key.Split(new[] { ':', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
         var current = dict;
         for (int i = 0; i < parts.Length - 1; i++)
