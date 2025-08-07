@@ -37,8 +37,8 @@ public class ConfigManagerIntegrationTests
 
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            FileSourceProvider.CreateRule<IMySectionSettings, TestClass>(tempPath, "SectionA"),
-            EnvironmentVariableProvider.CreateRule<IMySectionSettings, TestClass>()
+            FileSourceProvider.CreateRule<TestClass, IMySectionSettings>(tempPath, "SectionA"),
+            EnvironmentVariableProvider.CreateRule<TestClass, IMySectionSettings>()
         ]);
 
         var sp = services.BuildServiceProvider();

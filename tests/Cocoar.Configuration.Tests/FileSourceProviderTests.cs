@@ -74,7 +74,7 @@ public class FileSourceProviderTests
 
             var services = new ServiceCollection();
             services.AddCocoarConfiguration([
-                FileSourceProvider.CreateRule<IMySectionSettings, TestClass>(tempPath,"SectionA"),
+                FileSourceProvider.CreateRule<TestClass, IMySectionSettings>(tempPath,"SectionA"),
             ]);
             
             var sp = services.BuildServiceProvider();

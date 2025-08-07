@@ -166,6 +166,14 @@ public class ConfigManager
 
     private T? Deserialize<T>(JsonElement element)
     {
+
+        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+
+        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        {
+            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
+        }
+
         var options = new JsonSerializerOptions();
         // Register converters for common primitives
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
@@ -175,7 +183,7 @@ public class ConfigManager
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
 
-        return (T?)element.Deserialize(typeof(T), options);
+        return (T?)element.Deserialize(configType.ConfigType, options);
     }
 
     private object? Deserialize(JsonElement element, Type type)

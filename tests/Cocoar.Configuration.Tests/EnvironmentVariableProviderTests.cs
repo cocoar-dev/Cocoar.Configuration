@@ -13,7 +13,7 @@ public class EnvironmentVariableProviderTests
     public async Task GetValueAsync_ReturnsValue_WhenEnvVarExists()
     {
         // Arrange
-        var key = "TEST_ENVPROVIDER_KEY";
+        var key = "TESTENVPROVIDERKEY";
         var value = "TestValue";
         Environment.SetEnvironmentVariable(key, value);
         var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions());
