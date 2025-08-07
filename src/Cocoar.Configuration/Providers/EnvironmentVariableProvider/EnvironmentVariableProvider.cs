@@ -40,6 +40,8 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             return;
 
         var parts = key.Split(new[] { ':', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return;
         var current = dict;
         for (int i = 0; i < parts.Length - 1; i++)
         {
