@@ -38,18 +38,18 @@ public class ConfigManager
             }
 
             var provider = GetOrCreateProvider(rule);
-            provider.Changes(rule.QueryOptions).Subscribe(value =>
-            {
-                if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
-                {
-                    flatMap = new Dictionary<string, JsonElement>();
-                    tempFlatMaps[rule.ConfigContract] = flatMap;
-                }
+            //provider.Changes(rule.QueryOptions).Subscribe(value =>
+            //{
+            //    if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
+            //    {
+            //        flatMap = new Dictionary<string, JsonElement>();
+            //        tempFlatMaps[rule.ConfigContract] = flatMap;
+            //    }
 
-                var flatOutcome = Flatten(value);
-                foreach (var kvp in flatOutcome)
-                    flatMap[kvp.Key] = kvp.Value;
-            });
+            //    var flatOutcome = Flatten(value);
+            //    foreach (var kvp in flatOutcome)
+            //        flatMap[kvp.Key] = kvp.Value;
+            //});
             var value = await provider.GetValueAsync(rule.QueryOptions, cancellationToken);
             
             if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
@@ -115,10 +115,57 @@ public class ConfigManager
 
     public T? GetConfig<T>()
     {
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T));
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
-            return default;
+        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
 
+        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        {
+            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
+        }
+
+        return Deserialize<T>(value);
+    }
+
+    public T GetRequiredConfig<T>()
+    {
+        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+
+        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        {
+            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
+        }
+        var result = Deserialize<T>(value);
+        if (result is null)
+        {
+            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} is null.");
+        }
+        return (T)result;
+    }
+
+    public object? GetConfig(Type type)
+    {
+        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == type) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == type);
+        
+        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        {
+            throw new InvalidOperationException($"Configuration for type {type.Name} not found.");
+        }
+        var result = Deserialize(value, type);
+        if (result is null)
+        {
+            throw new InvalidOperationException($"Configuration for type {type.Name} is null.");
+        }
+        return result;
+
+    }
+
+
+    public JsonElement? GetConfigAsJson(Type type)
+    {
+        return _configs.TryGetValue(new ConfigTypeDefinition(type), out var value) ? value.Clone() : null;
+    }
+
+    private T? Deserialize<T>(JsonElement element)
+    {
         var options = new JsonSerializerOptions();
         // Register converters for common primitives
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
@@ -128,18 +175,21 @@ public class ConfigManager
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
 
-        return (T?)value.Deserialize(configType.ImplementationType ?? configType.ConfigType, options);
+        return (T?)element.Deserialize(typeof(T), options);
     }
 
-    public object? GetConfig(Type type)
+    private object? Deserialize(JsonElement element, Type type)
     {
-        var configType = new ConfigTypeDefinition(type);
-        return _configs.TryGetValue(new ConfigTypeDefinition(type), out var value) ? value.Deserialize(configType.ImplementationType ?? configType.ConfigType) : null;
-    }
+        var options = new JsonSerializerOptions();
+        // Register converters for common primitives
+        options.Converters.Add(new StringToPrimitiveConverter<bool>());
+        options.Converters.Add(new StringToPrimitiveConverter<int>());
+        options.Converters.Add(new StringToPrimitiveConverter<double>());
+        options.Converters.Add(new StringToPrimitiveConverter<float>());
+        options.Converters.Add(new StringToPrimitiveConverter<long>());
+        options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
 
-    public JsonElement? GetConfigAsJson(Type type)
-    {
-        return _configs.TryGetValue(new ConfigTypeDefinition(type), out var value) ? value.Clone() : null;
+        return element.Deserialize(type, options);
     }
 
     private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)

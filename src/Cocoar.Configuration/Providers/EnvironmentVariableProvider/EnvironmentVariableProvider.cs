@@ -16,13 +16,13 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             var key = keyObj.ToString()!;
             if (!string.IsNullOrEmpty(prefix))
             {
-                if (!key.StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase))
+                if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     continue;
-                dict[key.Substring(prefix.Length + 1)] = variables[keyObj];
+                AddToNestedDict(dict, key.Substring(prefix.Length), variables[keyObj]);
             }
             else
             {
-                dict[key] = variables[keyObj];
+                AddToNestedDict(dict, key, variables[keyObj]);
             }
         }
 
@@ -32,6 +32,22 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
 
         // Use the base class helper to wrap if needed
         return Task.FromResult(WrapIfNeeded(element, queryOptions.MemberWrapper));
+    }
+
+    private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)
+    {
+        var parts = key.Split(new[] { ':', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
+        var current = dict;
+        for (int i = 0; i < parts.Length - 1; i++)
+        {
+            if (!current.TryGetValue(parts[i], out var next) || next is not IDictionary<string, object?> nextDict)
+            {
+                nextDict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                current[parts[i]] = nextDict;
+            }
+            current = (IDictionary<string, object?>)nextDict;
+        }
+        current[parts[^1]] = value;
     }
 
 

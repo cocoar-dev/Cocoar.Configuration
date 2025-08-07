@@ -56,4 +56,9 @@ public static class CocoarConfigurationAspNetCoreExtensions
         return builder.GetCocoarConfigManager().GetConfig<T>();
     }
 
+    public static T GetRequiredCocoarConfiguration<T>(this WebApplicationBuilder builder)
+    {
+        return builder.GetCocoarConfigManager().GetRequiredConfig<T>();
+    }
+
 }
