@@ -57,12 +57,9 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
 
 
     public override IObservable<JsonElement> Changes(EnvironmentVariableProviderQueryOptions queryOptions)
-    {
-        var value = GetValueAsync(queryOptions).GetAwaiter().GetResult();
-        return System.Reactive.Linq.Observable.Return(value);
-    }
+        => System.Reactive.Linq.Observable.Never<JsonElement>();
 
-    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string? memberPath = null, Func<bool>? useWhen = null)
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string? memberPath = null, Func<bool>? useWhen = null, bool required = false)
     {
         var options = new EnvironmentVariableProviderOptions(memberPath);
         var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
@@ -71,11 +68,12 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             options,
             queryOptions,
             new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
-            useWhen: useWhen
+            useWhen: useWhen,
+            required: required
         );
     }
 
-    public static ConfigRule CreateRule<TConfigType>(string? memberPath = null, Func<bool>? useWhen = null)
+    public static ConfigRule CreateRule<TConfigType>(string? memberPath = null, Func<bool>? useWhen = null, bool required = false)
     {
         var options = new EnvironmentVariableProviderOptions(memberPath);
         var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
@@ -83,7 +81,36 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             options,
             queryOptions,
             new ConfigTypeDefinition(typeof(TConfigType)),
-            useWhen
+            useWhen,
+            required
+        );
+    }
+
+    public static ConfigRule CreateRule<TConfigType>(
+        Func<ConfigManager, string?> memberPath,
+        Func<bool>? useWhen = null,
+        bool required = false)
+    {
+        return ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
+            cm => new EnvironmentVariableProviderOptions(memberPath(cm)),
+            cm => new EnvironmentVariableProviderQueryOptions(memberPath(cm)),
+            new ConfigTypeDefinition(typeof(TConfigType)),
+            useWhen,
+            required
+        );
+    }
+
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(
+        Func<ConfigManager, string?> memberPath,
+        Func<bool>? useWhen = null,
+        bool required = false)
+    {
+        return ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
+            cm => new EnvironmentVariableProviderOptions(memberPath(cm)),
+            cm => new EnvironmentVariableProviderQueryOptions(memberPath(cm)),
+            new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
+            useWhen,
+            required
         );
     }
 }

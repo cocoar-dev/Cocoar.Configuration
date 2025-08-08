@@ -56,11 +56,13 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task Changes_ReturnsEmptyObservable()
+    public void Changes_DoesNotEmit_OnSubscribe()
     {
-       var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions());
-       var queryOptions = new EnvironmentVariableProviderQueryOptions();
-       var configChangeNotification = await provider.Changes(queryOptions).FirstAsync().ToTask();
-       Assert.NotNull(configChangeNotification);
+        var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions());
+        var queryOptions = new EnvironmentVariableProviderQueryOptions();
+        var emitted = false;
+        using var sub = provider.Changes(queryOptions).Subscribe(_ => emitted = true);
+        // No emission expected immediately
+        Assert.False(emitted);
     }
 }

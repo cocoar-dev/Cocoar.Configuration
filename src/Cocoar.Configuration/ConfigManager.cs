@@ -4,67 +4,135 @@ using Cocoar.Configuration.Providers;
 
 namespace Cocoar.Configuration;
 
-public class ConfigManager
+public class ConfigManager : IConfigAccessor
 {
     private readonly List<ConfigRule> _rules;
     private volatile Dictionary<ConfigTypeDefinition, JsonElement> _configs = new();
     private volatile bool _initialized;
     private readonly ConcurrentDictionary<(Type type, string key), ConfigSourceProvider> _providerCache = new();
+    private readonly List<IDisposable> _changeSubscriptions = new();
+    private readonly object _recalcLock = new();
+    private readonly IConfigLogger _logger;
 
-    public ConfigManager(IEnumerable<ConfigRule> rules)
+    public ConfigManager(IEnumerable<ConfigRule> rules, IConfigLogger? logger = null)
     {
         _rules = rules.ToList();
-       
+        _logger = logger ?? NullConfigLogger.Instance;
     }
 
     public ConfigManager Initialize()
     {
-        if (!_initialized)
+        if (_initialized) return this;
+        if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
         {
-            if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
-                RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            // initial compute and subscriptions
+            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RebuildProvidersAndSubscriptions();
         }
         return this;
     }
 
+    private void DisposeSubscriptionsAndProviders()
+    {
+        foreach (var d in _changeSubscriptions.ToArray())
+        {
+            try { d.Dispose(); } catch { /* ignore */ }
+        }
+        _changeSubscriptions.Clear();
+
+    // If providers become disposable in future, they can be disposed here.
+        _providerCache.Clear();
+    }
+
+    private void RecalculateAllConfigsSafe()
+    {
+        // Prevent concurrent recomputes and ensure atomic swap
+        lock (_recalcLock)
+        {
+            _logger.Debug("Recompute started");
+            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RebuildProvidersAndSubscriptions();
+            _logger.Debug("Recompute finished");
+        }
+    }
+
     private async Task RecalculateAllConfigsAsync(CancellationToken cancellationToken = default)
     {
+        // flat maps by config contract, merged by rule order (last wins)
         var tempFlatMaps = new Dictionary<ConfigTypeDefinition, Dictionary<string, JsonElement>>();
+
         foreach (var rule in _rules)
         {
             if (rule.Options?.UseWhen != null && !rule.Options.UseWhen.Invoke())
             {
+                _logger.Information("Rule skipped due to useWhen=false: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
                 continue;
             }
 
             var provider = GetOrCreateProvider(rule);
-            //provider.Changes(rule.QueryOptions).Subscribe(value =>
-            //{
-            //    if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
-            //    {
-            //        flatMap = new Dictionary<string, JsonElement>();
-            //        tempFlatMaps[rule.ConfigContract] = flatMap;
-            //    }
+            var q = rule.ResolveQueryOptions(this);
 
-            //    var flatOutcome = Flatten(value);
-            //    foreach (var kvp in flatOutcome)
-            //        flatMap[kvp.Key] = kvp.Value;
-            //});
-            var value = await provider.GetValueAsync(rule.QueryOptions, cancellationToken);
-            
-            if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
+            try
             {
-                flatMap = new Dictionary<string, JsonElement>();
-                tempFlatMaps[rule.ConfigContract] = flatMap;
+                var value = await provider.GetValueAsync(q, cancellationToken);
+
+                if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
+                {
+                    flatMap = new Dictionary<string, JsonElement>();
+                    tempFlatMaps[rule.ConfigContract] = flatMap;
+                }
+                var flatOutcome = Flatten(value);
+                foreach (var kvp in flatOutcome)
+                    flatMap[kvp.Key] = kvp.Value; // last rule wins per key
             }
-            var flatOutcome = Flatten(value);
-            foreach (var kvp in flatOutcome)
-                flatMap[kvp.Key] = kvp.Value;
+            catch (Exception ex)
+            {
+                if (rule.Options?.Required == true)
+                {
+                    _logger.Error(ex, "Required rule failed: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
+                    throw new InvalidOperationException($"Required rule failed for {rule.ProviderType.Name} → {rule.ConfigContract.ConfigType.Name}", ex);
+                }
+                _logger.Warning(ex, "Optional rule failed and will be skipped: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
+                // optional rule: skip on errors
+            }
         }
+
         var nextConfig = new Dictionary<ConfigTypeDefinition, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = Unflatten(flatMap);
+
         _configs = nextConfig;
+    }
+
+    private void RebuildProvidersAndSubscriptions()
+    {
+        // Recreate providers and subscriptions with possibly changed options
+        // under lock to avoid races with change notifications
+        DisposeSubscriptionsAndProviders();
+
+        foreach (var rule in _rules)
+        {
+            if (rule.Options?.UseWhen != null && !rule.Options.UseWhen.Invoke())
+                continue;
+
+            var provider = GetOrCreateProvider(rule);
+            var q = rule.ResolveQueryOptions(this);
+            var sub = provider
+                .Changes(q)
+                .Subscribe(
+                    _ =>
+                    {
+                        try { RecalculateAllConfigsSafe(); }
+                        catch (Exception ex) { _logger.Error(ex, "Recompute failed from change trigger"); }
+                    },
+                    _ =>
+                    {
+                        try { RecalculateAllConfigsSafe(); }
+                        catch (Exception ex) { _logger.Error(ex, "Recompute failed from change error trigger"); }
+                    }
+                );
+            _changeSubscriptions.Add(sub);
+        }
     }
 
     private static Dictionary<string, JsonElement> Flatten(JsonElement element)
@@ -202,11 +270,12 @@ public class ConfigManager
 
     private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)
     {
-        var cacheKey = (rule.ProviderType, rule.ProviderOptions.CalculateKey());
+        var providerOptions = rule.ResolveProviderOptions(this);
+        var cacheKey = (rule.ProviderType, providerOptions.CalculateKey());
         if (_providerCache.TryGetValue(cacheKey, out var existing))
             return existing;
 
-           var provider = (ConfigSourceProvider?)Activator.CreateInstance(rule.ProviderType, rule.ProviderOptions);
+        var provider = (ConfigSourceProvider?)Activator.CreateInstance(rule.ProviderType, providerOptions);
         
         if (provider == null)
             throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key ''.");
