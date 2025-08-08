@@ -87,7 +87,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         return JsonDocument.Parse(json).RootElement.Clone();
     }
     
-    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null, bool required = true)
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null, bool required = false)
     {
     var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
@@ -102,7 +102,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             );
     }
     
-    public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, bool required = true)
+    public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, bool required = false)
     {
     var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
