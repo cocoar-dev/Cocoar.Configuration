@@ -183,14 +183,16 @@ public class ConfigManager : IConfigAccessor
 
     public T? GetConfig<T>()
     {
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+        var key = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) 
+                  ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
 
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        if (key is null || !_configs.TryGetValue(key, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
         }
 
-        return Deserialize<T>(value);
+        var target = key.ImplementationType ?? key.ConfigType;
+        return (T?)Deserialize(value, target);
     }
 
     public T GetRequiredConfig<T>()
@@ -211,19 +213,20 @@ public class ConfigManager : IConfigAccessor
 
     public object? GetConfig(Type type)
     {
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == type) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == type);
-        
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        var key = _configs.Keys.FirstOrDefault(k => k.ConfigType == type) 
+                  ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == type);
+
+        if (key is null || !_configs.TryGetValue(key, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {type.Name} not found.");
         }
-        var result = Deserialize(value, type);
+        var target = key.ImplementationType ?? key.ConfigType;
+        var result = Deserialize(value, target);
         if (result is null)
         {
             throw new InvalidOperationException($"Configuration for type {type.Name} is null.");
         }
         return result;
-
     }
 
 
