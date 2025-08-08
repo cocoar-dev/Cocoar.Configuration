@@ -50,7 +50,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
                 nextDict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 current[parts[i]] = nextDict;
             }
-            current = (IDictionary<string, object?>)nextDict;
+            current = nextDict;
         }
         current[parts[^1]] = value;
     }

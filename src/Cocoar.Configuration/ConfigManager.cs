@@ -191,7 +191,7 @@ public class ConfigManager : IConfigAccessor
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
         }
 
-        var target = key.ImplementationType ?? key.ConfigType;
+        var target = key.ConfigType;
         return (T?)Deserialize(value, target);
     }
 
@@ -220,7 +220,7 @@ public class ConfigManager : IConfigAccessor
         {
             throw new InvalidOperationException($"Configuration for type {type.Name} not found.");
         }
-        var target = key.ImplementationType ?? key.ConfigType;
+        var target = key.ConfigType;
         var result = Deserialize(value, target);
         if (result is null)
         {
