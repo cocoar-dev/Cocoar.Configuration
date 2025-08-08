@@ -69,13 +69,14 @@ using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 var rules = new []
 {
     // Load SectionA from a JSON file
-    FileSourceProvider.CreateRule<IMySectionSettings, MySectionSettings>(
+    // Generic order: Concrete type first, optional interface second
+    FileSourceProvider.CreateRule<MySectionSettings, IMySectionSettings>(
         filepath: "./appsettings.local.json",
         memberPath: "SectionA",
         debounceTime: TimeSpan.FromMilliseconds(150)
     ),
     // Overlay with environment variables (e.g., Enabled=false)
-    EnvironmentVariableProvider.CreateRule<IMySectionSettings, MySectionSettings>()
+    EnvironmentVariableProvider.CreateRule<MySectionSettings, IMySectionSettings>()
 };
 
 var manager = new ConfigManager(rules).Initialize();
@@ -140,10 +141,12 @@ Watches the folder for changes and emits updates per file with optional per-file
 
 ```csharp
 // No prefix: includes all environment variables
-EnvironmentVariableProvider.CreateRule<TConfig, TImpl>();
+EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>();
 
-// Prefix: include only variables like "MYAPP_SETTING=..."
-var rule = EnvironmentVariableProvider.CreateRule<TConfig, TImpl>(memberPath: "MYAPP");
+// Prefix: include only variables that start with the prefix
+// Nesting separators: "__" (double underscore), ":", and ".". Single '_' is literal.
+// Example: MYAPP__Logging__Level=Debug → { "Logging": { "Level": "Debug" } }
+var rule = EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>(memberPath: "MYAPP");
 ```
 
 Notes:
@@ -214,8 +217,9 @@ var settings = sp.GetRequiredService<ConfigManager>().GetConfig<MySectionSetting
 // JSON contains SectionA.Enabled=true
 // Environment contains Enabled=false
 services.AddCocoarConfiguration(
-    FileSourceProvider.CreateRule<IMySectionSettings, MySectionSettings>("./appsettings.json", "SectionA"),
-    EnvironmentVariableProvider.CreateRule<IMySectionSettings, MySectionSettings>()
+    // Generic order: Concrete first, optional interface second
+    FileSourceProvider.CreateRule<MySectionSettings, IMySectionSettings>("./appsettings.json", "SectionA"),
+    EnvironmentVariableProvider.CreateRule<MySectionSettings, IMySectionSettings>()
 );
 
 var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings>();

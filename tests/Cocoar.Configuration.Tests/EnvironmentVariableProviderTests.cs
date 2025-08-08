@@ -30,6 +30,90 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
+    public async Task GetValueAsync_Prefix_With_NonDelimiter_Char_Works()
+    {
+        // Arrange
+        var prefix = "Marten@";
+        var key = prefix + "ConnectionString";
+        Environment.SetEnvironmentVariable(key, "CS");
+        var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions(prefix));
+        var queryOptions = new EnvironmentVariableProviderQueryOptions(prefix);
+
+        try
+        {
+            // Act
+            var result = await provider.GetValueAsync(queryOptions);
+
+            // Assert
+            Assert.True(result.TryGetProperty("ConnectionString", out var cs));
+            Assert.Equal("CS", cs.GetString());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, null);
+        }
+    }
+
+    [Fact]
+    public async Task GetValueAsync_Prefix_SingleLeadingUnderscore_IsTrimmed()
+    {
+        // Arrange
+        var prefix = "MYAPP";
+        var key = prefix + "_FOO"; // will become FOO after trimming the single leading separator
+        Environment.SetEnvironmentVariable(key, "x");
+        var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions(prefix));
+        var queryOptions = new EnvironmentVariableProviderQueryOptions(prefix);
+
+        try
+        {
+            // Act
+            var result = await provider.GetValueAsync(queryOptions);
+
+            // Assert
+            Assert.True(result.TryGetProperty("FOO", out var val));
+            Assert.Equal("x", val.GetString());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(key, null);
+        }
+    }
+
+    [Fact]
+    public async Task GetValueAsync_Uses_DoubleUnderscore_And_Dot_And_Colon_As_Separators()
+    {
+        // Arrange
+        var prefix = "MYAPP";
+        // Literal single underscore remains in key part
+        Environment.SetEnvironmentVariable("MYAPP_FOO_BAR", "x");
+        // Double underscore ⇒ nesting
+        Environment.SetEnvironmentVariable("MYAPP__Logging__Level", "Debug");
+        // Dot separator ⇒ nesting
+        Environment.SetEnvironmentVariable("MYAPP.Logging.Level", "Info");
+        // Colon separator ⇒ nesting
+        Environment.SetEnvironmentVariable("MYAPP:Data:ConnectionString", "cs");
+
+        var provider = new EnvironmentVariableProvider(new EnvironmentVariableProviderOptions(prefix));
+        var queryOptions = new EnvironmentVariableProviderQueryOptions(prefix);
+
+        // Act
+        var result = await provider.GetValueAsync(queryOptions);
+
+        // Assert
+        Assert.True(result.TryGetProperty("FOO_BAR", out var fooBar));
+        Assert.Equal("x", fooBar.GetString());
+
+        // Last write wins at the same path; both Logging.Level are acceptable as present
+        Assert.True(result.TryGetProperty("Logging", out var logging));
+        Assert.True(logging.TryGetProperty("Level", out var lvl));
+        Assert.True(lvl.ValueKind == JsonValueKind.String);
+
+        Assert.True(result.TryGetProperty("Data", out var data));
+        Assert.True(data.TryGetProperty("ConnectionString", out var cs));
+        Assert.Equal("cs", cs.GetString());
+    }
+
+    [Fact]
     public async Task GetValueAsync_WithPrefix_ReturnsOnlyPrefixedVars()
     {
         // Arrange

@@ -92,7 +92,8 @@ This document captures the current design, behavior, and implementation details 
 services.AddCocoarConfiguration(
     FileSourceProvider.CreateRule<MySectionSettings>("./config.json", "SectionA"),
     EnvironmentVariableProvider.CreateRule<MySectionSettings>(memberPath: "MYAPP_"),
-    HttpPollingProvider.CreateRule<MySectionSettings, MySectionSettings>(
+  // Generic order: Concrete type first, optional interface second
+  HttpPollingProvider.CreateRule<MySectionSettings, MySectionSettings>(
         optionsFactory: _ => new HttpPollingProviderOptions("https://config.example.com", TimeSpan.FromSeconds(10)),
         queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", memberPath: "SectionA")
     )
@@ -106,6 +107,7 @@ services.AddCocoarConfiguration(
 - Provider base: ConfigSourceProvider<TInstanceOptions, TQueryOptions>
 - File options/query: FileSourceProviderOptions(dir, debounce?), FileSourceProviderQueryOptions(filename, memberPath?, memberWrapper?)
 - Env options/query: EnvironmentVariableProviderOptions(prefix?), EnvironmentVariableProviderQueryOptions(memberPath?, memberWrapper?)
+  - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
 - HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?)
 
 ## Version
