@@ -1,3 +1,4 @@
+using System;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 namespace Cocoar.Configuration.Fluent.ProviderOptions;
@@ -5,18 +6,30 @@ namespace Cocoar.Configuration.Fluent.ProviderOptions;
 // Combined options for Environment provider (instance + query) for fluent API
 public sealed class EnvironmentVariableRuleOptions
 {
+    private readonly string? _keyPrefix;
+    private readonly string? _wrapperPath;
 
-    // Query-level
-    public string? MemberPath { get; }
-    public string? MemberWrapper { get; }
-
-    public EnvironmentVariableRuleOptions(string? memberPath = null, string? memberWrapper = null)
+    /// <summary>
+    /// Create options for the environment variable provider.
+    /// keyPrefix filters environment variables by the given prefix (e.g. "MYAPP_"),
+    /// wrapperPath optionally wraps the resulting object under a property path in the target config.
+    /// </summary>
+    /// <param name="keyPrefix">Deprecated alias of keyPrefix.</param>
+    /// <param name="wrapperPath">Deprecated alias of wrapperPath.</param>
+    public EnvironmentVariableRuleOptions(string? keyPrefix = null, string? wrapperPath = null)
     {
-        MemberPath = memberPath;
-        MemberWrapper = memberWrapper;
+        _keyPrefix = keyPrefix;
+        _wrapperPath = wrapperPath;
     }
 
-    public EnvironmentVariableProviderOptions ToProviderOptions() => new(MemberPath);
-    // Provider currently uses query.MemberPath as the prefix filter; map Prefix here for correct behavior
-    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(MemberPath, MemberWrapper);
+    /// <summary>
+    /// Preferred factory with clearer names.
+    /// </summary>
+    public static EnvironmentVariableRuleOptions FromPrefix(string? keyPrefix, string? wrapperPath = null)
+        => new(keyPrefix: keyPrefix, wrapperPath: wrapperPath);
+
+
+    public EnvironmentVariableProviderOptions ToProviderOptions() => new(_keyPrefix);
+    // Provider currently uses query.KeyPrefix as the prefix filter; map KeyPrefix here for correct behavior
+    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_keyPrefix, _wrapperPath);
 }

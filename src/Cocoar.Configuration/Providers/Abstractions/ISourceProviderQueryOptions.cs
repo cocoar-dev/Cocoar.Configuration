@@ -2,6 +2,6 @@ namespace Cocoar.Configuration.Providers.Abstractions;
 
 public interface ISourceProviderQueryOptions
 {
-    string? MemberPath { get; }
-    string? MemberWrapper { get; }
+    // Optional: wrap the provider result under a property path in the target config
+    string? WrapperPath { get; }
 }

@@ -9,7 +9,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
 {
     public override Task<JsonElement> GetValueAsync(EnvironmentVariableProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
-    var prefix = queryOptions.MemberPath;
+    var prefix = queryOptions.KeyPrefix;
         var variables = Environment.GetEnvironmentVariables();
         var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
@@ -33,7 +33,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     var element = doc.RootElement.Clone();
 
         // Use the base class helper to wrap if needed
-        return Task.FromResult(WrapIfNeeded(element, queryOptions.MemberWrapper));
+    return Task.FromResult(WrapIfNeeded(element, queryOptions.WrapperPath));
     }
 
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)
@@ -128,7 +128,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     public static ConfigRule CreateRule<TConfigType, TImplementationType>(string? memberPath = null, Func<bool>? useWhen = null, bool required = false)
     {
         var options = new EnvironmentVariableProviderOptions(memberPath);
-        var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
+    var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
         
         return ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
             options,
@@ -142,7 +142,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     public static ConfigRule CreateRule<TConfigType>(string? memberPath = null, Func<bool>? useWhen = null, bool required = false)
     {
         var options = new EnvironmentVariableProviderOptions(memberPath);
-        var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
+    var queryOptions = new EnvironmentVariableProviderQueryOptions(memberPath);
         return ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
             options,
             queryOptions,

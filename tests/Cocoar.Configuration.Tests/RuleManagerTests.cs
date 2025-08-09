@@ -70,8 +70,7 @@ public partial class RuleManagerTests
     private sealed class InMemoryQueryOptions(string id) : ISourceProviderQueryOptions
     {
         public string Id => id;
-        public string? MemberPath => null;
-        public string? MemberWrapper => null;
+        public string? WrapperPath => null;
     }
 
     private sealed class InMemoryProvider(InMemoryProviderOptions options)
@@ -145,7 +144,7 @@ public partial class RuleManagerTests
 
     // Minimal fake provider to simulate failures
     private sealed class FakeFileProviderOptions(string dir) : ISourceProviderInstanceOptions { public string Dir => dir; }
-    private sealed class FakeFileProviderQuery(string name, bool fail = false) : ISourceProviderQueryOptions { public string Name => name; public bool Fail => fail; public string? MemberPath => null; public string? MemberWrapper => null; }
+    private sealed class FakeFileProviderQuery(string name, bool fail = false) : ISourceProviderQueryOptions { public string Name => name; public bool Fail => fail; public string? WrapperPath => null; }
     private sealed class FakeFileProvider(FakeFileProviderOptions options) : ConfigSourceProvider<FakeFileProviderOptions, FakeFileProviderQuery>(options)
     {
         public override Task<JsonElement> GetValueAsync(FakeFileProviderQuery query, CancellationToken ct = default)
@@ -200,8 +199,7 @@ public partial class RuleManagerTests
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? MemberPath => null;
-            public string? MemberWrapper => null;
+            public string? WrapperPath => null;
         }
 
         public override Task<JsonElement> GetValueAsync(Query query, CancellationToken ct = default)
@@ -252,8 +250,7 @@ public partial class RuleManagerTests
     private sealed class IdentityQuery(string id) : ISourceProviderQueryOptions
     {
         public string Id => id;
-        public string? MemberPath => null;
-        public string? MemberWrapper => null;
+        public string? WrapperPath => null;
     }
 
     private sealed class IdentityProvider(IdentityOptions options)

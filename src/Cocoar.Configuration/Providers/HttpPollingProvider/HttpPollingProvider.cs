@@ -50,13 +50,13 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
         var element = doc.RootElement.Clone();
-        if (!string.IsNullOrWhiteSpace(query.MemberPath))
+        if (!string.IsNullOrWhiteSpace(query.SectionPath))
         {
-            element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.MemberPath, out var section)
+            element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.SectionPath, out var section)
                 ? section
                 : JsonDocument.Parse("{}").RootElement;
         }
-        var wrapped = WrapIfNeeded(element, query.MemberWrapper);
+        var wrapped = WrapIfNeeded(element, query.WrapperPath);
         _lastByKey[key] = wrapped;
         return wrapped;
     }
@@ -88,13 +88,13 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
                     var element = doc.RootElement.Clone();
-                    if (!string.IsNullOrWhiteSpace(query.MemberPath))
+                    if (!string.IsNullOrWhiteSpace(query.SectionPath))
                     {
-                        element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.MemberPath, out var section)
+                        element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.SectionPath, out var section)
                             ? section
                             : JsonDocument.Parse("{}").RootElement;
                     }
-                    var wrapped = WrapIfNeeded(element, query.MemberWrapper);
+                    var wrapped = WrapIfNeeded(element, query.WrapperPath);
                     var key = MakeKey(query);
                     if (_lastByKey.TryGetValue(key, out var last))
                     {
@@ -134,8 +134,8 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
 
     private static string MakeKey(HttpPollingProviderQueryOptions query)
     {
-        var hdr = query.Headers == null ? string.Empty : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-        return $"{query.UrlPathOrAbsolute}|{query.MemberPath}|{query.MemberWrapper}|{hdr}";
+    var hdr = query.Headers == null ? string.Empty : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
+    return $"{query.UrlPathOrAbsolute}|{query.SectionPath}|{query.WrapperPath}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>
@@ -148,18 +148,18 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         public int GetHashCode(JsonElement obj) => JsonSerializer.Serialize(obj).GetHashCode();
     }
 
-    public static ConfigRule CreateRule<TConfigType>(string urlPathOrAbsolute, string? memberPath = null, string? memberWrapper = null, TimeSpan? pollInterval = null, Func<bool>? useWhen = null)
+    public static ConfigRule CreateRule<TConfigType>(string urlPathOrAbsolute, string? sectionPath = null, string? wrapperPath = null, TimeSpan? pollInterval = null, Func<bool>? useWhen = null)
     {
         var opts = new HttpPollingProviderOptions(null, pollInterval);
-        var query = new HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath, memberWrapper);
+        var query = new HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath, wrapperPath);
         return ConfigRule.Create<HttpPollingProvider, HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(
             opts, query, new ConfigTypeDefinition(typeof(TConfigType)), useWhen: useWhen);
     }
 
-    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string urlPathOrAbsolute, string? memberPath = null, string? memberWrapper = null, TimeSpan? pollInterval = null, Func<bool>? useWhen = null)
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string urlPathOrAbsolute, string? sectionPath = null, string? wrapperPath = null, TimeSpan? pollInterval = null, Func<bool>? useWhen = null)
     {
         var opts = new HttpPollingProviderOptions(null, pollInterval);
-        var query = new HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath, memberWrapper);
+        var query = new HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath, wrapperPath);
         return ConfigRule.Create<HttpPollingProvider, HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(
             opts, query, new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)), useWhen: useWhen);
     }

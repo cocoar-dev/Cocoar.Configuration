@@ -18,8 +18,7 @@ public class ConfigManagerOrchestrationTests
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? MemberPath => null;
-            public string? MemberWrapper => null;
+            public string? WrapperPath => null;
         }
 
         public static int CallCount;
