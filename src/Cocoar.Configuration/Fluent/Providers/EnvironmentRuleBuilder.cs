@@ -3,7 +3,7 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 
 namespace Cocoar.Configuration.Fluent.Providers;
 
-public sealed class EnvironmentRuleBuilder : RuleBuilderBase<EnvironmentRuleBuilder>
+public sealed class EnvironmentRuleBuilder : RuleBuilderBase<EnvironmentRuleBuilder>, IConfigRuleBuilder
 {
     private readonly Func<ConfigManager, EnvironmentVariableRuleOptions> _combinedFactory;
 

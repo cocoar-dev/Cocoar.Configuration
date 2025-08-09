@@ -3,7 +3,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 namespace Cocoar.Configuration.Fluent;
 
 // Generic builder to avoid per-provider bespoke builders.
-public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> : RuleBuilderBase<ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>>
+public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> : RuleBuilderBase<ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>>, IConfigRuleBuilder
     where TProvider : ConfigSourceProvider<TInstanceOptions, TQueryOptions>
     where TInstanceOptions : ISourceProviderInstanceOptions
     where TQueryOptions : ISourceProviderQueryOptions

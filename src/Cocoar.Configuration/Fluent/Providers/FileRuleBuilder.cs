@@ -3,7 +3,7 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 
 namespace Cocoar.Configuration.Fluent.Providers;
 
-public sealed class FileRuleBuilder : RuleBuilderBase<FileRuleBuilder>
+public sealed class FileRuleBuilder : RuleBuilderBase<FileRuleBuilder>, IConfigRuleBuilder
 {
     private readonly Func<ConfigManager, FileSourceRuleOptions> _combinedFactory;
 

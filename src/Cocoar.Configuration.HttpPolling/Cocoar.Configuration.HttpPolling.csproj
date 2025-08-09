@@ -13,4 +13,9 @@
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
+  <!-- Exclude duplicate Fluent sources; use root-level builder files -->
+  <ItemGroup>
+    <Compile Remove="Fluent\**\*.cs" />
+  </ItemGroup>
+
 </Project>

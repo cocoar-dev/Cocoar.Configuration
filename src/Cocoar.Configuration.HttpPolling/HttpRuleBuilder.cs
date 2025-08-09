@@ -2,7 +2,7 @@ using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.HttpPolling;
 
-public sealed class HttpRuleBuilder : RuleBuilderBase<HttpRuleBuilder>
+public sealed class HttpRuleBuilder : RuleBuilderBase<HttpRuleBuilder>, IConfigRuleBuilder
 {
     private readonly Func<ConfigManager, HttpPollingRuleOptions> _combinedFactory;
 

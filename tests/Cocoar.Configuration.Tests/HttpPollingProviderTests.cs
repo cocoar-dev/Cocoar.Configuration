@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
-using Cocoar.Configuration.HttpPolling.Fluent.ProviderOptions;
-using Cocoar.Configuration.HttpPolling.Providers.HttpPollingProvider;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -52,7 +50,6 @@ public class HttpPollingProviderTests
                 ))
                 .UseWhen(() => true)
                 .ForType<MyCfg>()
-                .Build()
         ]);
         var sp = services.BuildServiceProvider();
         var manager = sp.GetRequiredService<ConfigManager>();
