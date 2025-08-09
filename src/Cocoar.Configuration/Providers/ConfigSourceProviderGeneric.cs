@@ -1,19 +1,3 @@
-using System.Text.Json;
-
-namespace Cocoar.Configuration.Providers;
-
-public abstract class ConfigSourceProvider<TInstanceOptions, TQueryOptions>(TInstanceOptions options)
-    : ConfigSourceProvider
-    where TInstanceOptions : ISourceProviderInstanceOptions
-{
-    protected TInstanceOptions ProviderOptions { get; } = options;
-
-    public abstract Task<JsonElement> GetValueAsync(TQueryOptions query, CancellationToken ct = default);
-    public abstract IObservable<JsonElement> Changes(TQueryOptions query);
-
-    public override Task<JsonElement> GetValueAsync(ISourceProviderQueryOptions? query, CancellationToken ct = default)
-        => GetValueAsync((TQueryOptions)query!, ct);
-
-    public override IObservable<JsonElement> Changes(ISourceProviderQueryOptions? query)
-        => Changes((TQueryOptions)query!);
-}
+// Placeholder to retain file path; the canonical generic ConfigSourceProvider lives in
+// Providers/Abstractions/ConfigSourceProviderGeneric.cs. This file intentionally defines
+// no types to avoid duplicate definitions during the transition period.
