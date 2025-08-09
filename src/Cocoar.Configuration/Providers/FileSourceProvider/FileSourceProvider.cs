@@ -48,7 +48,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
                 // apply per-query debounce if provided; default is no debounce
-                .Let(obs => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? obs.Throttle(d) : obs)
+                .Let(stream => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
                 {
                     JsonElement newValue;

@@ -198,6 +198,16 @@ public class ConfigManager : IConfigAccessor
         return result;
     }
 
+    public object GetRequiredConfig(Type type)
+    {
+        var value = GetConfig(type);
+        if (value is null)
+        {
+            throw new InvalidOperationException($"Configuration for type {type.Name} is null.");
+        }
+        return value;
+    }
+
 
     public JsonElement? GetConfigAsJson(Type type)
     {

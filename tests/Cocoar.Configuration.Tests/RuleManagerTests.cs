@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using System.Text.Json;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 public partial class RuleManagerTests
 {
@@ -216,6 +217,27 @@ public partial class RuleManagerTests
                 return doc.RootElement.Clone();
             });
         }
+    }
+}
+
+public partial class RuleManagerTests
+{
+    [Fact]
+    public async Task EnvironmentProvider_Is_Shared_Across_Different_Prefixes()
+    {
+        var registry = new ProviderRegistry();
+        var rule1 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP1_", required: true);
+        var rule2 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP2_", required: true);
+
+        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
+        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+
+    // compute once to ensure providers are acquired
+        _ = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+        _ = await rm2.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+
+        // Using diagnostics to assert that only a single entry exists in the registry
+    Assert.Equal(1, registry.EntryCount);
     }
 }
 

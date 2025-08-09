@@ -21,9 +21,9 @@ public static class CocoarConfigurationExtensions
         {
             if (type.ImplementationType != null)
             {
-                services.AddSingleton(type.ImplementationType, sp => (object)configManager.GetConfig(type.ConfigType)!);
+                services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
             }
-            services.AddSingleton(type.ConfigType, sp => (object)configManager.GetConfig(type.ConfigType)!);
+            services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
         }
         return services;
     }

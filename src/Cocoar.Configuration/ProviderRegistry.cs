@@ -10,6 +10,14 @@ namespace Cocoar.Configuration;
 internal sealed class ProviderRegistry
 {
     private readonly ConcurrentDictionary<(Type type, string key), Entry> _entries = new();
+    private readonly IConfigLogger _logger;
+    private readonly bool _diagnosticsEnabled;
+
+    public ProviderRegistry(IConfigLogger? logger = null, bool enableDiagnostics = false)
+    {
+        _logger = logger ?? NullConfigLogger.Instance;
+        _diagnosticsEnabled = enableDiagnostics;
+    }
 
     // Entry is internal to avoid inconsistent accessibility while keeping it scoped to the registry.
     internal sealed class Entry
@@ -17,6 +25,11 @@ internal sealed class ProviderRegistry
         public required ConfigSourceProvider Provider { get; init; }
         public int RefCount;
     }
+
+    // Diagnostics (internal): used by tests to assert pooling behavior.
+    internal int EntryCount => _entries.Count;
+    internal int GetRefCountFor(Type providerType, string key)
+        => _entries.TryGetValue((providerType, key), out var e) ? e.RefCount : 0;
 
     public sealed class ProviderHandle : IDisposable
     {
@@ -37,7 +50,7 @@ internal sealed class ProviderRegistry
         public ConfigSourceProvider Provider
             => _entry?.Provider ?? throw new ObjectDisposedException(nameof(ProviderHandle));
 
-        public void Dispose()
+    public void Dispose()
         {
             var e = Interlocked.Exchange(ref _entry, null);
             if (e is null) return;
@@ -49,18 +62,28 @@ internal sealed class ProviderRegistry
     {
         var key = options.CalculateKey();
         var id = (providerType, key);
-        var entry = _entries.GetOrAdd(id, _ => new Entry
+        var entry = _entries.GetOrAdd(id, _ =>
         {
-            Provider = CreateProvider(providerType, options),
-            RefCount = 0
+            var created = new Entry
+            {
+                Provider = CreateProvider(providerType, options),
+                RefCount = 0
+            };
+            if (_diagnosticsEnabled)
+                _logger.Debug("ProviderRegistry: created {Provider} with key {Key}", providerType.Name, key);
+            return created;
         });
-        Interlocked.Increment(ref entry.RefCount);
-    return ProviderHandle.Create(this, id, entry);
+        var newCount = Interlocked.Increment(ref entry.RefCount);
+        if (_diagnosticsEnabled)
+            _logger.Debug("ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}", providerType.Name, key, newCount);
+        return ProviderHandle.Create(this, id, entry);
     }
 
     private void Release((Type type, string key) id, Entry entry)
     {
         var count = Interlocked.Decrement(ref entry.RefCount);
+        if (_diagnosticsEnabled)
+            _logger.Debug("ProviderRegistry: release {Provider} {Key} -> RefCount={RefCount}", id.type.Name, id.key, count);
         if (count == 0)
         {
             // Remove only if our entry is still current
@@ -68,6 +91,8 @@ internal sealed class ProviderRegistry
             {
                 if (removed.Provider is IDisposable disp)
                 {
+                    if (_diagnosticsEnabled)
+                        _logger.Debug("ProviderRegistry: disposing {Provider} {Key}", id.type.Name, id.key);
                     try { disp.Dispose(); } catch { /* ignore */ }
                 }
             }

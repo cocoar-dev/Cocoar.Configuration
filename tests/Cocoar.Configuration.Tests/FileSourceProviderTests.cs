@@ -125,6 +125,30 @@ public class FileSourceProviderTests
     {
         bool Enabled { get; }
     }
+
+    [Fact]
+    public async Task Changes_DoesNotEmit_OnSubscribe()
+    {
+        // arrange
+        var tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        File.WriteAllText(tempPath, "{ \"SectionA\": { \"Enabled\": true } }");
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
+
+        // give watcher a moment to attach if created during provider construction
+        await Task.Delay(50);
+
+        var emitted = false;
+        using var sub = provider
+            .Changes(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA"))
+            .Subscribe(_ => emitted = true);
+
+        // assert: no initial emission
+        await Task.Delay(100);
+        Assert.False(emitted);
+
+        // cleanup
+        File.Delete(tempPath);
+    }
     
 }
 

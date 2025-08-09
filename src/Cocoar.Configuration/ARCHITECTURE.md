@@ -19,7 +19,28 @@ This document captures the current design, behavior, and implementation details 
   - Options (UseWhen, Required)
 - Providers
   - Implement GetValueAsync(query) and Changes(query)
+  - Startup behavior: ConfigManager calls GetValueAsync for every rule immediately (no waiting for polls/watchers). Changes() streams do not emit an initial value; they only emit on subsequent source changes.
   - Instance options live in the provider constructor; queries are per-call to allow reuse and dynamic binding.
+- Architecture diagram
+  - See the visual diagram in `architecture.drawio` (open with diagrams.net/draw.io).
+  - Quick Mermaid overview:
+
+```mermaid
+flowchart LR
+  App["App / DI consumers"] -->|GetConfig<T>| CM[ConfigManager]
+  CM -->|manages| RM[RuleManager (per rule)]
+  RM -->|Acquire (ProviderType, CalculateKey)| PR[ProviderRegistry]
+  subgraph Providers
+    FSP[FileSourceProvider]
+    EVP[EnvironmentVariableProvider]
+    HPP[HttpPollingProvider]
+  end
+  PR -->|ProviderHandle| Providers
+  RM -->|GetValue/Changes with QueryOptions| Providers
+  Providers -->|JSON object| RM
+  RM -->|flatten & merge| CM
+  Providers -->|Changes (IObservable)| RM -->|Recompute| CM
+```
 - ConfigManager
   - Holds ordered rules and orchestrates a per-rule RuleManager
   - Recompute: merge flattened JSON objects; later rules win per key
@@ -32,15 +53,15 @@ This document captures the current design, behavior, and implementation details 
   - Options: directory + optional debounce for the internal watcher
   - Query: filename, optional memberPath/memberWrapper
   - Behavior: maintains a folder watcher; per filename change stream; caches last JSON per file
-  - Watcher errors during Changes() are swallowed to keep stream alive; GetValueAsync still throws on missing file (so Required rules fail properly in recompute)
+  - Watcher errors during Changes() are swallowed to keep stream alive; GetValueAsync still throws on missing file (so Required rules fail properly in recompute). No initial emission from Changes().
 - EnvironmentVariableProvider
   - Options: optional prefix
   - Query: optional memberPath/memberWrapper (prefix concept is mapped to memberPath)
-  - Behavior: snapshot read; change stream intentionally does not emit initial values (used as trigger only if implemented in future)
+  - Behavior: snapshot read via GetValueAsync at startup; Changes() is a no-op (does not emit initially).
 - HttpPollingProvider
   - Options: optional baseAddress, pollInterval, optional HttpMessageHandler (for tests)
   - Query: urlPathOrAbsolute, optional memberPath/memberWrapper, optional headers
-  - Behavior: single HttpClient per provider; polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
+  - Behavior: single HttpClient per provider; GetValueAsync fetches immediately at startup; Changes() polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
 
 ## Merge Semantics
 
@@ -112,5 +133,5 @@ services.AddCocoarConfiguration(
 
 ## Version
 
-- Commit date: 2025-08-08
-- Branch: main
+- Commit date: 2025-08-09
+- Branch: feat/env-underscore-tests

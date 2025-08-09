@@ -60,6 +60,26 @@ public class HttpPollingProviderTests
         public int Value { get; set; }
     }
 
+    [Fact]
+    public async Task Changes_DoesNotEmit_OnSubscribe()
+    {
+        // arrange: handler returns a valid body, but we only test the Changes() initial behavior
+        var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
+        });
+        var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(200), handler));
+
+        var emitted = false;
+        using var sub = provider
+            .Changes(new HttpPollingProviderQueryOptions("/api/config"))
+            .Subscribe(_ => emitted = true);
+
+        // assert: no initial emission before first interval elapses
+        await Task.Delay(100);
+        Assert.False(emitted);
+    }
+
     private sealed class FakeHandler : HttpMessageHandler
     {
         private readonly HttpResponseMessage _response;

@@ -28,9 +28,9 @@ public static class CocoarConfigurationAspNetCoreExtensions
         {
             if (type.ImplementationType != null)
             {
-                builder.Services.AddSingleton(type.ImplementationType, sp => (object)configManager.GetConfig(type.ConfigType)!);
+                builder.Services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
             }
-            builder.Services.AddSingleton(type.ConfigType, sp => (object)configManager.GetConfig(type.ConfigType)!);
+            builder.Services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
         }
         _store.Remove(builder);
         _store.Add(builder, configManager);
