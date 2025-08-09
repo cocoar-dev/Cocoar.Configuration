@@ -18,7 +18,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             IdentityMode = PathIdentityMode.CurrentOrOldPath
         });
 
-    public override async Task<JsonElement> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
         var filename = queryOptions.Filename;
         if (!_fileCache.TryGetValue(filename, out var value))
@@ -37,7 +37,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         }
 
         // Use the base class helper to wrap if needed
-        return WrapIfNeeded(result, queryOptions.MemberWrapper);
+        return Task.FromResult(WrapIfNeeded(result, queryOptions.MemberWrapper));
     }
 
     public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)

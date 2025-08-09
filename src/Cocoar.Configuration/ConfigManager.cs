@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using Cocoar.Configuration.Providers;
 
@@ -9,10 +8,10 @@ public class ConfigManager : IConfigAccessor
     private readonly List<ConfigRule> _rules;
     private volatile Dictionary<ConfigTypeDefinition, JsonElement> _configs = new();
     private volatile bool _initialized;
-    private readonly ConcurrentDictionary<(Type type, string key), ConfigSourceProvider> _providerCache = new();
     private readonly List<IDisposable> _changeSubscriptions = new();
     private readonly object _recalcLock = new();
     private readonly IConfigLogger _logger;
+    private readonly List<RuleManager> _ruleManagers = new();
 
     public ConfigManager(IEnumerable<ConfigRule> rules, IConfigLogger? logger = null)
     {
@@ -25,6 +24,10 @@ public class ConfigManager : IConfigAccessor
         if (_initialized) return this;
         if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
         {
+            // Create per-rule managers
+            _ruleManagers.Clear();
+            foreach (var r in _rules)
+                _ruleManagers.Add(new RuleManager(r, _logger));
             // initial compute and subscriptions
             RecalculateAllConfigsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();
@@ -40,8 +43,7 @@ public class ConfigManager : IConfigAccessor
         }
         _changeSubscriptions.Clear();
 
-    // If providers become disposable in future, they can be disposed here.
-        _providerCache.Clear();
+    // Providers are owned by RuleManagers; nothing to clear here.
     }
 
     private void RecalculateAllConfigsSafe()
@@ -61,40 +63,19 @@ public class ConfigManager : IConfigAccessor
         // flat maps by config contract, merged by rule order (last wins)
         var tempFlatMaps = new Dictionary<ConfigTypeDefinition, Dictionary<string, JsonElement>>();
 
-        foreach (var rule in _rules)
+        foreach (var rm in _ruleManagers)
         {
-            if (rule.Options?.UseWhen != null && !rule.Options.UseWhen.Invoke())
-            {
-                _logger.Information("Rule skipped due to useWhen=false: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
-                continue;
-            }
+            var (include, value) = await rm.ComputeAsync(this, cancellationToken).ConfigureAwait(false);
+            if (!include) continue;
 
-            var provider = GetOrCreateProvider(rule);
-            var q = rule.ResolveQueryOptions(this);
-
-            try
+            if (!tempFlatMaps.TryGetValue(rm.TypeDefinition, out var flatMap))
             {
-                var value = await provider.GetValueAsync(q, cancellationToken);
-
-                if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
-                {
-                    flatMap = new Dictionary<string, JsonElement>();
-                    tempFlatMaps[rule.ConfigContract] = flatMap;
-                }
-                var flatOutcome = Flatten(value);
-                foreach (var kvp in flatOutcome)
-                    flatMap[kvp.Key] = kvp.Value; // last rule wins per key
+                flatMap = new Dictionary<string, JsonElement>();
+                tempFlatMaps[rm.TypeDefinition] = flatMap;
             }
-            catch (Exception ex)
-            {
-                if (rule.Options?.Required == true)
-                {
-                    _logger.Error(ex, "Required rule failed: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
-                    throw new InvalidOperationException($"Required rule failed for {rule.ProviderType.Name} → {rule.ConfigContract.ConfigType.Name}", ex);
-                }
-                _logger.Warning(ex, "Optional rule failed and will be skipped: {0}->{1}", rule.ProviderType.Name, rule.ConfigContract.ConfigType.Name);
-                // optional rule: skip on errors
-            }
+            var flatOutcome = Flatten(value);
+            foreach (var kvp in flatOutcome)
+                flatMap[kvp.Key] = kvp.Value; // last rule wins per key
         }
 
         var nextConfig = new Dictionary<ConfigTypeDefinition, JsonElement>();
@@ -110,27 +91,14 @@ public class ConfigManager : IConfigAccessor
         // under lock to avoid races with change notifications
         DisposeSubscriptionsAndProviders();
 
-        foreach (var rule in _rules)
+        foreach (var rm in _ruleManagers)
         {
-            if (rule.Options?.UseWhen != null && !rule.Options.UseWhen.Invoke())
-                continue;
-
-            var provider = GetOrCreateProvider(rule);
-            var q = rule.ResolveQueryOptions(this);
-            var sub = provider
-                .Changes(q)
-                .Subscribe(
-                    _ =>
-                    {
-                        try { RecalculateAllConfigsSafe(); }
-                        catch (Exception ex) { _logger.Error(ex, "Recompute failed from change trigger"); }
-                    },
-                    _ =>
-                    {
-                        try { RecalculateAllConfigsSafe(); }
-                        catch (Exception ex) { _logger.Error(ex, "Recompute failed from change error trigger"); }
-                    }
-                );
+            var sub = rm.Changes
+                .Subscribe(_ =>
+                {
+                    try { RecalculateAllConfigsSafe(); }
+                    catch (Exception ex) { _logger.Error(ex, "Recompute failed from change trigger"); }
+                });
             _changeSubscriptions.Add(sub);
         }
     }
@@ -271,18 +239,5 @@ public class ConfigManager : IConfigAccessor
         return element.Deserialize(type, options);
     }
 
-    private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)
-    {
-        var providerOptions = rule.ResolveProviderOptions(this);
-        var cacheKey = (rule.ProviderType, providerOptions.CalculateKey());
-        if (_providerCache.TryGetValue(cacheKey, out var existing))
-            return existing;
-
-        var provider = (ConfigSourceProvider?)Activator.CreateInstance(rule.ProviderType, providerOptions);
-        
-        if (provider == null)
-            throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key ''.");
-        _providerCache[cacheKey] = provider;
-        return provider;
-    }
+    // Providers are resolved and managed by RuleManager.
 }

@@ -37,5 +37,5 @@ public sealed class HttpPollingRuleOptions
     }
 
     public HttpPollingProviderOptions ToProviderOptions() => new(BaseAddress, PollInterval, Handler);
-    public HttpPollingProviderQueryOptions ToQueryOptions() => new(UrlPathOrAbsolute, MemberPath, MemberWrapper);
+    public HttpPollingProviderQueryOptions ToQueryOptions() => new(UrlPathOrAbsolute, MemberPath, MemberWrapper, Headers);
 }

@@ -93,7 +93,7 @@ public class FileSourceProviderTests
     }
 
     [Fact]
-    public async Task FileProvider_Merge_TwoFiles()
+    public void FileProvider_Merge_TwoFiles()
     {
         // Arrange
         var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));

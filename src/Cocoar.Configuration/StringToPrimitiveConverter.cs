@@ -10,6 +10,8 @@ public class StringToPrimitiveConverter<T> : JsonConverter<T>
         if (reader.TokenType == JsonTokenType.String)
         {
             var str = reader.GetString();
+            if (str is null)
+                return default;
             if (typeToConvert == typeof(bool) && bool.TryParse(str, out var b))
                 return (T)(object)b;
             if (typeToConvert == typeof(int) && int.TryParse(str, out var i))
@@ -22,8 +24,9 @@ public class StringToPrimitiveConverter<T> : JsonConverter<T>
                 return (T)(object)l;
             if (typeToConvert == typeof(DateTime) && DateTime.TryParse(str, out var dt))
                 return (T)(object)dt;
-            // fallback: try to parse as T
-            return (T)Convert.ChangeType(str, typeToConvert);
+            // fallback: try to convert using ChangeType
+            var converted = Convert.ChangeType(str, Nullable.GetUnderlyingType(typeToConvert) ?? typeToConvert, System.Globalization.CultureInfo.InvariantCulture);
+            return converted is null ? default : (T)converted;
         }
         if (reader.TokenType == JsonTokenType.True || reader.TokenType == JsonTokenType.False)
         {
@@ -40,9 +43,10 @@ public class StringToPrimitiveConverter<T> : JsonConverter<T>
                 return (T)(object)reader.GetSingle();
             if (typeToConvert == typeof(double))
                 return (T)(object)reader.GetDouble();
-            // fallback: try to parse as T
-            var str = reader.GetDouble().ToString();
-            return (T)Convert.ChangeType(str, typeToConvert);
+            // fallback: try to convert using ChangeType
+            var dbl = reader.GetDouble();
+            var converted = Convert.ChangeType(dbl, Nullable.GetUnderlyingType(typeToConvert) ?? typeToConvert, System.Globalization.CultureInfo.InvariantCulture);
+            return converted is null ? default : (T)converted;
         }
         if (reader.TokenType == JsonTokenType.StartObject || reader.TokenType == JsonTokenType.StartArray)
         {

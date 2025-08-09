@@ -31,7 +31,19 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         }
 
         var url = BuildUrl(_client, query.UrlPathOrAbsolute);
-        var resp = await _client.GetAsync(url, ct).ConfigureAwait(false);
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (query.Headers != null)
+        {
+            foreach (var kv in query.Headers)
+            {
+                // Try headers first, if invalid as header, set as request property is not supported; skip invalid
+                if (!req.Headers.TryAddWithoutValidation(kv.Key, kv.Value))
+                {
+                    // fallback: content headers not applicable for GET without content
+                }
+            }
+        }
+        var resp = await _client.SendAsync(req, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
@@ -58,7 +70,18 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                 {
                     using var cts = new CancellationTokenSource(ProviderOptions.PollInterval);
                     var url = BuildUrl(_client, query.UrlPathOrAbsolute);
-                    var resp = await _client.GetAsync(url, cts.Token).ConfigureAwait(false);
+                    using var req = new HttpRequestMessage(HttpMethod.Get, url);
+                    if (query.Headers != null)
+                    {
+                        foreach (var kv in query.Headers)
+                        {
+                            if (!req.Headers.TryAddWithoutValidation(kv.Key, kv.Value))
+                            {
+                                // ignore invalid header name/value
+                            }
+                        }
+                    }
+                    var resp = await _client.SendAsync(req, cts.Token).ConfigureAwait(false);
                     resp.EnsureSuccessStatusCode();
                     await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
@@ -98,7 +121,10 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
             : new Uri(client.BaseAddress!, pathOrAbsolute).ToString();
 
     private static string MakeKey(HttpPollingProviderQueryOptions query)
-        => $"{query.UrlPathOrAbsolute}|{query.MemberPath}|{query.MemberWrapper}";
+    {
+        var hdr = query.Headers == null ? string.Empty : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
+        return $"{query.UrlPathOrAbsolute}|{query.MemberPath}|{query.MemberWrapper}|{hdr}";
+    }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>
     {

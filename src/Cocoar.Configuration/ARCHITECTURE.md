@@ -1,4 +1,4 @@
-# Cocoar.Configuration — Architecture & Status (2025-08-08)
+# Cocoar.Configuration — Architecture & Status (2025-08-09)
 
 This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work.
 
@@ -21,9 +21,9 @@ This document captures the current design, behavior, and implementation details 
   - Implement GetValueAsync(query) and Changes(query)
   - Instance options live in the provider constructor; queries are per-call to allow reuse and dynamic binding.
 - ConfigManager
-  - Holds ordered rules
+  - Holds ordered rules and orchestrates a per-rule RuleManager
   - Recompute: merge flattened JSON objects; later rules win per key
-  - On change (any provider): recompute all rules; rebuild provider instances and subscriptions to honor dynamic factories
+  - On change (any provider): recompute all rules; RuleManagers manage provider reuse/subscriptions keyed by options/query
   - Required rule: throws on failure; optional rules are skipped with a warning
 
 ## Current Providers
@@ -39,7 +39,7 @@ This document captures the current design, behavior, and implementation details 
   - Behavior: snapshot read; change stream intentionally does not emit initial values (used as trigger only if implemented in future)
 - HttpPollingProvider
   - Options: optional baseAddress, pollInterval, optional HttpMessageHandler (for tests)
-  - Query: urlPathOrAbsolute, optional memberPath/memberWrapper
+  - Query: urlPathOrAbsolute, optional memberPath/memberWrapper, optional headers
   - Behavior: single HttpClient per provider; polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
 
 ## Merge Semantics
@@ -69,8 +69,8 @@ This document captures the current design, behavior, and implementation details 
 - Recompute scope: full recompute is simple and correct but not minimal.
   - Future: partial recompute from the changed rule to the end.
 - Provider reuse across recomputes:
-  - Today we clear provider cache on each recompute to honor dynamic factories. This recreates provider instances (e.g., new HttpClient each time).
-  - Future: smarter reuse keyed by stable identities; optional IDisposable disposal hooks.
+  - Implemented via RuleManager: providers are reused when instance options key is unchanged; subscriptions are refreshed when query key changes.
+  - Optional IDisposable disposal hooks are honored when a provider is replaced.
 - Arrays merging: consider strategies (overwrite/append/custom policy).
 - Naming consistency and nullability cleanliness (memberPath vs prefix).
 - Provider contract variants:

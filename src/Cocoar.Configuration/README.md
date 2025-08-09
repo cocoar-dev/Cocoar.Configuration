@@ -19,7 +19,7 @@ This package is split into:
 - Rules-based configuration assembly via `ConfigRule`
 - File provider with filesystem watcher and debounce
 - Environment variable provider with optional prefix filtering
-- HTTP polling provider that emits only on real payload changes
+- HTTP polling provider that emits only on real payload changes; optional request headers via fluent options
 - Map to interface or concrete types via `ConfigTypeDefinition`
 - String-to-primitive JSON converter to coerce "true", "42", etc. when values are strings
 - Dynamic rule factories (options/query derived from current config state)
@@ -156,7 +156,7 @@ Notes:
 ### HttpPollingProvider
 
 - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?)`
+- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?, headers?)`
 - Factory (static or lambda-based):
 
 ```csharp
@@ -177,6 +177,25 @@ services.AddCocoarConfiguration(
 Notes:
 - The change stream polls and emits only when the fetched payload actually changes. That means `ConfigManager` recomputes only on real changes.
 - Combine with `UseWhen` and other rules to layer remote config over files/env.
+- When using the fluent API, you can supply headers:
+
+```csharp
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
+
+var rules = new []
+{
+    Rules.FromHttp(_ => new HttpPollingRuleOptions(
+        urlPathOrAbsolute: "/v1/settings",
+        memberPath: "MyRemote",
+        baseAddress: "https://config.example.com",
+        pollInterval: TimeSpan.FromSeconds(10),
+        headers: new Dictionary<string,string> { ["Authorization"] = "Bearer abc" }
+    ))
+    .ForType<MySettings>()
+    .Build()
+};
+```
 
 ## Merge semantics
 
@@ -229,7 +248,7 @@ var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings
 ## Notes and current limitations
 
 - Recompute model: on any change emission, the manager recomputes all rules from scratch (ordered merge). This is simple and correct but not minimal; a future optimization could recompute only affected rules.
-- Provider lifecycle: during recompute we drop subscriptions and clear provider cache, then rebuild based on current (potentially changed) factories. This enables dynamic options but recreates provider instances; for HTTP that currently means a new HttpClient per recompute. A future improvement is to reuse instances across recomputes or support `IDisposable` and pooling.
+- Provider lifecycle: managed by an internal RuleManager per rule which reuses providers when instance options don't change and rebuilds subscriptions when queries change. This enables dynamic factories without recreating instances unnecessarily.
 - Arrays in merge: arrays are not flattened/merged; objects only.
 - Nullability warnings: some parameters accept null but are non-nullable; can be tidied up.
 - Naming consistency: minor inconsistencies (e.g., env prefix as MemberPath) can be aligned later.
