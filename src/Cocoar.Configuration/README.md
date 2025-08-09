@@ -37,7 +37,7 @@ This package is split into:
 - `Cocoar.Configuration` (core)
 - `Cocoar.Configuration.Providers.FileSourceProvider`
 - `Cocoar.Configuration.Providers.EnvironmentVariableProvider`
-- `Cocoar.Configuration.Providers.HttpPollingProvider`
+- `Cocoar.Configuration.HttpPolling` (separate package) – provides `Providers.HttpPollingProvider`
 - `Cocoar.Configuration.Extensions` (DI for ServiceCollection)
 - `Cocoar.Configuration.AspNetCore` (WebApplicationBuilder extension)
 
@@ -108,6 +108,48 @@ var builder = WebApplication.CreateBuilder(args)
 var cfg = builder.GetCocoarConfiguration<IMySectionSettings>();
 ```
 
+### 5) Fluent API (generic and extensible)
+
+You can define rules with a fluent syntax. There are two ways:
+
+- Provider-specific helpers: `Rules.FromFile(...)`, `Rules.FromEnvironment(...)`. HTTP is available via extension: `Rules.Using.FromHttp(...)` when referencing Cocoar.Configuration.HttpPolling.
+- Generic entry point for any provider: `Rules.FromProvider<TProvider, TInstanceOptions, TQueryOptions>(...)`.
+
+Example (generic):
+
+```csharp
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider;
+
+var rules = new[]
+{
+    Rules.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
+            instance: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
+            query:    _ => new FileSourceProviderQueryOptions(filename: "appsettings.json", memberPath: "SectionA"))
+        .ForType<MySectionSettings>()
+        .Required()
+        .Build(),
+};
+```
+
+Or, with provider-specific helpers:
+
+```csharp
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
+
+var rules = new[]
+{
+    Rules.FromFile(_ => new FileSourceRuleOptions(
+            filepath: "appsettings.json",
+            memberPath: "SectionA",
+            debounceTime: TimeSpan.FromMilliseconds(100)))
+        .ForType<MySectionSettings>()
+        .Optional()
+        .Build(),
+};
+```
+
 ## Providers
 
 ### Change model (all providers)
@@ -153,14 +195,14 @@ Notes:
 - When a prefix is provided, variables are exposed without the prefix (e.g., `MYAPP_FOO` -> `FOO`).
 - Values are strings at source; the StringToPrimitiveConverter can coerce to bool/int/etc. during deserialization.
 
-### HttpPollingProvider
+### HttpPollingProvider (separate package)
 
 - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?)`
 - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?, headers?)`
 - Factory (static or lambda-based):
 
 ```csharp
-using Cocoar.Configuration.Providers.HttpPollingProvider;
+using Cocoar.Configuration.Providers.HttpPollingProvider; // from Cocoar.Configuration.HttpPolling package
 
 services.AddCocoarConfiguration(
     HttpPollingProvider.CreateRule<MyRemoteSettings, MyRemoteSettings>(
@@ -185,7 +227,8 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 
 var rules = new []
 {
-    Rules.FromHttp(_ => new HttpPollingRuleOptions(
+    // requires: using Cocoar.Configuration.HttpPolling.Fluent; and package reference
+    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         urlPathOrAbsolute: "/v1/settings",
         memberPath: "MyRemote",
         baseAddress: "https://config.example.com",
@@ -270,3 +313,55 @@ var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings
 ---
 
 For ASP.NET Core usage, prefer the `Cocoar.Configuration.AspNetCore` extension for a builder-first experience. For non-web apps, use the `Cocoar.Configuration.Extensions` DI helpers.
+
+## Fluent extensibility for third‑party providers
+
+To let external provider packages add their own fluent entry points without modifying this repo, the fluent host exposes an instance handle `Rules.Using` that can be the target of extension methods.
+
+In your provider package (separate project), define an extension like this:
+
+```csharp
+using Cocoar.Configuration;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.Abstractions;
+
+namespace MyCompany.Configuration.MyProvider;
+
+public static class MyProviderRulesExtensions
+{
+    // Option A: expose the generic builder directly
+    public static ProviderRuleBuilder<MyProvider, MyProviderOptions, MyProviderQueryOptions> FromMyProvider(
+        this Rules.Dsl _,
+        Func<ConfigManager, MyProviderOptions> instance,
+        Func<ConfigManager, MyProviderQueryOptions> query)
+        => Rules.FromProvider<MyProvider, MyProviderOptions, MyProviderQueryOptions>(instance, query);
+
+    // Option B: offer a convenience wrapper with fewer parameters
+    public static ProviderRuleBuilder<MyProvider, MyProviderOptions, MyProviderQueryOptions> FromMyProvider(
+        this Rules.Dsl _, string endpoint, TimeSpan? pollInterval = null)
+        => Rules.FromProvider<MyProvider, MyProviderOptions, MyProviderQueryOptions>(
+            instance: _ => new MyProviderOptions { PollInterval = pollInterval ?? TimeSpan.FromSeconds(10) },
+            query:    _ => new MyProviderQueryOptions { Url = endpoint });
+}
+```
+
+Consumers can then write:
+
+```csharp
+using Cocoar.Configuration.Fluent;
+using MyCompany.Configuration.MyProvider; // brings in the extension method
+
+var rules = new[]
+{
+    Rules.Using
+        .FromMyProvider("https://config.example.com/api/v1/settings", TimeSpan.FromSeconds(15))
+        .ForType<MySettings>()
+        .Required()
+        .Build(),
+};
+```
+
+Notes:
+- `Rules.Using` is a lightweight instance purely for extension methods; it carries no state.
+- Under the hood, your extension can delegate to `Rules.FromProvider<...>()`, which wires into the provider pooling/orchestration.
+- Your provider types should implement the abstractions: `ConfigSourceProvider<TInstanceOptions,TQueryOptions>`, `ISourceProviderInstanceOptions`, and `ISourceProviderQueryOptions`.

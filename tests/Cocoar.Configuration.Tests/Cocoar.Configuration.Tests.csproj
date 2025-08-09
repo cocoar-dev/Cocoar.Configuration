@@ -26,7 +26,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -4,8 +4,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Cocoar.Configuration.Providers.HttpPollingProvider;
 using Cocoar.Configuration.Extensions;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.HttpPolling.Fluent.ProviderOptions;
+using Cocoar.Configuration.HttpPolling.Providers.HttpPollingProvider;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -40,11 +43,16 @@ public class HttpPollingProviderTests
 
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            HttpPollingProvider.CreateRule<MyCfg, MyCfg>(
-                optionsFactory: _ => new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(10), handler),
-                queryFactory: _ => new HttpPollingProviderQueryOptions("/api/config"),
-                useWhen: () => true
-            )
+            Rules.Using
+                .FromHttp(_ => new HttpPollingRuleOptions(
+                    urlPathOrAbsolute: "/api/config",
+                    baseAddress: "https://example.com",
+                    pollInterval: TimeSpan.FromMilliseconds(10),
+                    handler: handler
+                ))
+                .UseWhen(() => true)
+                .ForType<MyCfg>()
+                .Build()
         ]);
         var sp = services.BuildServiceProvider();
         var manager = sp.GetRequiredService<ConfigManager>();

@@ -6,4 +6,11 @@
       <PackageReference Include="System.Reactive" />
     </ItemGroup>
 
+    <!-- Exclude HttpPolling provider and its fluent helpers; they live in Cocoar.Configuration.HttpPolling -->
+    <ItemGroup>
+      <Compile Remove="Providers\HttpPollingProvider\**\*.cs" />
+      <Compile Remove="Fluent\Providers\HttpRuleBuilder.cs" />
+      <Compile Remove="Fluent\ProviderOptions\HttpPollingRuleOptions.cs" />
+    </ItemGroup>
+
 </Project>
