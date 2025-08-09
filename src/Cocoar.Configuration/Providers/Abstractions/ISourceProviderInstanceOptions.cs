@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Cocoar.Configuration;
+namespace Cocoar.Configuration.Providers.Abstractions;
 
 public interface ISourceProviderInstanceOptions
 {

@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Providers.Abstractions;
+
 namespace Cocoar.Configuration.Providers.HttpPollingProvider;
 
 public sealed class HttpPollingProviderQueryOptions : ISourceProviderQueryOptions

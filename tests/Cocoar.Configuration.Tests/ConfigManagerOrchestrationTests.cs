@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading.Tasks;
 using Cocoar.Configuration;
+using Cocoar.Configuration.Providers.Abstractions;
 using Xunit;
 
 public class ConfigManagerOrchestrationTests
@@ -10,7 +11,7 @@ public class ConfigManagerOrchestrationTests
     private readonly struct Unit { public static readonly Unit Default = new(); }
 
     private sealed class CountingProvider(CountingProvider.Options options)
-        : Cocoar.Configuration.Providers.ConfigSourceProvider<CountingProvider.Options, CountingProvider.Query>(options)
+        : ConfigSourceProvider<CountingProvider.Options, CountingProvider.Query>(options)
     {
         public sealed class Options(string key) : ISourceProviderInstanceOptions { public string Key => key; }
         public sealed class Query(string id, IObservable<Unit> trigger) : ISourceProviderQueryOptions

@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration;
+namespace Cocoar.Configuration.Providers.Abstractions;
 
 public interface ISourceProviderQueryOptions
 {

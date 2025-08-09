@@ -2,6 +2,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration;
 

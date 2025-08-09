@@ -3,7 +3,7 @@ using Cocoar.Configuration.Providers;
 
 namespace Cocoar.Configuration;
 
-public class ConfigManager : IConfigAccessor
+public class ConfigManager : IConfigAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
     private volatile Dictionary<ConfigTypeDefinition, JsonElement> _configs = new();
@@ -44,7 +44,7 @@ public class ConfigManager : IConfigAccessor
         }
         _changeSubscriptions.Clear();
 
-    // Providers are owned by RuleManagers; nothing to clear here.
+        // Providers are owned by RuleManagers; nothing to clear here.
     }
 
     private void RecalculateAllConfigsSafe()
@@ -216,14 +216,6 @@ public class ConfigManager : IConfigAccessor
 
     private T? Deserialize<T>(JsonElement element)
     {
-
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
-
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
-        {
-            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
-        }
-
         var options = new JsonSerializerOptions();
         // Register converters for common primitives
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
@@ -233,7 +225,7 @@ public class ConfigManager : IConfigAccessor
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
 
-        return (T?)element.Deserialize(configType.ConfigType, options);
+        return element.Deserialize<T>(options);
     }
 
     private object? Deserialize(JsonElement element, Type type)
@@ -251,4 +243,16 @@ public class ConfigManager : IConfigAccessor
     }
 
     // Providers are resolved and managed by RuleManager.
+
+    public void Dispose()
+    {
+        DisposeSubscriptionsAndProviders();
+        foreach (var rm in _ruleManagers.ToArray())
+        {
+            try { rm.Dispose(); } catch { /* ignore */ }
+        }
+        _ruleManagers.Clear();
+        _initialized = false;
+        GC.SuppressFinalize(this);
+    }
 }

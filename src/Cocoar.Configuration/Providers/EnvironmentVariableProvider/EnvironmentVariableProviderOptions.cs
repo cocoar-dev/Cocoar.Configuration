@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Providers.Abstractions;
+
 namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 public sealed class EnvironmentVariableProviderOptions : ISourceProviderInstanceOptions

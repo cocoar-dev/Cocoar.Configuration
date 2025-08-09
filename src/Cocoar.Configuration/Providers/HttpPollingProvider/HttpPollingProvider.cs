@@ -2,14 +2,16 @@ using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Reactive.Linq;
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.HttpPollingProvider;
 
 public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
-    : ConfigSourceProvider<HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(options)
+    : ConfigSourceProvider<HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(options), IDisposable
 {
     private readonly HttpClient _client = CreateClient(options);
     private readonly ConcurrentDictionary<string, JsonElement> _lastByKey = new();
+    private bool _disposed;
 
     private static HttpClient CreateClient(HttpPollingProviderOptions opts)
     {
@@ -113,6 +115,14 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
             .Select(t => t.value)
             .Publish()
             .RefCount();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try { _client.Dispose(); } catch { /* ignore */ }
+        GC.SuppressFinalize(this);
     }
 
     private static string BuildUrl(HttpClient client, string pathOrAbsolute)

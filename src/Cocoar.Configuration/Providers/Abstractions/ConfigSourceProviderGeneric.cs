@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Cocoar.Configuration.Providers;
+namespace Cocoar.Configuration.Providers.Abstractions;
 
 public abstract class ConfigSourceProvider<TInstanceOptions, TQueryOptions>(TInstanceOptions options)
     : ConfigSourceProvider

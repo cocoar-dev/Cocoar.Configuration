@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
@@ -27,9 +28,9 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             }
         }
 
-        var json = JsonSerializer.Serialize(dict);
-        var doc = JsonDocument.Parse(json);
-        var element = doc.RootElement.Clone();
+    var json = JsonSerializer.Serialize(dict);
+    using var doc = JsonDocument.Parse(json);
+    var element = doc.RootElement.Clone();
 
         // Use the base class helper to wrap if needed
         return Task.FromResult(WrapIfNeeded(element, queryOptions.MemberWrapper));

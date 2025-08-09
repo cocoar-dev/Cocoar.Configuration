@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.HttpPollingProvider;
 
