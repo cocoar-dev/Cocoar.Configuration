@@ -12,6 +12,7 @@ public class ConfigManager : IConfigAccessor
     private readonly object _recalcLock = new();
     private readonly IConfigLogger _logger;
     private readonly List<RuleManager> _ruleManagers = new();
+    private readonly ProviderRegistry _providerRegistry = new();
 
     public ConfigManager(IEnumerable<ConfigRule> rules, IConfigLogger? logger = null)
     {
@@ -27,7 +28,7 @@ public class ConfigManager : IConfigAccessor
             // Create per-rule managers
             _ruleManagers.Clear();
             foreach (var r in _rules)
-                _ruleManagers.Add(new RuleManager(r, _logger));
+                _ruleManagers.Add(new RuleManager(r, _logger, _providerRegistry));
             // initial compute and subscriptions
             RecalculateAllConfigsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();

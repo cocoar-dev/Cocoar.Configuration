@@ -118,7 +118,9 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
     private static string BuildUrl(HttpClient client, string pathOrAbsolute)
         => Uri.TryCreate(pathOrAbsolute, UriKind.Absolute, out var abs)
             ? abs.ToString()
-            : new Uri(client.BaseAddress!, pathOrAbsolute).ToString();
+            : client.BaseAddress is not null
+                ? new Uri(client.BaseAddress, pathOrAbsolute).ToString()
+                : pathOrAbsolute;
 
     private static string MakeKey(HttpPollingProviderQueryOptions query)
     {

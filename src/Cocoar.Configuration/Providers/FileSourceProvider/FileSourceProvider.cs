@@ -47,6 +47,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             _fsObservable
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
+                // apply per-query debounce if provided; default is no debounce
+                .Let(obs => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? obs.Throttle(d) : obs)
                 .Select(_ =>
                 {
                     JsonElement newValue;
@@ -89,26 +91,30 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
     
     public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null, bool required = false)
     {
-    var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
+        var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
-        var options = new FileSourceProviderOptions(directory, debounceTime);
-        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
+        var instanceDebounce = debounceTime; // explicit naming to avoid confusion with query debounce
+        var options = new FileSourceProviderOptions(directory, instanceDebounce);
+        var queryDebounce = debounceTime;
+        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper, queryDebounce);
         return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             options, 
             queryOptions, 
             new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
-        useWhen: useWhen,
-        required: required
+            useWhen: useWhen,
+            required: required
             );
     }
     
     public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, bool required = false)
     {
-    var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
+        var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
-        var options = new FileSourceProviderOptions(directory, debounceTime);
-        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
-    return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType)), required: required);
+        var instanceDebounce = debounceTime;
+        var options = new FileSourceProviderOptions(directory, instanceDebounce);
+        var queryDebounce = debounceTime;
+        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper, queryDebounce);
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType)), required: required);
     }
 
     public static ConfigRule CreateRule<TConfigType>(
@@ -124,8 +130,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             {
                 var fp = filepath(cm);
                 var dir = Path.GetDirectoryName(fp) ?? string.Empty;
-                var db = debounceTime?.Invoke(cm);
-                return new FileSourceProviderOptions(dir, db);
+                var instanceDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderOptions(dir, instanceDebounce);
             },
             cm =>
             {
@@ -133,7 +139,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                 var file = Path.GetFileName(fp);
                 var mp = memberPath?.Invoke(cm);
                 var mw = memberWrapper?.Invoke(cm);
-                return new FileSourceProviderQueryOptions(file, mp, mw);
+                var queryDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderQueryOptions(file, mp, mw, queryDebounce);
             },
             new ConfigTypeDefinition(typeof(TConfigType)),
             useWhen,
@@ -154,8 +161,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             {
                 var fp = filepath(cm);
                 var dir = Path.GetDirectoryName(fp) ?? string.Empty;
-                var db = debounceTime?.Invoke(cm);
-                return new FileSourceProviderOptions(dir, db);
+                var instanceDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderOptions(dir, instanceDebounce);
             },
             cm =>
             {
@@ -163,7 +170,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                 var file = Path.GetFileName(fp);
                 var mp = memberPath?.Invoke(cm);
                 var mw = memberWrapper?.Invoke(cm);
-                return new FileSourceProviderQueryOptions(file, mp, mw);
+                var queryDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderQueryOptions(file, mp, mw, queryDebounce);
             },
             new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
             useWhen,

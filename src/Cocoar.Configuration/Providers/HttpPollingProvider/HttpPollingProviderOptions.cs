@@ -16,4 +16,12 @@ public sealed class HttpPollingProviderOptions : ISourceProviderInstanceOptions
         PollInterval = pollInterval ?? TimeSpan.FromSeconds(30);
         Handler = handler;
     }
+
+    // Reuse client across rules; key by handler identity and polling interval only.
+    // BaseAddress is intentionally excluded so queries can use absolute URLs or combine with per-query paths.
+    public string CalculateKey()
+    {
+        var handlerKey = Handler is null ? "default" : Handler.GetHashCode().ToString();
+        return $"handler:{handlerKey}|poll:{PollInterval.TotalMilliseconds}";
+    }
 }

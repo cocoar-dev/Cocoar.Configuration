@@ -1,3 +1,8 @@
 namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
-public record FileSourceProviderQueryOptions(string Filename, string? MemberPath = null, string? MemberWrapper = null) : ISourceProviderQueryOptions;
+public record FileSourceProviderQueryOptions(
+	string Filename,
+	string? MemberPath = null,
+	string? MemberWrapper = null,
+	TimeSpan? Debounce = null
+) : ISourceProviderQueryOptions;

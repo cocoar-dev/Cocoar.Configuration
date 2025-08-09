@@ -5,7 +5,7 @@ using System.Text.Json;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Providers;
 
-public class RuleManagerTests
+public partial class RuleManagerTests
 {
     private sealed class TestLogger : IConfigLogger
     {
@@ -25,7 +25,7 @@ public class RuleManagerTests
             useWhen: () => false,
             required: true);
 
-        var rm = new RuleManager(rule, new TestLogger());
+    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         Assert.False(include);
     }
@@ -40,7 +40,7 @@ public class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-        var rm = new RuleManager(rule, new TestLogger());
+    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default));
     }
 
@@ -54,7 +54,7 @@ public class RuleManagerTests
             useWhen: () => true,
             required: false);
 
-        var rm = new RuleManager(rule, new TestLogger());
+    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         Assert.False(include);
     }
@@ -107,7 +107,7 @@ public class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-        var rm = new RuleManager(rule, new TestLogger());
+    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
         var r1 = await rm.ComputeAsync(acc, default);
         var r2 = await rm.ComputeAsync(acc, default);
@@ -130,7 +130,7 @@ public class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-        var rm = new RuleManager(rule, new TestLogger());
+    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
         var _ = await rm.ComputeAsync(acc, default);
 
@@ -169,7 +169,7 @@ public class RuleManagerTests
             required: true);
 
         var logger = new TestLogger();
-        var rm = new RuleManager(rule, logger);
+    var rm = new RuleManager(rule, logger, new ProviderRegistry());
         var manager = new ConfigManager(new[] { rule }, logger).Initialize();
 
         // first compute to set up subscription
@@ -216,5 +216,94 @@ public class RuleManagerTests
                 return doc.RootElement.Clone();
             });
         }
+    }
+}
+
+public partial class RuleManagerTests
+{
+    private sealed class IdentityOptions(string name) : ISourceProviderInstanceOptions
+    {
+        public string Name => name;
+    }
+
+    private sealed class IdentityQuery(string id) : ISourceProviderQueryOptions
+    {
+        public string Id => id;
+        public string? MemberPath => null;
+        public string? MemberWrapper => null;
+    }
+
+    private sealed class IdentityProvider(IdentityOptions options)
+        : ConfigSourceProvider<IdentityOptions, IdentityQuery>(options)
+    {
+        private static int CreatedCount;
+        private readonly int _instanceId = Interlocked.Increment(ref CreatedCount);
+
+        public override Task<JsonElement> GetValueAsync(IdentityQuery query, CancellationToken ct = default)
+        {
+            var json = JsonSerializer.Serialize(new Dictionary<string, object?>
+            {
+                ["providerId"] = _instanceId,
+                ["key"] = options.Name,
+                ["q"] = query.Id
+            });
+            using var doc = JsonDocument.Parse(json);
+            return Task.FromResult(doc.RootElement.Clone());
+        }
+
+        public override IObservable<JsonElement> Changes(IdentityQuery query)
+            => Observable.Empty<JsonElement>();
+    }
+
+    [Fact]
+    public async Task ProviderRegistry_Shares_Provider_Across_RuleManagers_With_Same_Key()
+    {
+        var registry = new ProviderRegistry();
+        var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
+            new IdentityOptions("A"),
+            new IdentityQuery("Q1"),
+            new ConfigTypeDefinition(typeof(object)),
+            required: true);
+        var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
+            new IdentityOptions("A"),
+            new IdentityQuery("Q2"),
+            new ConfigTypeDefinition(typeof(object)),
+            required: true);
+
+        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
+        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+
+        var r1 = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+        var r2 = await rm2.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+
+        var id1 = r1.value.GetProperty("providerId").GetInt32();
+        var id2 = r2.value.GetProperty("providerId").GetInt32();
+        Assert.Equal(id1, id2);
+    }
+
+    [Fact]
+    public async Task ProviderRegistry_Does_Not_Share_Provider_When_Keys_Differ()
+    {
+        var registry = new ProviderRegistry();
+        var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
+            new IdentityOptions("A"),
+            new IdentityQuery("Q1"),
+            new ConfigTypeDefinition(typeof(object)),
+            required: true);
+        var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
+            new IdentityOptions("B"),
+            new IdentityQuery("Q2"),
+            new ConfigTypeDefinition(typeof(object)),
+            required: true);
+
+        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
+        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+
+        var r1 = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+        var r2 = await rm2.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
+
+        var id1 = r1.value.GetProperty("providerId").GetInt32();
+        var id2 = r2.value.GetProperty("providerId").GetInt32();
+        Assert.NotEqual(id1, id2);
     }
 }

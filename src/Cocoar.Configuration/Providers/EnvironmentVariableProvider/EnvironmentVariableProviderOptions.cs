@@ -7,4 +7,7 @@ public sealed class EnvironmentVariableProviderOptions : ISourceProviderInstance
     {
         Prefix = prefix;
     }
+
+    // All environment lookups use the same underlying source; share a single instance across rules.
+    public string CalculateKey() => "Environment:Global";
 }

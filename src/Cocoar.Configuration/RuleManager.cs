@@ -9,16 +9,19 @@ internal sealed class RuleManager : IDisposable
 {
     private readonly ConfigRule _rule;
     private readonly IConfigLogger _logger;
+    private readonly ProviderRegistry _registry;
+    private ProviderRegistry.ProviderHandle? _providerHandle;
     private ConfigSourceProvider? _provider;
     private string? _providerKey;
     private IDisposable? _subscription;
     private string? _queryKey;
     private readonly Subject<bool> _changes = new();
 
-    public RuleManager(ConfigRule rule, IConfigLogger logger)
+    public RuleManager(ConfigRule rule, IConfigLogger logger, ProviderRegistry registry)
     {
         _rule = rule;
         _logger = logger;
+        _registry = registry;
     }
 
     public ConfigTypeDefinition TypeDefinition => _rule.ConfigContract;
@@ -38,7 +41,7 @@ internal sealed class RuleManager : IDisposable
         // Resolve options and manage provider reuse
         var providerOptions = _rule.ResolveProviderOptions(accessor);
         var newProviderKey = providerOptions.CalculateKey();
-        if (_provider == null || _providerKey != newProviderKey)
+    if (_provider == null || _providerKey != newProviderKey)
         {
             RebuildProvider(providerOptions);
         }
@@ -70,16 +73,16 @@ internal sealed class RuleManager : IDisposable
 
     private void RebuildProvider(ISourceProviderInstanceOptions providerOptions)
     {
-        // Dispose current subscription and provider
+        // Dispose current subscription and release provider lease
         Unsubscribe();
-        if (_provider is IDisposable disp)
+        if (_providerHandle is not null)
         {
-            try { disp.Dispose(); } catch { /* ignore */ }
+            try { _providerHandle.Dispose(); } catch { /* ignore */ }
+            _providerHandle = null;
         }
 
-        _provider = (ConfigSourceProvider?)Activator.CreateInstance(_rule.ProviderType, providerOptions);
-        if (_provider == null)
-            throw new InvalidOperationException($"Could not create provider {_rule.ProviderType.Name}.");
+        _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
+        _provider = _providerHandle.Provider;
         _providerKey = providerOptions.CalculateKey();
     }
 
@@ -113,9 +116,10 @@ internal sealed class RuleManager : IDisposable
     public void Dispose()
     {
         Unsubscribe();
-        if (_provider is IDisposable disp)
+        if (_providerHandle is not null)
         {
-            try { disp.Dispose(); } catch { /* ignore */ }
+            try { _providerHandle.Dispose(); } catch { /* ignore */ }
+            _providerHandle = null;
         }
         _provider = null;
         _changes.OnCompleted();
