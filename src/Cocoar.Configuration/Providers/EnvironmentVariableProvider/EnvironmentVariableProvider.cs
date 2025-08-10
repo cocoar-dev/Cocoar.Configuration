@@ -71,8 +71,8 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         {
             char c = key[i];
 
-            // Colon or dot are separators
-            if (c == ':' || c == '.')
+            // Colon is a nesting separator (Microsoft convention)
+            if (c == ':')
             {
                 if (sb.Length > 0)
                 {
@@ -115,8 +115,8 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         // If starts with double underscore, treat as delimiter and remove it.
         if (s.Length >= 2 && s[0] == '_' && s[1] == '_')
             return s[2..];
-        // Otherwise, trim a single leading ':', '.', or '_' if present
-        if (s[0] == ':' || s[0] == '.' || s[0] == '_')
+    // Otherwise, trim a single leading ':' or '_' if present
+    if (s[0] == ':' || s[0] == '_')
             return s[1..];
         return s;
     }

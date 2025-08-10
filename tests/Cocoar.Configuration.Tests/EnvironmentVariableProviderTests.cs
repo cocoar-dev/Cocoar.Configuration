@@ -80,7 +80,7 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task GetValueAsync_Uses_DoubleUnderscore_And_Dot_And_Colon_As_Separators()
+    public async Task GetValueAsync_Uses_DoubleUnderscore_And_Colon_As_Separators()
     {
         // Arrange
         var prefix = "MYAPP";
@@ -88,8 +88,6 @@ public class EnvironmentVariableProviderTests
         Environment.SetEnvironmentVariable("MYAPP_FOO_BAR", "x");
         // Double underscore ⇒ nesting
         Environment.SetEnvironmentVariable("MYAPP__Logging__Level", "Debug");
-        // Dot separator ⇒ nesting
-        Environment.SetEnvironmentVariable("MYAPP.Logging.Level", "Info");
         // Colon separator ⇒ nesting
         Environment.SetEnvironmentVariable("MYAPP:Data:ConnectionString", "cs");
 
@@ -103,7 +101,7 @@ public class EnvironmentVariableProviderTests
         Assert.True(result.TryGetProperty("FOO_BAR", out var fooBar));
         Assert.Equal("x", fooBar.GetString());
 
-        // Last write wins at the same path; both Logging.Level are acceptable as present
+    // Ensure nested keys via double underscore are present
         Assert.True(result.TryGetProperty("Logging", out var logging));
         Assert.True(logging.TryGetProperty("Level", out var lvl));
         Assert.True(lvl.ValueKind == JsonValueKind.String);

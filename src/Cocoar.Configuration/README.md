@@ -29,7 +29,7 @@ This package is split into:
 
 - ConfigRule: describes one source and how to query it
 - Provider: returns JSON payloads and optional change notifications
-- Merge: JSON objects are flattened to dotted keys and merged; later rules overwrite earlier ones
+- Merge: JSON objects are flattened to colon keys (e.g., SectionA:Enabled) and merged; later rules overwrite earlier ones
 - ConfigTypeDefinition: which type the assembled config should be deserialized into
 
 ## Packages/namespaces
@@ -186,7 +186,7 @@ Watches the folder for changes and emits updates per file with optional per-file
 EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>();
 
 // Prefix: include only variables that start with the prefix
-// Nesting separators: "__" (double underscore), ":", and ".". Single '_' is literal.
+// Nesting separators: "__" (double underscore) and ":". Single '_' is literal.
 // Example: MYAPP__Logging__Level=Debug → { "Logging": { "Level": "Debug" } }
 var rule = EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>(memberPath: "MYAPP");
 ```
@@ -242,7 +242,7 @@ var rules = new []
 
 ## Merge semantics
 
-- Each provider returns a JSON object. Objects are flattened to dot-keys (e.g., `SectionA.Enabled`).
+- Each provider returns a JSON object. Objects are flattened to colon-keys (e.g., `SectionA:Enabled`).
 - Flat maps are merged in rule order; later rules override earlier ones key-by-key.
 - The final flat map is unflattened and deserialized into the requested type.
 

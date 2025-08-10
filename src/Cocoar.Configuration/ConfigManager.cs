@@ -120,7 +120,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
         {
             foreach (var prop in e.EnumerateObject())
             {
-                var key = prefix == null ? prop.Name : $"{prefix}.{prop.Name}";
+                var key = prefix == null ? prop.Name : $"{prefix}:{prop.Name}";
                 FlattenRec(prop.Value, key, dict);
             }
         }
@@ -135,7 +135,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
         var root = new Dictionary<string, object>();
         foreach (var (path, value) in flat)
         {
-            var segs = path.Split('.');
+            var segs = path.Split(':');
             var cursor = root;
             for (int i = 0; i < segs.Length - 1; i++)
             {
