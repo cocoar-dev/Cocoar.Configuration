@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration;
 
@@ -11,12 +12,12 @@ namespace Cocoar.Configuration;
 internal sealed class ProviderRegistry
 {
     private readonly ConcurrentDictionary<(Type type, string key), Entry> _entries = new();
-    private readonly IConfigLogger _logger;
+    private readonly ILogger _logger;
     private readonly bool _diagnosticsEnabled;
 
-    public ProviderRegistry(IConfigLogger? logger = null, bool enableDiagnostics = false)
+    public ProviderRegistry(ILogger? logger = null, bool enableDiagnostics = false)
     {
-        _logger = logger ?? NullConfigLogger.Instance;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         _diagnosticsEnabled = enableDiagnostics;
     }
 
@@ -71,12 +72,12 @@ internal sealed class ProviderRegistry
                 RefCount = 0
             };
             if (_diagnosticsEnabled)
-                _logger.Debug("ProviderRegistry: created {Provider} with key {Key}", providerType.Name, key);
+                _logger.LogDebug("ProviderRegistry: created {Provider} with key {Key}", providerType.Name, key);
             return created;
         });
         var newCount = Interlocked.Increment(ref entry.RefCount);
         if (_diagnosticsEnabled)
-            _logger.Debug("ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}", providerType.Name, key, newCount);
+            _logger.LogDebug("ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}", providerType.Name, key, newCount);
         return ProviderHandle.Create(this, id, entry);
     }
 
@@ -84,7 +85,7 @@ internal sealed class ProviderRegistry
     {
         var count = Interlocked.Decrement(ref entry.RefCount);
         if (_diagnosticsEnabled)
-            _logger.Debug("ProviderRegistry: release {Provider} {Key} -> RefCount={RefCount}", id.type.Name, id.key, count);
+            _logger.LogDebug("ProviderRegistry: release {Provider} {Key} -> RefCount={RefCount}", id.type.Name, id.key, count);
         if (count == 0)
         {
             // Remove only if our entry is still current
@@ -93,7 +94,7 @@ internal sealed class ProviderRegistry
                 if (removed.Provider is IDisposable disp)
                 {
                     if (_diagnosticsEnabled)
-                        _logger.Debug("ProviderRegistry: disposing {Provider} {Key}", id.type.Name, id.key);
+                        _logger.LogDebug("ProviderRegistry: disposing {Provider} {Key}", id.type.Name, id.key);
                     try { disp.Dispose(); } catch { /* ignore */ }
                 }
             }

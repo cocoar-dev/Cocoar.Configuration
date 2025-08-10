@@ -3,13 +3,14 @@ using System.Reactive.Subjects;
 using System.Text.Json;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration;
 
 internal sealed class RuleManager : IDisposable
 {
     private readonly ConfigRule _rule;
-    private readonly IConfigLogger _logger;
+    private readonly ILogger _logger;
     private readonly ProviderRegistry _registry;
     private ProviderRegistry.ProviderHandle? _providerHandle;
     private ConfigSourceProvider? _provider;
@@ -18,7 +19,7 @@ internal sealed class RuleManager : IDisposable
     private string? _queryKey;
     private readonly Subject<bool> _changes = new();
 
-    public RuleManager(ConfigRule rule, IConfigLogger logger, ProviderRegistry registry)
+    public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
     {
         _rule = rule;
         _logger = logger;
@@ -64,10 +65,10 @@ internal sealed class RuleManager : IDisposable
         {
             if (Required)
             {
-                _logger.Error(ex, "Required rule failed: {0}->{1}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
+                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
                 throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConfigContract.ConfigType.Name}", ex);
             }
-            _logger.Warning(ex, "Optional rule failed and will be skipped: {0}->{1}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
+            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
             return (include: false, value: default);
         }
     }

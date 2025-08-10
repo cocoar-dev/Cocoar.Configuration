@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Cocoar.Configuration.Providers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cocoar.Configuration;
 
@@ -10,14 +12,15 @@ public class ConfigManager : IConfigAccessor, IDisposable
     private volatile bool _initialized;
     private readonly List<IDisposable> _changeSubscriptions = new();
     private readonly object _recalcLock = new();
-    private readonly IConfigLogger _logger;
+    private readonly ILogger _logger;
     private readonly List<RuleManager> _ruleManagers = new();
-    private readonly ProviderRegistry _providerRegistry = new();
+    private readonly ProviderRegistry _providerRegistry;
 
-    public ConfigManager(IEnumerable<ConfigRule> rules, IConfigLogger? logger = null)
+    public ConfigManager(IEnumerable<ConfigRule> rules, ILogger? logger = null)
     {
         _rules = rules.ToList();
-        _logger = logger ?? NullConfigLogger.Instance;
+        _logger = logger ?? NullLogger.Instance;
+        _providerRegistry = new ProviderRegistry(_logger);
     }
 
     public ConfigManager Initialize()
@@ -52,10 +55,10 @@ public class ConfigManager : IConfigAccessor, IDisposable
         // Prevent concurrent recomputes and ensure atomic swap
         lock (_recalcLock)
         {
-            _logger.Debug("Recompute started");
+            _logger.LogDebug("Recompute started");
             RecalculateAllConfigsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();
-            _logger.Debug("Recompute finished");
+            _logger.LogDebug("Recompute finished");
         }
     }
 
@@ -98,7 +101,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
                 .Subscribe(_ =>
                 {
                     try { RecalculateAllConfigsSafe(); }
-                    catch (Exception ex) { _logger.Error(ex, "Recompute failed from change trigger"); }
+                    catch (Exception ex) { _logger.LogError(ex, "Recompute failed from change trigger"); }
                 });
             _changeSubscriptions.Add(sub);
         }

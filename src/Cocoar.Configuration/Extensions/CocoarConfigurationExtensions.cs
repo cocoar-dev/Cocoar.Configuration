@@ -14,17 +14,17 @@ public static class CocoarConfigurationExtensions
     {
         services.ThrowIfAlreadyRegistered();
 
-        var ruleList = rules.ToList();
-        var configManager = new ConfigManager(ruleList).Initialize();
-        services.AddSingleton<ConfigManager>(configManager);
+    var ruleList = rules.ToList();
+    var configManager = new ConfigManager(ruleList).Initialize();
+    services.AddSingleton<ConfigManager>(configManager);
         var types = ruleList.Select(r => r.ConfigContract).Distinct();
         foreach (var type in types)
         {
             if (type.ImplementationType != null)
             {
-                services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
+        services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
             }
-            services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
+        services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
         }
         return services;
     }

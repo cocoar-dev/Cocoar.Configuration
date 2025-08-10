@@ -6,16 +6,11 @@ using Cocoar.Configuration;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Microsoft.Extensions.Logging.Abstractions;
 
 public partial class RuleManagerTests
 {
-    private sealed class TestLogger : IConfigLogger
-    {
-        public void Debug(string message, params object[] args) { }
-        public void Information(string message, params object[] args) { }
-        public void Warning(Exception? ex, string message, params object[] args) { }
-        public void Error(Exception ex, string message, params object[] args) { }
-    }
+    // Using NullLogger for tests
 
     [Fact]
     public async Task ComputeAsync_Skips_When_UseWhen_False()
@@ -27,7 +22,7 @@ public partial class RuleManagerTests
             useWhen: () => false,
             required: true);
 
-    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
+    var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         Assert.False(include);
     }
@@ -42,7 +37,7 @@ public partial class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
+    var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default));
     }
 
@@ -56,7 +51,7 @@ public partial class RuleManagerTests
             useWhen: () => true,
             required: false);
 
-    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
+    var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         Assert.False(include);
     }
@@ -101,14 +96,14 @@ public partial class RuleManagerTests
         var providerFactoryCalls = 0;
         var queryFactoryCalls = 0;
 
-        var rule = ConfigRule.Create<InMemoryProvider, InMemoryProviderOptions, InMemoryQueryOptions>(
+    var rule = ConfigRule.Create<InMemoryProvider, InMemoryProviderOptions, InMemoryQueryOptions>(
             providerOptionsFactory: _ => { providerFactoryCalls++; return new InMemoryProviderOptions("K1"); },
             queryOptionsFactory: _ => { queryFactoryCalls++; return new InMemoryQueryOptions("Q1"); },
             typeDefinition: typeDef,
             useWhen: () => true,
             required: true);
 
-    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
+    var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
         var r1 = await rm.ComputeAsync(acc, default);
         var r2 = await rm.ComputeAsync(acc, default);
@@ -131,7 +126,7 @@ public partial class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-    var rm = new RuleManager(rule, new TestLogger(), new ProviderRegistry());
+    var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
         var _ = await rm.ComputeAsync(acc, default);
 
@@ -169,9 +164,9 @@ public partial class RuleManagerTests
             useWhen: () => true,
             required: true);
 
-        var logger = new TestLogger();
+    var logger = NullLogger.Instance;
     var rm = new RuleManager(rule, logger, new ProviderRegistry());
-        var manager = new ConfigManager(new[] { rule }, logger).Initialize();
+    var manager = new ConfigManager(new[] { rule }, logger).Initialize();
 
         // first compute to set up subscription
         var _ = await rm.ComputeAsync(manager, default);
@@ -228,8 +223,8 @@ public partial class RuleManagerTests
         var rule1 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP1_", required: true);
         var rule2 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP2_", required: true);
 
-        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
-        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+    var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
+    var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);
 
     // compute once to ensure providers are acquired
         _ = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
@@ -290,8 +285,8 @@ public partial class RuleManagerTests
             new ConfigTypeDefinition(typeof(object)),
             required: true);
 
-        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
-        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+    var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
+    var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);
 
         var r1 = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         var r2 = await rm2.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
@@ -316,8 +311,8 @@ public partial class RuleManagerTests
             new ConfigTypeDefinition(typeof(object)),
             required: true);
 
-        var rm1 = new RuleManager(rule1, new TestLogger(), registry);
-        var rm2 = new RuleManager(rule2, new TestLogger(), registry);
+    var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
+    var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);
 
         var r1 = await rm1.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
         var r2 = await rm2.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
