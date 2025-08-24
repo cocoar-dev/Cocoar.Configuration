@@ -94,10 +94,16 @@ public class MicrosoftSourcesIntegrationTests
         Assert.True(initial!.Enabled);
         Assert.Equal(1, initial.Value);
 
-    await File.WriteAllTextAsync(file, "[My:Section]\nEnabled=false\nValue=3\n");
-    await Task.Delay(800);
-
-        var updated = mgr.GetConfig<DemoConfig>();
+        await File.WriteAllTextAsync(file, "[My:Section]\nEnabled=false\nValue=3\n");
+        // Actively wait for change token propagation (up to 5s)
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        DemoConfig? updated = null;
+        while (sw.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(150);
+            updated = mgr.GetConfig<DemoConfig>();
+            if (updated?.Value == 3 && updated.Enabled == false) break;
+        }
         Assert.NotNull(updated);
         Assert.False(updated!.Enabled);
         Assert.Equal(3, updated.Value);

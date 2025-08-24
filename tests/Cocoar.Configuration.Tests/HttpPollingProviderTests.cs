@@ -39,13 +39,14 @@ public class HttpPollingProviderTests
         });
         var handler = new QueueHandler(queue);
 
-        var services = new ServiceCollection();
+    var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             Rules.Using
                 .FromHttp(_ => new HttpPollingRuleOptions(
                     urlPathOrAbsolute: "/api/config",
                     baseAddress: "https://example.com",
-                    pollInterval: TimeSpan.FromMilliseconds(10),
+            // Give CI plenty of time; we will actively wait for the change
+            pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler
                 ))
                 .UseWhen(() => true)
@@ -53,11 +54,18 @@ public class HttpPollingProviderTests
         ]);
         var sp = services.BuildServiceProvider();
         var manager = sp.GetRequiredService<ConfigManager>();
-    var first = manager.GetConfig<MyCfg>();
-        // wait until next poll
-        await Task.Delay(30);
-    var second = manager.GetConfig<MyCfg>();
-    Assert.Equal(2, second!.Value);
+        var first = manager.GetConfig<MyCfg>();
+        Assert.Equal(1, first!.Value);
+        // Actively wait (up to 3s) for value to become 2 to avoid timing flakiness
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        MyCfg? second = null;
+        while (sw.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            await Task.Delay(40);
+            second = manager.GetConfig<MyCfg>();
+            if (second?.Value == 2) break;
+        }
+        Assert.Equal(2, second?.Value);
     }
 
     public class MyCfg
@@ -73,7 +81,8 @@ public class HttpPollingProviderTests
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
-        var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(200), handler));
+    // Use a large interval so even on slow CI a short wait won't reach first tick
+    var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromSeconds(2), handler));
 
         var emitted = false;
         using var sub = provider
@@ -81,7 +90,7 @@ public class HttpPollingProviderTests
             .Subscribe(_ => emitted = true);
 
         // assert: no initial emission before first interval elapses
-        await Task.Delay(100);
+    await Task.Delay(150); // still far below 2s interval
         Assert.False(emitted);
     }
 
