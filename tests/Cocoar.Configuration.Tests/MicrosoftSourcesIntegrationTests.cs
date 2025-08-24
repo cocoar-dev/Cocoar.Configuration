@@ -1,0 +1,151 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Cocoar.Configuration;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.MicrosoftAdapter;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
+public class MicrosoftSourcesIntegrationTests
+{
+    private sealed class DemoConfig
+    {
+        public bool Enabled { get; set; }
+        public int Value { get; set; }
+    }
+
+    [Fact]
+    public async Task JsonFile_changes_trigger_recompute_via_configmanager()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        var file = Path.Combine(dir.FullName, "appsettings.json");
+        await File.WriteAllTextAsync(file, "{\n  \"My\": { \"Section\": { \"Enabled\": true, \"Value\": 1 } }\n}");
+
+        // Build a Microsoft JSON source with reloads, then adapt via Rules.FromMicrosoftSource
+        var basePath = Path.GetDirectoryName(file)!;
+        var fileName = Path.GetFileName(file);
+        var jsonSource = new ConfigurationBuilder()
+            .AddJsonFile(fileName, optional: true, reloadOnChange: true)
+            .Sources[^1];
+
+        var rules = new[]
+        {
+            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
+                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+            )
+            .ForType<DemoConfig>()
+            .Required()
+            .Build(),
+        };
+
+        var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+        var initial = mgr.GetConfig<DemoConfig>();
+        Assert.NotNull(initial);
+        Assert.True(initial!.Enabled);
+        Assert.Equal(1, initial.Value);
+
+        // mutate file
+    await File.WriteAllTextAsync(file, "{\n  \"My\": { \"Section\": { \"Enabled\": false, \"Value\": 2 } }\n}");
+    // give file watcher a moment
+    await Task.Delay(800);
+
+        var updated = mgr.GetConfig<DemoConfig>();
+        Assert.NotNull(updated);
+        Assert.False(updated!.Enabled);
+        Assert.Equal(2, updated.Value);
+
+        dir.Delete(recursive: true);
+    }
+
+    [Fact]
+    public async Task IniFile_changes_trigger_recompute_via_configmanager()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        var file = Path.Combine(dir.FullName, "appsettings.ini");
+        await File.WriteAllTextAsync(file, "[My:Section]\nEnabled=true\nValue=1\n");
+
+        var basePath = Path.GetDirectoryName(file)!;
+        var fileName = Path.GetFileName(file);
+        var iniSource = new ConfigurationBuilder()
+            .AddIniFile(fileName, optional: true, reloadOnChange: true)
+            .Sources[^1];
+
+        var rules = new[]
+        {
+            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
+                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+            )
+            .ForType<DemoConfig>()
+            .Required()
+            .Build(),
+        };
+
+        var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+        var initial = mgr.GetConfig<DemoConfig>();
+        Assert.NotNull(initial);
+        Assert.True(initial!.Enabled);
+        Assert.Equal(1, initial.Value);
+
+    await File.WriteAllTextAsync(file, "[My:Section]\nEnabled=false\nValue=3\n");
+    await Task.Delay(800);
+
+        var updated = mgr.GetConfig<DemoConfig>();
+        Assert.NotNull(updated);
+        Assert.False(updated!.Enabled);
+        Assert.Equal(3, updated.Value);
+
+        dir.Delete(recursive: true);
+    }
+
+    [Fact]
+    public void EnvVariables_do_not_auto_recompute_but_snapshot_is_read()
+    {
+        // arrange temporary environment vars with a unique prefix
+        var prefix = "MSCFG_TEST_" + Guid.NewGuid().ToString("N");
+        Environment.SetEnvironmentVariable(prefix + "My__Section__Enabled", "true");
+        Environment.SetEnvironmentVariable(prefix + "My__Section__Value", "7");
+
+        try
+        {
+            var envSource = new ConfigurationBuilder()
+                .AddEnvironmentVariables(prefix)
+                .Sources[^1];
+
+            var rules = new[]
+            {
+                Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+                    instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
+                    queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+                )
+                .ForType<DemoConfig>()
+                .Required()
+                .Build(),
+            };
+
+            var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+            var cfg = mgr.GetConfig<DemoConfig>();
+            Assert.NotNull(cfg);
+            Assert.True(cfg!.Enabled);
+            Assert.Equal(7, cfg.Value);
+
+            // update env var; Microsoft provider has no change token for env vars
+            Environment.SetEnvironmentVariable(prefix + "My__Section__Value", "9");
+            // no recompute expected automatically; snapshot remains old
+            var stillOld = mgr.GetConfig<DemoConfig>();
+            Assert.Equal(7, stillOld!.Value);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(prefix + "My__Section__Enabled", null);
+            Environment.SetEnvironmentVariable(prefix + "My__Section__Value", null);
+        }
+    }
+}

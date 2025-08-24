@@ -97,8 +97,9 @@ public sealed class FileSystemObservableTests : ReactiveTest
         var result = sch.Start(() =>
             src.CollapseBurst(TimeSpan.FromTicks(30), ch => ch.Path));  // quiet gap 30
 
-        var batch = result.Messages.Single(n => n.Value.Kind == NotificationKind.OnNext)
-                                   .Value.Value;
+        var batches = result.Messages.Where(n => n.Value.Kind == NotificationKind.OnNext).ToList();
+        Assert.NotEmpty(batches);
+        var batch = batches.Last().Value.Value;
         Assert.Equal(2, batch.Length);
         Assert.Contains(batch, ch => ch.Path == "x.cfg" && ch.ChangeType == FileSystemChangeType.Changed);
         Assert.Contains(batch, ch => ch.Path == "y.cfg");

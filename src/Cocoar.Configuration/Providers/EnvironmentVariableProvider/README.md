@@ -24,15 +24,14 @@ services.AddCocoarConfiguration(
 );
 ```
 
-Environment variable mapping rules (with memberPath/prefix "MYAPP"):
-- Include only variables that start with `MYAPP_` (single underscore after the prefix).
-- The part after the first underscore becomes the property name.
-- Example: `MYAPP_Enabled=true` -> `{ "Enabled": true }` (value coerced from string during deserialization)
-- Double underscore (`__`) nesting is NOT interpreted; `MYAPP_Nested__Value=42` becomes a flat property named `Nested__Value`.
+Environment variable mapping rules (with prefix "MYAPP"):
+- Include only variables that start with the prefix: `MYAPP*`.
+- Nesting separators: `__` (double underscore) and `:`. A single `_` is literal.
+- A single leading separator after the prefix (either `_` or `:`) is trimmed for convenience. For example, `MYAPP__Logging__Level=Debug` and `MYAPP:Logging:Level=Debug` both map to `{ "Logging": { "Level": "Debug" } }`.
 
 ## Notes
 
 - The provider exposes strings; `StringToPrimitiveConverter` coerces "true", "42", etc. during deserialization.
 - Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
 - See the root `README.md` and `ARCHITECTURE.md` for merge semantics and the overall change model.
- - Nested binding via `__` (ASP.NET Core style) is currently not supported; use JSON files for nested structures or map flat env vars to flat settings.
+ - Nested binding via `__` and `:` is supported. This aligns with ASP.NET Core conventions.

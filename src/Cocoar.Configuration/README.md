@@ -2,7 +2,7 @@
 
 A lightweight, strongly-typed configuration aggregator for .NET apps.
 
-- Load from multiple sources (JSON files, environment variables)
+- Load from multiple sources (JSON files, environment variables, HTTP via separate package, or any Microsoft IConfigurationSource via an adapter)
 - Merge hierarchically with last-write-wins semantics
 - Watch JSON files for changes (debounced) and update source cache
 - Live recompute: on any provider change, all rules are recomputed in order (last rule wins)
@@ -18,7 +18,7 @@ This package is split into:
 
 - Rules-based configuration assembly via `ConfigRule`
 - File provider with filesystem watcher and debounce
-- Environment variable provider with optional prefix filtering
+- Environment variable provider with optional prefix filtering; supports `__` and `:` for nesting (single `_` is literal)
 - HTTP polling provider that emits only on real payload changes; optional request headers via fluent options
 - Map to interface or concrete types via `ConfigTypeDefinition`
 - String-to-primitive JSON converter to coerce "true", "42", etc. when values are strings
@@ -132,14 +132,29 @@ var rules = new[]
 };
 ```
 
-Or, with provider-specific helpers:
+Or, with the Microsoft adapter (separate package):
 
 ```csharp
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
+using Microsoft.Extensions.Configuration;
+using Cocoar.Configuration.MicrosoftAdapter;
 
 var rules = new[]
 {
+    // Microsoft IConfigurationSource adapter (bring your own source)
+    Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+            instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
+                new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
+                {
+                    ["My:Section:Enabled"] = "true",
+                    ["My:Section:Value"] = "42",
+                }).Sources[0]
+            ),
+            queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section"))
+        .ForType<MySectionSettings>()
+        .Optional()
+        .Build(),
+
     Rules.FromFile(_ => new FileSourceRuleOptions(
             filepath: "appsettings.json",
             memberPath: "SectionA",

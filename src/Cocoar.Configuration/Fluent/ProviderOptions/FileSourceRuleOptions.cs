@@ -26,6 +26,10 @@ public sealed class FileSourceRuleOptions
     {
         if (string.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("filePath is required", nameof(filePath));
         var directory = Path.GetDirectoryName(filePath) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            directory = ".";
+        }
         var filename = Path.GetFileName(filePath);
         if (string.IsNullOrWhiteSpace(filename)) throw new ArgumentException("filePath must include a filename", nameof(filePath));
         return new FileSourceRuleOptions(directory, filename, sectionPath, wrapperPath, debounceTime);
