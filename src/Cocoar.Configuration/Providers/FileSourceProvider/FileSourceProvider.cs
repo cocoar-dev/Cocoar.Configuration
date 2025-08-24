@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reactive.Linq;
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
@@ -18,7 +19,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             IdentityMode = PathIdentityMode.CurrentOrOldPath
         });
 
-    public override async Task<JsonElement> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
         var filename = queryOptions.Filename;
         if (!_fileCache.TryGetValue(filename, out var value))
@@ -28,16 +29,16 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         }
 
         JsonElement result = value;
-        if (!string.IsNullOrWhiteSpace(queryOptions.MemberPath))
+        if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
         {
             result = value.ValueKind == JsonValueKind.Object &&
-                     value.TryGetProperty(queryOptions.MemberPath, out var section)
+                     value.TryGetProperty(queryOptions.SectionPath, out var section)
                 ? section
                 : JsonDocument.Parse("{}").RootElement;
         }
 
         // Use the base class helper to wrap if needed
-        return WrapIfNeeded(result, queryOptions.MemberWrapper);
+    return Task.FromResult(WrapIfNeeded(result, queryOptions.WrapperPath));
     }
 
     public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)
@@ -47,19 +48,30 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             _fsObservable
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
+                // apply per-query debounce if provided; default is no debounce
+                .Let(stream => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
                 {
-                    var newValue = LoadFile(fn);
+                    JsonElement newValue;
+                    try
+                    {
+                        newValue = LoadFile(fn);
+                    }
+                    catch
+                    {
+                        // Avoid faulting the change stream; emit empty object instead
+                        newValue = JsonDocument.Parse("{}").RootElement;
+                    }
                     _fileCache[fn] = newValue;
                     JsonElement newSection = newValue;
-                    if (!string.IsNullOrWhiteSpace(queryOptions.MemberPath))
+                    if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
                     {
                         newSection = newValue.ValueKind == JsonValueKind.Object &&
-                                     newValue.TryGetProperty(queryOptions.MemberPath, out var section)
+                                     newValue.TryGetProperty(queryOptions.SectionPath, out var section)
                             ? section
                             : JsonDocument.Parse("{}").RootElement;
                     }
-                    return WrapIfNeeded(newSection, queryOptions.MemberWrapper);
+                    return WrapIfNeeded(newSection, queryOptions.WrapperPath);
                 })
                 .Publish()
                 .RefCount()
@@ -68,42 +80,103 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
 
     private JsonElement LoadFile(string filename)
     {
-        try
+        var fullPath = Path.Combine(ProviderOptions.Directory, filename);
+        if (!File.Exists(fullPath))
         {
-            var fullPath = Path.Combine(ProviderOptions.Directory, filename);
-            if (!File.Exists(fullPath))
-            {
-                return JsonDocument.Parse("{}").RootElement;
-            }
-            var json = File.ReadAllText(fullPath);
-            return JsonDocument.Parse(json).RootElement.Clone();
+            // Throw to allow ConfigManager to honor Required rules
+            throw new FileNotFoundException($"Config file not found: {fullPath}", fullPath);
         }
-        catch
-        {
-            return JsonDocument.Parse("{}").RootElement;
-        }
+        var json = File.ReadAllText(fullPath);
+        return JsonDocument.Parse(json).RootElement.Clone();
     }
     
-    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null)
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(string filepath, string? sectionPath = null, string? wrapperPath = null, TimeSpan? debounceTime = null, Func<bool>? useWhen = null, bool required = false)
     {
-        var directory = Path.GetDirectoryName(filepath);
+        var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
-        var options = new FileSourceProviderOptions(directory, debounceTime);
-        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
+        var instanceDebounce = debounceTime; // explicit naming to avoid confusion with query debounce
+        var options = new FileSourceProviderOptions(directory, instanceDebounce);
+        var queryDebounce = debounceTime;
+    var queryOptions = new FileSourceProviderQueryOptions(filename, sectionPath, wrapperPath, queryDebounce);
         return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             options, 
             queryOptions, 
             new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
-            useWhen: useWhen
+            useWhen: useWhen,
+            required: required
             );
     }
     
-    public static ConfigRule CreateRule<TConfigType>(string filepath, string? memberPath = null, string? memberWrapper = null, TimeSpan? debounceTime = null)
+    public static ConfigRule CreateRule<TConfigType>(string filepath, string? sectionPath = null, string? wrapperPath = null, TimeSpan? debounceTime = null, bool required = false)
     {
-        var directory = Path.GetDirectoryName(filepath);
+        var directory = Path.GetDirectoryName(filepath) ?? string.Empty;
         var filename = Path.GetFileName(filepath);
-        var options = new FileSourceProviderOptions(directory, debounceTime);
-        var queryOptions = new FileSourceProviderQueryOptions(filename, memberPath, memberWrapper);
-        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType)));
+        var instanceDebounce = debounceTime;
+        var options = new FileSourceProviderOptions(directory, instanceDebounce);
+        var queryDebounce = debounceTime;
+    var queryOptions = new FileSourceProviderQueryOptions(filename, sectionPath, wrapperPath, queryDebounce);
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(options, queryOptions, new ConfigTypeDefinition(typeof(TConfigType)), required: required);
+    }
+
+    public static ConfigRule CreateRule<TConfigType>(
+        Func<ConfigManager, string> filepath,
+    Func<ConfigManager, string?>? sectionPath = null,
+    Func<ConfigManager, string?>? wrapperPath = null,
+        Func<ConfigManager, TimeSpan?>? debounceTime = null,
+        Func<bool>? useWhen = null,
+        bool required = true)
+    {
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
+            cm =>
+            {
+                var fp = filepath(cm);
+                var dir = Path.GetDirectoryName(fp) ?? string.Empty;
+                var instanceDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderOptions(dir, instanceDebounce);
+            },
+            cm =>
+            {
+                var fp = filepath(cm);
+                var file = Path.GetFileName(fp);
+                var mp = sectionPath?.Invoke(cm);
+                var mw = wrapperPath?.Invoke(cm);
+                var queryDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderQueryOptions(file, mp, mw, queryDebounce);
+            },
+            new ConfigTypeDefinition(typeof(TConfigType)),
+            useWhen,
+            required
+        );
+    }
+
+    public static ConfigRule CreateRule<TConfigType, TImplementationType>(
+        Func<ConfigManager, string> filepath,
+    Func<ConfigManager, string?>? sectionPath = null,
+    Func<ConfigManager, string?>? wrapperPath = null,
+        Func<ConfigManager, TimeSpan?>? debounceTime = null,
+        Func<bool>? useWhen = null,
+        bool required = true)
+    {
+        return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
+            cm =>
+            {
+                var fp = filepath(cm);
+                var dir = Path.GetDirectoryName(fp) ?? string.Empty;
+                var instanceDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderOptions(dir, instanceDebounce);
+            },
+            cm =>
+            {
+                var fp = filepath(cm);
+                var file = Path.GetFileName(fp);
+                var mp = sectionPath?.Invoke(cm);
+                var mw = wrapperPath?.Invoke(cm);
+                var queryDebounce = debounceTime?.Invoke(cm);
+                return new FileSourceProviderQueryOptions(file, mp, mw, queryDebounce);
+            },
+            new ConfigTypeDefinition(typeof(TConfigType), typeof(TImplementationType)),
+            useWhen,
+            required
+        );
     }
 }

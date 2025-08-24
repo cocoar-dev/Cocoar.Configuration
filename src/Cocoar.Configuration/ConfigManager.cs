@@ -1,70 +1,110 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using Cocoar.Configuration.Providers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cocoar.Configuration;
 
-public class ConfigManager
+public class ConfigManager : IConfigAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
     private volatile Dictionary<ConfigTypeDefinition, JsonElement> _configs = new();
     private volatile bool _initialized;
-    private readonly ConcurrentDictionary<(Type type, string key), ConfigSourceProvider> _providerCache = new();
+    private readonly List<IDisposable> _changeSubscriptions = new();
+    private readonly object _recalcLock = new();
+    private readonly ILogger _logger;
+    private readonly List<RuleManager> _ruleManagers = new();
+    private readonly ProviderRegistry _providerRegistry;
 
-    public ConfigManager(IEnumerable<ConfigRule> rules)
+    public ConfigManager(IEnumerable<ConfigRule> rules, ILogger? logger = null)
     {
         _rules = rules.ToList();
-       
+        _logger = logger ?? NullLogger.Instance;
+        _providerRegistry = new ProviderRegistry(_logger);
     }
 
     public ConfigManager Initialize()
     {
-        if (!_initialized)
+        if (_initialized) return this;
+        if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
         {
-            if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
-                RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            // Create per-rule managers
+            _ruleManagers.Clear();
+            foreach (var r in _rules)
+                _ruleManagers.Add(new RuleManager(r, _logger, _providerRegistry));
+            // initial compute and subscriptions
+            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RebuildProvidersAndSubscriptions();
         }
         return this;
     }
 
+    private void DisposeSubscriptionsAndProviders()
+    {
+        foreach (var d in _changeSubscriptions.ToArray())
+        {
+            try { d.Dispose(); } catch { /* ignore */ }
+        }
+        _changeSubscriptions.Clear();
+
+        // Providers are owned by RuleManagers; nothing to clear here.
+    }
+
+    private void RecalculateAllConfigsSafe()
+    {
+        // Prevent concurrent recomputes and ensure atomic swap
+        lock (_recalcLock)
+        {
+            _logger.LogDebug("Recompute started");
+            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RebuildProvidersAndSubscriptions();
+            _logger.LogDebug("Recompute finished");
+        }
+    }
+
     private async Task RecalculateAllConfigsAsync(CancellationToken cancellationToken = default)
     {
+        // flat maps by config contract, merged by rule order (last wins)
         var tempFlatMaps = new Dictionary<ConfigTypeDefinition, Dictionary<string, JsonElement>>();
-        foreach (var rule in _rules)
+
+        foreach (var rm in _ruleManagers)
         {
-            if (rule.Options?.UseWhen != null && !rule.Options.UseWhen.Invoke())
-            {
-                continue;
-            }
+            var (include, value) = await rm.ComputeAsync(this, cancellationToken).ConfigureAwait(false);
+            if (!include) continue;
 
-            var provider = GetOrCreateProvider(rule);
-            //provider.Changes(rule.QueryOptions).Subscribe(value =>
-            //{
-            //    if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
-            //    {
-            //        flatMap = new Dictionary<string, JsonElement>();
-            //        tempFlatMaps[rule.ConfigContract] = flatMap;
-            //    }
-
-            //    var flatOutcome = Flatten(value);
-            //    foreach (var kvp in flatOutcome)
-            //        flatMap[kvp.Key] = kvp.Value;
-            //});
-            var value = await provider.GetValueAsync(rule.QueryOptions, cancellationToken);
-            
-            if (!tempFlatMaps.TryGetValue(rule.ConfigContract, out var flatMap))
+            if (!tempFlatMaps.TryGetValue(rm.TypeDefinition, out var flatMap))
             {
                 flatMap = new Dictionary<string, JsonElement>();
-                tempFlatMaps[rule.ConfigContract] = flatMap;
+                tempFlatMaps[rm.TypeDefinition] = flatMap;
             }
             var flatOutcome = Flatten(value);
             foreach (var kvp in flatOutcome)
-                flatMap[kvp.Key] = kvp.Value;
+                flatMap[kvp.Key] = kvp.Value; // last rule wins per key
         }
+
         var nextConfig = new Dictionary<ConfigTypeDefinition, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = Unflatten(flatMap);
+
         _configs = nextConfig;
+    }
+
+    private void RebuildProvidersAndSubscriptions()
+    {
+        // Recreate providers and subscriptions with possibly changed options
+        // under lock to avoid races with change notifications
+        DisposeSubscriptionsAndProviders();
+
+        foreach (var rm in _ruleManagers)
+        {
+            var sub = rm.Changes
+                .Subscribe(_ =>
+                {
+                    try { RecalculateAllConfigsSafe(); }
+                    catch (Exception ex) { _logger.LogError(ex, "Recompute failed from change trigger"); }
+                });
+            _changeSubscriptions.Add(sub);
+        }
     }
 
     private static Dictionary<string, JsonElement> Flatten(JsonElement element)
@@ -80,7 +120,7 @@ public class ConfigManager
         {
             foreach (var prop in e.EnumerateObject())
             {
-                var key = prefix == null ? prop.Name : $"{prefix}.{prop.Name}";
+                var key = prefix == null ? prop.Name : $"{prefix}:{prop.Name}";
                 FlattenRec(prop.Value, key, dict);
             }
         }
@@ -95,7 +135,7 @@ public class ConfigManager
         var root = new Dictionary<string, object>();
         foreach (var (path, value) in flat)
         {
-            var segs = path.Split('.');
+            var segs = path.Split(':');
             var cursor = root;
             for (int i = 0; i < segs.Length - 1; i++)
             {
@@ -115,14 +155,16 @@ public class ConfigManager
 
     public T? GetConfig<T>()
     {
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+        var key = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) 
+                  ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
 
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        if (key is null || !_configs.TryGetValue(key, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
         }
 
-        return Deserialize<T>(value);
+        var target = key.ConfigType;
+        return (T?)Deserialize(value, target);
     }
 
     public T GetRequiredConfig<T>()
@@ -143,19 +185,30 @@ public class ConfigManager
 
     public object? GetConfig(Type type)
     {
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == type) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == type);
-        
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
+        var key = _configs.Keys.FirstOrDefault(k => k.ConfigType == type) 
+                  ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == type);
+
+        if (key is null || !_configs.TryGetValue(key, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {type.Name} not found.");
         }
-        var result = Deserialize(value, type);
+        var target = key.ConfigType;
+        var result = Deserialize(value, target);
         if (result is null)
         {
             throw new InvalidOperationException($"Configuration for type {type.Name} is null.");
         }
         return result;
+    }
 
+    public object GetRequiredConfig(Type type)
+    {
+        var value = GetConfig(type);
+        if (value is null)
+        {
+            throw new InvalidOperationException($"Configuration for type {type.Name} is null.");
+        }
+        return value;
     }
 
 
@@ -166,14 +219,6 @@ public class ConfigManager
 
     private T? Deserialize<T>(JsonElement element)
     {
-
-        var configType = _configs.Keys.FirstOrDefault(k => k.ConfigType == typeof(T)) ?? _configs.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
-
-        if (configType is null || !_configs.TryGetValue(configType, out var value))
-        {
-            throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
-        }
-
         var options = new JsonSerializerOptions();
         // Register converters for common primitives
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
@@ -183,7 +228,7 @@ public class ConfigManager
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
 
-        return (T?)element.Deserialize(configType.ConfigType, options);
+        return element.Deserialize<T>(options);
     }
 
     private object? Deserialize(JsonElement element, Type type)
@@ -200,17 +245,17 @@ public class ConfigManager
         return element.Deserialize(type, options);
     }
 
-    private ConfigSourceProvider GetOrCreateProvider(ConfigRule rule)
-    {
-        var cacheKey = (rule.ProviderType, rule.ProviderOptions.CalculateKey());
-        if (_providerCache.TryGetValue(cacheKey, out var existing))
-            return existing;
+    // Providers are resolved and managed by RuleManager.
 
-           var provider = (ConfigSourceProvider?)Activator.CreateInstance(rule.ProviderType, rule.ProviderOptions);
-        
-        if (provider == null)
-            throw new InvalidOperationException($"Could not create provider {rule.ProviderType.Name} with key ''.");
-        _providerCache[cacheKey] = provider;
-        return provider;
+    public void Dispose()
+    {
+        DisposeSubscriptionsAndProviders();
+        foreach (var rm in _ruleManagers.ToArray())
+        {
+            try { rm.Dispose(); } catch { /* ignore */ }
+        }
+        _ruleManagers.Clear();
+        _initialized = false;
+        GC.SuppressFinalize(this);
     }
 }

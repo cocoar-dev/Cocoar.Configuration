@@ -12,6 +12,12 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  <PackageReference Include="Microsoft.Extensions.Configuration" />
+  <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
+  <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+  <PackageReference Include="Microsoft.Extensions.Configuration.Ini" />
+  <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+  <PackageReference Include="Microsoft.Extensions.Primitives" />
         <PackageReference Include="Microsoft.Reactive.Testing" />
         <PackageReference Include="System.Reactive" />
         <PackageReference Include="xunit" />
@@ -26,7 +32,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
     </ItemGroup>
 
     <ItemGroup>

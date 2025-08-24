@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.Extensions;
 
@@ -13,20 +14,28 @@ public static class CocoarConfigurationExtensions
     {
         services.ThrowIfAlreadyRegistered();
 
-        var ruleList = rules.ToList();
-        var configManager = new ConfigManager(ruleList).Initialize();
-        services.AddSingleton<ConfigManager>(configManager);
+    var ruleList = rules.ToList();
+    var configManager = new ConfigManager(ruleList).Initialize();
+    services.AddSingleton<ConfigManager>(configManager);
         var types = ruleList.Select(r => r.ConfigContract).Distinct();
         foreach (var type in types)
         {
             if (type.ImplementationType != null)
             {
-                services.AddSingleton(type.ImplementationType, sp => configManager.GetConfig(type.ConfigType));
+        services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
             }
-            services.AddSingleton(type.ConfigType, sp => configManager.GetConfig(type.ConfigType));
+        services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
         }
         return services;
     }
+
+    /// <summary>
+    /// Registers via fluent rule builders (converted to rules).
+    /// </summary>
+    public static IServiceCollection AddCocoarConfiguration(
+        this IServiceCollection services,
+        IEnumerable<IConfigRuleBuilder> builders)
+        => AddCocoarConfiguration(services, builders.Select(b => b.Build()));
 
     /// <summary>
     /// Overload for params usage (convenient for app code)
@@ -35,7 +44,15 @@ public static class CocoarConfigurationExtensions
         this IServiceCollection services,
         params ConfigRule[] rules)
         => AddCocoarConfiguration(services, rules.AsEnumerable());
-
+    
+    /// <summary>
+    /// Overload for params builders usage.
+    /// </summary>
+    public static IServiceCollection AddCocoarConfiguration(
+        this IServiceCollection services,
+        params IConfigRuleBuilder[] builders)
+        => AddCocoarConfiguration(services, builders.AsEnumerable());
+    
 
     public static void ThrowIfAlreadyRegistered(this IServiceCollection services)
     {

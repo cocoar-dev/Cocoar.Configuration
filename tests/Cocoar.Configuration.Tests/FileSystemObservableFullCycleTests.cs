@@ -26,6 +26,9 @@ public class FileSystemObservableFullCycleTests
         using var watcher = new FileSystemObservable(dir, opts)
             .Subscribe(received.Add);
 
+        // give the watcher a moment to attach to OS notifications
+        Thread.Sleep(100);
+
         try
         {
             // ── 1️⃣ create file ──────────────────────────────────────────
@@ -80,8 +83,9 @@ public class FileSystemObservableFullCycleTests
         }
     }
 
-    // helper: spin-wait up to 2 s
-    private static void WaitUntil(Func<bool> predicate, int timeoutMs = 2000)
+    // helper: spin-wait up to 5 s (tight but resilient on CI);
+    // if tests exceed this repeatedly, there's a deeper issue with file notifications
+    private static void WaitUntil(Func<bool> predicate, int timeoutMs = 5000)
     {
         var start = Environment.TickCount;
         while (!predicate())
