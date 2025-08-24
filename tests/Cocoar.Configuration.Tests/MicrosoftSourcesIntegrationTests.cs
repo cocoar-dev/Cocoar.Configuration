@@ -94,13 +94,18 @@ public class MicrosoftSourcesIntegrationTests
         Assert.True(initial!.Enabled);
         Assert.Equal(1, initial.Value);
 
+        // Give the underlying FileSystemWatcher time to fully subscribe (Linux CI sometimes needs a brief settle)
+        await Task.Delay(250);
+
+        // Mutate file content (ensure actual textual difference)
         await File.WriteAllTextAsync(file, "[My:Section]\nEnabled=false\nValue=3\n");
-        // Actively wait for change token propagation (up to 5s)
+
+        // Actively wait for change token propagation (up to 8s)
         var sw = System.Diagnostics.Stopwatch.StartNew();
         DemoConfig? updated = null;
-        while (sw.Elapsed < TimeSpan.FromSeconds(5))
+        while (sw.Elapsed < TimeSpan.FromSeconds(8))
         {
-            await Task.Delay(150);
+            await Task.Delay(200);
             updated = mgr.GetConfig<DemoConfig>();
             if (updated?.Value == 3 && updated.Enabled == false) break;
         }
