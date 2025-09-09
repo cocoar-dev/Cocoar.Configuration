@@ -32,9 +32,9 @@
     </ItemGroup>
 
     <ItemGroup>
-    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
-    <ProjectReference Include="..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
-    <ProjectReference Include="..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
     </ItemGroup>
 
     <ItemGroup>

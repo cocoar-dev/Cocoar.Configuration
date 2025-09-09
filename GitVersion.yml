@@ -1,0 +1,16 @@
+mode: ContinuousDeployment
+
+branches:
+  develop:
+    regex: ^develop$
+    tag: beta
+    increment: Patch
+    is-mainline: true
+  feature:
+    regex: ^feature[/-]
+    tag: alpha
+    increment: Patch
+
+tag-prefix: 'v'
+
+next-version: 0.1.0

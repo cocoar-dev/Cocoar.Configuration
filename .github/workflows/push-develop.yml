@@ -1,0 +1,67 @@
+name: Push develop
+
+on:
+  push:
+    branches: [ develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v1
+        with:
+          versionSpec: '5.x'
+
+      - name: Calculate version
+        id: gv
+        uses: gittools/actions/gitversion/execute@v1
+
+      - name: Show calculated version
+        run: |
+          echo "NuGet version: ${{ steps.gv.outputs.SemVer }}"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.gv.outputs.SemVer }}
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --no-restore
+
+      - name: Add GitHub NuGet source
+        run: dotnet nuget add source --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+      
+      - name: Push to GitHub Packages
+        run: |
+          shopt -s nullglob
+          for pkg in ./nupkgs/*.nupkg; do
+            case "$pkg" in
+              *.symbols.nupkg) continue ;;
+            esac
+            echo "➡️ pushing $pkg"
+            dotnet nuget push "$pkg" --source github --skip-duplicate --api-key "${{ secrets.GITHUB_TOKEN }}"
+          done
+        
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ steps.gv.outputs.SemVer }}
+          path: ./src/nupkgs/
+    
+
