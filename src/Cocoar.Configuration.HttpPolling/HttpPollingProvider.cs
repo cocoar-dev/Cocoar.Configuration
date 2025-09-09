@@ -133,8 +133,10 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
 
     private static string MakeKey(HttpPollingProviderQueryOptions query)
     {
-    var hdr = query.Headers == null ? string.Empty : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-    return $"{query.UrlPathOrAbsolute}|{query.WrapperPath}|{query.WrapperPath}|{hdr}";
+        var hdr = query.Headers == null
+            ? string.Empty
+            : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
+        return $"{query.UrlPathOrAbsolute}|{query.KeyPrefix}|{query.WrapperPath}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>

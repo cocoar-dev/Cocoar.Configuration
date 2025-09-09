@@ -2,8 +2,8 @@
 
 Project configuration from environment variables, optionally filtered by a prefix.
 
-- Options: `EnvironmentVariableProviderOptions(prefix?)`
-- Query: `EnvironmentVariableProviderQueryOptions(memberPath?, memberWrapper?)`
+- Options: `EnvironmentVariableProviderOptions(keyPrefix?)`
+- Query: `EnvironmentVariableProviderQueryOptions(keyPrefix?, wrapperPath?)`
 - Change semantics: currently no default emissions; primarily used for snapshot reads during recompute. Values are strings at source; deserialization can coerce to primitives via the built-in converter.
 
 ## When to use

@@ -5,7 +5,7 @@ using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cocoar.Configuration.Extensions.Tests;
+namespace Cocoar.Configuration.Tests;
 
 public class FileSourceProviderTests
 {

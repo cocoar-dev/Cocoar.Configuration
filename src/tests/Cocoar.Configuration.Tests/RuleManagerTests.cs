@@ -76,7 +76,7 @@ public partial class RuleManagerTests
         public override Task<JsonElement> GetValueAsync(InMemoryQueryOptions query, CancellationToken ct = default)
         {
             if (_store.TryGetValue(query.Id, out var v)) return Task.FromResult(v);
-            var json = JsonSerializer.Serialize(new Dictionary<string, object?> { ["Value"] = options.Key + ":" + query.Id });
+            var json = JsonSerializer.Serialize(new Dictionary<string, object?> { ["Value"] = ProviderOptions.Key + ":" + query.Id });
             using var doc = JsonDocument.Parse(json);
             var el = doc.RootElement.Clone();
             _store[query.Id] = el;
@@ -259,7 +259,7 @@ public partial class RuleManagerTests
             var json = JsonSerializer.Serialize(new Dictionary<string, object?>
             {
                 ["providerId"] = _instanceId,
-                ["key"] = options.Name,
+                ["key"] = ProviderOptions.Name,
                 ["q"] = query.Id
             });
             using var doc = JsonDocument.Parse(json);

@@ -14,5 +14,21 @@
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Common NuGet metadata -->
+    <RepositoryUrl>https://github.com/cocoar-dev/Cocoar.Configuration</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <Authors>Bernhard Windisch</Authors>
+    <Company>COCOAR</Company>
     </PropertyGroup>
+
+    <!-- SourceLink: publish repo URL and embed source link info -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    </ItemGroup>
 </Project>
