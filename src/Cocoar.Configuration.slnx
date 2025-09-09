@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/.SolutionItems/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cocoar.Configuration.Tests/Cocoar.Configuration.Tests.csproj" />
+  </Folder>
+  <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
+  <Project Path="Cocoar.Configuration.HttpPolling/Cocoar.Configuration.HttpPolling.csproj" />
+  <Project Path="Cocoar.Configuration.MicrosoftAdapter/Cocoar.Configuration.MicrosoftAdapter.csproj" />
+  <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />
+</Solution>
