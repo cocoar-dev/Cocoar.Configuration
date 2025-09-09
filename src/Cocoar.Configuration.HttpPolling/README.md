@@ -3,7 +3,7 @@
 Fetch JSON over HTTP(S) on an interval and emit change signals only when the payload changes.
 
 - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, httpMessageHandler?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?)`
+- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, keyPrefix?, wrapperPath?, headers?)`
 - Change semantics: polls at `pollInterval` and emits only when the fetched JSON differs from the last payload. Internally caches last payload per query and reuses a single HttpClient per provider instance.
 
 ## When to use
@@ -14,7 +14,7 @@ Fetch JSON over HTTP(S) on an interval and emit change signals only when the pay
 ## Example
 
 ```csharp
-using Cocoar.Configuration.Providers.HttpPollingProvider;
+using Cocoar.Configuration.HttpPolling;
 
 services.AddCocoarConfiguration(
     HttpPollingProvider.CreateRule<MyRemoteSettings, MyRemoteSettings>(
@@ -24,7 +24,7 @@ services.AddCocoarConfiguration(
         ),
         queryFactory: _ => new HttpPollingProviderQueryOptions(
             urlPathOrAbsolute: "/v1/settings",
-            memberPath: "MyRemote"
+            keyPrefix: "MyRemote"
         ),
         useWhen: () => true,
         required: false

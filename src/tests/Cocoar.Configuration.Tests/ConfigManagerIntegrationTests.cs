@@ -5,7 +5,7 @@ using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Cocoar.Configuration.Extensions.Tests;
+namespace Cocoar.Configuration.Tests;
 
 public class ConfigManagerIntegrationTests
 {

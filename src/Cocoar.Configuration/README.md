@@ -19,7 +19,7 @@ This package is split into:
 - Rules-based configuration assembly via `ConfigRule`
 - File provider with filesystem watcher and debounce
 - Environment variable provider with optional prefix filtering; supports `__` and `:` for nesting (single `_` is literal)
-- HTTP polling provider that emits only on real payload changes; optional request headers via fluent options
+- HTTP polling provider (separate package) that emits only on real payload changes; optional request headers
 - Map to interface or concrete types via `ConfigTypeDefinition`
 - String-to-primitive JSON converter to coerce "true", "42", etc. when values are strings
 - Dynamic rule factories (options/query derived from current config state)
@@ -37,7 +37,7 @@ This package is split into:
 - `Cocoar.Configuration` (core)
 - `Cocoar.Configuration.Providers.FileSourceProvider`
 - `Cocoar.Configuration.Providers.EnvironmentVariableProvider`
-- `Cocoar.Configuration.HttpPolling` (separate package) – provides `Providers.HttpPollingProvider`
+- `Cocoar.Configuration.HttpPolling` (separate package)
 - `Cocoar.Configuration.Extensions` (DI for ServiceCollection)
 - `Cocoar.Configuration.AspNetCore` (WebApplicationBuilder extension)
 
@@ -176,7 +176,7 @@ var rules = new[]
 ### FileSourceProvider
 
 - Options: `FileSourceProviderOptions(directory, debounceTime)`
-- Query: `FileSourceProviderQueryOptions(filename, memberPath?, memberWrapper?)`
+- Query: `FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?, debounce?)`
 - Factory:
 
 ```csharp
@@ -192,8 +192,8 @@ Watches the folder for changes and emits updates per file with optional per-file
 
 ### EnvironmentVariableProvider
 
-- Options: `EnvironmentVariableProviderOptions(prefix?)`
-- Query: `EnvironmentVariableProviderQueryOptions(memberPath?, memberWrapper?)`
+- Options: `EnvironmentVariableProviderOptions(keyPrefix?)`
+- Query: `EnvironmentVariableProviderQueryOptions(keyPrefix?, wrapperPath?)`
 - Factory:
 
 ```csharp
@@ -212,12 +212,12 @@ Notes:
 
 ### HttpPollingProvider (separate package)
 
-- Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?, headers?)`
+- Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, handler?)`
+- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, keyPrefix?, wrapperPath?, headers?)`
 - Factory (static or lambda-based):
 
 ```csharp
-using Cocoar.Configuration.Providers.HttpPollingProvider; // from Cocoar.Configuration.HttpPolling package
+using Cocoar.Configuration.HttpPolling; // from Cocoar.Configuration.HttpPolling package
 
 services.AddCocoarConfiguration(
     HttpPollingProvider.CreateRule<MyRemoteSettings, MyRemoteSettings>(
@@ -225,7 +225,7 @@ services.AddCocoarConfiguration(
             baseAddress: "https://config.example.com",
             pollInterval: TimeSpan.FromSeconds(10)
         ),
-        queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", memberPath: "MyRemote"),
+    queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", keyPrefix: "MyRemote"),
         useWhen: () => true
     )
 );

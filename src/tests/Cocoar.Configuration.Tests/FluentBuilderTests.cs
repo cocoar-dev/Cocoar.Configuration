@@ -3,7 +3,7 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cocoar.Configuration.Extensions.Tests;
+namespace Cocoar.Configuration.Tests;
 
 public class FluentBuilderTests
 {
