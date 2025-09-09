@@ -1,5 +1,6 @@
 using System.Reactive.Linq;
 using System.Reactive.Concurrency;
+using System.Linq;
 
 namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
@@ -34,6 +35,7 @@ public static class FileSystemWatcherObservableExtensions
                                 d[keySelector(ch)] = ch;
                                 return d;
                             })
-                        .Select(d => d.Values.ToArray())));
+                        .Select(d => d.Values.ToArray())
+                        .Where(arr => arr.Length > 0)));
     }
 }
