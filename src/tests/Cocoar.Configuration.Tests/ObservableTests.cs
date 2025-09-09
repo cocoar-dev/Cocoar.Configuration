@@ -95,7 +95,7 @@ public sealed class FileSystemObservableTests : ReactiveTest
             OnCompleted<FileSystemChange>(200));
 
         var result = sch.Start(() =>
-            src.CollapseBurst(TimeSpan.FromTicks(30), ch => ch.Path));  // quiet gap 30
+            src.CollapseBurst(TimeSpan.FromTicks(30), ch => ch.Path, sch));  // quiet gap 30 with scheduler
 
         var batches = result.Messages.Where(n => n.Value.Kind == NotificationKind.OnNext).ToList();
         Assert.NotEmpty(batches);
