@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.MicrosoftAdapter;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Cocoar.Configuration.Tests;
@@ -41,9 +43,22 @@ public class HttpPollingProviderTests
 
     var services = new ServiceCollection();
         services.AddCocoarConfiguration([
+            // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
+            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+                    _ => new MicrosoftConfigurationSourceProviderOptions(
+                        new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                            .AddInMemoryCollection(new Dictionary<string,string?>
+                            {
+                                ["Remote:Url"] = "/api/config"
+                            })
+                            .Sources[0]
+                    ),
+                    _ => new MicrosoftConfigurationSourceProviderQueryOptions("Remote"))
+                .ForType<MyHttpPollingSettings>()
+                .Optional(),
             Rules.Using
-                .FromHttp(_ => new HttpPollingRuleOptions(
-                    urlPathOrAbsolute: "/api/config",
+                .FromHttp(configManager => new HttpPollingRuleOptions(
+                    urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
                     baseAddress: "https://example.com",
             // Give CI plenty of time; we will actively wait for the change
             pollInterval: TimeSpan.FromMilliseconds(50),
@@ -71,6 +86,11 @@ public class HttpPollingProviderTests
     public class MyCfg
     {
         public int Value { get; set; }
+    }
+
+    public class MyHttpPollingSettings : MyCfg
+    {
+        public string Url { get; set; } = "/api/config";
     }
 
     [Fact]

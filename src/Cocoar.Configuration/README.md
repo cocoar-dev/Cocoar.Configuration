@@ -269,11 +269,29 @@ Limitations:
 - `ConfigManager.Initialize()`
 - `T? ConfigManager.GetConfig<T>()`
 - `object? ConfigManager.GetConfig(Type type)`
+- `bool ConfigManager.TryGetConfig<T>(out T? value)`
+- `bool ConfigManager.TryGetConfig(Type type, out object? value)`
+- `T ConfigManager.GetRequiredConfig<T>()`
+- `object ConfigManager.GetRequiredConfig(Type type)`
 - `JsonElement? ConfigManager.GetConfigAsJson(Type type)`
 - `ConfigRule.Create<TProvider, TOptions, TQueryOptions>(...)`
 - Provider factories:
   - `FileSourceProvider.CreateRule<TConfig[,TImpl]>(...)`
   - `EnvironmentVariableProvider.CreateRule<TConfig[,TImpl]>(...)`
+
+## API semantics
+
+- GetConfig<T>() / GetConfig(Type):
+    - Returns the current snapshot value or null when the config is missing or cannot be deserialized.
+    - Never throws for missing values. Use this for optional reads.
+- GetRequiredConfig<T>() / GetRequiredConfig(Type):
+    - Returns the current snapshot value.
+    - Throws InvalidOperationException if the config is missing. Use this when a rule or DI registration depends on it.
+- TryGetConfig<T>(out T?) / TryGetConfig(Type, out object?):
+    - Returns true only when a non-null value is available and assigns it to the out parameter; otherwise returns false and sets out to null.
+- GetConfigAsJson(Type):
+    - Returns the merged JSON for the given type, or null if not present.
+    - Helpful for diagnostics or custom deserialization.
 
 ## Examples
 
@@ -301,6 +319,32 @@ services.AddCocoarConfiguration(
 
 var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings>();
 // result.Enabled == false
+```
+
+### Seed + dependent rule (FromStatic + GetRequiredConfig)
+
+Seed one type explicitly, then have a dependent rule read it during recompute.
+
+```csharp
+public class MySeed { public string Name { get; set; } = "Seed"; public int Value { get; set; } = 1; }
+public class Container { public MySeed? Dep { get; set; } }
+
+var rules = new[]
+{
+    // 1) Seed MySeed via a static provider (no change emissions)
+    Rules.FromStatic<MySeed>(_ => new MySeed { Name = "Seed", Value = 11 })
+        .ForType<MySeed>()
+        .Build(),
+
+    // 2) Dependent rule: reads the seeded type at recompute time
+    Rules.FromStatic<MySeed>(cm => cm.GetRequiredConfig<MySeed>(), wrapperPath: "Dep")
+        .ForType<Container>()
+        .Build(),
+};
+
+var manager = new ConfigManager(rules).Initialize();
+var c = manager.GetRequiredConfig<Container>();
+// c.Dep is non-null and contains the seeded value
 ```
 
 ## Notes and current limitations

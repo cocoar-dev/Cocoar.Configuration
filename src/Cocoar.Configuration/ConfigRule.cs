@@ -48,15 +48,12 @@ public record ConfigRule(
             UseWhen = useWhen,
             Required = required
         };
-        // Keep placeholders for ProviderOptions/QueryOptions to satisfy non-null requirements;
-        // actual values will be created from factories at runtime.
-        var placeholderProviderOpts = providerOptionsFactory(new ConfigManager(Array.Empty<ConfigRule>()));
-        var placeholderQueryOpts = queryOptionsFactory(new ConfigManager(Array.Empty<ConfigRule>()));
-
+        // Store null-forgiven placeholders to avoid premature factory invocation.
+        // Actual values are produced from factories at runtime in Resolve* methods.
         return new ConfigRule(
             typeof(TProvider),
-            placeholderProviderOpts,
-            placeholderQueryOpts,
+            default!,
+            default!,
             typeDefinition,
             options,
             m => providerOptionsFactory(m),

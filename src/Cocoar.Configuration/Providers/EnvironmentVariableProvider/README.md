@@ -33,5 +33,8 @@ Environment variable mapping rules (with prefix "MYAPP"):
 
 - The provider exposes strings; `StringToPrimitiveConverter` coerces "true", "42", etc. during deserialization.
 - Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
-- See the root `README.md` and `ARCHITECTURE.md` for merge semantics and the overall change model.
+- See the root `README.md` ("How it works") and `ARCHITECTURE.md` for merge semantics, recompute behavior, and dynamic dependencies.
  - Nested binding via `__` and `:` is supported. This aligns with ASP.NET Core conventions.
+
+Known gaps
+- Provider does not emit changes by default; treat as snapshot input. If change-driven recompute is required, combine with other providers.

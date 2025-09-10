@@ -1,0 +1,172 @@
+# Cocoar.Configuration
+
+Lightweight, strongly-typed configuration aggregation for .NET. Compose config from multiple sources (files, environment, HTTP, Microsoft IConfiguration) with predictable last-write-wins merge and live recompute on changes.
+
+## Why
+
+- Keep your app’s config as contracts (interfaces/classes) instead of string lookups
+- Layer multiple sources in a fixed order with simple, deterministic merges
+- React to changes (file watchers, polling, etc.) and atomically swap results
+- Use or build providers without coupling them to ASP.NET Core
+
+## Packages
+
+- Core: `Cocoar.Configuration` (rules, manager, built-in file/env providers)
+- ASP.NET Core extras: `Cocoar.Configuration.AspNetCore` (builder integration)
+- Providers:
+  - File JSON: in core under `Providers/FileSourceProvider`
+  - Environment variables: in core under `Providers/EnvironmentVariableProvider`
+  - HTTP polling: `Cocoar.Configuration.HttpPolling` (separate package)
+  - Microsoft IConfiguration adapter: `Cocoar.Configuration.MicrosoftAdapter` (separate package)
+
+Provider docs:
+- File: src/Cocoar.Configuration/Providers/FileSourceProvider/README.md
+- Environment: src/Cocoar.Configuration/Providers/EnvironmentVariableProvider/README.md
+- HTTP polling: src/Cocoar.Configuration.HttpPolling/README.md
+- Microsoft adapter: src/Cocoar.Configuration.MicrosoftAdapter/README.md
+
+Architecture details: src/Cocoar.Configuration/ARCHITECTURE.md
+
+## Install
+
+Add the packages you need from NuGet:
+- Cocoar.Configuration
+- Cocoar.Configuration.AspNetCore (optional)
+- Cocoar.Configuration.HttpPolling (optional)
+- Cocoar.Configuration.MicrosoftAdapter (optional)
+
+## Quick start
+
+1) Define your settings
+
+```csharp
+public interface IMySettings { bool Enabled { get; } int Value { get; } }
+public sealed class MySettings : IMySettings { public bool Enabled { get; set; } public int Value { get; set; } }
+```
+
+2) Build rules and the manager
+
+```csharp
+using Cocoar.Configuration;
+using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+
+var rules = new []
+{
+    FileSourceProvider.CreateRule<MySettings, IMySettings>(
+        filepath: "./appsettings.json",
+        memberPath: "MySection"),
+    EnvironmentVariableProvider.CreateRule<MySettings, IMySettings>(memberPath: "MYAPP")
+};
+
+var manager = new ConfigManager(rules).Initialize();
+var cfg = manager.GetConfig<IMySettings>();
+```
+
+3) ASP.NET Core builder integration (optional)
+
+```csharp
+using Cocoar.Configuration.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args)
+    .AddCocoarConfiguration(rules);
+
+var cfg = builder.GetCocoarConfiguration<IMySettings>();
+```
+
+## How it works
+
+- You define rules. Each rule targets a specific config type (class/interface) and queries exactly one provider to produce a JSON object.
+- For a given type T, Cocoar starts from T’s defaults and merges each rule’s JSON into T in the configured order (last-write-wins, key-by-key).
+- During a recompute, a rule can read the current in-progress snapshot from the ConfigManager (any type). This enables dynamic rules whose options depend on values produced by earlier rules in the same recompute.
+    - Example: One rule sets a URL; a later HTTP rule reads that URL via `configManager.GetRequiredConfig<MyHttpPollingSettings>()` and uses it for its request.
+- Objects are flattened into colon-keys (e.g., `Section:Enabled`), merged in order, then unflattened and deserialized into your target type.
+
+### Change model and recompute
+
+- Providers may emit change notifications (e.g., file watcher, HTTP polling). The environment provider typically does not emit by default and is treated as snapshot input.
+- On any provider change, Cocoar recomputes all rules for all target types in order and atomically swaps the cache. Consumers see consistent snapshots.
+- If your rule factories (options/query) depend on current config, provider instances/subscriptions are rebuilt during recompute so dynamic dependencies take effect.
+
+### Required vs optional rules
+
+- Each rule can be marked required or optional.
+- Required: failures (e.g., missing file, HTTP error) cause the recompute to fail for that rule/type.
+- Optional: failures are tolerated and the rule is skipped for that recompute.
+
+### Ordering and dependencies
+
+- Place dependency-producing rules before dependency-consuming rules.
+- Rules may read any type’s current snapshot during recompute. Avoid circular dependencies across types or rules to prevent surprises.
+
+Guidance for recompute-time reads
+- GetRequiredConfig<T>() throws if T does not exist yet; use only if you guarantee T is produced earlier.
+- GetConfig<T>() returns null if T does not exist; handle nulls explicitly when reading dependencies.
+- For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — planned as `Rules.FromStatic`).
+
+### Merge semantics and limits
+
+- Last-write-wins, key-by-key merge of JSON objects using colon-key flattening.
+- Arrays are replace-only by design; an array value replaces the prior value at that key (no merging).
+- Keys follow `Section:Key` flattening during merge; final objects are unflattened before binding to your types.
+
+## Getting started
+
+Packages (NuGet):
+- `Cocoar.Configuration`
+- `Cocoar.Configuration.AspNetCore` (optional)
+- `Cocoar.Configuration.HttpPolling` (optional)
+- `Cocoar.Configuration.MicrosoftAdapter` (optional)
+
+Badges (add in your repo once published):
+- Build: GitHub Actions Status
+- NuGet: package version badges for each package
+
+## Dynamic dependency example
+
+Later rules can read the in-progress configuration from the manager to parameterize themselves. Here a file (or any provider) provides a URL used by a subsequent HTTP rule.
+
+```csharp
+services.AddCocoarConfiguration([
+    // Base settings providing the URL
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", sectionPath: "Remote"))
+         .ForType<MyHttpPollingSettings>()
+         .Required()
+         .Build(),
+
+    // HTTP rule reads the current URL from the manager during recompute
+    Rules.Using
+        .FromHttp(cm => new HttpPollingRuleOptions(
+            urlPathOrAbsolute: cm.GetRequiredConfig<MyHttpPollingSettings>().Url,
+            baseAddress: "https://example.com",
+            pollInterval: TimeSpan.FromSeconds(5)
+        ))
+        .UseWhen(() => true)
+        .ForType<MyCfg>()
+]);
+```
+
+## Providers at a glance
+
+- FileSourceProvider: read JSON files; debounce filesystem notifications; see provider README for options and samples
+- EnvironmentVariableProvider: map env vars with separators `__` and `:`; optional prefix filter
+- HttpPollingProvider: poll a JSON endpoint; emit only on real payload change
+- MicrosoftConfigurationSourceProvider: plug any IConfigurationSource into rules
+
+See the provider READMEs linked above for detailed options and examples.
+
+## Contributing
+
+Issues and PRs welcome. Please keep provider abstractions stable and deterministic (e.g., option keys for instance pooling) and follow the merge semantics described in ARCHITECTURE.md.
+
+---
+
+For deeper details, examples, and roadmap, check src/Cocoar.Configuration/README.md and ARCHITECTURE.md.
+
+## Known gaps and next steps
+
+- Array merge semantics: Arrays currently replace prior values. Additional strategies (append/merge/custom) are under consideration.
+- Null/empty handling: Edge cases (nulls and empty objects) will be documented precisely; current behavior follows JSON deserialization defaults after key merge.
+- Change emissions: Environment provider does not emit changes by default (snapshot only). If you need change-driven recompute, combine with other providers.
+- Circular dependencies: Rules can read any type’s current snapshot during recompute. Avoid cycles; detection/guardrails may be added.
+- DI lifetimes: Resulting config types are singletons today; this may evolve.
