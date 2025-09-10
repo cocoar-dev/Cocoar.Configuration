@@ -50,7 +50,7 @@ public class ConfigManagerOrchestrationTests
         var rule = ConfigRule.Create<CountingProvider, CountingProvider.Options, CountingProvider.Query>(
             new CountingProvider.Options("K"),
             new CountingProvider.Query("Q", changeBus.AsObservable()),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             useWhen: () => true,
             required: true);
 
@@ -88,7 +88,7 @@ public class MicrosoftProviderAdapterTests
             MicrosoftConfigurationSourceProviderQueryOptions>(
             new MicrosoftConfigurationSourceProviderOptions(memSource),
             new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section"),
-            new ConfigTypeDefinition(typeof(MicrosoftProviderAdapterTests.DemoConfig))
+            new ConfigRegistration(typeof(MicrosoftProviderAdapterTests.DemoConfig))
         );
 
         var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();

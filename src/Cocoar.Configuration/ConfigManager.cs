@@ -7,9 +7,9 @@ namespace Cocoar.Configuration;
 public class ConfigManager : IConfigAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
-    private volatile Dictionary<ConfigTypeDefinition, JsonElement> _configs = new();
+    private volatile Dictionary<ConfigRegistration, JsonElement> _configs = new();
     // Working snapshot used during recompute so later rules can see earlier merges
-    private volatile Dictionary<ConfigTypeDefinition, JsonElement>? _workingConfigs;
+    private volatile Dictionary<ConfigRegistration, JsonElement>? _workingConfigs;
     private volatile bool _initialized;
     private readonly List<IDisposable> _changeSubscriptions = new();
     private readonly Lock _recalcLock = new();
@@ -66,9 +66,9 @@ public class ConfigManager : IConfigAccessor, IDisposable
     private async Task RecalculateAllConfigsAsync(CancellationToken cancellationToken = default)
     {
         // flat maps by config contract, merged by rule order (last wins)
-        var tempFlatMaps = new Dictionary<ConfigTypeDefinition, Dictionary<string, JsonElement>>();
+    var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
         // install working snapshot for in-progress reads
-        _workingConfigs = new Dictionary<ConfigTypeDefinition, JsonElement>();
+    _workingConfigs = new Dictionary<ConfigRegistration, JsonElement>();
 
         foreach (var rm in _ruleManagers)
         {
@@ -89,7 +89,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
             _workingConfigs[rm.TypeDefinition] = partial;
         }
 
-        var nextConfig = new Dictionary<ConfigTypeDefinition, JsonElement>();
+    var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = Unflatten(flatMap);
 
@@ -163,12 +163,12 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public T? GetConfig<T>()
     {
-        Dictionary<ConfigTypeDefinition, JsonElement> map = _workingConfigs ?? _configs;
-        var key = map.Keys.FirstOrDefault(k => k.ConfigType == typeof(T))
-                  ?? map.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+    Dictionary<ConfigRegistration, JsonElement> map = _workingConfigs ?? _configs;
+    var key = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
+          ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
         if (key is null || !map.TryGetValue(key, out var value))
             return default;
-        var target = key.ConfigType;
+    var target = key.ConcreteType;
         return (T?)Deserialize(value, target);
     }
 
@@ -180,15 +180,15 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public T GetRequiredConfig<T>()
     {
-        Dictionary<ConfigTypeDefinition, JsonElement> map = _workingConfigs ?? _configs;
-        var configType = map.Keys.FirstOrDefault(k => k.ConfigType == typeof(T))
-                 ?? map.Keys.FirstOrDefault(k => k.ImplementationType == typeof(T));
+    Dictionary<ConfigRegistration, JsonElement> map = _workingConfigs ?? _configs;
+    var configType = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
+         ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
 
         if (configType is null || !map.TryGetValue(configType, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
         }
-        var result = Deserialize<T>(value);
+    var result = Deserialize<T>(value);
         if (result is null)
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} is null.");
@@ -198,12 +198,12 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public object? GetConfig(Type type)
     {
-        var map = _workingConfigs ?? _configs;
-        var key = map.Keys.FirstOrDefault(k => k.ConfigType == type)
-                  ?? map.Keys.FirstOrDefault(k => k.ImplementationType == type);
+    var map = _workingConfigs ?? _configs;
+    var key = map.Keys.FirstOrDefault(k => k.ConcreteType == type)
+          ?? map.Keys.FirstOrDefault(k => k.ContractType == type);
         if (key is null || !map.TryGetValue(key, out var value))
             return null;
-        var target = key.ConfigType;
+    var target = key.ConcreteType;
         var result = Deserialize(value, target);
         return result;
     }
@@ -223,7 +223,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public JsonElement? GetConfigAsJson(Type type)
     {
-        return _configs.TryGetValue(new ConfigTypeDefinition(type), out var value) ? value.Clone() : null;
+    return _configs.TryGetValue(new ConfigRegistration(type), out var value) ? value.Clone() : null;
     }
 
     private T? Deserialize<T>(JsonElement element)

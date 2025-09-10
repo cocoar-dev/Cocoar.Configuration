@@ -49,11 +49,9 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
         var element = doc.RootElement.Clone();
-        if (!string.IsNullOrWhiteSpace(query.WrapperPath))
+        if (!string.IsNullOrWhiteSpace(query.SectionPath))
         {
-            element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.WrapperPath, out var section)
-                ? section
-                : JsonDocument.Parse("{}").RootElement;
+            element = SelectByPath(element, query.SectionPath);
         }
         var wrapped = WrapIfNeeded(element, query.WrapperPath);
         _lastByKey[key] = wrapped;
@@ -87,11 +85,9 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
                     var element = doc.RootElement.Clone();
-                    if (!string.IsNullOrWhiteSpace(query.KeyPrefix))
+                    if (!string.IsNullOrWhiteSpace(query.SectionPath))
                     {
-                        element = element.ValueKind == JsonValueKind.Object && element.TryGetProperty(query.KeyPrefix, out var section)
-                            ? section
-                            : JsonDocument.Parse("{}").RootElement;
+                        element = SelectByPath(element, query.SectionPath);
                     }
                     var wrapped = WrapIfNeeded(element, query.WrapperPath);
                     var key = MakeKey(query);
@@ -121,7 +117,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         if (_disposed) return;
         _disposed = true;
         try { _client.Dispose(); } catch { /* ignore */ }
-        GC.SuppressFinalize(this);
+    // no finalizer; nothing to suppress
     }
 
     private static string BuildUrl(HttpClient client, string pathOrAbsolute)
@@ -136,7 +132,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         var hdr = query.Headers == null
             ? string.Empty
             : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-        return $"{query.UrlPathOrAbsolute}|{query.KeyPrefix}|{query.WrapperPath}|{hdr}";
+    return $"{query.UrlPathOrAbsolute}|{query.SectionPath}|{query.WrapperPath}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>

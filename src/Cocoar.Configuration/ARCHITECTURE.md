@@ -58,21 +58,21 @@ flowchart LR
 
 - FileSourceProvider
   - Options: directory + optional debounce for the internal watcher
-  - Query: filename, optional memberPath/memberWrapper
+  - Query: filename, optional sectionPath/wrapperPath
   - Behavior: maintains a folder watcher; per filename change stream; caches last JSON per file
   - Watcher errors during Changes() are swallowed to keep stream alive; GetValueAsync still throws on missing file (so Required rules fail properly in recompute). No initial emission from Changes().
 - EnvironmentVariableProvider
   - Options: optional prefix
-  - Query: optional memberPath/memberWrapper (prefix concept is mapped to memberPath)
+  - Query: optional sectionPath/wrapperPath (prefix concept is mapped to sectionPath)
   - Behavior: snapshot read via GetValueAsync at startup; Changes() is a no-op (does not emit initially).
 - HttpPollingProvider
   - Options: optional baseAddress, pollInterval, optional HttpMessageHandler (for tests)
-  - Query: urlPathOrAbsolute, optional memberPath/memberWrapper, optional headers
+  - Query: urlPathOrAbsolute, optional sectionPath/wrapperPath, optional headers
   - Behavior: single HttpClient per provider; GetValueAsync fetches immediately at startup; Changes() polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
 - MicrosoftConfigurationSourceProvider (Adapter)
   - Wraps Microsoft.Extensions.Configuration sources (JSON, INI, environment variables, etc.) and adapts them to this system.
   - Honors reload-on-change via Microsoft change tokens; environment variables typically don’t emit changes.
-  - Query supports keyPrefix and optional memberWrapper.
+  - Query supports keyPrefix and optional wrapperPath.
 - StaticJsonProvider
   - Supplies a static JSON value (explicit seeding) and never emits changes.
   - Useful to seed dependent rules or provide defaults via fluent Rules.FromStatic.
@@ -131,7 +131,7 @@ services.AddCocoarConfiguration(
   // Generic order: Concrete type first, optional interface second
   Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         optionsFactory: _ => new HttpPollingProviderOptions("https://config.example.com", TimeSpan.FromSeconds(10)),
-        queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", memberPath: "SectionA")
+  queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", sectionPath: "SectionA")
     )
 );
 ```
@@ -141,10 +141,10 @@ services.AddCocoarConfiguration(
 - ConfigRuleOptions: UseWhen (Func<bool>), Required (bool)
 - ConfigTypeDefinition: ConfigType, ImplementationType?
 - Provider base: ConfigSourceProvider<TInstanceOptions, TQueryOptions>
-- File options/query: FileSourceProviderOptions(dir, debounce?), FileSourceProviderQueryOptions(filename, memberPath?, memberWrapper?)
+- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?)
 - Env options/query: EnvironmentVariableProviderOptions(prefix?), EnvironmentVariableProviderQueryOptions(memberPath?, memberWrapper?)
   - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
-- HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, memberPath?, memberWrapper?)
+- HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath?, wrapperPath?)
 
 ## Version
 

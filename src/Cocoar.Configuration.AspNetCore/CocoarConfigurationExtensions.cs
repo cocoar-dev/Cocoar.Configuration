@@ -22,15 +22,15 @@ public static class CocoarConfigurationAspNetCoreExtensions
 
         var ruleList = rules.ToList();
         var configManager = new ConfigManager(ruleList).Initialize();
-        builder.Services.AddSingleton<ConfigManager>(configManager);
-        var types = ruleList.Select(r => r.ConfigContract).Distinct();
+    builder.Services.AddSingleton(configManager);
+        var types = ruleList.Select(r => r.Registration).Distinct();
         foreach (var type in types)
         {
-            if (type.ImplementationType != null)
+            if (type.ContractType != null)
             {
-                builder.Services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
+                builder.Services.AddSingleton(type.ContractType, _ => configManager.GetRequiredConfig(type.ConcreteType));
             }
-            builder.Services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
+            builder.Services.AddSingleton(type.ConcreteType, _ => configManager.GetRequiredConfig(type.ConcreteType));
         }
         _store.Remove(builder);
         _store.Add(builder, configManager);

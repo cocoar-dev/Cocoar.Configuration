@@ -31,10 +31,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         JsonElement result = value;
         if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
         {
-            result = value.ValueKind == JsonValueKind.Object &&
-                     value.TryGetProperty(queryOptions.SectionPath, out var section)
-                ? section
-                : JsonDocument.Parse("{}").RootElement;
+            result = SelectByPath(value, queryOptions.SectionPath);
         }
 
         // Use the base class helper to wrap if needed
@@ -49,7 +46,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
                 // apply per-query debounce if provided; default is no debounce
-                .Let(stream => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
+                .Let(stream => queryOptions.DebounceTime is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
                 {
                     JsonElement newValue;
@@ -63,14 +60,9 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                         newValue = JsonDocument.Parse("{}").RootElement;
                     }
                     _fileCache[fn] = newValue;
-                    JsonElement newSection = newValue;
-                    if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
-                    {
-                        newSection = newValue.ValueKind == JsonValueKind.Object &&
-                                     newValue.TryGetProperty(queryOptions.SectionPath, out var section)
-                            ? section
-                            : JsonDocument.Parse("{}").RootElement;
-                    }
+                    JsonElement newSection = string.IsNullOrWhiteSpace(queryOptions.SectionPath)
+                        ? newValue
+                        : SelectByPath(newValue, queryOptions.SectionPath);
                     return WrapIfNeeded(newSection, queryOptions.WrapperPath);
                 })
                 .Publish()

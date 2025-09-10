@@ -6,12 +6,12 @@ public class ConfigRule(
     Type providerType,
     Func<ConfigManager, ISourceProviderInstanceOptions> providerOptionsFactory,
     Func<ConfigManager, ISourceProviderQueryOptions> queryOptionsFactory,
-    ConfigTypeDefinition configContract,
+    ConfigRegistration configContract,
     ConfigRuleOptions? options = null)
 {
     // Public surface
     public Type ProviderType { get; } = providerType ?? throw new ArgumentNullException(nameof(providerType));
-    public ConfigTypeDefinition ConfigContract { get; } = configContract ?? throw new ArgumentNullException(nameof(configContract));
+    public ConfigRegistration Registration { get; } = configContract ?? throw new ArgumentNullException(nameof(configContract));
     public ConfigRuleOptions? Options { get; } = options;
 
     // Internally, always store factories (instances are wrapped as trivial factories)
@@ -25,7 +25,7 @@ public class ConfigRule(
         Type providerType,
         ISourceProviderInstanceOptions providerOptions,
         ISourceProviderQueryOptions queryOptions,
-        ConfigTypeDefinition configContract,
+        ConfigRegistration configContract,
         ConfigRuleOptions? options = null)
         : this(
             providerType,
@@ -44,7 +44,7 @@ public class ConfigRule(
     public ISourceProviderQueryOptions ResolveQueryOptions(ConfigManager manager)
         => _queryOptionsFactory(manager);
 
-    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigTypeDefinition typeDefinition, Func<bool>? useWhen = null, bool required = true)
+    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigRegistration typeDefinition, Func<bool>? useWhen = null, bool required = true)
         where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
         where TOptions : ISourceProviderInstanceOptions
         where TQueryOptions : ISourceProviderQueryOptions
@@ -60,7 +60,7 @@ public class ConfigRule(
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
         Func<ConfigManager, TOptions> providerOptionsFactory,
         Func<ConfigManager, TQueryOptions> queryOptionsFactory,
-        ConfigTypeDefinition typeDefinition,
+        ConfigRegistration typeDefinition,
         Func<bool>? useWhen = null,
         bool required = true)
         where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>

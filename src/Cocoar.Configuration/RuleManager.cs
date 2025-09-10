@@ -25,7 +25,7 @@ internal sealed class RuleManager : IDisposable
         _registry = registry;
     }
 
-    public ConfigTypeDefinition TypeDefinition => _rule.ConfigContract;
+    public ConfigRegistration TypeDefinition => _rule.Registration;
     public bool Required => _rule.Options?.Required == true;
     public IObservable<bool> Changes => _changes.AsObservable();
 
@@ -64,10 +64,10 @@ internal sealed class RuleManager : IDisposable
         {
             if (Required)
             {
-                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
-                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConfigContract.ConfigType.Name}", ex);
+                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
+                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.Registration.ConcreteType.Name}", ex);
             }
-            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
+            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
             return (include: false, value: default);
         }
     }

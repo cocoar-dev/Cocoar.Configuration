@@ -34,10 +34,10 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
 
-    protected ConfigTypeDefinition BuildTypeDefinition()
+    protected ConfigRegistration BuildTypeDefinition()
     {
         if (_concreteType is null)
             throw new InvalidOperationException("Concrete type must be specified via For<T>().");
-        return new ConfigTypeDefinition(_concreteType, _interfaceType);
+        return new ConfigRegistration(_concreteType, _interfaceType);
     }
 }

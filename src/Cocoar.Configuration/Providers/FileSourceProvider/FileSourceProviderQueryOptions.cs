@@ -6,5 +6,5 @@ public record FileSourceProviderQueryOptions(
 	string Filename,
 	string? SectionPath = null,
 	string? WrapperPath = null,
-	TimeSpan? Debounce = null
+	TimeSpan? DebounceTime = null
 ) : ISourceProviderQueryOptions;

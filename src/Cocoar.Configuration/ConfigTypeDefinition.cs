@@ -1,16 +1,16 @@
 namespace Cocoar.Configuration;
 
-public record ConfigTypeDefinition(Type ConfigType, Type? ImplementationType = null)
+public record ConfigRegistration(Type ConcreteType, Type? ContractType = null)
 {
-    public virtual bool Equals(ConfigTypeDefinition? other)
+    public virtual bool Equals(ConfigRegistration? other)
     {
         if (ReferenceEquals(null, other)) return false;
         if (ReferenceEquals(this, other)) return true;
-        return ConfigType == other.ConfigType;
+        return ConcreteType == other.ConcreteType;
     }
 
     public override int GetHashCode()
     {
-        return ConfigType.GetHashCode();
+        return ConcreteType.GetHashCode();
     }
 };

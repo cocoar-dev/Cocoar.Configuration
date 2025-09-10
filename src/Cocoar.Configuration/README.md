@@ -71,8 +71,8 @@ var rules = new []
     // Load SectionA from a JSON file
     // Generic order: Concrete type first, optional interface second
     Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(
-        filepath: "./appsettings.local.json",
-        memberPath: "SectionA",
+    filepath: "./appsettings.local.json",
+    sectionPath: "SectionA",
         debounceTime: TimeSpan.FromMilliseconds(150)
     ),
     // Overlay with environment variables (e.g., Enabled=false)
@@ -125,7 +125,7 @@ var rules = new[]
 {
     Rules.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             instance: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
-            query:    _ => new FileSourceProviderQueryOptions(filename: "appsettings.json", memberPath: "SectionA"))
+            query:    _ => new FileSourceProviderQueryOptions(filename: "appsettings.json", sectionPath: "SectionA"))
     .For<MySectionSettings>()
         .Required()
         .Build(),
@@ -157,7 +157,7 @@ var rules = new[]
 
     Rules.FromFile(_ => new FileSourceRuleOptions(
             filepath: "appsettings.json",
-            memberPath: "SectionA",
+            sectionPath: "SectionA",
             debounceTime: TimeSpan.FromMilliseconds(100)))
     .For<MySectionSettings>()
         .Optional()
@@ -176,14 +176,14 @@ var rules = new[]
 ### FileSourceProvider
 
 - Options: `FileSourceProviderOptions(directory, debounceTime)`
-- Query: `FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?, debounce?)`
+- Query: `FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?, debounceTime?)`
 - Factory:
 
 ```csharp
 Rules.FromFile(cm => new FileSourceRuleOptions(
     filepath: "./config.json",
-    memberPath: "SectionA",   // optional: pick a section of the JSON
-    memberWrapper: null,       // optional: wrap result under a property name
+    sectionPath: "SectionA",   // optional: pick a section of the JSON
+    wrapperPath: null,           // optional: wrap result under a property name
     debounceTime: TimeSpan.FromMilliseconds(100) // optional
 );
 ```
@@ -213,7 +213,7 @@ Notes:
 ### HttpPollingProvider (separate package)
 
 - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, handler?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, keyPrefix?, wrapperPath?, headers?)`
+- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath?, wrapperPath?, headers?)`
 - Factory (static or lambda-based):
 
 ```csharp
@@ -225,7 +225,7 @@ services.AddCocoarConfiguration(
             baseAddress: "https://config.example.com",
             pollInterval: TimeSpan.FromSeconds(10)
         ),
-    queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", keyPrefix: "MyRemote"),
+    queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", sectionPath: "MyRemote"),
         useWhen: () => true
     )
 );
@@ -245,7 +245,7 @@ var rules = new []
     // requires: using Cocoar.Configuration.HttpPolling.Fluent; and package reference
     Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         urlPathOrAbsolute: "/v1/settings",
-        memberPath: "MyRemote",
+    sectionPath: "MyRemote",
         baseAddress: "https://config.example.com",
         pollInterval: TimeSpan.FromSeconds(10),
         headers: new Dictionary<string,string> { ["Authorization"] = "Bearer abc" }

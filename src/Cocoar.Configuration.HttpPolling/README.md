@@ -3,7 +3,7 @@
 Fetch JSON over HTTP(S) on an interval and emit change signals only when the payload changes.
 
 - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, httpMessageHandler?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, keyPrefix?, wrapperPath?, headers?)`
+- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath?, wrapperPath?, headers?)`
 - Change semantics: polls at `pollInterval` and emits only when the fetched JSON differs from the last payload. Internally caches last payload per query and reuses a single HttpClient per provider instance.
 
 ## When to use

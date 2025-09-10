@@ -19,7 +19,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("file.json"),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             useWhen: () => false,
             required: true);
 
@@ -34,7 +34,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             useWhen: () => true,
             required: true);
 
@@ -48,7 +48,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             useWhen: () => true,
             required: false);
 
@@ -93,7 +93,7 @@ public partial class RuleManagerTests
     [Fact]
     public async Task RuleManager_Reuses_Provider_When_InstanceOptions_Unchanged()
     {
-        var typeDef = new ConfigTypeDefinition(typeof(object));
+    var typeDef = new ConfigRegistration(typeof(object));
         var providerFactoryCalls = 0;
         var queryFactoryCalls = 0;
 
@@ -118,7 +118,7 @@ public partial class RuleManagerTests
     [Fact]
     public async Task RuleManager_Resubscribes_When_Query_Changes()
     {
-        var typeDef = new ConfigTypeDefinition(typeof(object));
+    var typeDef = new ConfigRegistration(typeof(object));
         var qId = "Q1";
         var rule = ConfigRule.Create<InMemoryProvider, InMemoryProviderOptions, InMemoryQueryOptions>(
             providerOptionsFactory: _ => new InMemoryProviderOptions("K1"),
@@ -161,7 +161,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<EmittingProvider, EmittingProvider.Options, EmittingProvider.Query>(
             new EmittingProvider.Options("K"),
             new EmittingProvider.Query("Q", changeBus),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             useWhen: () => true,
             required: true);
 
@@ -278,12 +278,12 @@ public partial class RuleManagerTests
         var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             required: true);
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q2"),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             required: true);
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
@@ -304,12 +304,12 @@ public partial class RuleManagerTests
         var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             required: true);
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("B"),
             new IdentityQuery("Q2"),
-            new ConfigTypeDefinition(typeof(object)),
+            new ConfigRegistration(typeof(object)),
             required: true);
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
