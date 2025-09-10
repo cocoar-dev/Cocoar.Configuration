@@ -1,4 +1,3 @@
-using System;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 namespace Cocoar.Configuration.Fluent.ProviderOptions;

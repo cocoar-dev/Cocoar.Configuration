@@ -3,9 +3,9 @@ using System.Reactive.Threading.Tasks;
 using System.Reactive.Subjects;
 using System.Text.Json;
 using Cocoar.Configuration;
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
 using Microsoft.Extensions.Logging.Abstractions;
 
 public partial class RuleManagerTests
@@ -219,9 +219,9 @@ public partial class RuleManagerTests
     [Fact]
     public async Task EnvironmentProvider_Is_Shared_Across_Different_Prefixes()
     {
-        var registry = new ProviderRegistry();
-        var rule1 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP1_", required: true);
-        var rule2 = EnvironmentVariableProvider.CreateRule<object>(memberPath: "APP2_", required: true);
+    var registry = new ProviderRegistry();
+    var rule1 = Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "APP1_")).For<object>().Build();
+    var rule2 = Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "APP2_")).For<object>().Build();
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
     var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);

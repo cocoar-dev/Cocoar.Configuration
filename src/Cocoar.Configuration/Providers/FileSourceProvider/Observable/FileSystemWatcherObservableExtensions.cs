@@ -1,6 +1,5 @@
 using System.Reactive.Linq;
 using System.Reactive.Concurrency;
-using System.Linq;
 
 namespace Cocoar.Configuration.Providers.FileSourceProvider;
 

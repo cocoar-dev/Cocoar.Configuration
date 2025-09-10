@@ -1,9 +1,6 @@
-using System;
-using System.IO;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Cocoar.Configuration.Tests;
 
@@ -37,8 +34,8 @@ public class ConfigManagerIntegrationTests
 
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            FileSourceProvider.CreateRule<TestClass, IMySectionSettings>(tempPath, "SectionA"),
-            EnvironmentVariableProvider.CreateRule<TestClass, IMySectionSettings>()
+            Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>(),
+            Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<TestClass>().As<IMySectionSettings>()
         ]);
 
         var sp = services.BuildServiceProvider();

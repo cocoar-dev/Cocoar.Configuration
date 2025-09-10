@@ -1,11 +1,7 @@
-using System;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Providers.Abstractions;
-using Xunit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.MicrosoftAdapter;

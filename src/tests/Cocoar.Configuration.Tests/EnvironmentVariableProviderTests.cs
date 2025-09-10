@@ -1,9 +1,5 @@
-using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Cocoar.Configuration.Tests;
 

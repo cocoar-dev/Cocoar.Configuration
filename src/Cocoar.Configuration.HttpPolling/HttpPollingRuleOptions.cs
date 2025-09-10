@@ -1,5 +1,3 @@
-using System.Net.Http;
-
 namespace Cocoar.Configuration.HttpPolling;
 
 // Combined options for HTTP provider (instance + query) for fluent API

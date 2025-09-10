@@ -1,4 +1,3 @@
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration;

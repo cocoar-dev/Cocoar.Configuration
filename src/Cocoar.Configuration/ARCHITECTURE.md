@@ -126,10 +126,10 @@ flowchart LR
 
 ```csharp
 services.AddCocoarConfiguration(
-    FileSourceProvider.CreateRule<MySectionSettings>("./config.json", "SectionA"),
-    EnvironmentVariableProvider.CreateRule<MySectionSettings>(memberPath: "MYAPP_"),
+  Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
+  Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP_")).For<MySectionSettings>(),
   // Generic order: Concrete type first, optional interface second
-  HttpPollingProvider.CreateRule<MySectionSettings, MySectionSettings>(
+  Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         optionsFactory: _ => new HttpPollingProviderOptions("https://config.example.com", TimeSpan.FromSeconds(10)),
         queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", memberPath: "SectionA")
     )

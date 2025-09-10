@@ -1,16 +1,11 @@
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
 using Cocoar.Configuration.MicrosoftAdapter;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
-using Xunit;
 
 namespace Cocoar.Configuration.Tests;
 
@@ -44,17 +39,14 @@ public class HttpPollingProviderTests
     var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
-            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                    _ => new MicrosoftConfigurationSourceProviderOptions(
-                        new Microsoft.Extensions.Configuration.ConfigurationBuilder()
-                            .AddInMemoryCollection(new Dictionary<string,string?>
-                            {
-                                ["Remote:Url"] = "/api/config"
-                            })
-                            .Sources[0]
-                    ),
-                    _ => new MicrosoftConfigurationSourceProviderQueryOptions("Remote"))
-                .ForType<MyHttpPollingSettings>()
+            Rules.Using
+                .FromMicrosoftSource(cm => new MicrosoftConfigurationSourceRuleOptions(
+                    new ConfigurationBuilder()
+                        .AddInMemoryCollection(new Dictionary<string,string?> { ["Remote:Url"] = "/api/config" })
+                        .Sources[0],
+                    keyPrefix: "Remote"
+                ))
+                .For<MyHttpPollingSettings>()
                 .Optional(),
             Rules.Using
                 .FromHttp(configManager => new HttpPollingRuleOptions(
@@ -64,8 +56,8 @@ public class HttpPollingProviderTests
             pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler
                 ))
-                .UseWhen(() => true)
-                .ForType<MyCfg>()
+                .When(() => true)
+                .For<MyCfg>()
         ]);
         var sp = services.BuildServiceProvider();
         var manager = sp.GetRequiredService<ConfigManager>();

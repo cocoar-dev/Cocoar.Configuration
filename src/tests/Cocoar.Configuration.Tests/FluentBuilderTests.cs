@@ -1,6 +1,5 @@
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Fluent.ProviderOptions;
-using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using System.Runtime.InteropServices;
@@ -41,7 +40,7 @@ public class FluentBuilderTests
 
         var rule = Rules
             .FromFile(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA"))
-            .ForType<TestClass>()
+            .For<TestClass>()
             .Build();
 
         var services = new ServiceCollection();
@@ -83,13 +82,13 @@ public class FluentBuilderTests
         {
             var fileRule = Rules
                 .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
-                .ForType<TestClass>()
+                .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
 
             var envRule = Rules
                 .FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: null, wrapperPath: null))
-                .ForType<TestClass>()
+                .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
 
@@ -141,7 +140,7 @@ public class FluentBuilderTests
         {
             var rule = Rules
                 .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", null, TimeSpan.FromMilliseconds(50)))
-                .ForType<TestClass>()
+                .For<TestClass>()
                 .Build();
 
             var services = new ServiceCollection();

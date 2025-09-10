@@ -1,5 +1,3 @@
-using System;
-
 namespace Cocoar.Configuration.Fluent;
 
 public abstract class RuleBuilderBase<TBuilder>
@@ -18,13 +16,13 @@ public abstract class RuleBuilderBase<TBuilder>
 
     public TBuilder Optional() => Required(false);
 
-    public TBuilder UseWhen(Func<bool> predicate)
+    public TBuilder When(Func<bool> predicate)
     {
         _useWhen = predicate;
         return (TBuilder)this;
     }
 
-    public TBuilder ForType<TConcrete>()
+    public TBuilder For<TConcrete>()
     {
         _concreteType = typeof(TConcrete);
         return (TBuilder)this;
@@ -39,7 +37,7 @@ public abstract class RuleBuilderBase<TBuilder>
     protected ConfigTypeDefinition BuildTypeDefinition()
     {
         if (_concreteType is null)
-            throw new InvalidOperationException("Concrete type must be specified via ForType<TConcrete>().");
+            throw new InvalidOperationException("Concrete type must be specified via For<T>().");
         return new ConfigTypeDefinition(_concreteType, _interfaceType);
     }
 }

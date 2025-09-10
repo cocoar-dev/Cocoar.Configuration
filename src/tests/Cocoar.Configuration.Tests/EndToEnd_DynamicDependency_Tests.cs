@@ -1,14 +1,8 @@
 using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
-using Xunit;
 using System.Text;
-using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Fluent.ProviderOptions;
 using Cocoar.Configuration.HttpPolling;
-using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Tests;
@@ -55,7 +49,7 @@ public class EndToEnd_DynamicDependency_Tests
         services.AddCocoarConfiguration([
             // File rule provides BaseSettings (including Remote.Url)
             Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(file, null, null, TimeSpan.FromMilliseconds(80)))
-                 .ForType<BaseSettings>()
+                 .For<BaseSettings>()
                  .Required()
                  .Build(),
 
@@ -67,8 +61,8 @@ public class EndToEnd_DynamicDependency_Tests
                     pollInterval: TimeSpan.FromMilliseconds(100),
                     handler: handler
                 ))
-                .UseWhen(() => true)
-                .ForType<MyConfig>()
+                .When(() => true)
+                .For<MyConfig>()
                 .Required()
                 .Build()
         ]);

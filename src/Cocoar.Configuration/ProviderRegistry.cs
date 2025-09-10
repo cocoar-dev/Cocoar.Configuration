@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
 using Microsoft.Extensions.Logging;
 

@@ -2,7 +2,6 @@
 // File: FileSystemObservableFullCycleTests.cs
 // -----------------------------------------------------------------------------
 
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 
 namespace Cocoar.Configuration.Tests;
