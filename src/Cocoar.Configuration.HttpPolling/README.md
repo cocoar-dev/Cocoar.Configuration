@@ -37,4 +37,7 @@ services.AddCocoarConfiguration(
 - For change-only recompute, ensure the remote endpoint returns unchanged JSON when values don’t change.
 - Consider future push models (SSE/SignalR) when lower latency is needed.
 - Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
-- See the root `README.md` and `ARCHITECTURE.md` for merge semantics and the overall change model.
+- See the root `README.md` ("How it works") and `ARCHITECTURE.md` for merge semantics, recompute behavior, and dynamic dependencies.
+
+Known gaps
+- Arrays replace prior values; alternate strategies may be added.

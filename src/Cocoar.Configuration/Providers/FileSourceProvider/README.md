@@ -33,4 +33,7 @@ services.AddCocoarConfiguration(
 
 - Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
 - On any emitted change, `ConfigManager` recomputes all rules and atomically swaps the cache.
-- See the root `README.md` and `ARCHITECTURE.md` for merge semantics and the overall change model.
+- See the root `README.md` ("How it works") and `ARCHITECTURE.md` for merge semantics, recompute behavior, and dynamic dependencies.
+
+Known gaps
+- Arrays replace prior values; alternate strategies may be added.

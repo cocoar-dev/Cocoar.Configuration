@@ -48,17 +48,23 @@ public class MicrosoftSourcesIntegrationTests
         var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
         var initial = mgr.GetConfig<DemoConfig>();
         Assert.NotNull(initial);
-        Assert.True(initial!.Enabled);
+    Assert.True(initial.Enabled);
         Assert.Equal(1, initial.Value);
 
         // mutate file
-    await File.WriteAllTextAsync(file, "{\n  \"My\": { \"Section\": { \"Enabled\": false, \"Value\": 2 } }\n}");
-    // give file watcher a moment
-    await Task.Delay(800);
+        await File.WriteAllTextAsync(file, "{\n  \"My\": { \"Section\": { \"Enabled\": false, \"Value\": 2 } }\n}");
 
-        var updated = mgr.GetConfig<DemoConfig>();
+        // Actively poll until the change propagates (up to 8s)
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        DemoConfig? updated = null;
+        while (sw.Elapsed < TimeSpan.FromSeconds(8))
+        {
+            await Task.Delay(200);
+            updated = mgr.GetConfig<DemoConfig>();
+            if (updated?.Value == 2 && updated.Enabled == false) break;
+        }
         Assert.NotNull(updated);
-        Assert.False(updated!.Enabled);
+    Assert.False(updated.Enabled);
         Assert.Equal(2, updated.Value);
 
         dir.Delete(recursive: true);
@@ -144,7 +150,7 @@ public class MicrosoftSourcesIntegrationTests
             var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
             var cfg = mgr.GetConfig<DemoConfig>();
             Assert.NotNull(cfg);
-            Assert.True(cfg!.Enabled);
+        Assert.True(cfg.Enabled);
             Assert.Equal(7, cfg.Value);
 
             // update env var; Microsoft provider has no change token for env vars
