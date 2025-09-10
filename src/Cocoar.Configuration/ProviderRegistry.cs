@@ -44,14 +44,14 @@ internal sealed class ProviderRegistry
             _id = id;
             _entry = entry;
         }
-        
+
         internal static ProviderHandle Create(ProviderRegistry owner, (Type type, string key) id, Entry entry)
             => new ProviderHandle(owner, id, entry);
 
         public ConfigSourceProvider Provider
             => _entry?.Provider ?? throw new ObjectDisposedException(nameof(ProviderHandle));
 
-    public void Dispose()
+        public void Dispose()
         {
             var e = Interlocked.Exchange(ref _entry, null);
             if (e is null) return;

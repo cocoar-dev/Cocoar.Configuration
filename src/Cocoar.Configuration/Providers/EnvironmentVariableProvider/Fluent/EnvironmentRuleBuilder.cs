@@ -1,5 +1,6 @@
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Fluent.ProviderOptions;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 namespace Cocoar.Configuration.Fluent.Providers;
 

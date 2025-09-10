@@ -1,6 +1,6 @@
-using Cocoar.Configuration.Fluent.Providers;
-using Cocoar.Configuration.Fluent.ProviderOptions;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
 
 namespace Cocoar.Configuration.Fluent;
 
@@ -11,8 +11,6 @@ public static class Rules
     public readonly struct Dsl { }
     public static Dsl Using => default;
 
-    public static FileRuleBuilder FromFile(Func<ConfigManager, FileSourceRuleOptions> optionsFactory) => new(optionsFactory);
-    public static EnvironmentRuleBuilder FromEnvironment(Func<ConfigManager, EnvironmentVariableRuleOptions> optionsFactory) => new(optionsFactory);
 
     // Generic entry point: compose provider instance and query options directly without bespoke combined RuleOptions.
     public static ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> FromProvider<TProvider, TInstanceOptions, TQueryOptions>(

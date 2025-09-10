@@ -2,27 +2,52 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration;
 
-public record ConfigRule(
-    Type ProviderType,
-    ISourceProviderInstanceOptions ProviderOptions,
-    ISourceProviderQueryOptions QueryOptions,
-    ConfigTypeDefinition ConfigContract,
-    ConfigRuleOptions? Options = default,
-    // Optional factories to build options based on current ConfigManager state
-    Func<ConfigManager, ISourceProviderInstanceOptions>? ProviderOptionsFactory = null,
-    Func<ConfigManager, ISourceProviderQueryOptions>? QueryOptionsFactory = null
-    )
+public class ConfigRule(
+    Type providerType,
+    Func<ConfigManager, ISourceProviderInstanceOptions> providerOptionsFactory,
+    Func<ConfigManager, ISourceProviderQueryOptions> queryOptionsFactory,
+    ConfigTypeDefinition configContract,
+    ConfigRuleOptions? options = null)
 {
+    // Public surface
+    public Type ProviderType { get; } = providerType ?? throw new ArgumentNullException(nameof(providerType));
+    public ConfigTypeDefinition ConfigContract { get; } = configContract ?? throw new ArgumentNullException(nameof(configContract));
+    public ConfigRuleOptions? Options { get; } = options;
+
+    // Internally, always store factories (instances are wrapped as trivial factories)
+    private readonly Func<ConfigManager, ISourceProviderInstanceOptions> _providerOptionsFactory
+        = providerOptionsFactory ?? throw new ArgumentNullException(nameof(providerOptionsFactory));
+    private readonly Func<ConfigManager, ISourceProviderQueryOptions> _queryOptionsFactory
+        = queryOptionsFactory ?? throw new ArgumentNullException(nameof(queryOptionsFactory));
+
+    // Constructor for concrete options (wraps as trivial factories)
+    public ConfigRule(
+        Type providerType,
+        ISourceProviderInstanceOptions providerOptions,
+        ISourceProviderQueryOptions queryOptions,
+        ConfigTypeDefinition configContract,
+        ConfigRuleOptions? options = null)
+        : this(
+            providerType,
+            _ => providerOptions,
+            _ => queryOptions,
+            configContract,
+            options)
+    {
+        if (providerOptions is null) throw new ArgumentNullException(nameof(providerOptions));
+        if (queryOptions is null) throw new ArgumentNullException(nameof(queryOptions));
+    }
+
     public ISourceProviderInstanceOptions ResolveProviderOptions(ConfigManager manager)
-        => ProviderOptionsFactory?.Invoke(manager) ?? ProviderOptions;
+        => _providerOptionsFactory(manager);
 
     public ISourceProviderQueryOptions ResolveQueryOptions(ConfigManager manager)
-        => QueryOptionsFactory?.Invoke(manager) ?? QueryOptions;
+        => _queryOptionsFactory(manager);
 
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigTypeDefinition typeDefinition, Func<bool>? useWhen = null, bool required = true)
         where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
         where TOptions : ISourceProviderInstanceOptions
-        where TQueryOptions: ISourceProviderQueryOptions
+        where TQueryOptions : ISourceProviderQueryOptions
     {
         var options = new ConfigRuleOptions
         {
@@ -47,22 +72,12 @@ public record ConfigRule(
             UseWhen = useWhen,
             Required = required
         };
-        // Store null-forgiven placeholders to avoid premature factory invocation.
-        // Actual values are produced from factories at runtime in Resolve* methods.
         return new ConfigRule(
             typeof(TProvider),
-            default!,
-            default!,
-            typeDefinition,
-            options,
             m => providerOptionsFactory(m),
-            m => queryOptionsFactory(m));
+            m => queryOptionsFactory(m),
+            typeDefinition,
+            options);
     }
 
-}
-
-public class ConfigRuleOptions
-{
-    public Func<bool>? UseWhen { get; set; }
-    public bool Required { get; set; }
 }

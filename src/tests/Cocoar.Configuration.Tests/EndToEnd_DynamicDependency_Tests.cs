@@ -3,6 +3,7 @@ using System.Text;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Fluent.ProviderOptions;
 using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Tests;
@@ -48,7 +49,7 @@ public class EndToEnd_DynamicDependency_Tests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // File rule provides BaseSettings (including Remote.Url)
-            Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(file, null, null, TimeSpan.FromMilliseconds(80)))
+            Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(file, null, null, TimeSpan.FromMilliseconds(80)))
                  .For<BaseSettings>()
                  .Required()
                  .Build(),

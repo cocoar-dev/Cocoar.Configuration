@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.CompilerServices;
-using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.AspNetCore;

@@ -3,6 +3,8 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using System.Runtime.InteropServices;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
 
 namespace Cocoar.Configuration.Tests;
 
@@ -38,7 +40,7 @@ public class FluentBuilderTests
         // Arrange
         var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
 
-        var rule = Rules
+        var rule = Rules.Using
             .FromFile(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA"))
             .For<TestClass>()
             .Build();
@@ -80,13 +82,13 @@ public class FluentBuilderTests
 
         try
         {
-            var fileRule = Rules
+            var fileRule = Rules.Using
                 .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
 
-            var envRule = Rules
+            var envRule = Rules.Using
                 .FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: null, wrapperPath: null))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
@@ -138,7 +140,7 @@ public class FluentBuilderTests
         File.WriteAllText(tempFile, "{ \"SectionA\": { \"Enabled\": false } }");
         try
         {
-            var rule = Rules
+            var rule = Rules.Using
                 .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", null, TimeSpan.FromMilliseconds(50)))
                 .For<TestClass>()
                 .Build();

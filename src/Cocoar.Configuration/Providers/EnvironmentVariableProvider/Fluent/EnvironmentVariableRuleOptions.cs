@@ -13,8 +13,6 @@ public sealed class EnvironmentVariableRuleOptions
     /// keyPrefix filters environment variables by the given prefix (e.g. "MYAPP_"),
     /// wrapperPath optionally wraps the resulting object under a property path in the target config.
     /// </summary>
-    /// <param name="keyPrefix">Deprecated alias of keyPrefix.</param>
-    /// <param name="wrapperPath">Deprecated alias of wrapperPath.</param>
     public EnvironmentVariableRuleOptions(string? keyPrefix = null, string? wrapperPath = null)
     {
         _keyPrefix = keyPrefix;

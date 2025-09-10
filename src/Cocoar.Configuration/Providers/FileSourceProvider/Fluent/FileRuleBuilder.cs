@@ -1,7 +1,7 @@
+using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Fluent.ProviderOptions;
 
-namespace Cocoar.Configuration.Fluent.Providers;
+namespace Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
 
 public sealed class FileRuleBuilder : RuleBuilderBase<FileRuleBuilder>, IConfigRuleBuilder
 {
@@ -15,8 +15,7 @@ public sealed class FileRuleBuilder : RuleBuilderBase<FileRuleBuilder>, IConfigR
     public ConfigRule Build()
     {
         var typeDef = BuildTypeDefinition();
-        var ruleOptions = new ConfigRuleOptions { Required = _required, UseWhen = _useWhen };
-
+        
         return ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             cm => _combinedFactory(cm).ToProviderOptions(),
             cm => _combinedFactory(cm).ToQueryOptions(),
