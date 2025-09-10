@@ -1,17 +1,11 @@
 // -----------------------------------------------------------------------------
 // File: FileSystemObservableTests.cs          ❶ put in test project
 // -----------------------------------------------------------------------------
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+
 using System.Reactive;
 using System.Reactive.Linq;
-using Cocoar.Configuration.Extensions;
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Reactive.Testing;
-using Xunit;
 
 // namespace that holds your code
 

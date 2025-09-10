@@ -14,13 +14,14 @@ Project configuration from environment variables, optionally filtered by a prefi
 ## Example
 
 ```csharp
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
 
 services.AddCocoarConfiguration(
     // Base from file
-    FileSourceProvider.CreateRule<MySection>("./appsettings.json", "MySection"),
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection")).For<MySection>(),
     // Env overlay, considering variables like MYAPP_*
-    EnvironmentVariableProvider.CreateRule<MySection>(memberPath: "MYAPP")
+    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP")).For<MySection>()
 );
 ```
 

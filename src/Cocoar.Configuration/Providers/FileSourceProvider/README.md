@@ -14,18 +14,12 @@ Read JSON from files and watch for changes with debounce.
 ## Example
 
 ```csharp
-using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
 
 services.AddCocoarConfiguration(
-    FileSourceProvider.CreateRule<MySection>(
-        filepath: "./appsettings.json",
-        memberPath: "MySection",
-        debounceTime: TimeSpan.FromMilliseconds(150)
-    ),
-    FileSourceProvider.CreateRule<MySection>(
-        filepath: "./appsettings.Local.json",
-        memberPath: "MySection"
-    )
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection", debounceTime: TimeSpan.FromMilliseconds(150))).For<MySection>(),
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.Local.json", "MySection")).For<MySection>()
 );
 ```
 

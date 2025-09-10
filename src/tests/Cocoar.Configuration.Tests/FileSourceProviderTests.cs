@@ -1,7 +1,8 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text.Json;
-using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Fluent.ProviderOptions;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -74,7 +75,7 @@ public class FileSourceProviderTests
 
             var services = new ServiceCollection();
             services.AddCocoarConfiguration([
-                FileSourceProvider.CreateRule<TestClass, IMySectionSettings>(tempPath,"SectionA"),
+                Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>()
             ]);
             
             var sp = services.BuildServiceProvider();
@@ -101,8 +102,8 @@ public class FileSourceProviderTests
         
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            FileSourceProvider.CreateRule<TestClass>(config1, "SectionA"),
-            FileSourceProvider.CreateRule<TestClass>(config2, "SectionA"),
+            Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA")).For<TestClass>(),
+            Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(config2, "SectionA")).For<TestClass>(),
         ]);
 
         var sp = services.BuildServiceProvider();

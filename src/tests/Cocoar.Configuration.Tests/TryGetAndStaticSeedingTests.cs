@@ -2,7 +2,6 @@ using System.Text.Json;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Cocoar.Configuration.Tests;
 
@@ -51,7 +50,7 @@ public class TryGetAndStaticSeedingTests
     public void FromStatic_With_WrapperPath_Nests_Value()
     {
     var rule = Rules.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "B", Value = 7 }, wrapperPath: "Inner")
-            .ForType<Outer>()
+            .For<Outer>()
             .Build();
 
         var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
@@ -65,11 +64,11 @@ public class TryGetAndStaticSeedingTests
     public void FromStatic_DependentRuleReadsSeededType_Succeeds()
     {
         var seedRule = Rules.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "Seed", Value = 11 })
-            .ForType<SeededSettings>()
+            .For<SeededSettings>()
             .Build();
 
     var dependentRule = Rules.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), wrapperPath: "Dep")
-            .ForType<Container>()
+            .For<Container>()
             .Build();
 
         var mgr = new ConfigManager(new[] { seedRule, dependentRule }, NullLogger.Instance).Initialize();
@@ -83,7 +82,7 @@ public class TryGetAndStaticSeedingTests
     public void FromStatic_AbsentSeed_GetRequired_Throws()
     {
     var dependentRule = Rules.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), wrapperPath: "Dep")
-            .ForType<Container>()
+            .For<Container>()
             .Build();
 
         Assert.Throws<InvalidOperationException>(() => new ConfigManager(new[] { dependentRule }, NullLogger.Instance).Initialize());

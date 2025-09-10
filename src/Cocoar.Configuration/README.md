@@ -70,13 +70,13 @@ var rules = new []
 {
     // Load SectionA from a JSON file
     // Generic order: Concrete type first, optional interface second
-    FileSourceProvider.CreateRule<MySectionSettings, IMySectionSettings>(
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(
         filepath: "./appsettings.local.json",
         memberPath: "SectionA",
         debounceTime: TimeSpan.FromMilliseconds(150)
     ),
     // Overlay with environment variables (e.g., Enabled=false)
-    EnvironmentVariableProvider.CreateRule<MySectionSettings, IMySectionSettings>()
+    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<MySectionSettings>().As<IMySectionSettings>()
 };
 
 var manager = new ConfigManager(rules).Initialize();
@@ -126,7 +126,7 @@ var rules = new[]
     Rules.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             instance: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
             query:    _ => new FileSourceProviderQueryOptions(filename: "appsettings.json", memberPath: "SectionA"))
-        .ForType<MySectionSettings>()
+    .For<MySectionSettings>()
         .Required()
         .Build(),
 };
@@ -151,7 +151,7 @@ var rules = new[]
                 }).Sources[0]
             ),
             queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section"))
-        .ForType<MySectionSettings>()
+    .For<MySectionSettings>()
         .Optional()
         .Build(),
 
@@ -159,7 +159,7 @@ var rules = new[]
             filepath: "appsettings.json",
             memberPath: "SectionA",
             debounceTime: TimeSpan.FromMilliseconds(100)))
-        .ForType<MySectionSettings>()
+    .For<MySectionSettings>()
         .Optional()
         .Build(),
 };
@@ -180,7 +180,7 @@ var rules = new[]
 - Factory:
 
 ```csharp
-FileSourceProvider.CreateRule<TConfig, TImpl>(
+Rules.FromFile(cm => new FileSourceRuleOptions(
     filepath: "./config.json",
     memberPath: "SectionA",   // optional: pick a section of the JSON
     memberWrapper: null,       // optional: wrap result under a property name
@@ -198,12 +198,12 @@ Watches the folder for changes and emits updates per file with optional per-file
 
 ```csharp
 // No prefix: includes all environment variables
-EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>();
+Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<TConcrete>().As<TInterface>();
 
 // Prefix: include only variables that start with the prefix
 // Nesting separators: "__" (double underscore) and ":". Single '_' is literal.
 // Example: MYAPP__Logging__Level=Debug → { "Logging": { "Level": "Debug" } }
-var rule = EnvironmentVariableProvider.CreateRule<TConcrete[, TInterface]>(memberPath: "MYAPP");
+var rule = Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP")).For<TConcrete>().As<TInterface>().Build();
 ```
 
 Notes:
@@ -220,7 +220,7 @@ Notes:
 using Cocoar.Configuration.HttpPolling; // from Cocoar.Configuration.HttpPolling package
 
 services.AddCocoarConfiguration(
-    HttpPollingProvider.CreateRule<MyRemoteSettings, MyRemoteSettings>(
+    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         optionsFactory: _ => new HttpPollingProviderOptions(
             baseAddress: "https://config.example.com",
             pollInterval: TimeSpan.FromSeconds(10)
@@ -250,7 +250,7 @@ var rules = new []
         pollInterval: TimeSpan.FromSeconds(10),
         headers: new Dictionary<string,string> { ["Authorization"] = "Bearer abc" }
     ))
-    .ForType<MySettings>()
+    .For<MySettings>()
     .Build()
 };
 ```
@@ -276,8 +276,7 @@ Limitations:
 - `JsonElement? ConfigManager.GetConfigAsJson(Type type)`
 - `ConfigRule.Create<TProvider, TOptions, TQueryOptions>(...)`
 - Provider factories:
-  - `FileSourceProvider.CreateRule<TConfig[,TImpl]>(...)`
-  - `EnvironmentVariableProvider.CreateRule<TConfig[,TImpl]>(...)`
+    - Use the fluent DSL via Rules.FromX(...)
 
 ## API semantics
 
@@ -299,8 +298,8 @@ Limitations:
 
 ```csharp
 services.AddCocoarConfiguration(
-    FileSourceProvider.CreateRule<MySectionSettings>("./config1.json", "SectionA"),
-    FileSourceProvider.CreateRule<MySectionSettings>("./config2.json", "SectionA")
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config1.json", "SectionA")).For<MySectionSettings>(),
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config2.json", "SectionA")).For<MySectionSettings>()
 );
 
 var settings = sp.GetRequiredService<ConfigManager>().GetConfig<MySectionSettings>();
@@ -313,8 +312,8 @@ var settings = sp.GetRequiredService<ConfigManager>().GetConfig<MySectionSetting
 // Environment contains Enabled=false
 services.AddCocoarConfiguration(
     // Generic order: Concrete first, optional interface second
-    FileSourceProvider.CreateRule<MySectionSettings, IMySectionSettings>("./appsettings.json", "SectionA"),
-    EnvironmentVariableProvider.CreateRule<MySectionSettings, IMySectionSettings>()
+    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "SectionA")).For<MySectionSettings>().As<IMySectionSettings>(),
+    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<MySectionSettings>().As<IMySectionSettings>()
 );
 
 var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings>();
@@ -414,7 +413,7 @@ var rules = new[]
 {
     Rules.Using
         .FromMyProvider("https://config.example.com/api/v1/settings", TimeSpan.FromSeconds(15))
-        .ForType<MySettings>()
+    .For<MySettings>()
         .Required()
         .Build(),
 };

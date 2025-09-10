@@ -1,16 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 public class MicrosoftSourcesIntegrationTests
 {
@@ -40,7 +32,7 @@ public class MicrosoftSourcesIntegrationTests
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
                 queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
             )
-            .ForType<DemoConfig>()
+            .For<DemoConfig>()
             .Required()
             .Build(),
         };
@@ -89,7 +81,7 @@ public class MicrosoftSourcesIntegrationTests
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
                 queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
             )
-            .ForType<DemoConfig>()
+            .For<DemoConfig>()
             .Required()
             .Build(),
         };
@@ -142,7 +134,7 @@ public class MicrosoftSourcesIntegrationTests
                     instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
                     queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
                 )
-                .ForType<DemoConfig>()
+                .For<DemoConfig>()
                 .Required()
                 .Build(),
             };

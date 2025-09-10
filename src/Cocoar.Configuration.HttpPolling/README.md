@@ -14,21 +14,19 @@ Fetch JSON over HTTP(S) on an interval and emit change signals only when the pay
 ## Example
 
 ```csharp
-using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.HttpPolling.Fluent;
+using Cocoar.Configuration.HttpPolling.Fluent.ProviderOptions;
 
 services.AddCocoarConfiguration(
-    HttpPollingProvider.CreateRule<MyRemoteSettings, MyRemoteSettings>(
-        optionsFactory: _ => new HttpPollingProviderOptions(
-            baseAddress: "https://config.example.com",
-            pollInterval: TimeSpan.FromSeconds(10)
-        ),
-        queryFactory: _ => new HttpPollingProviderQueryOptions(
-            urlPathOrAbsolute: "/v1/settings",
-            keyPrefix: "MyRemote"
-        ),
-        useWhen: () => true,
-        required: false
-    )
+    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
+        urlPathOrAbsolute: "/v1/settings",
+        baseAddress: "https://config.example.com",
+        pollInterval: TimeSpan.FromSeconds(10)
+    ))
+    .For<MyRemoteSettings>()
+    .When(() => true)
+    .Optional()
 );
 ```
 
