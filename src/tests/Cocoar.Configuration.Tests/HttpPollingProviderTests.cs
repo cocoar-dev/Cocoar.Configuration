@@ -39,8 +39,8 @@ public class HttpPollingProviderTests
     var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
-            Rules.Using
-                .FromMicrosoftSource(cm => new MicrosoftConfigurationSourceRuleOptions(
+            Rule.From
+                .MicrosoftSource(cm => new MicrosoftConfigurationSourceRuleOptions(
                     new ConfigurationBuilder()
                         .AddInMemoryCollection(new Dictionary<string,string?> { ["Remote:Url"] = "/api/config" })
                         .Sources[0],
@@ -48,8 +48,8 @@ public class HttpPollingProviderTests
                 ))
                 .For<MyHttpPollingSettings>()
                 .Optional(),
-            Rules.Using
-                .FromHttp(configManager => new HttpPollingRuleOptions(
+            Rule.From
+                .HttpPolling(configManager => new HttpPollingRuleOptions(
                     urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
                     baseAddress: "https://example.com",
             // Give CI plenty of time; we will actively wait for the change

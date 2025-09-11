@@ -6,6 +6,6 @@ namespace Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
 
 public static class RulesExtensions
 {
-    public static FileRuleBuilder FromFile(this Rules.Dsl _, Func<ConfigManager, FileSourceRuleOptions> optionsFactory)
+    public static FileRuleBuilder File(this Rule.Dsl _, Func<ConfigManager, FileSourceRuleOptions> optionsFactory)
         => new(optionsFactory);
 }

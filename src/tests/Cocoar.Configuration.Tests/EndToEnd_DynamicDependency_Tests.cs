@@ -49,14 +49,14 @@ public class EndToEnd_DynamicDependency_Tests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // File rule provides BaseSettings (including Remote.Url)
-            Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(file, null, null, TimeSpan.FromMilliseconds(80)))
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(file, null, null, TimeSpan.FromMilliseconds(80)))
                  .For<BaseSettings>()
                  .Required()
                  .Build(),
 
             // HTTP rule depends on BaseSettings.Remote.Url for its query
-            Rules.Using
-                .FromHttp(cfg => new HttpPollingRuleOptions(
+            Rule.From
+                .HttpPolling(cfg => new HttpPollingRuleOptions(
                     urlPathOrAbsolute: cfg.GetRequiredConfig<BaseSettings>().Remote.Url,
                     baseAddress: "https://example.com",
                     pollInterval: TimeSpan.FromMilliseconds(100),

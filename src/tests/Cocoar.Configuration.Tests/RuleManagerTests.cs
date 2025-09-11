@@ -221,8 +221,8 @@ public partial class RuleManagerTests
     public async Task EnvironmentProvider_Is_Shared_Across_Different_Prefixes()
     {
     var registry = new ProviderRegistry();
-    var rule1 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP1_")).For<object>().Build();
-    var rule2 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP2_")).For<object>().Build();
+    var rule1 = Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP1_")).For<object>().Build();
+    var rule2 = Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP2_")).For<object>().Build();
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
     var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);

@@ -36,8 +36,8 @@ public class ConfigManagerIntegrationTests
 
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>(),
-            Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<TestClass>().As<IMySectionSettings>()
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>(),
+            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions()).For<TestClass>().As<IMySectionSettings>()
         ]);
 
         var sp = services.BuildServiceProvider();

@@ -40,8 +40,8 @@ public class FluentBuilderTests
         // Arrange
         var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
 
-        var rule = Rules.Using
-            .FromFile(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA"))
+        var rule = Rule.From
+            .File(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA"))
             .For<TestClass>()
             .Build();
 
@@ -82,14 +82,14 @@ public class FluentBuilderTests
 
         try
         {
-            var fileRule = Rules.Using
-                .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
+            var fileRule = Rule.From
+                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
 
-            var envRule = Rules.Using
-                .FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null, targetPath: null))
+            var envRule = Rule.From
+                .Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null, targetPath: null))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
@@ -140,8 +140,8 @@ public class FluentBuilderTests
         File.WriteAllText(tempFile, "{ \"SectionA\": { \"Enabled\": false } }");
         try
         {
-            var rule = Rules.Using
-                .FromFile(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", null, TimeSpan.FromMilliseconds(50)))
+            var rule = Rule.From
+                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", null, TimeSpan.FromMilliseconds(50)))
                 .For<TestClass>()
                 .Build();
 

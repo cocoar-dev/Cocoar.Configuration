@@ -4,6 +4,6 @@ namespace Cocoar.Configuration.HttpPolling;
 
 public static class RulesExtensions
 {
-    public static HttpRuleBuilder FromHttp(this Rules.Dsl _, Func<ConfigManager, HttpPollingRuleOptions> optionsFactory)
+    public static HttpRuleBuilder HttpPolling(this Rule.Dsl _, Func<ConfigManager, HttpPollingRuleOptions> optionsFactory)
         => new(optionsFactory);
 }

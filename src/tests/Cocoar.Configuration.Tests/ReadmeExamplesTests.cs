@@ -5,6 +5,7 @@ using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
 using Cocoar.Configuration.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
+using Cocoar.Configuration.Providers.StaticJsonProvider;
 
 namespace Cocoar.Configuration.Tests;
 
@@ -66,11 +67,11 @@ public class ReadmeExamplesTests
             // This code matches the README example exactly
             var rules = new []
             {
-                Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build(),
-                Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
+                Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build()
@@ -116,7 +117,7 @@ public class ReadmeExamplesTests
             
             var rules = new []
             {
-                Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build()
@@ -178,13 +179,13 @@ public class ReadmeExamplesTests
             // This matches the README dynamic dependency example (simplified for testing)
             builder.Services.AddCocoarConfiguration([
                 // Base settings providing the URL
-                Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "Remote"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "Remote"))
                      .For<MyHttpPollingSettings>()
                      .Required()
                      .Build(),
 
                 // Static rule that reads the URL (simplified instead of HTTP for testing)
-                Rules.Using.FromStatic(cm => new {
+                Rule.From.Static(cm => new {
                         Name = $"Config from {cm.GetRequiredConfig<MyHttpPollingSettings>().Url}",
                         Active = true
                     })
@@ -239,12 +240,12 @@ public class ReadmeExamplesTests
             var rules = new []
             {
                 // File first (base layer)
-                Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettingsExtended>()
                     .As<IMySettingsExtended>()
                     .Build(),
                 // Environment second (override layer)
-                Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
+                Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettingsExtended>()
                     .As<IMySettingsExtended>()
                     .Build()

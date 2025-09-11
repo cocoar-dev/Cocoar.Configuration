@@ -76,7 +76,7 @@ public class FileSourceProviderTests
 
             var services = new ServiceCollection();
             services.AddCocoarConfiguration([
-                Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>()
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>()
             ]);
             
             var sp = services.BuildServiceProvider();
@@ -103,8 +103,8 @@ public class FileSourceProviderTests
         
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA")).For<TestClass>(),
-            Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath(config2, "SectionA")).For<TestClass>(),
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA")).For<TestClass>(),
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config2, "SectionA")).For<TestClass>(),
         ]);
 
         var sp = services.BuildServiceProvider();

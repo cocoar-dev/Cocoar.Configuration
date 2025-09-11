@@ -19,7 +19,7 @@ public class MicrosoftSourcesIntegrationTests
         var file = Path.Combine(dir.FullName, "appsettings.json");
         await File.WriteAllTextAsync(file, "{\n  \"My\": { \"Section\": { \"Enabled\": true, \"Value\": 1 } }\n}");
 
-        // Build a Microsoft JSON source with reloads, then adapt via Rules.FromMicrosoftSource
+        // Build a Microsoft JSON source with reloads, then adapt via Rule.FromMicrosoftSource
         var basePath = Path.GetDirectoryName(file)!;
         var fileName = Path.GetFileName(file);
         var jsonSource = new ConfigurationBuilder()
@@ -28,7 +28,7 @@ public class MicrosoftSourcesIntegrationTests
 
         var rules = new[]
         {
-            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
                 queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
             )
@@ -77,7 +77,7 @@ public class MicrosoftSourcesIntegrationTests
 
         var rules = new[]
         {
-            Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
                 queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
             )
@@ -130,7 +130,7 @@ public class MicrosoftSourcesIntegrationTests
 
             var rules = new[]
             {
-                Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+                Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                     instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
                     queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
                 )
