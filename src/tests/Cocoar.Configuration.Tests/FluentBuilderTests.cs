@@ -89,7 +89,7 @@ public class FluentBuilderTests
                 .Build();
 
             var envRule = Rules.Using
-                .FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: null, wrapperPath: null))
+                .FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null, targetPath: null))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();

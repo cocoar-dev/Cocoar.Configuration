@@ -12,19 +12,19 @@ public class ConfigManagerOrchestrationTests
     private readonly struct Unit { public static readonly Unit Default = new(); }
 
     private sealed class CountingProvider(CountingProvider.Options options)
-        : ConfigSourceProvider<CountingProvider.Options, CountingProvider.Query>(options)
+        : ConfigurationProvider<CountingProvider.Options, CountingProvider.Query>(options)
     {
-        public sealed class Options(string key) : ISourceProviderInstanceOptions { public string Key => key; }
-        public sealed class Query(string id, IObservable<Unit> trigger) : ISourceProviderQueryOptions
+        public sealed class Options(string key) : IProviderConfiguration { public string Key => key; }
+        public sealed class Query(string id, IObservable<Unit> trigger) : IProviderQuery
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? WrapperPath => null;
+            public string? TargetPath => null;
         }
 
         public static int CallCount;
 
-        public override Task<System.Text.Json.JsonElement> GetValueAsync(Query query, System.Threading.CancellationToken ct = default)
+        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(Query query, System.Threading.CancellationToken ct = default)
         {
             System.Threading.Interlocked.Increment(ref CallCount);
             using var doc = System.Text.Json.JsonDocument.Parse("{\"ok\":true}");
@@ -87,7 +87,7 @@ public class MicrosoftProviderAdapterTests
             MicrosoftConfigurationSourceProviderOptions,
             MicrosoftConfigurationSourceProviderQueryOptions>(
             new MicrosoftConfigurationSourceProviderOptions(memSource),
-            new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section"),
+            new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section"),
             new ConfigRegistration(typeof(MicrosoftProviderAdapterTests.DemoConfig))
         );
 

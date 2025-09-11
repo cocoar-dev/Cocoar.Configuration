@@ -2,9 +2,9 @@ using System.Text.Json;
 
 namespace Cocoar.Configuration.Providers.Abstractions;
 
-public interface ISourceProviderInstanceOptions
+public interface IProviderConfiguration
 {
-    string CalculateKey()
+    string GenerateProviderKey()
     {
         var options = new JsonSerializerOptions
         {

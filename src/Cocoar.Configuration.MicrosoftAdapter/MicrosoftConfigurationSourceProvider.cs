@@ -6,7 +6,7 @@ namespace Cocoar.Configuration.MicrosoftAdapter;
 
 public sealed class MicrosoftConfigurationSourceProvider(
     MicrosoftConfigurationSourceProviderOptions options
-) : ConfigSourceProvider<MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(options)
+) : ConfigurationProvider<MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(options)
 {
     private IConfigurationProvider BuildProvider()
     {
@@ -17,13 +17,13 @@ public sealed class MicrosoftConfigurationSourceProvider(
         return builder.Build().Providers.Last();
     }
 
-    public override Task<JsonElement> GetValueAsync(MicrosoftConfigurationSourceProviderQueryOptions query, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(MicrosoftConfigurationSourceProviderQueryOptions query, CancellationToken ct = default)
     {
         var provider = BuildProvider();
         var root = new ConfigurationRoot(new[] { provider });
-        var dict = Flatten(root, query.KeyPrefix);
+        var dict = Flatten(root, query.ConfigurationPrefix);
         var element = DictToJson(dict);
-        return Task.FromResult(WrapIfNeeded(element, query.WrapperPath));
+        return Task.FromResult(WrapIfNeeded(element, query.TargetPath));
     }
 
     public override IObservable<JsonElement> Changes(MicrosoftConfigurationSourceProviderQueryOptions query)
@@ -34,8 +34,8 @@ public sealed class MicrosoftConfigurationSourceProvider(
             void publish()
             {
                 var root = new ConfigurationRoot(new[] { provider });
-                var dict = Flatten(root, query.KeyPrefix);
-                var json = WrapIfNeeded(DictToJson(dict), query.WrapperPath);
+                var dict = Flatten(root, query.ConfigurationPrefix);
+                var json = WrapIfNeeded(DictToJson(dict), query.TargetPath);
                 observer.OnNext(json);
             }
 
@@ -45,20 +45,20 @@ public sealed class MicrosoftConfigurationSourceProvider(
         });
     }
 
-    private static Dictionary<string, string?> Flatten(IConfigurationRoot root, string? keyPrefix)
+    private static Dictionary<string, string?> Flatten(IConfigurationRoot root, string? ConfigurationPrefix)
     {
         var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in root.AsEnumerable(makePathsRelative: false))
         {
             if (kv.Value is null || string.IsNullOrWhiteSpace(kv.Key)) continue;
-            if (!string.IsNullOrWhiteSpace(keyPrefix))
+            if (!string.IsNullOrWhiteSpace(ConfigurationPrefix))
             {
-                if (!kv.Key.StartsWith(keyPrefix + ":", StringComparison.OrdinalIgnoreCase)
-                    && !kv.Key.Equals(keyPrefix, StringComparison.OrdinalIgnoreCase))
+                if (!kv.Key.StartsWith(ConfigurationPrefix + ":", StringComparison.OrdinalIgnoreCase)
+                    && !kv.Key.Equals(ConfigurationPrefix, StringComparison.OrdinalIgnoreCase))
                     continue;
-                var rel = kv.Key.Equals(keyPrefix, StringComparison.OrdinalIgnoreCase)
+                var rel = kv.Key.Equals(ConfigurationPrefix, StringComparison.OrdinalIgnoreCase)
                     ? string.Empty
-                    : kv.Key.Substring(keyPrefix.Length + 1);
+                    : kv.Key.Substring(ConfigurationPrefix.Length + 1);
                 if (rel.Length == 0) continue;
                 dict[rel] = kv.Value;
             }

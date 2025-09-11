@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Cocoar.Configuration.MicrosoftAdapter;
 
-public sealed class MicrosoftConfigurationSourceProviderOptions : ISourceProviderInstanceOptions
+public sealed class MicrosoftConfigurationSourceProviderOptions : IProviderConfiguration
 {
     public IConfigurationSource Source { get; }
     public string? BasePath { get; }
@@ -16,6 +16,6 @@ public sealed class MicrosoftConfigurationSourceProviderOptions : ISourceProvide
         Identity = identity;
     }
 
-    string ISourceProviderInstanceOptions.CalculateKey()
+    string IProviderConfiguration.GenerateProviderKey()
         => $"{Source.GetType().FullName}|{BasePath}|{Identity}";
 }

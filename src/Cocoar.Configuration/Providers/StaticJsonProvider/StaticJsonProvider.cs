@@ -5,23 +5,23 @@ using Cocoar.Configuration.Providers.Abstractions;
 namespace Cocoar.Configuration.Providers.StaticJsonProvider;
 
 public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
-    : ConfigSourceProvider<StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(options)
+    : ConfigurationProvider<StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> GetValueAsync(StaticJsonProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(StaticJsonProviderQueryOptions query, CancellationToken ct = default)
     {
         var json = ProviderOptions.Value.ValueKind == JsonValueKind.Undefined
             ? JsonDocument.Parse("{}").RootElement
             : ProviderOptions.Value;
-    return Task.FromResult(WrapIfNeeded(json, queryOptions.WrapperPath));
+    return Task.FromResult(WrapIfNeeded(json, query.TargetPath));
     }
 
     public override IObservable<JsonElement> Changes(StaticJsonProviderQueryOptions queryOptions)
         => Observable.Empty<JsonElement>();
 
-    public static ConfigRule CreateRule<TConfigType>(JsonElement value, string? wrapperPath = null, Func<bool>? useWhen = null, bool required = true)
+    public static ConfigRule CreateRule<TConfigType>(JsonElement value, string? TargetPath = null, Func<bool>? useWhen = null, bool required = true)
         => ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
             _ => new StaticJsonProviderOptions(value),
-            _ => new StaticJsonProviderQueryOptions(wrapperPath),
+            _ => new StaticJsonProviderQueryOptions(TargetPath),
             new ConfigRegistration(typeof(TConfigType)),
             useWhen,
             required

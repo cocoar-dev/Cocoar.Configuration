@@ -30,7 +30,7 @@ public class MicrosoftSourcesIntegrationTests
         {
             Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
-                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
             )
             .For<DemoConfig>()
             .Required()
@@ -79,7 +79,7 @@ public class MicrosoftSourcesIntegrationTests
         {
             Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
-                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
             )
             .For<DemoConfig>()
             .Required()
@@ -132,7 +132,7 @@ public class MicrosoftSourcesIntegrationTests
             {
                 Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                     instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
-                    queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+                    queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
                 )
                 .For<DemoConfig>()
                 .Required()

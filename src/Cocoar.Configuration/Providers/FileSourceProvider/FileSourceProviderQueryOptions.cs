@@ -4,7 +4,7 @@ namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
 public record FileSourceProviderQueryOptions(
 	string Filename,
-	string? SectionPath = null,
-	string? WrapperPath = null,
+	string? ConfigurationPath = null,
+	string? TargetPath = null,
 	TimeSpan? DebounceTime = null
-) : ISourceProviderQueryOptions;
+) : IProviderQuery;

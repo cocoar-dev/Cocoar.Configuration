@@ -47,9 +47,9 @@ public class TryGetAndStaticSeedingTests
     }
 
     [Fact]
-    public void FromStatic_With_WrapperPath_Nests_Value()
+    public void FromStatic_With_TargetPath_Nests_Value()
     {
-    var rule = Rules.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "B", Value = 7 }, wrapperPath: "Inner")
+    var rule = Rules.Using.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "B", Value = 7 }, TargetPath: "Inner")
             .For<Outer>()
             .Build();
 
@@ -63,11 +63,11 @@ public class TryGetAndStaticSeedingTests
     [Fact]
     public void FromStatic_DependentRuleReadsSeededType_Succeeds()
     {
-        var seedRule = Rules.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "Seed", Value = 11 })
+        var seedRule = Rules.Using.FromStatic<SeededSettings>(_ => new SeededSettings { Name = "Seed", Value = 11 })
             .For<SeededSettings>()
             .Build();
 
-    var dependentRule = Rules.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), wrapperPath: "Dep")
+    var dependentRule = Rules.Using.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), TargetPath: "Dep")
             .For<Container>()
             .Build();
 
@@ -81,7 +81,7 @@ public class TryGetAndStaticSeedingTests
     [Fact]
     public void FromStatic_AbsentSeed_GetRequired_Throws()
     {
-    var dependentRule = Rules.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), wrapperPath: "Dep")
+    var dependentRule = Rules.Using.FromStatic<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), TargetPath: "Dep")
             .For<Container>()
             .Build();
 

@@ -1,4 +1,4 @@
-# Cocoar.Configuration — Architecture & Status (2025-09-10)
+# Cocoar.Configuration — Architecture & Status (2025-09-11)
 
 This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work.
 
@@ -15,12 +15,12 @@ This document captures the current design, behavior, and implementation details 
   - ProviderType (e.g., File, Environment, HTTP)
   - ProviderOptions (instance options; define resource identity and lifetime)
   - QueryOptions (what to fetch/select from the provider)
-  - ConfigTypeDefinition (contract+optional implementation type)
+  - ConfigRegistration (contract+optional implementation type)
   - Options (UseWhen, Required)
 - Factory deferral: rule factories (instance/query option factories) are stored, not executed at rule construction time. They are invoked during recompute, enabling dynamic dependencies between rules.
 - Providers
-  - Implement GetValueAsync(query) and Changes(query)
-  - Startup behavior: ConfigManager calls GetValueAsync for every rule immediately (no waiting for polls/watchers). Changes() streams do not emit an initial value; they only emit on subsequent source changes.
+  - Implement FetchConfigurationAsync(query) and Changes(query)
+  - Startup behavior: ConfigManager calls FetchConfigurationAsync for every rule immediately (no waiting for polls/watchers). Changes() streams do not emit an initial value; they only emit on subsequent source changes.
   - Instance options live in the provider constructor; queries are per-call to allow reuse and dynamic binding.
 - Dynamic dependencies: during recompute, later rules can read earlier outputs via ConfigManager (e.g., GetRequiredConfig<T>), thanks to a working snapshot that is updated after each rule’s merge.
 - Architecture diagram
@@ -38,7 +38,7 @@ flowchart LR
     HPP[HttpPollingProvider]
   end
   PR -->|ProviderHandle| Providers
-  RM -->|GetValue/Changes with QueryOptions| Providers
+  RM -->|FetchConfiguration/Changes with QueryOptions| Providers
   Providers -->|JSON object| RM
   RM -->|flatten & merge| CM
   Providers -->|Changes (IObservable)| RM -->|Recompute| CM
@@ -58,24 +58,24 @@ flowchart LR
 
 - FileSourceProvider
   - Options: directory + optional debounce for the internal watcher
-  - Query: filename, optional sectionPath/wrapperPath
+  - Query: filename, optional configurationPath/targetPath
   - Behavior: maintains a folder watcher; per filename change stream; caches last JSON per file
-  - Watcher errors during Changes() are swallowed to keep stream alive; GetValueAsync still throws on missing file (so Required rules fail properly in recompute). No initial emission from Changes().
+  - Watcher errors during Changes() are swallowed to keep stream alive; FetchConfigurationAsync still throws on missing file (so Required rules fail properly in recompute). No initial emission from Changes().
 - EnvironmentVariableProvider
-  - Options: optional prefix
-  - Query: optional sectionPath/wrapperPath (prefix concept is mapped to sectionPath)
-  - Behavior: snapshot read via GetValueAsync at startup; Changes() is a no-op (does not emit initially).
+  - Options: optional environmentPrefix
+  - Query: optional configurationPath/targetPath (prefix concept is mapped to configurationPath)
+  - Behavior: snapshot read via FetchConfigurationAsync at startup; Changes() is a no-op (does not emit initially).
 - HttpPollingProvider
   - Options: optional baseAddress, pollInterval, optional HttpMessageHandler (for tests)
-  - Query: urlPathOrAbsolute, optional sectionPath/wrapperPath, optional headers
-  - Behavior: single HttpClient per provider; GetValueAsync fetches immediately at startup; Changes() polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
+  - Query: urlPathOrAbsolute, optional configurationPath/targetPath, optional headers
+  - Behavior: single HttpClient per provider; FetchConfigurationAsync fetches immediately at startup; Changes() polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
 - MicrosoftConfigurationSourceProvider (Adapter)
   - Wraps Microsoft.Extensions.Configuration sources (JSON, INI, environment variables, etc.) and adapts them to this system.
   - Honors reload-on-change via Microsoft change tokens; environment variables typically don’t emit changes.
   - Query supports keyPrefix and optional wrapperPath.
 - StaticJsonProvider
   - Supplies a static JSON value (explicit seeding) and never emits changes.
-  - Useful to seed dependent rules or provide defaults via fluent Rules.FromStatic.
+  - Useful to seed dependent rules or provide defaults via fluent Rules.Using.FromStatic.
 
 ## Merge Semantics
 
@@ -110,7 +110,7 @@ flowchart LR
   - Implemented via RuleManager: providers are reused when instance options key is unchanged; subscriptions are refreshed when query key changes.
   - Optional IDisposable disposal hooks are honored when a provider is replaced.
 - Arrays merging: consider strategies (overwrite/append/custom policy).
-- Naming consistency and nullability cleanliness (memberPath vs prefix).
+- Naming consistency and nullability cleanliness.
 - Provider contract variants:
   - Optional BoundProvider layer to pin a provider to a specific query for stricter API (parameterless GetValue/Changes) without losing reuse.
 - Cycle detection/diagnostics for dynamic dependencies: warn or trace potential cycles; currently not enforced.
@@ -118,7 +118,7 @@ flowchart LR
 ## Testing Status
 
 - Unit tests for File, Environment, HTTP providers; integration tests for Microsoft adapter; end-to-end dynamic dependency test; static seeding tests.
-- Full solution tests: green as of 2025-09-10 (41 tests).
+- Full solution tests: green as of 2025-09-11 (43 tests).
 
 ## Usage Examples
 
@@ -126,12 +126,12 @@ flowchart LR
 
 ```csharp
 services.AddCocoarConfiguration(
-  Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
-  Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP_")).For<MySectionSettings>(),
+  Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
+  Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_")).For<MySectionSettings>(),
   // Generic order: Concrete type first, optional interface second
   Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
         optionsFactory: _ => new HttpPollingProviderOptions("https://config.example.com", TimeSpan.FromSeconds(10)),
-  queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", sectionPath: "SectionA")
+  queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", configurationPath: "SectionA")
     )
 );
 ```
@@ -139,14 +139,14 @@ services.AddCocoarConfiguration(
 ## Quick Reference (Contracts)
 
 - ConfigRuleOptions: UseWhen (Func<bool>), Required (bool)
-- ConfigTypeDefinition: ConfigType, ImplementationType?
-- Provider base: ConfigSourceProvider<TInstanceOptions, TQueryOptions>
-- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?)
-- Env options/query: EnvironmentVariableProviderOptions(prefix?), EnvironmentVariableProviderQueryOptions(memberPath?, memberWrapper?)
+- ConfigRegistration: ConfigType, ImplementationType?
+- Provider base: ConfigurationProvider<TInstanceOptions, TQueryOptions>
+- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?)
+- Env options/query: EnvironmentVariableProviderOptions(environmentPrefix?), EnvironmentVariableProviderQueryOptions(configurationPath?, targetPath?)
   - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
-- HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath?, wrapperPath?)
+- HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?)
 
 ## Version
 
-- Commit date: 2025-09-10
-- Branch: fix/pipeline
+- Commit date: 2025-09-11
+- Branch: feature/cleanup

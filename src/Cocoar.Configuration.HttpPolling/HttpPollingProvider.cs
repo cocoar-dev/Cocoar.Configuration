@@ -6,7 +6,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 namespace Cocoar.Configuration.HttpPolling;
 
 public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
-    : ConfigSourceProvider<HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(options), IDisposable
+    : ConfigurationProvider<HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(options), IDisposable
 {
     private readonly HttpClient _client = CreateClient(options);
     private readonly ConcurrentDictionary<string, JsonElement> _lastByKey = new();
@@ -23,7 +23,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         return client;
     }
 
-    public override async Task<JsonElement> GetValueAsync(HttpPollingProviderQueryOptions query, CancellationToken ct = default)
+    public override async Task<JsonElement> FetchConfigurationAsync(HttpPollingProviderQueryOptions query, CancellationToken ct = default)
     {
         var key = MakeKey(query);
         if (_lastByKey.TryGetValue(key, out var cached))
@@ -49,11 +49,11 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
         var element = doc.RootElement.Clone();
-        if (!string.IsNullOrWhiteSpace(query.SectionPath))
+        if (!string.IsNullOrWhiteSpace(query.ConfigurationPath))
         {
-            element = SelectByPath(element, query.SectionPath);
+            element = SelectByPath(element, query.ConfigurationPath);
         }
-        var wrapped = WrapIfNeeded(element, query.WrapperPath);
+        var wrapped = WrapIfNeeded(element, query.TargetPath);
         _lastByKey[key] = wrapped;
         return wrapped;
     }
@@ -85,11 +85,11 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
                     var element = doc.RootElement.Clone();
-                    if (!string.IsNullOrWhiteSpace(query.SectionPath))
+                    if (!string.IsNullOrWhiteSpace(query.ConfigurationPath))
                     {
-                        element = SelectByPath(element, query.SectionPath);
+                        element = SelectByPath(element, query.ConfigurationPath);
                     }
-                    var wrapped = WrapIfNeeded(element, query.WrapperPath);
+                    var wrapped = WrapIfNeeded(element, query.TargetPath);
                     var key = MakeKey(query);
                     if (_lastByKey.TryGetValue(key, out var last))
                     {
@@ -132,7 +132,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         var hdr = query.Headers == null
             ? string.Empty
             : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-    return $"{query.UrlPathOrAbsolute}|{query.SectionPath}|{query.WrapperPath}|{hdr}";
+    return $"{query.UrlPathOrAbsolute}|{query.ConfigurationPath}|{query.TargetPath}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>

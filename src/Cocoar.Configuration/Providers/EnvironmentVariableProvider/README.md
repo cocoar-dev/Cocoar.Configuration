@@ -2,8 +2,8 @@
 
 Project configuration from environment variables, optionally filtered by a prefix.
 
-- Options: `EnvironmentVariableProviderOptions(keyPrefix?)`
-- Query: `EnvironmentVariableProviderQueryOptions(keyPrefix?, wrapperPath?)`
+- Options: `EnvironmentVariableProviderOptions(environmentPrefix?)`
+- Query: `EnvironmentVariableProviderQueryOptions(configurationPath?, targetPath?)`
 - Change semantics: currently no default emissions; primarily used for snapshot reads during recompute. Values are strings at source; deserialization can coerce to primitives via the built-in converter.
 
 ## When to use
@@ -19,9 +19,9 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 
 services.AddCocoarConfiguration(
     // Base from file
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection")).For<MySection>(),
+    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection")).For<MySection>(),
     // Env overlay, considering variables like MYAPP_*
-    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP")).For<MySection>()
+    Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP")).For<MySection>()
 );
 ```
 

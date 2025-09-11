@@ -12,14 +12,14 @@ namespace Cocoar.Configuration.Tests;
 public class HttpPollingProviderTests
 {
     [Fact]
-    public async Task GetValueAsync_ReadsJson_FromHandler()
+    public async Task FetchConfigurationAsync_ReadsJson_FromHandler()
     {
         var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
         var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(50), handler));
-        var result = await provider.GetValueAsync(new HttpPollingProviderQueryOptions("/api/config"));
+        var result = await provider.FetchConfigurationAsync(new HttpPollingProviderQueryOptions("/api/config"));
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
     Assert.True(result.TryGetProperty("Value", out var v));
         Assert.Equal(1, v.GetInt32());
@@ -44,7 +44,7 @@ public class HttpPollingProviderTests
                     new ConfigurationBuilder()
                         .AddInMemoryCollection(new Dictionary<string,string?> { ["Remote:Url"] = "/api/config" })
                         .Sources[0],
-                    keyPrefix: "Remote"
+                    configurationPrefix: "Remote"
                 ))
                 .For<MyHttpPollingSettings>()
                 .Optional(),

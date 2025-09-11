@@ -57,24 +57,24 @@ public partial class RuleManagerTests
         Assert.False(include);
     }
 
-    private sealed class InMemoryProviderOptions : ISourceProviderInstanceOptions
+    private sealed class InMemoryProviderOptions : IProviderConfiguration
     {
         public string Key { get; }
         public InMemoryProviderOptions(string key) => Key = key;
     }
 
-    private sealed class InMemoryQueryOptions(string id) : ISourceProviderQueryOptions
+    private sealed class InMemoryQueryOptions(string id) : IProviderQuery
     {
         public string Id => id;
-        public string? WrapperPath => null;
+        public string? TargetPath => null;
     }
 
     private sealed class InMemoryProvider(InMemoryProviderOptions options)
-        : ConfigSourceProvider<InMemoryProviderOptions, InMemoryQueryOptions>(options)
+        : ConfigurationProvider<InMemoryProviderOptions, InMemoryQueryOptions>(options)
     {
         private readonly Dictionary<string, JsonElement> _store = new();
 
-        public override Task<JsonElement> GetValueAsync(InMemoryQueryOptions query, CancellationToken ct = default)
+        public override Task<JsonElement> FetchConfigurationAsync(InMemoryQueryOptions query, CancellationToken ct = default)
         {
             if (_store.TryGetValue(query.Id, out var v)) return Task.FromResult(v);
             var json = JsonSerializer.Serialize(new Dictionary<string, object?> { ["Value"] = ProviderOptions.Key + ":" + query.Id });
@@ -139,11 +139,11 @@ public partial class RuleManagerTests
     }
 
     // Minimal fake provider to simulate failures
-    private sealed class FakeFileProviderOptions(string dir) : ISourceProviderInstanceOptions { public string Dir => dir; }
-    private sealed class FakeFileProviderQuery(string name, bool fail = false) : ISourceProviderQueryOptions { public string Name => name; public bool Fail => fail; public string? WrapperPath => null; }
-    private sealed class FakeFileProvider(FakeFileProviderOptions options) : ConfigSourceProvider<FakeFileProviderOptions, FakeFileProviderQuery>(options)
+    private sealed class FakeFileProviderOptions(string dir) : IProviderConfiguration { public string Dir => dir; }
+    private sealed class FakeFileProviderQuery(string name, bool fail = false) : IProviderQuery { public string Name => name; public bool Fail => fail; public string? TargetPath => null; }
+    private sealed class FakeFileProvider(FakeFileProviderOptions options) : ConfigurationProvider<FakeFileProviderOptions, FakeFileProviderQuery>(options)
     {
-        public override Task<JsonElement> GetValueAsync(FakeFileProviderQuery query, CancellationToken ct = default)
+        public override Task<JsonElement> FetchConfigurationAsync(FakeFileProviderQuery query, CancellationToken ct = default)
         {
             if (query.Fail) throw new InvalidOperationException("fail");
             using var doc = JsonDocument.Parse("{}");
@@ -188,17 +188,17 @@ public partial class RuleManagerTests
     private readonly struct Unit { public static readonly Unit Default = new(); }
 
     private sealed class EmittingProvider(EmittingProvider.Options options)
-        : ConfigSourceProvider<EmittingProvider.Options, EmittingProvider.Query>(options)
+        : ConfigurationProvider<EmittingProvider.Options, EmittingProvider.Query>(options)
     {
-        public sealed class Options(string key) : ISourceProviderInstanceOptions { public string Key => key; }
-        public sealed class Query(string id, IObservable<Unit> trigger) : ISourceProviderQueryOptions
+        public sealed class Options(string key) : IProviderConfiguration { public string Key => key; }
+        public sealed class Query(string id, IObservable<Unit> trigger) : IProviderQuery
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? WrapperPath => null;
+            public string? TargetPath => null;
         }
 
-        public override Task<JsonElement> GetValueAsync(Query query, CancellationToken ct = default)
+        public override Task<JsonElement> FetchConfigurationAsync(Query query, CancellationToken ct = default)
         {
             using var doc = JsonDocument.Parse("{\"ok\":true}");
             return Task.FromResult(doc.RootElement.Clone());
@@ -221,8 +221,8 @@ public partial class RuleManagerTests
     public async Task EnvironmentProvider_Is_Shared_Across_Different_Prefixes()
     {
     var registry = new ProviderRegistry();
-    var rule1 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "APP1_")).For<object>().Build();
-    var rule2 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "APP2_")).For<object>().Build();
+    var rule1 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP1_")).For<object>().Build();
+    var rule2 = Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "APP2_")).For<object>().Build();
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
     var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);
@@ -238,24 +238,24 @@ public partial class RuleManagerTests
 
 public partial class RuleManagerTests
 {
-    private sealed class IdentityOptions(string name) : ISourceProviderInstanceOptions
+    private sealed class IdentityOptions(string name) : IProviderConfiguration
     {
         public string Name => name;
     }
 
-    private sealed class IdentityQuery(string id) : ISourceProviderQueryOptions
+    private sealed class IdentityQuery(string id) : IProviderQuery
     {
         public string Id => id;
-        public string? WrapperPath => null;
+        public string? TargetPath => null;
     }
 
     private sealed class IdentityProvider(IdentityOptions options)
-        : ConfigSourceProvider<IdentityOptions, IdentityQuery>(options)
+        : ConfigurationProvider<IdentityOptions, IdentityQuery>(options)
     {
         private static int CreatedCount;
         private readonly int _instanceId = Interlocked.Increment(ref CreatedCount);
 
-        public override Task<JsonElement> GetValueAsync(IdentityQuery query, CancellationToken ct = default)
+        public override Task<JsonElement> FetchConfigurationAsync(IdentityQuery query, CancellationToken ct = default)
         {
             var json = JsonSerializer.Serialize(new Dictionary<string, object?>
             {

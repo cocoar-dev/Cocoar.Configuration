@@ -4,8 +4,8 @@ namespace Cocoar.Configuration;
 
 public class ConfigRule(
     Type providerType,
-    Func<ConfigManager, ISourceProviderInstanceOptions> providerOptionsFactory,
-    Func<ConfigManager, ISourceProviderQueryOptions> queryOptionsFactory,
+    Func<ConfigManager, IProviderConfiguration> providerOptionsFactory,
+    Func<ConfigManager, IProviderQuery> queryOptionsFactory,
     ConfigRegistration configContract,
     ConfigRuleOptions? options = null)
 {
@@ -15,16 +15,16 @@ public class ConfigRule(
     public ConfigRuleOptions? Options { get; } = options;
 
     // Internally, always store factories (instances are wrapped as trivial factories)
-    private readonly Func<ConfigManager, ISourceProviderInstanceOptions> _providerOptionsFactory
+    private readonly Func<ConfigManager, IProviderConfiguration> _providerOptionsFactory
         = providerOptionsFactory ?? throw new ArgumentNullException(nameof(providerOptionsFactory));
-    private readonly Func<ConfigManager, ISourceProviderQueryOptions> _queryOptionsFactory
+    private readonly Func<ConfigManager, IProviderQuery> _queryOptionsFactory
         = queryOptionsFactory ?? throw new ArgumentNullException(nameof(queryOptionsFactory));
 
     // Constructor for concrete options (wraps as trivial factories)
     public ConfigRule(
         Type providerType,
-        ISourceProviderInstanceOptions providerOptions,
-        ISourceProviderQueryOptions queryOptions,
+        IProviderConfiguration providerOptions,
+        IProviderQuery queryOptions,
         ConfigRegistration configContract,
         ConfigRuleOptions? options = null)
         : this(
@@ -38,16 +38,16 @@ public class ConfigRule(
         if (queryOptions is null) throw new ArgumentNullException(nameof(queryOptions));
     }
 
-    public ISourceProviderInstanceOptions ResolveProviderOptions(ConfigManager manager)
+    public IProviderConfiguration ResolveProviderOptions(ConfigManager manager)
         => _providerOptionsFactory(manager);
 
-    public ISourceProviderQueryOptions ResolveQueryOptions(ConfigManager manager)
+    public IProviderQuery ResolveQueryOptions(ConfigManager manager)
         => _queryOptionsFactory(manager);
 
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigRegistration typeDefinition, Func<bool>? useWhen = null, bool required = true)
-        where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
-        where TOptions : ISourceProviderInstanceOptions
-        where TQueryOptions : ISourceProviderQueryOptions
+        where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
+        where TOptions : IProviderConfiguration
+        where TQueryOptions : IProviderQuery
     {
         var options = new ConfigRuleOptions
         {
@@ -63,9 +63,9 @@ public class ConfigRule(
         ConfigRegistration typeDefinition,
         Func<bool>? useWhen = null,
         bool required = true)
-        where TProvider : ConfigSourceProvider<TOptions, TQueryOptions>
-        where TOptions : ISourceProviderInstanceOptions
-        where TQueryOptions : ISourceProviderQueryOptions
+        where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
+        where TOptions : IProviderConfiguration
+        where TQueryOptions : IProviderQuery
     {
         var options = new ConfigRuleOptions
         {

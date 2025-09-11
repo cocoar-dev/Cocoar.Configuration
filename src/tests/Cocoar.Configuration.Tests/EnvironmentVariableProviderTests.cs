@@ -6,7 +6,7 @@ namespace Cocoar.Configuration.Tests;
 public class EnvironmentVariableProviderTests
 {
     [Fact]
-    public async Task GetValueAsync_ReturnsValue_WhenEnvVarExists()
+    public async Task FetchConfigurationAsync_ReturnsValue_WhenEnvVarExists()
     {
         // Arrange
         var key = "TESTENVPROVIDERKEY";
@@ -16,7 +16,7 @@ public class EnvironmentVariableProviderTests
         var queryOptions = new EnvironmentVariableProviderQueryOptions();
 
         // Act
-        var result = await provider.GetValueAsync(queryOptions);
+        var result = await provider.FetchConfigurationAsync(queryOptions);
 
         // Assert
         Assert.NotNull(result);
@@ -26,7 +26,7 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task GetValueAsync_Prefix_With_NonDelimiter_Char_Works()
+    public async Task FetchConfigurationAsync_Prefix_With_NonDelimiter_Char_Works()
     {
         // Arrange
         var prefix = "Marten@";
@@ -38,7 +38,7 @@ public class EnvironmentVariableProviderTests
         try
         {
             // Act
-            var result = await provider.GetValueAsync(queryOptions);
+            var result = await provider.FetchConfigurationAsync(queryOptions);
 
             // Assert
             Assert.True(result.TryGetProperty("ConnectionString", out var cs));
@@ -51,7 +51,7 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task GetValueAsync_Prefix_SingleLeadingUnderscore_IsTrimmed()
+    public async Task FetchConfigurationAsync_Prefix_SingleLeadingUnderscore_IsTrimmed()
     {
         // Arrange
         var prefix = "MYAPP";
@@ -63,7 +63,7 @@ public class EnvironmentVariableProviderTests
         try
         {
             // Act
-            var result = await provider.GetValueAsync(queryOptions);
+            var result = await provider.FetchConfigurationAsync(queryOptions);
 
             // Assert
             Assert.True(result.TryGetProperty("FOO", out var val));
@@ -76,7 +76,7 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task GetValueAsync_Uses_DoubleUnderscore_And_Colon_As_Separators()
+    public async Task FetchConfigurationAsync_Uses_DoubleUnderscore_And_Colon_As_Separators()
     {
         // Arrange
         var prefix = "MYAPP";
@@ -91,7 +91,7 @@ public class EnvironmentVariableProviderTests
         var queryOptions = new EnvironmentVariableProviderQueryOptions(prefix);
 
         // Act
-        var result = await provider.GetValueAsync(queryOptions);
+        var result = await provider.FetchConfigurationAsync(queryOptions);
 
         // Assert
         Assert.True(result.TryGetProperty("FOO_BAR", out var fooBar));
@@ -108,7 +108,7 @@ public class EnvironmentVariableProviderTests
     }
 
     [Fact]
-    public async Task GetValueAsync_WithPrefix_ReturnsOnlyPrefixedVars()
+    public async Task FetchConfigurationAsync_WithPrefix_ReturnsOnlyPrefixedVars()
     {
         // Arrange
         var prefix = "MYAPP";
@@ -122,7 +122,7 @@ public class EnvironmentVariableProviderTests
         var queryOptions = new EnvironmentVariableProviderQueryOptions(prefix);
 
         // Act
-        var result = await provider.GetValueAsync(queryOptions);
+        var result = await provider.FetchConfigurationAsync(queryOptions);
 
         // Assert
         Assert.NotNull(result);

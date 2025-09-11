@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Cocoar.Configuration;
 
 /// <summary>
-/// Registry for sharing provider instances across rules, keyed by ProviderType + InstanceOptions.CalculateKey().
+/// Registry for sharing provider instances across rules, keyed by ProviderType + InstanceOptions.GenerateProviderKey().
 /// Manages reference counts and disposes providers when the last lease is released.
 /// </summary>
 internal sealed class ProviderRegistry
@@ -23,7 +23,7 @@ internal sealed class ProviderRegistry
     // Entry is internal to avoid inconsistent accessibility while keeping it scoped to the registry.
     internal sealed class Entry
     {
-        public required ConfigSourceProvider Provider { get; init; }
+        public required ConfigurationProvider Provider { get; init; }
         public int RefCount;
     }
 
@@ -48,7 +48,7 @@ internal sealed class ProviderRegistry
         internal static ProviderHandle Create(ProviderRegistry owner, (Type type, string key) id, Entry entry)
             => new ProviderHandle(owner, id, entry);
 
-        public ConfigSourceProvider Provider
+        public ConfigurationProvider Provider
             => _entry?.Provider ?? throw new ObjectDisposedException(nameof(ProviderHandle));
 
         public void Dispose()
@@ -59,9 +59,9 @@ internal sealed class ProviderRegistry
         }
     }
 
-    public ProviderHandle Acquire(Type providerType, ISourceProviderInstanceOptions options)
+    public ProviderHandle Acquire(Type providerType, IProviderConfiguration options)
     {
-        var key = options.CalculateKey();
+        var key = options.GenerateProviderKey();
         var id = (providerType, key);
         var entry = _entries.GetOrAdd(id, _ =>
         {
@@ -100,9 +100,9 @@ internal sealed class ProviderRegistry
         }
     }
 
-    private static ConfigSourceProvider CreateProvider(Type providerType, ISourceProviderInstanceOptions options)
+    private static ConfigurationProvider CreateProvider(Type providerType, IProviderConfiguration options)
     {
-        var instance = Activator.CreateInstance(providerType, options) as ConfigSourceProvider
+        var instance = Activator.CreateInstance(providerType, options) as ConfigurationProvider
                        ?? throw new InvalidOperationException($"Could not create provider {providerType.Name}.");
         return instance;
     }

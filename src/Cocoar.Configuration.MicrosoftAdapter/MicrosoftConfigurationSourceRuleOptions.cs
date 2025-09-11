@@ -8,26 +8,26 @@ public sealed class MicrosoftConfigurationSourceRuleOptions
     public IConfigurationSource Source { get; }
     public string? BasePath { get; }
     public string? Identity { get; }
-    public string? KeyPrefix { get; }
-    public string? WrapperPath { get; }
+    public string? ConfigurationPrefix { get; }
+    public string? TargetPath { get; }
 
     public MicrosoftConfigurationSourceRuleOptions(
         IConfigurationSource source,
         string? basePath = null,
         string? identity = null,
-        string? keyPrefix = null,
-        string? wrapperPath = null)
+        string? configurationPrefix = null,
+        string? targetPath = null)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
         BasePath = basePath;
         Identity = identity;
-        KeyPrefix = keyPrefix;
-        WrapperPath = wrapperPath;
+        ConfigurationPrefix = configurationPrefix;
+        TargetPath = targetPath;
     }
 
     public MicrosoftConfigurationSourceProviderOptions ToProviderOptions()
         => new(Source, BasePath, Identity);
 
     public MicrosoftConfigurationSourceProviderQueryOptions ToQueryOptions()
-        => new(KeyPrefix, WrapperPath);
+        => new(ConfigurationPrefix, TargetPath);
 }

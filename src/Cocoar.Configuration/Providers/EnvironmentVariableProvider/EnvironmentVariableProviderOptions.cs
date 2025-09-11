@@ -2,15 +2,15 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
-public sealed class EnvironmentVariableProviderOptions : ISourceProviderInstanceOptions
+public sealed class EnvironmentVariableProviderOptions : IProviderConfiguration
 {
-    public string? KeyPrefix { get; }
+    public string? EnvironmentPrefix { get; }
 
-    public EnvironmentVariableProviderOptions(string? keyPrefix = null)
+    public EnvironmentVariableProviderOptions(string? environmentPrefix = null)
     {
-        KeyPrefix = keyPrefix;
+        EnvironmentPrefix = environmentPrefix;
     }
 
     // All environment lookups use the same underlying source; share a single instance across rules.
-    public string CalculateKey() => "Environment:Global";
+    public string GenerateProviderKey() => "Environment:Global";
 }

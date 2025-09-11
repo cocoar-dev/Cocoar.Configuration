@@ -4,9 +4,9 @@ namespace Cocoar.Configuration.Fluent;
 
 // Generic builder to avoid per-provider bespoke builders.
 public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> : RuleBuilderBase<ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>>, IConfigRuleBuilder
-    where TProvider : ConfigSourceProvider<TInstanceOptions, TQueryOptions>
-    where TInstanceOptions : ISourceProviderInstanceOptions
-    where TQueryOptions : ISourceProviderQueryOptions
+    where TProvider : ConfigurationProvider<TInstanceOptions, TQueryOptions>
+    where TInstanceOptions : IProviderConfiguration
+    where TQueryOptions : IProviderQuery
 {
     private readonly Func<ConfigManager, TInstanceOptions> _instanceFactory;
     private readonly Func<ConfigManager, TQueryOptions> _queryFactory;

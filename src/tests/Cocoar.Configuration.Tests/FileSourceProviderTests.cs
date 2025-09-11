@@ -12,14 +12,14 @@ namespace Cocoar.Configuration.Tests;
 public class FileSourceProviderTests
 {
     [Fact]
-    public async Task GetValueAsync_ReturnsSection_WhenJsonFileExists()
+    public async Task FetchConfigurationAsync_ReturnsSection_WhenJsonFileExists()
     {
         // Arrange
         var tempPath = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
         var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
 
         // Act
-        var result = await provider.GetValueAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath),"SectionA"));
+        var result = await provider.FetchConfigurationAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath),"SectionA"));
 
         // Assert
         Assert.NotNull(result);

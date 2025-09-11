@@ -5,28 +5,28 @@ namespace Cocoar.Configuration.Fluent.ProviderOptions;
 // Combined options for Environment provider (instance + query) for fluent API
 public sealed class EnvironmentVariableRuleOptions
 {
-    private readonly string? _keyPrefix;
-    private readonly string? _wrapperPath;
+    private readonly string? _environmentPrefix;
+    private readonly string? _targetPath;
 
     /// <summary>
     /// Create options for the environment variable provider.
-    /// keyPrefix filters environment variables by the given prefix (e.g. "MYAPP_"),
-    /// wrapperPath optionally wraps the resulting object under a property path in the target config.
+    /// environmentPrefix filters environment variables by the given prefix (e.g. "MYAPP_"),
+    /// targetPath optionally wraps the resulting object under a property path in the target config.
     /// </summary>
-    public EnvironmentVariableRuleOptions(string? keyPrefix = null, string? wrapperPath = null)
+    public EnvironmentVariableRuleOptions(string? environmentPrefix = null, string? targetPath = null)
     {
-        _keyPrefix = keyPrefix;
-        _wrapperPath = wrapperPath;
+        _environmentPrefix = environmentPrefix;
+        _targetPath = targetPath;
     }
 
     /// <summary>
     /// Preferred factory with clearer names.
     /// </summary>
-    public static EnvironmentVariableRuleOptions FromPrefix(string? keyPrefix, string? wrapperPath = null)
-        => new(keyPrefix: keyPrefix, wrapperPath: wrapperPath);
+    public static EnvironmentVariableRuleOptions FromPrefix(string? environmentPrefix, string? targetPath = null)
+        => new(environmentPrefix: environmentPrefix, targetPath: targetPath);
 
 
-    public EnvironmentVariableProviderOptions ToProviderOptions() => new(_keyPrefix);
-    // Provider currently uses query.KeyPrefix as the prefix filter; map KeyPrefix here for correct behavior
-    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_keyPrefix, _wrapperPath);
+    public EnvironmentVariableProviderOptions ToProviderOptions() => new(_environmentPrefix);
+    // Provider currently uses query.EnvironmentPrefix as the prefix filter; map environmentPrefix here for correct behavior
+    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_environmentPrefix, _targetPath);
 }

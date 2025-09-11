@@ -10,12 +10,12 @@ This document captures the agreed functional model and the planned improvements 
 - Providers: File and HTTP can emit changes; Environment is snapshot-only by default.
 - DI: resulting config types are registered as singletons and injected as snapshots; use ConfigManager for always-fresh reads.
 - Arrays: replace fully (no merge) – by design.
-- StaticJsonProvider: explicit seeding when needed (no implicit defaults). Factories run during recompute, optional wrapperPath, and no change emissions. Prefer real sources; use sparingly to guarantee existence for dependent rules.
+- StaticJsonProvider: explicit seeding when needed (no implicit defaults). Factories run during recompute, optional targetPath, and no change emissions. Prefer real sources; use sparingly to guarantee existence for dependent rules.
 
 ## Target behavior updates (status)
 1) DI lifetimes evolution
    - Today: singletons (snapshot at resolution time).
-   - Future: add a refreshable injection pattern (e.g., IConfigMonitor<T> / IConfigAccessor<T>) to observe recomputes.
+   - Future: add a refreshable injection pattern (e.g., IConfigMonitor<T> / IConfigurationAccessor<T>) to observe recomputes.
    - Consider scoping for ASP.NET Core scenarios where desired.
 
 2) Cycle guardrails and diagnostics

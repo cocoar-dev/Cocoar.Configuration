@@ -2,7 +2,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.HttpPolling;
 
-public sealed class HttpPollingProviderOptions : ISourceProviderInstanceOptions
+public sealed class HttpPollingProviderOptions : IProviderConfiguration
 {
     public string? BaseAddress { get; }
     public TimeSpan PollInterval { get; }

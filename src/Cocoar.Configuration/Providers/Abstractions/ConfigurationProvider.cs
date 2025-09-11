@@ -2,19 +2,19 @@ using System.Text.Json;
 
 namespace Cocoar.Configuration.Providers.Abstractions;
 
-public abstract class ConfigSourceProvider
+public abstract class ConfigurationProvider
 {
-    public abstract Task<JsonElement> GetValueAsync(ISourceProviderQueryOptions? query, CancellationToken ct = default);
-    public abstract IObservable<JsonElement> Changes(ISourceProviderQueryOptions? query);
+    public abstract Task<JsonElement> FetchConfigurationAsync(IProviderQuery? query, CancellationToken ct = default);
+    public abstract IObservable<JsonElement> Changes(IProviderQuery? query);
     /// <summary>
-    /// Wraps a JsonElement in a nested structure if wrapperPath (colon-separated) is provided.
+    /// Wraps a JsonElement in a nested structure if TargetPath (colon-separated) is provided.
     /// </summary>
-    protected static JsonElement WrapIfNeeded(JsonElement element, string? wrapperPath)
+    protected static JsonElement WrapIfNeeded(JsonElement element, string? TargetPath)
     {
-        if (string.IsNullOrWhiteSpace(wrapperPath))
+        if (string.IsNullOrWhiteSpace(TargetPath))
             return element;
         object current = element;
-        foreach (var seg in wrapperPath.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
+        foreach (var seg in TargetPath.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
         {
             current = new Dictionary<string, object?> { [seg] = current };
         }
@@ -24,15 +24,15 @@ public abstract class ConfigSourceProvider
     }
 
     /// <summary>
-    /// Wraps a Dictionary in a nested structure if wrapperPath (colon-separated) is provided.
+    /// Wraps a Dictionary in a nested structure if TargetPath (colon-separated) is provided.
     /// </summary>
-    protected static JsonElement WrapIfNeeded(Dictionary<string, object?> dict, string? wrapperPath)
+    protected static JsonElement WrapIfNeeded(Dictionary<string, object?> dict, string? TargetPath)
     {
         object result = dict;
-        if (!string.IsNullOrWhiteSpace(wrapperPath))
+        if (!string.IsNullOrWhiteSpace(TargetPath))
         {
             object current = dict;
-            foreach (var seg in wrapperPath.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
+            foreach (var seg in TargetPath.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
             {
                 current = new Dictionary<string, object?> { [seg] = current };
             }

@@ -27,6 +27,8 @@ Provider docs:
 
 Architecture details: src/Cocoar.Configuration/ARCHITECTURE.md
 
+> **📋 Validated Examples**: All code examples in this README are covered by automated tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs). This ensures they stay accurate and functional. You can also view these examples in your IDE where intellisense and error highlighting will help you understand the API.
+
 ## Install
 
 Add the packages you need from NuGet:
@@ -40,23 +42,37 @@ Add the packages you need from NuGet:
 1) Define your settings
 
 ```csharp
-public interface IMySettings { bool Enabled { get; } int Value { get; } }
-public sealed class MySettings : IMySettings { public bool Enabled { get; set; } public int Value { get; set; } }
+public interface IMySettings 
+{ 
+    bool Enabled { get; } 
+    int Value { get; } 
+}
+
+public sealed class MySettings : IMySettings 
+{ 
+    public bool Enabled { get; set; } 
+    public int Value { get; set; } 
+}
 ```
 
 2) Build rules and the manager
 
 ```csharp
 using Cocoar.Configuration;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
 
 var rules = new []
 {
-    FileSourceProvider.CreateRule<MySettings, IMySettings>(
-        filepath: "./appsettings.json",
-        memberPath: "MySection"),
-    EnvironmentVariableProvider.CreateRule<MySettings, IMySettings>(memberPath: "MYAPP")
+    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection"))
+        .For<MySettings>()
+        .As<IMySettings>()
+        .Build(),
+    Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
+        .For<MySettings>()
+        .As<IMySettings>()
+        .Build()
 };
 
 var manager = new ConfigManager(rules).Initialize();
@@ -68,10 +84,11 @@ var cfg = manager.GetConfig<IMySettings>();
 ```csharp
 using Cocoar.Configuration.AspNetCore;
 
-var builder = WebApplication.CreateBuilder(args)
-    .AddCocoarConfiguration(rules);
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCocoarConfiguration(rules);
 
-var cfg = builder.GetCocoarConfiguration<IMySettings>();
+var app = builder.Build();
+var cfg = app.Services.GetRequiredService<ConfigManager>().GetConfig<IMySettings>();
 ```
 
 ## How it works
@@ -102,7 +119,7 @@ var cfg = builder.GetCocoarConfiguration<IMySettings>();
 Guidance for recompute-time reads
 - GetRequiredConfig<T>() throws if T does not exist yet; use only if you guarantee T is produced earlier.
 - GetConfig<T>() returns null if T does not exist; handle nulls explicitly when reading dependencies.
-- For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — planned as `Rules.FromStatic`).
+- For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — see `Rules.Using.FromStatic`).
 
 ### Merge semantics and limits
 
@@ -112,13 +129,24 @@ Guidance for recompute-time reads
 
 ## Getting started
 
-Packages (NuGet):
+### Packages (NuGet)
+
 - `Cocoar.Configuration`
 - `Cocoar.Configuration.AspNetCore` (optional)
 - `Cocoar.Configuration.HttpPolling` (optional)
 - `Cocoar.Configuration.MicrosoftAdapter` (optional)
 
-Badges (add in your repo once published):
+### Working Examples
+
+All examples in this README are validated by automated tests. Check out [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs) to:
+- See complete, working code with proper error handling
+- Copy-paste tested examples into your IDE  
+- Understand the full context with imports and setup
+- Get intellisense and compile-time validation
+
+### Badges
+
+Add these to your repo once published:
 - Build: GitHub Actions Status
 - NuGet: package version badges for each package
 
@@ -127,37 +155,43 @@ Badges (add in your repo once published):
 Later rules can read the in-progress configuration from the manager to parameterize themselves. Here a file (or any provider) provides a URL used by a subsequent HTTP rule.
 
 ```csharp
-services.AddCocoarConfiguration([
+using Cocoar.Configuration.AspNetCore;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+using Cocoar.Configuration.HttpPolling.Fluent;
+
+builder.Services.AddCocoarConfiguration([
     // Base settings providing the URL
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", sectionPath: "Remote"))
-         .ForType<MyHttpPollingSettings>()
+    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "Remote"))
+         .For<MyHttpPollingSettings>()
          .Required()
          .Build(),
 
     // HTTP rule reads the current URL from the manager during recompute
-    Rules.Using
-        .FromHttp(cm => new HttpPollingRuleOptions(
+    Rules.Using.FromHttp(cm => new HttpPollingRuleOptions(
             urlPathOrAbsolute: cm.GetRequiredConfig<MyHttpPollingSettings>().Url,
             baseAddress: "https://example.com",
             pollInterval: TimeSpan.FromSeconds(5)
         ))
-        .UseWhen(() => true)
-        .ForType<MyCfg>()
+        .For<MyCfg>()
+        .Build()
 ]);
 ```
 
 ## Providers at a glance
 
-- FileSourceProvider: read JSON files; debounce filesystem notifications; see provider README for options and samples
-- EnvironmentVariableProvider: map env vars with separators `__` and `:`; optional prefix filter
-- HttpPollingProvider: poll a JSON endpoint; emit only on real payload change
-- MicrosoftConfigurationSourceProvider: plug any IConfigurationSource into rules
+- **FileSourceProvider**: Read JSON files; debounce filesystem notifications; see provider README for options and samples
+- **EnvironmentVariableProvider**: Map env vars with separators `__` and `:`; optional prefix filter  
+- **HttpPollingProvider**: Poll a JSON endpoint; emit only on real payload change
+- **MicrosoftConfigurationSourceProvider**: Plug any IConfigurationSource into rules
 
 See the provider READMEs linked above for detailed options and examples.
 
 ## Contributing
 
 Issues and PRs welcome. Please keep provider abstractions stable and deterministic (e.g., option keys for instance pooling) and follow the merge semantics described in ARCHITECTURE.md.
+
+**📝 Documentation Quality**: All README examples are backed by automated tests. When contributing new examples or changing existing ones, please update the corresponding tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs) to ensure they remain accurate and functional.
 
 ---
 

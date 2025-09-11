@@ -4,15 +4,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cocoar.Configuration;
 
-public class ConfigManager : IConfigAccessor, IDisposable
+public class ConfigManager : IConfigurationAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
     private volatile Dictionary<ConfigRegistration, JsonElement> _configs = new();
     // Working snapshot used during recompute so later rules can see earlier merges
-    private volatile Dictionary<ConfigRegistration, JsonElement>? _workingConfigs;
+    private volatile Dictionary<ConfigRegistration, JsonElement>? _pendingConfigurations;
     private volatile bool _initialized;
     private readonly List<IDisposable> _changeSubscriptions = new();
-    private readonly Lock _recalcLock = new();
+    private readonly Lock _recomputeLock = new();
     private readonly ILogger _logger;
     private readonly List<RuleManager> _ruleManagers = new();
     private readonly ProviderRegistry _providerRegistry;
@@ -34,7 +34,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
             foreach (var r in _rules)
                 _ruleManagers.Add(new RuleManager(r, _logger, _providerRegistry));
             // initial compute and subscriptions
-            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RecomputeAllConfigurationsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();
         }
         return this;
@@ -54,21 +54,21 @@ public class ConfigManager : IConfigAccessor, IDisposable
     private void RecalculateAllConfigsSafe()
     {
         // Prevent concurrent recomputes and ensure atomic swap
-        lock (_recalcLock)
+        lock (_recomputeLock)
         {
             _logger.LogDebug("Recompute started");
-            RecalculateAllConfigsAsync().GetAwaiter().GetResult();
+            RecomputeAllConfigurationsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();
             _logger.LogDebug("Recompute finished");
         }
     }
 
-    private async Task RecalculateAllConfigsAsync(CancellationToken cancellationToken = default)
+    private async Task RecomputeAllConfigurationsAsync(CancellationToken cancellationToken = default)
     {
         // flat maps by config contract, merged by rule order (last wins)
     var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
         // install working snapshot for in-progress reads
-    _workingConfigs = new Dictionary<ConfigRegistration, JsonElement>();
+    _pendingConfigurations = new Dictionary<ConfigRegistration, JsonElement>();
 
         foreach (var rm in _ruleManagers)
         {
@@ -86,7 +86,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
             // Update working snapshot for this type so subsequent rules can read it
             var partial = Unflatten(flatMap);
-            _workingConfigs[rm.TypeDefinition] = partial;
+            _pendingConfigurations[rm.TypeDefinition] = partial;
         }
 
     var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
@@ -94,7 +94,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
             nextConfig[type] = Unflatten(flatMap);
 
         _configs = nextConfig;
-        _workingConfigs = null; // clear working snapshot after atomic swap
+        _pendingConfigurations = null; // clear working snapshot after atomic swap
     }
 
     private void RebuildProvidersAndSubscriptions()
@@ -163,7 +163,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public T? GetConfig<T>()
     {
-    Dictionary<ConfigRegistration, JsonElement> map = _workingConfigs ?? _configs;
+    Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
     var key = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
           ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
         if (key is null || !map.TryGetValue(key, out var value))
@@ -180,7 +180,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public T GetRequiredConfig<T>()
     {
-    Dictionary<ConfigRegistration, JsonElement> map = _workingConfigs ?? _configs;
+    Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
     var configType = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
          ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
 
@@ -198,7 +198,7 @@ public class ConfigManager : IConfigAccessor, IDisposable
 
     public object? GetConfig(Type type)
     {
-    var map = _workingConfigs ?? _configs;
+    var map = _pendingConfigurations ?? _configs;
     var key = map.Keys.FirstOrDefault(k => k.ConcreteType == type)
           ?? map.Keys.FirstOrDefault(k => k.ContractType == type);
         if (key is null || !map.TryGetValue(key, out var value))
