@@ -5,8 +5,8 @@ using System.Text.Json;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
+
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Microsoft.Extensions.Logging.Abstractions;
 
 public partial class RuleManagerTests

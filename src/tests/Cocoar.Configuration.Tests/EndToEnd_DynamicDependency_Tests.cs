@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
+
 using Cocoar.Configuration.HttpPolling;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Tests;

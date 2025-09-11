@@ -1,6 +1,6 @@
 using Cocoar.Configuration.Providers.FileSourceProvider;
 
-namespace Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
 // Combined options used by the fluent API to capture both instance and query options in one place.
 public sealed class FileSourceRuleOptions

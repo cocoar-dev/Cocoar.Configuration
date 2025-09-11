@@ -1,7 +1,7 @@
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
+
+using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Cocoar.Configuration.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;

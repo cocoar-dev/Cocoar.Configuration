@@ -1,10 +1,10 @@
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
+
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 using System.Runtime.InteropServices;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Providers.FileSourceProvider;
 
 namespace Cocoar.Configuration.Tests;
 

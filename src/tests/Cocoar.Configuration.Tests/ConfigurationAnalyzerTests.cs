@@ -1,6 +1,6 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -30,7 +30,7 @@ public class ConfigurationAnalyzerTests
             Rule.From.Static(_ => new { Value = 42 })
                 .For<object>()
                 .Build(),
-            Rule.From.Environment(_ => new Cocoar.Configuration.Fluent.ProviderOptions.EnvironmentVariableRuleOptions())
+            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions())
                 .For<string>()
                 .Build()
         };
@@ -56,11 +56,11 @@ public class ConfigurationAnalyzerTests
 
         var rules = new ConfigRule[]
         {
-            Rule.From.Environment(_ => new Cocoar.Configuration.Fluent.ProviderOptions.EnvironmentVariableRuleOptions())
+            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions())
                 .For<TestConfig>()
                 .Required()
                 .Build(),
-            Rule.From.Environment(_ => new Cocoar.Configuration.Fluent.ProviderOptions.EnvironmentVariableRuleOptions())
+            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions())
                 .For<TestConfig>()
                 .Optional()
                 .Build()

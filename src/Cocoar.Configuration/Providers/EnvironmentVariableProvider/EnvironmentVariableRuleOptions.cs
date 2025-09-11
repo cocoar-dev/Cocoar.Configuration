@@ -1,6 +1,4 @@
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
-
-namespace Cocoar.Configuration.Fluent.ProviderOptions;
+namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 // Combined options for Environment provider (instance + query) for fluent API
 public sealed class EnvironmentVariableRuleOptions

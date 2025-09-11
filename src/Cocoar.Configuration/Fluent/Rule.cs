@@ -1,6 +1,4 @@
 using Cocoar.Configuration.Providers.Abstractions;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
 
 namespace Cocoar.Configuration.Fluent;
 

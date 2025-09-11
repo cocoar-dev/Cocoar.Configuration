@@ -1,7 +1,7 @@
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
+
+using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Tests;
