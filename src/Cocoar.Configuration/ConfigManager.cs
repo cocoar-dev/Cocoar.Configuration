@@ -29,6 +29,9 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         if (_initialized) return this;
         if (Interlocked.CompareExchange(ref _initialized, true, false) == false)
         {
+            // Analyze configuration for potential issues
+            ConfigurationAnalyzer.AnalyzeDependencies(_rules, _logger);
+            
             // Create per-rule managers
             _ruleManagers.Clear();
             foreach (var r in _rules)
