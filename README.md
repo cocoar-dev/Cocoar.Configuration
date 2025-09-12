@@ -1,6 +1,102 @@
 # Cocoar.Configuration
 
-Lightweight, strongly-typed configuration aggregation for .NET. Compose config from multiple sources (files, environment, HTTP, Microsoft IConfiguration) with predictable last-write-wins merge and live recompute on changes.
+Lightweight, strongly-typed configuration aggregation for .NET. Compose config from multiple sources (files, environment, HTTP, Microsoft IConfiguration) with predictable la## Service Lifetimes and Dependency Injection
+
+Configuration types can be registered with different service lifetimes to control when instances are created and how long they live in your dependency injection container.
+
+### Available Lifetimes
+
+- **Singleton** (default): One instance for the entire application lifetime
+- **Scoped**: One instance per scope (e.g., per HTTP request in ASP.NET Core)
+- **Transient**: New instance every time it's requested
+
+### Basic Usage
+
+```csharp
+// Singleton (default behavior - backward compatible)
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json"))
+    .For<MySettings>()
+    .AsSingleton<IMySettings>()  // Explicit singleton
+    .Build();
+
+// Scoped - new instance per scope
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json"))
+    .For<MySettings>()
+    .AsScoped<IMySettings>()
+    .Build();
+
+// Transient - new instance every time
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json"))
+    .For<MySettings>()
+    .AsTransient<IMySettings>()
+    .Build();
+```
+
+### Multiple Registrations with Keys
+
+You can register the same configuration type with different lifetimes using service keys:
+
+```csharp
+var rules = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json"))
+    .For<MySettings>()
+    .AsSingleton<IMySettings>("cache")      // Singleton for caching
+    .AsScoped<IMySettings>("request")       // Scoped for request processing  
+    .AsTransient<IMySettings>("temp")       // Transient for temporary use
+    .BuildRules();  // Returns multiple rules
+
+builder.Services.AddCocoarConfiguration(rules);
+
+// Resolve with keys
+var cached = serviceProvider.GetRequiredKeyedService<IMySettings>("cache");
+var requestScoped = serviceProvider.GetRequiredKeyedService<IMySettings>("request");
+var temp = serviceProvider.GetRequiredKeyedService<IMySettings>("temp");
+```
+
+### Rules and Limitations
+
+- Each lifetime can be registered **once without a key** per rule
+- Each lifetime can be registered **multiple times with different keys**
+- Cannot register the same lifetime with the same key twice
+- Keys must be unique within the same lifetime
+
+```csharp
+// ✅ Valid: Different lifetimes
+Rule.From.File(...)
+    .For<MySettings>()
+    .AsSingleton<IMySettings>()     // No key
+    .AsScoped<IMySettings>()        // No key
+    .AsTransient<IMySettings>();    // No key
+
+// ✅ Valid: Same lifetime, different keys  
+Rule.From.File(...)
+    .For<MySettings>()
+    .AsSingleton<IMySettings>("key1")
+    .AsSingleton<IMySettings>("key2");
+
+// ❌ Invalid: Same lifetime and key
+Rule.From.File(...)
+    .For<MySettings>()
+    .AsSingleton<IMySettings>("same-key")
+    .AsSingleton<IMySettings>("same-key");  // Throws InvalidOperationException
+```
+
+### Backward Compatibility
+
+All existing code continues to work unchanged. Rules without explicit lifetime registration automatically default to singleton behavior:
+
+```csharp
+// This still works exactly as before
+var rule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json"))
+    .For<MySettings>()
+    .Build();  // Implicitly creates singleton registration
+```
+
+## Known gaps and next steps
+
+- Array merge semantics: Arrays currently replace prior values. Additional strategies (append/merge/custom) are under consideration.
+- Null/empty handling: Edge cases (nulls and empty objects) will be documented precisely; current behavior follows JSON deserialization defaults after key merge.
+- Change emissions: Environment provider does not emit changes by default (snapshot only). If you need change-driven recompute, combine with other providers.
+- Circular dependencies: Rules can read any type's current snapshot during recompute. Avoid cycles; detection/guardrails may be added.e-wins merge and live recompute on changes.
 
 ## Why
 

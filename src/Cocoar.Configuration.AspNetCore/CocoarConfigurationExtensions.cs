@@ -22,19 +22,65 @@ public static class CocoarConfigurationAspNetCoreExtensions
 
         var ruleList = rules.ToList();
         var configManager = new ConfigManager(ruleList).Initialize();
-    builder.Services.AddSingleton(configManager);
+        builder.Services.AddSingleton(configManager);
+        
         var types = ruleList.Select(r => r.Registration).Distinct();
         foreach (var type in types)
         {
+            // Register concrete type with the appropriate lifetime
+            RegisterServiceWithLifetime(builder.Services, type.ConcreteType, type.ServiceLifetime, type.ServiceKey, 
+                _ => configManager.GetRequiredConfig(type.ConcreteType));
+
+            // Register contract type (interface) if specified
             if (type.ContractType != null)
             {
-                builder.Services.AddSingleton(type.ContractType, _ => configManager.GetRequiredConfig(type.ConcreteType));
+                RegisterServiceWithLifetime(builder.Services, type.ContractType, type.ServiceLifetime, type.ServiceKey, 
+                    _ => configManager.GetRequiredConfig(type.ConcreteType));
             }
-            builder.Services.AddSingleton(type.ConcreteType, _ => configManager.GetRequiredConfig(type.ConcreteType));
         }
         _store.Remove(builder);
         _store.Add(builder, configManager);
         return builder;
+    }
+
+    private static void RegisterServiceWithLifetime(IServiceCollection services, Type serviceType, ServiceLifetime lifetime, string? serviceKey, Func<IServiceProvider, object> factory)
+    {
+        if (serviceKey == null)
+        {
+            // Register without key
+            switch (lifetime)
+            {
+                case ServiceLifetime.Singleton:
+                    services.AddSingleton(serviceType, factory);
+                    break;
+                case ServiceLifetime.Scoped:
+                    services.AddScoped(serviceType, factory);
+                    break;
+                case ServiceLifetime.Transient:
+                    services.AddTransient(serviceType, factory);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
+            }
+        }
+        else
+        {
+            // Register with key
+            switch (lifetime)
+            {
+                case ServiceLifetime.Singleton:
+                    services.AddKeyedSingleton(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                case ServiceLifetime.Scoped:
+                    services.AddKeyedScoped(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                case ServiceLifetime.Transient:
+                    services.AddKeyedTransient(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
+            }
+        }
     }
 
     /// <summary>
@@ -51,7 +97,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         IEnumerable<IConfigRuleBuilder> builders)
-        => AddCocoarConfiguration(builder, builders.Select(b => b.Build()));
+        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()));
 
     /// <summary>
     /// Overload for params usage with fluent builders.
