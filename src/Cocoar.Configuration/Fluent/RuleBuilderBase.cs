@@ -26,7 +26,22 @@ public abstract class RuleBuilderBase<TBuilder>
 
     public TBuilder For<TConcrete>()
     {
+        return For<TConcrete>(serviceLifetime: null, serviceKey: null);
+    }
+
+    public TBuilder For<TConcrete>(ServiceLifetime? serviceLifetime, string? serviceKey = null)
+    {
         _concreteType = typeof(TConcrete);
+        
+        // If serviceLifetime is specified, automatically register the concrete type
+        if (serviceLifetime.HasValue)
+        {
+            var lifetime = serviceLifetime.Value;
+            ValidateRegistration(lifetime, serviceKey);
+            var registration = new ConfigRegistration(_concreteType!, _concreteType!, lifetime, serviceKey);
+            _registrations.Add(registration);
+        }
+        
         return (TBuilder)this;
     }
 

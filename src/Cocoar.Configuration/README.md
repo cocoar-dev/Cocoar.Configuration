@@ -123,16 +123,27 @@ var rules = new[]
         .As<IDatabaseConfig>()  // Registered as Singleton
         .Build(),
         
-    // Explicit lifetime control  
+    // Direct concrete type registration with lifetime
     Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Cache"))
-        .For<CacheConfig>()
-        .As<ICacheConfig>(ServiceLifetime.Scoped)  // Scoped lifetime
+        .For<CacheConfig>(ServiceLifetime.Scoped)  // Register concrete type as Scoped
+        .Build(),
+        
+    // Explicit lifetime control for interfaces
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Logging"))
+        .For<LoggingConfig>()
+        .As<ILoggingConfig>(ServiceLifetime.Scoped)  // Scoped lifetime
+        .Build(),
+        
+    // Mixed: Concrete type + Interface with different lifetimes
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Mixed"))
+        .For<DatabaseConfig>(ServiceLifetime.Scoped)      // Concrete as Scoped
+        .As<IDatabaseConfig>(ServiceLifetime.Singleton)   // Interface as Singleton  
         .Build(),
         
     // Keyed services for multiple configurations
     Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Primary"))
-        .For<DatabaseConfig>()
-        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "primary")
+        .For<DatabaseConfig>(ServiceLifetime.Singleton, "primary-concrete")
+        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "primary-interface")
         .Build(),
         
     Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Secondary"))  
@@ -145,8 +156,13 @@ var rules = new[]
 services.AddCocoarConfiguration(rules);
 
 // Resolve by key
-var primaryDb = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("primary");
-var secondaryDb = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("secondary");
+var primaryConcrete = serviceProvider.GetRequiredKeyedService<DatabaseConfig>("primary-concrete");
+var primaryInterface = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("primary-interface");
+var secondary = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("secondary");
+
+// Regular resolution (no keys)
+var cache = serviceProvider.GetRequiredService<CacheConfig>();       // Scoped
+var logging = serviceProvider.GetRequiredService<ILoggingConfig>();  // Scoped
 ```
 
 ### 6) Fluent API (generic and extensible)
