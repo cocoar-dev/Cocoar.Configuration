@@ -5,7 +5,7 @@ using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Cocoar.Configuration.Tests;
+namespace Cocoar.Configuration.Tests.Core;
 
 [Collection("EnvironmentTests")] // Prevent parallel execution with other env tests
 public class ConfigManagerIntegrationTests

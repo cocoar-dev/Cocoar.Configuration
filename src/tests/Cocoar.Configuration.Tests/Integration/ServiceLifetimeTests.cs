@@ -2,7 +2,7 @@ using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cocoar.Configuration.Tests;
+namespace Cocoar.Configuration.Tests.Integration;
 
 public class ServiceLifetimeTests
 {
@@ -19,7 +19,7 @@ public class ServiceLifetimeTests
     }
 
     [Fact]
-    public void Should_Register_As_Singleton_Without_Key()
+    public void ServiceLifetime_RegisterAsSingleton_WithoutKey_CreatesSharedInstance()
     {
         // Arrange
         var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
@@ -42,7 +42,7 @@ public class ServiceLifetimeTests
     }
 
     [Fact]
-    public void Should_Register_As_Scoped_Without_Key()
+    public void ServiceLifetime_RegisterAsScoped_WithoutKey_CreatesInstancePerScope()
     {
         // Arrange
         var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })

@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
 
-namespace Cocoar.Configuration.Tests;
+namespace Cocoar.Configuration.Tests.Examples;
 
 /// <summary>
 /// Tests that verify all README examples work correctly.

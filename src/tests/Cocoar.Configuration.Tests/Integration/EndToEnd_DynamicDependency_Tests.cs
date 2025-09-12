@@ -6,9 +6,9 @@ using Cocoar.Configuration.HttpPolling;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cocoar.Configuration.Tests;
+namespace Cocoar.Configuration.Tests.Integration;
 
-public class EndToEnd_DynamicDependency_Tests
+public class EndToEndDynamicDependencyTests
 {
     public class BaseSettings
     {
