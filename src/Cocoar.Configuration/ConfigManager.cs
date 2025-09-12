@@ -7,7 +7,9 @@ namespace Cocoar.Configuration;
 public class ConfigManager : IConfigurationAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
+
     private volatile Dictionary<ConfigRegistration, JsonElement> _configs = new();
+
     // Working snapshot used during recompute so later rules can see earlier merges
     private volatile Dictionary<ConfigRegistration, JsonElement>? _pendingConfigurations;
     private volatile bool _initialized;
@@ -31,7 +33,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         {
             // Analyze configuration for potential issues
             ConfigurationAnalyzer.AnalyzeDependencies(_rules, _logger);
-            
+
             // Create per-rule managers
             _ruleManagers.Clear();
             foreach (var r in _rules)
@@ -40,6 +42,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             RecomputeAllConfigurationsAsync().GetAwaiter().GetResult();
             RebuildProvidersAndSubscriptions();
         }
+
         return this;
     }
 
@@ -47,8 +50,16 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     {
         foreach (var d in _changeSubscriptions.ToArray())
         {
-            try { d.Dispose(); } catch { /* ignore */ }
+            try
+            {
+                d.Dispose();
+            }
+            catch
+            {
+                /* ignore */
+            }
         }
+
         _changeSubscriptions.Clear();
 
         // Providers are owned by RuleManagers; nothing to clear here.
@@ -69,9 +80,9 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private async Task RecomputeAllConfigurationsAsync(CancellationToken cancellationToken = default)
     {
         // flat maps by config contract, merged by rule order (last wins)
-    var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
+        var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
         // install working snapshot for in-progress reads
-    _pendingConfigurations = new Dictionary<ConfigRegistration, JsonElement>();
+        _pendingConfigurations = new Dictionary<ConfigRegistration, JsonElement>();
 
         foreach (var rm in _ruleManagers)
         {
@@ -83,6 +94,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
                 flatMap = new Dictionary<string, JsonElement>();
                 tempFlatMaps[rm.TypeDefinition] = flatMap;
             }
+
             var flatOutcome = Flatten(value);
             foreach (var kvp in flatOutcome)
                 flatMap[kvp.Key] = kvp.Value; // last rule wins per key
@@ -92,7 +104,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             _pendingConfigurations[rm.TypeDefinition] = partial;
         }
 
-    var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
+        var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = Unflatten(flatMap);
 
@@ -111,8 +123,14 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             var sub = rm.Changes
                 .Subscribe(_ =>
                 {
-                    try { RecalculateAllConfigsSafe(); }
-                    catch (Exception ex) { _logger.LogError(ex, "Recompute failed from change trigger"); }
+                    try
+                    {
+                        RecalculateAllConfigsSafe();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Recompute failed from change trigger");
+                    }
                 });
             _changeSubscriptions.Add(sub);
         }
@@ -150,15 +168,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             var cursor = root;
             for (int i = 0; i < segments.Length - 1; i++)
             {
-                if (!cursor.TryGetValue(segments[i], out var child) || child is not Dictionary<string, object> childDict)
+                if (!cursor.TryGetValue(segments[i], out var child) ||
+                    child is not Dictionary<string, object> childDict)
                 {
                     childDict = new Dictionary<string, object>();
                     cursor[segments[i]] = childDict;
                 }
+
                 cursor = childDict;
             }
+
             cursor[segments[^1]] = value;
         }
+
         var json = JsonSerializer.Serialize(root);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
@@ -166,12 +188,12 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public T? GetConfig<T>()
     {
-    Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
-    var key = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
-          ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
+        Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
+        var key = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
+                  ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
         if (key is null || !map.TryGetValue(key, out var value))
             return default;
-    var target = key.ConcreteType;
+        var target = key.ConcreteType;
         return (T?)Deserialize(value, target);
     }
 
@@ -183,30 +205,32 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public T GetRequiredConfig<T>()
     {
-    Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
-    var configType = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
-         ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
+        Dictionary<ConfigRegistration, JsonElement> map = _pendingConfigurations ?? _configs;
+        var configType = map.Keys.FirstOrDefault(k => k.ConcreteType == typeof(T))
+                         ?? map.Keys.FirstOrDefault(k => k.ContractType == typeof(T));
 
         if (configType is null || !map.TryGetValue(configType, out var value))
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} not found.");
         }
-    var result = Deserialize<T>(value);
+
+        var result = Deserialize<T>(value);
         if (result is null)
         {
             throw new InvalidOperationException($"Configuration for type {typeof(T).Name} is null.");
         }
+
         return (T)result;
     }
 
     public object? GetConfig(Type type)
     {
-    var map = _pendingConfigurations ?? _configs;
-    var key = map.Keys.FirstOrDefault(k => k.ConcreteType == type)
-          ?? map.Keys.FirstOrDefault(k => k.ContractType == type);
+        var map = _pendingConfigurations ?? _configs;
+        var key = map.Keys.FirstOrDefault(k => k.ConcreteType == type)
+                  ?? map.Keys.FirstOrDefault(k => k.ContractType == type);
         if (key is null || !map.TryGetValue(key, out var value))
             return null;
-    var target = key.ConcreteType;
+        var target = key.ConcreteType;
         var result = Deserialize(value, target);
         return result;
     }
@@ -226,7 +250,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public JsonElement? GetConfigAsJson(Type type)
     {
-    return _configs.TryGetValue(new ConfigRegistration(type), out var value) ? value.Clone() : null;
+        return _configs.TryGetValue(new ConfigRegistration(type), out var value) ? value.Clone() : null;
     }
 
     private T? Deserialize<T>(JsonElement element)
@@ -264,8 +288,16 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         DisposeSubscriptionsAndProviders();
         foreach (var rm in _ruleManagers.ToArray())
         {
-            try { rm.Dispose(); } catch { /* ignore */ }
+            try
+            {
+                rm.Dispose();
+            }
+            catch
+            {
+                /* ignore */
+            }
         }
+
         _ruleManagers.Clear();
         _initialized = false;
         GC.SuppressFinalize(this);
