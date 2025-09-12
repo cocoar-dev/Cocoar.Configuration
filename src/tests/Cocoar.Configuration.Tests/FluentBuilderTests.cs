@@ -85,13 +85,13 @@ public class FluentBuilderTests
             var fileRule = Rule.From
                 .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
                 .For<TestClass>()
-                .AsSingleton<IMySectionSettings>()
+                .As<IMySectionSettings>()
                 .Build();
 
             var envRule = Rule.From
                 .Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null, targetPath: null))
                 .For<TestClass>()
-                .AsSingleton<IMySectionSettings>()
+                .As<IMySectionSettings>()
                 .Build();
 
             // Probe each rule independently to observe values

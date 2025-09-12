@@ -30,50 +30,11 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
 
-    public TBuilder AsSingleton<TInterface>()
+    public TBuilder As<TInterface>(ServiceLifetime? serviceLifetime = null, string? serviceKey = null)
     {
-        ValidateRegistration(ServiceLifetime.Singleton, null);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface));
-        _registrations.Add(registration);
-        return (TBuilder)this;
-    }
-
-    public TBuilder AsSingleton<TInterface>(string serviceKey)
-    {
-        ValidateRegistration(ServiceLifetime.Singleton, serviceKey);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), ServiceLifetime.Singleton, serviceKey);
-        _registrations.Add(registration);
-        return (TBuilder)this;
-    }
-
-    public TBuilder AsScoped<TInterface>()
-    {
-        ValidateRegistration(ServiceLifetime.Scoped, null);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), ServiceLifetime.Scoped);
-        _registrations.Add(registration);
-        return (TBuilder)this;
-    }
-
-    public TBuilder AsScoped<TInterface>(string serviceKey)
-    {
-        ValidateRegistration(ServiceLifetime.Scoped, serviceKey);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), ServiceLifetime.Scoped, serviceKey);
-        _registrations.Add(registration);
-        return (TBuilder)this;
-    }
-
-    public TBuilder AsTransient<TInterface>()
-    {
-        ValidateRegistration(ServiceLifetime.Transient, null);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), ServiceLifetime.Transient);
-        _registrations.Add(registration);
-        return (TBuilder)this;
-    }
-
-    public TBuilder AsTransient<TInterface>(string serviceKey)
-    {
-        ValidateRegistration(ServiceLifetime.Transient, serviceKey);
-        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), ServiceLifetime.Transient, serviceKey);
+        var lifetime = serviceLifetime ?? ServiceLifetime.Singleton;
+        ValidateRegistration(lifetime, serviceKey);
+        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), lifetime, serviceKey);
         _registrations.Add(registration);
         return (TBuilder)this;
     }

@@ -19,12 +19,12 @@ public class ServiceLifetimeTests
     }
 
     [Fact]
-    public void Should_Register_AsSingleton_Without_Key()
+    public void Should_Register_As_Singleton_Without_Key()
     {
         // Arrange
         var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>()
-            .AsSingleton<IMyService>()
+            .As<IMyService>() // Defaults to Singleton
             .Build();
 
         // Act
@@ -42,12 +42,12 @@ public class ServiceLifetimeTests
     }
 
     [Fact]
-    public void Should_Register_AsScoped_Without_Key()
+    public void Should_Register_As_Scoped_Without_Key()
     {
         // Arrange
         var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>()
-            .AsScoped<IMyService>()
+            .As<IMyService>(ServiceLifetime.Scoped)
             .Build();
 
         // Act
@@ -71,12 +71,12 @@ public class ServiceLifetimeTests
     }
 
     [Fact]
-    public void Should_Register_AsTransient_Without_Key()
+    public void Should_Register_As_Transient_Without_Key()
     {
         // Arrange
         var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>()
-            .AsTransient<IMyService>()
+            .As<IMyService>(ServiceLifetime.Transient)
             .Build();
 
         // Act
@@ -99,9 +99,9 @@ public class ServiceLifetimeTests
         // Arrange
         var builder = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>()
-            .AsSingleton<IMyService>("singleton-key")
-            .AsScoped<IMyService>("scoped-key")
-            .AsTransient<IMyService>("transient-key");
+            .As<IMyService>(ServiceLifetime.Singleton, "singleton-key")
+            .As<IMyService>(ServiceLifetime.Scoped, "scoped-key")
+            .As<IMyService>(ServiceLifetime.Transient, "transient-key");
 
         var rules = builder.BuildRules().ToList();
 
@@ -140,8 +140,8 @@ public class ServiceLifetimeTests
         {
             Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
                 .For<MyServiceConfig>()
-                .AsSingleton<IMyService>()
-                .AsSingleton<IMyService>(); // Should throw
+                .As<IMyService>() // Defaults to Singleton
+                .As<IMyService>(); // Should throw - same lifetime
         });
 
         Assert.Contains("A Singleton registration without a key already exists", exception.Message);
@@ -155,8 +155,8 @@ public class ServiceLifetimeTests
         {
             Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
                 .For<MyServiceConfig>()
-                .AsSingleton<IMyService>("same-key")
-                .AsSingleton<IMyService>("same-key"); // Should throw
+                .As<IMyService>(ServiceLifetime.Singleton, "same-key")
+                .As<IMyService>(ServiceLifetime.Singleton, "same-key"); // Should throw
         });
 
         Assert.Contains("A Singleton registration with key 'same-key' already exists", exception.Message);
@@ -168,8 +168,8 @@ public class ServiceLifetimeTests
         // Arrange
         var builder = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>()
-            .AsSingleton<IMyService>("key1")
-            .AsSingleton<IMyService>("key2");
+            .As<IMyService>(ServiceLifetime.Singleton, "key1")
+            .As<IMyService>(ServiceLifetime.Singleton, "key2");
 
         var rules = builder.BuildRules().ToList();
 
@@ -192,5 +192,53 @@ public class ServiceLifetimeTests
         Assert.Null(rule.Registration.ServiceKey);
         Assert.Null(rule.Registration.ContractType);
         Assert.Equal(typeof(MyServiceConfig), rule.Registration.ConcreteType);
+    }
+
+    [Fact]
+    public void Should_Default_To_Singleton_When_As_Called_Without_ServiceLifetime()
+    {
+        // Arrange & Act
+        var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
+            .For<MyServiceConfig>()
+            .As<IMyService>() // No ServiceLifetime specified - should default to Singleton
+            .Build();
+
+        // Assert
+        Assert.Equal(ServiceLifetime.Singleton, rule.Registration.ServiceLifetime);
+        Assert.Null(rule.Registration.ServiceKey);
+        Assert.Equal(typeof(IMyService), rule.Registration.ContractType);
+        Assert.Equal(typeof(MyServiceConfig), rule.Registration.ConcreteType);
+    }
+
+    [Fact]
+    public void Should_Register_In_DI_With_Default_Singleton_Lifetime()
+    {
+        // Arrange
+        var rule = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
+            .For<MyServiceConfig>()
+            .As<IMyService>() // No ServiceLifetime specified
+            .Build();
+
+        // Act
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration([rule]);
+
+        // Assert - Check DI registrations
+        var concreteDescriptor = services.FirstOrDefault(s => s.ServiceType == typeof(MyServiceConfig));
+        var interfaceDescriptor = services.FirstOrDefault(s => s.ServiceType == typeof(IMyService));
+
+        Assert.NotNull(concreteDescriptor);
+        Assert.NotNull(interfaceDescriptor);
+        Assert.Equal(ServiceLifetime.Singleton, concreteDescriptor.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, interfaceDescriptor.Lifetime);
+
+        // Verify it actually works
+        var serviceProvider = services.BuildServiceProvider();
+        var instance1 = serviceProvider.GetRequiredService<IMyService>();
+        var instance2 = serviceProvider.GetRequiredService<IMyService>();
+        
+        Assert.Same(instance1, instance2); // Should be the same instance (singleton behavior)
+        Assert.Equal("Test", instance1.Name);
+        Assert.Equal(42, instance1.Value);
     }
 }

@@ -69,11 +69,11 @@ public class ReadmeExamplesTests
             {
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettings>()
-                    .AsSingleton<IMySettings>()
+                    .As<IMySettings>()
                     .Build(),
                 Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettings>()
-                    .AsSingleton<IMySettings>()
+                    .As<IMySettings>()
                     .Build()
             };
 
@@ -119,7 +119,7 @@ public class ReadmeExamplesTests
             {
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettings>()
-                    .AsSingleton<IMySettings>()
+                    .As<IMySettings>()
                     .Build()
             };
 
@@ -242,12 +242,12 @@ public class ReadmeExamplesTests
                 // File first (base layer)
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
                     .For<MySettingsExtended>()
-                    .AsSingleton<IMySettingsExtended>()
+                    .As<IMySettingsExtended>()
                     .Build(),
                 // Environment second (override layer)
                 Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettingsExtended>()
-                    .AsSingleton<IMySettingsExtended>()
+                    .As<IMySettingsExtended>()
                     .Build()
             };
 
@@ -298,17 +298,17 @@ public class ReadmeExamplesTests
             // Test each lifetime type individually (matches README examples)
             var singletonRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .AsSingleton<IMySettings>()
+                .As<IMySettings>()
                 .Build();
 
             var scopedRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .AsScoped<IMySettings>()
+                .As<IMySettings>(ServiceLifetime.Scoped)
                 .Build();
 
             var transientRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .AsTransient<IMySettings>()
+                .As<IMySettings>(ServiceLifetime.Transient)
                 .Build();
 
             // Verify the rules were created with correct lifetimes
@@ -339,9 +339,9 @@ public class ReadmeExamplesTests
             // This code matches the README example exactly
             var rules = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .AsSingleton<IMySettings>("cache")      // Singleton for caching
-                .AsScoped<IMySettings>("request")       // Scoped for request processing  
-                .AsTransient<IMySettings>("temp")       // Transient for temporary use
+                .As<IMySettings>(ServiceLifetime.Singleton, "cache")      // Singleton for caching
+                .As<IMySettings>(ServiceLifetime.Scoped, "request")       // Scoped for request processing  
+                .As<IMySettings>(ServiceLifetime.Transient, "temp")       // Transient for temporary use
                 .BuildRules()
                 .ToList();
 

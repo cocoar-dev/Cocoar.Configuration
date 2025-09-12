@@ -108,7 +108,48 @@ var builder = WebApplication.CreateBuilder(args)
 var cfg = builder.GetCocoarConfiguration<IMySectionSettings>();
 ```
 
-### 5) Fluent API (generic and extensible)
+### 5) Service Lifetimes & Keyed Services
+
+Control how configuration types are registered in DI using the `.As<TInterface>()` method:
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+
+var rules = new[]
+{
+    // Simple interface registration (defaults to Singleton)
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Database"))
+        .For<DatabaseConfig>()
+        .As<IDatabaseConfig>()  // Registered as Singleton
+        .Build(),
+        
+    // Explicit lifetime control  
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Cache"))
+        .For<CacheConfig>()
+        .As<ICacheConfig>(ServiceLifetime.Scoped)  // Scoped lifetime
+        .Build(),
+        
+    // Keyed services for multiple configurations
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Primary"))
+        .For<DatabaseConfig>()
+        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "primary")
+        .Build(),
+        
+    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Secondary"))  
+        .For<DatabaseConfig>()
+        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "secondary")
+        .Build()
+};
+
+// Usage in DI
+services.AddCocoarConfiguration(rules);
+
+// Resolve by key
+var primaryDb = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("primary");
+var secondaryDb = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("secondary");
+```
+
+### 6) Fluent API (generic and extensible)
 
 You can define rules with a fluent syntax. There are two ways:
 
