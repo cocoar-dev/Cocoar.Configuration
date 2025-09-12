@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Cocoar.Configuration;
+namespace Cocoar.Configuration.Utilities;
 
 public class StringToPrimitiveConverter<T> : JsonConverter<T>
 {

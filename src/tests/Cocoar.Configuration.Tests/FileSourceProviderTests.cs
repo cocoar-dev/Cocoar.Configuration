@@ -4,7 +4,6 @@ using System.Text.Json;
 using Cocoar.Configuration.Fluent;
 
 using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.Tests;
