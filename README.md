@@ -1,581 +1,249 @@
 # Cocoar.Configuration
 
-A lightweight, strongly-typed configuration aggregator for .NET apps.
-
-- Load from multiple sources (JSON files, environment variables, HTTP via separate package, or any Microsoft IConfigurationSource via an adapter)
-- Merge hierarchically with last-write-wins semantics
-- Watch JSON files for changes (debounced) and update source cache
-- Live recompute: on any provider change, all rules are recomputed in order (last rule wins)
-- Simple DI integration for generic retrieval; ASP.NET Core builder extension included
-
-See ARCHITECTURE.md for a deeper dive into design, merge semantics, providers, and roadmap.
-
-This package is split into:
-- Cocoar.Configuration (core): ConfigManager, providers, merge logic
-- Cocoar.Configuration.AspNetCore: WebApplicationBuilder integration helpers
-
-## Features
-
-- Rules-based configuration assembly via `ConfigRule`
-- File provider with filesystem watcher and debounce
-- Environment variable provider with optional prefix filtering; supports `__` and `:` for nesting (single `_` is literal)
-- HTTP polling provider (separate package) that emits only on real payload changes; optional request headers
-- Map to interface or concrete types via `ConfigTypeDefinition`
-- String-to-primitive JSON converter to coerce "true", "42", etc. when values are strings
-- Dynamic rule factories (options/query derived from current config state)
-- Required/optional rule handling per rule, with exceptions on required failures
-
-## Key concepts
-
-- ConfigRule: describes one source and how to query it
-- Provider: returns JSON payloads and optional change notifications
-- Merge: JSON objects are flattened to colon keys (e.g., SectionA:Enabled) and merged; later rules overwrite earlier ones
-- ConfigTypeDefinition: which type the assembled config should be deserialized into
-
-## Packages/namespaces
-
-- `Cocoar.Configuration` (core)
-- `Cocoar.Configuration.Providers.FileSourceProvider`
-- `Cocoar.Configuration.Providers.EnvironmentVariableProvider`
-- `Cocoar.Configuration.HttpPolling` (separate package)
-- `Cocoar.Configuration.Extensions` (DI for ServiceCollection)
-- `Cocoar.Configuration.AspNetCore` (WebApplicationBuilder extension)
-
-## Quick start
-
-### 1) Define your settings contract
-
-```csharp
-public interface IMySectionSettings
-{
-    bool Enabled { get; }
-    int Value { get; }
-}
-
-public sealed class MySectionSettings : IMySectionSettings
-{
-    public bool Enabled { get; set; }
-    public int Value { get; set; }
-}
-```
-
-### 2) Create rules and build a ConfigManager
-
-```csharp
-using Cocoar.Configuration;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
-
-var rules = new []
-{
-    // Load SectionA from a JSON file
-    // Generic order: Concrete type first, optional interface second
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath(
-    filepath: "./appsettings.local.json",
-    sectionPath: "SectionA",
-        debounceTime: TimeSpan.FromMilliseconds(150)
-    ),
-    // Overlay with environment variables (e.g., Enabled=false)
-    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<MySectionSettings>().As<IMySectionSettings>()
-};
-
-var manager = new ConfigManager(rules).Initialize();
-var cfg = manager.GetConfig<IMySectionSettings>();
-```
-
-### 3) DI integration (console/worker)
-
-```csharp
-using Cocoar.Configuration.Extensions;
-using Microsoft.Extensions.DependencyInjection;
-
-var services = new ServiceCollection()
-    .AddCocoarConfiguration(rules);
-
-var sp = services.BuildServiceProvider();
-var manager = sp.GetRequiredService<ConfigManager>();
-var cfg = manager.GetConfig<IMySectionSettings>();
-```
-
-### 4) ASP.NET Core integration
-
-```csharp
-using Cocoar.Configuration.AspNetCore;
-
-var builder = WebApplication.CreateBuilder(args)
-    .AddCocoarConfiguration(rules);
-
-var cfg = builder.GetCocoarConfiguration<IMySectionSettings>();
-```
-
-### 5) Service Lifetimes & Keyed Services
-
-Control how configuration types are registered in DI using the `.As<TInterface>()` method:
-
-```csharp
-using Microsoft.Extensions.DependencyInjection;
-
-var rules = new[]
-{
-    // Simple interface registration (defaults to Singleton)
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Database"))
-        .For<DatabaseConfig>()
-        .As<IDatabaseConfig>()  // Registered as Singleton
-        .Build(),
-        
-    // Direct concrete type registration with lifetime
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Cache"))
-        .For<CacheConfig>(ServiceLifetime.Scoped)  // Register concrete type as Scoped
-        .Build(),
-        
-    // Explicit lifetime control for interfaces
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Logging"))
-        .For<LoggingConfig>()
-        .As<ILoggingConfig>(ServiceLifetime.Scoped)  // Scoped lifetime
-        .Build(),
-        
-    // Mixed: Concrete type + Interface with different lifetimes
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Mixed"))
-        .For<DatabaseConfig>(ServiceLifetime.Scoped)      // Concrete as Scoped
-        .As<IDatabaseConfig>(ServiceLifetime.Singleton)   // Interface as Singleton  
-        .Build(),
-        
-    // Keyed services for multiple configurations
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Primary"))
-        .For<DatabaseConfig>(ServiceLifetime.Singleton, "primary-concrete")
-        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "primary-interface")
-        .Build(),
-        
-    Rules.FromFile(opts => FileSourceRuleOptions.FromFilePath("config.json", "Secondary"))  
-        .For<DatabaseConfig>()
-        .As<IDatabaseConfig>(ServiceLifetime.Singleton, "secondary")
-        .Build()
-};
-
-// Usage in DI
-services.AddCocoarConfiguration(rules);
-
-// Resolve by key
-var primaryConcrete = serviceProvider.GetRequiredKeyedService<DatabaseConfig>("primary-concrete");
-var primaryInterface = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("primary-interface");
-var secondary = serviceProvider.GetRequiredKeyedService<IDatabaseConfig>("secondary");
-
-// Regular resolution (no keys)
-var cache = serviceProvider.GetRequiredService<CacheConfig>();       // Scoped
-var logging = serviceProvider.GetRequiredService<ILoggingConfig>();  // Scoped
-```
-
-### 6) Fluent API (generic and extensible)
-
-You can define rules with a fluent syntax. There are two ways:
-
-- Provider-specific helpers: `Rules.FromFile(...)`, `Rules.FromEnvironment(...)`. HTTP is available via extension: `Rules.Using.FromHttp(...)` when referencing Cocoar.Configuration.HttpPolling.
-- Generic entry point for any provider: `Rules.FromProvider<TProvider, TInstanceOptions, TQueryOptions>(...)`.
-
-Example (generic):
-
-```csharp
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-
-var rules = new[]
-{
-    Rules.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
-            instance: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
-            query:    _ => new FileSourceProviderQueryOptions(filename: "appsettings.json", sectionPath: "SectionA"))
-    .For<MySectionSettings>()
-        .Required()
-        .Build(),
-};
-```
-
-Or, with the Microsoft adapter (separate package):
-
-```csharp
-using Cocoar.Configuration.Fluent;
-using Microsoft.Extensions.Configuration;
-using Cocoar.Configuration.MicrosoftAdapter;
-
-var rules = new[]
-{
-    // Microsoft IConfigurationSource adapter (bring your own source)
-    Rules.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-            instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
-                new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
-                {
-                    ["My:Section:Enabled"] = "true",
-                    ["My:Section:Value"] = "42",
-                }).Sources[0]
-            ),
-            queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section"))
-    .For<MySectionSettings>()
-        .Optional()
-        .Build(),
-
-    Rules.FromFile(_ => new FileSourceRuleOptions(
-            filepath: "appsettings.json",
-            sectionPath: "SectionA",
-            debounceTime: TimeSpan.FromMilliseconds(100)))
-    .For<MySectionSettings>()
-        .Optional()
-        .Build(),
-};
-```
-
-## Providers
-
-### Change model (all providers)
-
-- Providers expose a change stream used as a trigger. When any provider emits a change, the manager recomputes all rules in order and atomically swaps the cache.
-- Providers may emit only on real changes (HTTP) or debounce noisy signals (File). Environment currently doesn't emit by default.
-- After each recompute, provider instances and subscriptions are rebuilt to honor dynamic factories (option/query lambdas).
-
-### FileSourceProvider
-
-- Options: `FileSourceProviderOptions(directory, debounceTime)`
-- Query: `FileSourceProviderQueryOptions(filename, sectionPath?, wrapperPath?, debounceTime?)`
-- Factory:
-
-```csharp
-Rules.FromFile(cm => new FileSourceRuleOptions(
-    filepath: "./config.json",
-    sectionPath: "SectionA",   // optional: pick a section of the JSON
-    wrapperPath: null,           // optional: wrap result under a property name
-    debounceTime: TimeSpan.FromMilliseconds(100) // optional
-);
-```
-
-Watches the folder for changes and emits updates per file with optional per-file debounce.
-
-### EnvironmentVariableProvider
-
-- Options: `EnvironmentVariableProviderOptions(keyPrefix?)`
-- Query: `EnvironmentVariableProviderQueryOptions(keyPrefix?, wrapperPath?)`
-- Factory:
-
-```csharp
-// No prefix: includes all environment variables
-Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<TConcrete>().As<TInterface>();
-
-// Prefix: include only variables that start with the prefix
-// Nesting separators: "__" (double underscore) and ":". Single '_' is literal.
-// Example: MYAPP__Logging__Level=Debug → { "Logging": { "Level": "Debug" } }
-var rule = Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions(keyPrefix: "MYAPP")).For<TConcrete>().As<TInterface>().Build();
-```
-
-Notes:
-- When a prefix is provided, variables are exposed without the prefix (e.g., `MYAPP_FOO` -> `FOO`).
-- Values are strings at source; the StringToPrimitiveConverter can coerce to bool/int/etc. during deserialization.
-
-### HttpPollingProvider (separate package)
-
-- Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, handler?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, sectionPath?, wrapperPath?, headers?)`
-- Factory (static or lambda-based):
-
-```csharp
-using Cocoar.Configuration.HttpPolling; // from Cocoar.Configuration.HttpPolling package
-
-services.AddCocoarConfiguration(
-    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
-        optionsFactory: _ => new HttpPollingProviderOptions(
-            baseAddress: "https://config.example.com",
-            pollInterval: TimeSpan.FromSeconds(10)
-        ),
-    queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", sectionPath: "MyRemote"),
-        useWhen: () => true
-    )
-);
-```
-
-Notes:
-- The change stream polls and emits only when the fetched payload actually changes. That means `ConfigManager` recomputes only on real changes.
-- Combine with `UseWhen` and other rules to layer remote config over files/env.
-- When using the fluent API, you can supply headers:
-
-```csharp
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
-
-var rules = new []
-{
-    // requires: using Cocoar.Configuration.HttpPolling.Fluent; and package reference
-    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
-        urlPathOrAbsolute: "/v1/settings",
-    sectionPath: "MyRemote",
-        baseAddress: "https://config.example.com",
-        pollInterval: TimeSpan.FromSeconds(10),
-        headers: new Dictionary<string,string> { ["Authorization"] = "Bearer abc" }
-    ))
-    .For<MySettings>()
-    .Build()
-};
-```
-
-## Merge semantics
-
-- Each provider returns a JSON object. Objects are flattened to colon-keys (e.g., `SectionA:Enabled`).
-- Flat maps are merged in rule order; later rules override earlier ones key-by-key.
-- The final flat map is unflattened and deserialized into the requested type.
-
-Limitations:
-- Arrays are not merged—only JSON objects are considered in the flatten/unflatten process.
-
-## Public API (core)
-
-- `ConfigManager.Initialize()`
-- `T? ConfigManager.GetConfig<T>()`
-- `object? ConfigManager.GetConfig(Type type)`
-- `bool ConfigManager.TryGetConfig<T>(out T? value)`
-- `bool ConfigManager.TryGetConfig(Type type, out object? value)`
-- `T ConfigManager.GetRequiredConfig<T>()`
-- `object ConfigManager.GetRequiredConfig(Type type)`
-- `JsonElement? ConfigManager.GetConfigAsJson(Type type)`
-- `ConfigRule.Create<TProvider, TOptions, TQueryOptions>(...)`
-- Provider factories:
-    - Use the fluent DSL via Rules.FromX(...)
-
-## API semantics
-
-- GetConfig<T>() / GetConfig(Type):
-    - Returns the current snapshot value or null when the config is missing or cannot be deserialized.
-    - Never throws for missing values. Use this for optional reads.
-- GetRequiredConfig<T>() / GetRequiredConfig(Type):
-    - Returns the current snapshot value.
-    - Throws InvalidOperationException if the config is missing. Use this when a rule or DI registration depends on it.
-- TryGetConfig<T>(out T?) / TryGetConfig(Type, out object?):
-    - Returns true only when a non-null value is available and assigns it to the out parameter; otherwise returns false and sets out to null.
-- GetConfigAsJson(Type):
-    - Returns the merged JSON for the given type, or null if not present.
-    - Helpful for diagnostics or custom deserialization.
-
-## Examples
-
-### Merge two files
-
-```csharp
-services.AddCocoarConfiguration(
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config1.json", "SectionA")).For<MySectionSettings>(),
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config2.json", "SectionA")).For<MySectionSettings>()
-);
-
-var settings = sp.GetRequiredService<ConfigManager>().GetConfig<MySectionSettings>();
-```
-
-### Env vars override file
-
-```csharp
-// JSON contains SectionA.Enabled=true
-// Environment contains Enabled=false
-services.AddCocoarConfiguration(
-    // Generic order: Concrete first, optional interface second
-    Rules.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "SectionA")).For<MySectionSettings>().As<IMySectionSettings>(),
-    Rules.FromEnvironment(_ => new EnvironmentVariableRuleOptions()).For<MySectionSettings>().As<IMySectionSettings>()
-);
-
-var result = sp.GetRequiredService<ConfigManager>().GetConfig<IMySectionSettings>();
-// result.Enabled == false
-```
-
-### Seed + dependent rule (FromStatic + GetRequiredConfig)
-
-Seed one type explicitly, then have a dependent rule read it during recompute.
-
-```csharp
-public class MySeed { public string Name { get; set; } = "Seed"; public int Value { get; set; } = 1; }
-public class Container { public MySeed? Dep { get; set; } }
-
-var rules = new[]
-{
-    // 1) Seed MySeed via a static provider (no change emissions)
-    Rules.FromStatic<MySeed>(_ => new MySeed { Name = "Seed", Value = 11 })
-        .ForType<MySeed>()
-        .Build(),
-
-    // 2) Dependent rule: reads the seeded type at recompute time
-    Rules.FromStatic<MySeed>(cm => cm.GetRequiredConfig<MySeed>(), wrapperPath: "Dep")
-        .ForType<Container>()
-        .Build(),
-};
-
-var manager = new ConfigManager(rules).Initialize();
-var c = manager.GetRequiredConfig<Container>();
-// c.Dep is non-null and contains the seeded value
-```
-
-## Notes and current limitations
-
-- Recompute model: on any change emission, the manager recomputes all rules from scratch (ordered merge). This is simple and correct but not minimal; a future optimization could recompute only affected rules.
-- Provider lifecycle: managed by an internal RuleManager per rule which reuses providers when instance options don't change and rebuilds subscriptions when queries change. This enables dynamic factories without recreating instances unnecessarily.
-- Arrays in merge: arrays are not flattened/merged; objects only.
-- Nullability warnings: some parameters accept null but are non-nullable; can be tidied up.
-- Naming consistency: minor inconsistencies (e.g., env prefix as MemberPath) can be aligned later.
- - For a full overview and roadmap, see ARCHITECTURE.md.
-
-## Tested environment
-
-- .NET SDK 9.0.304 / Runtimes 8.0–10.0 preview present
-- All tests in `Cocoar.Configuration.Tests` passed locally; full solution tests green
-
-## Roadmap ideas
-
-- Partial recompute (from the changed rule to the end) to reduce work on frequent changes
-- Provider lifecycle reuse across recomputes (pooling; `IDisposable` support for long-lived connections)
-- Array merge strategies (replace/append/custom)
-- Clean up nullability and naming consistency (prefix/memberPath)
-- Additional providers: HTTP SSE/SignalR live streams, timer-less push models
+Lightweight, strongly-typed configuration aggregation for .NET (current target framework: **net9.0**).
+
+<!-- Badges (NuGet placeholder until published) -->
+![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)
+![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+<!-- Future: NuGet badge once package is public -->
+<!-- ![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg) -->
+
+> **At a glance**
+> * Layer multiple sources (files, environment variables, HTTP, adapters) with deterministic **last‑write‑wins** merge
+> * Providers return JSON objects; some emit change signals for live updates
+> * On any change a full ordered recompute occurs; result swap is atomic
+> * Direct DI access to your config types (no required `IConfiguration` / `IOptions` wrappers)
 
 ---
 
-For ASP.NET Core usage, prefer the `Cocoar.Configuration.AspNetCore` extension for a builder-first experience. For non-web apps, use the `Cocoar.Configuration.Extensions` DI helpers.
+## Supported Framework & Packages (Current State)
 
-## Fluent extensibility for third‑party providers
+Currently only **net9.0** is built. Multi-targeting can be added later.
 
-To let external provider packages add their own fluent entry points without modifying this repo, the fluent host exposes an instance handle `Rules.Using` that can be the target of extension methods.
+| Package | Description | TFM (current) |
+|---------|-------------|---------------|
+| `Cocoar.Configuration` | Core (File + Environment providers, merge orchestration) | net9.0 |
+| `Cocoar.Configuration.AspNetCore` | WebApplicationBuilder / DI convenience | net9.0 |
+| `Cocoar.Configuration.HttpPolling` | HTTP polling provider | net9.0 |
+| `Cocoar.Configuration.MicrosoftAdapter` | Adapter for Microsoft IConfigurationSource | net9.0 |
 
-In your provider package (separate project), define an extension like this:
+### Install (Example)
+```xml
+<ItemGroup>
+    <PackageReference Include="Cocoar.Configuration" Version="1.0.0" />
+    <!-- Optional -->
+    <PackageReference Include="Cocoar.Configuration.AspNetCore" Version="1.0.0" />
+    <PackageReference Include="Cocoar.Configuration.HttpPolling" Version="1.0.0" />
+    <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" Version="1.0.0" />
+</ItemGroup>
+```
+
+---
+
+## Quick Start
+Minimal example (file + environment layering, strongly-typed access):
 
 ```csharp
 using Cocoar.Configuration;
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.Abstractions;
-
-namespace MyCompany.Configuration.MyProvider;
-
-public static class MyProviderRulesExtensions
-{
-    // Option A: expose the generic builder directly
-    public static ProviderRuleBuilder<MyProvider, MyProviderOptions, MyProviderQueryOptions> FromMyProvider(
-        this Rules.Dsl _,
-        Func<ConfigManager, MyProviderOptions> instance,
-        Func<ConfigManager, MyProviderQueryOptions> query)
-        => Rules.FromProvider<MyProvider, MyProviderOptions, MyProviderQueryOptions>(instance, query);
-
-    // Option B: offer a convenience wrapper with fewer parameters
-    public static ProviderRuleBuilder<MyProvider, MyProviderOptions, MyProviderQueryOptions> FromMyProvider(
-        this Rules.Dsl _, string endpoint, TimeSpan? pollInterval = null)
-        => Rules.FromProvider<MyProvider, MyProviderOptions, MyProviderQueryOptions>(
-            instance: _ => new MyProviderOptions { PollInterval = pollInterval ?? TimeSpan.FromSeconds(10) },
-            query:    _ => new MyProviderQueryOptions { Url = endpoint });
-}
-```
-
-Consumers can then write:
-
-```csharp
-using Cocoar.Configuration.Fluent;
-using MyCompany.Configuration.MyProvider; // brings in the extension method
-
-var rules = new[]
-{
-    Rules.Using
-        .FromMyProvider("https://config.example.com/api/v1/settings", TimeSpan.FromSeconds(15))
-    .For<MySettings>()
-        .Required()
-        .Build(),
-};
-```
-
-Notes:
-- `Rules.Using` is a lightweight instance purely for extension methods; it carries no state.
-- Under the hood, your extension can delegate to `Rules.FromProvider<...>()`, which wires into the provider pooling/orchestration.
-- Your provider types should implement the abstractions: `ConfigSourceProvider<TInstanceOptions,TQueryOptions>`, `ISourceProviderInstanceOptions`, and `ISourceProviderQueryOptions`.
-
-## Why
-
-- Keep your app’s config as contracts (interfaces/classes) instead of string lookups
-- Layer multiple sources in a fixed order with simple, deterministic merges
-- React to changes (file watchers, polling, etc.) and atomically swap results
-- Use or build providers without coupling them to ASP.NET Core
-
-## Packages
-
-- Core: `Cocoar.Configuration` (rules, manager, built-in file/env providers)
-- ASP.NET Core extras: `Cocoar.Configuration.AspNetCore` (builder integration)
-- Providers:
-  - File JSON: in core under `Providers/FileSourceProvider`
-  - Environment variables: in core under `Providers/EnvironmentVariableProvider`
-  - HTTP polling: `Cocoar.Configuration.HttpPolling` (separate package)
-  - Microsoft IConfiguration adapter: `Cocoar.Configuration.MicrosoftAdapter` (separate package)
-
-Provider docs:
-- File: src/Cocoar.Configuration/Providers/FileSourceProvider/README.md
-- Environment: src/Cocoar.Configuration/Providers/EnvironmentVariableProvider/README.md
-- HTTP polling: src/Cocoar.Configuration.HttpPolling/README.md
-- Microsoft adapter: src/Cocoar.Configuration.MicrosoftAdapter/README.md
-
-Architecture details: src/Cocoar.Configuration/ARCHITECTURE.md
-
-> **📋 Validated Examples**: All code examples in this README are covered by automated tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs). This ensures they stay accurate and functional. You can also view these examples in your IDE where intellisense and error highlighting will help you understand the API.
-
-## Install
-
-Add the packages you need from NuGet:
-- Cocoar.Configuration
-- Cocoar.Configuration.AspNetCore (optional)
-- Cocoar.Configuration.HttpPolling (optional)
-- Cocoar.Configuration.MicrosoftAdapter (optional)
-
-## Quick start
-
-1) Define your settings
-
-```csharp
-public interface IMySettings 
-{ 
-    bool Enabled { get; } 
-    int Value { get; } 
-}
-
-public sealed class MySettings : IMySettings 
-{ 
-    public bool Enabled { get; set; } 
-    public int Value { get; set; } 
-}
-```
-
-2) Build rules and the manager
-
-```csharp
-using Cocoar.Configuration;
-using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider.Fluent;
 
-var rules = new []
+public class AppSettings
 {
-    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection"))
-        .For<MySettings>()
-        .As<IMySettings>()
-        .Build(),
-    Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
-        .For<MySettings>()
-        .As<IMySettings>()
-        .Build()
-};
-
-var manager = new ConfigManager(rules).Initialize();
-var cfg = manager.GetConfig<IMySettings>();
-```
-
-3) ASP.NET Core builder integration (optional)
-
-```csharp
-using Cocoar.Configuration.AspNetCore;
+        public string ConnectionString { get; set; } = "";  // base value in JSON, can be overridden
+        public bool EnableFeatureX { get; set; }             // overridden by env var APP_EnableFeatureX
+        public int CacheSeconds { get; set; } = 30;          // overridden by env var APP_CacheSeconds
+}
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddCocoarConfiguration(rules);
+
+builder.AddCocoarConfiguration(
+        // Base layer (optional): read a section from a JSON file if it exists
+        Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("appsettings.json", "App"))
+                .For<AppSettings>().Optional(),
+
+        // Environment variables (prefix APP_) override matching properties
+        Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("APP_"))
+                .For<AppSettings>()
+);
 
 var app = builder.Build();
-var cfg = app.Services.GetRequiredService<ConfigManager>().GetConfig<IMySettings>();
+
+// Resolve the manager and get a typed snapshot (throws if missing)
+var settings = app.Services
+        .GetRequiredService<ConfigManager>()
+        .GetRequiredConfig<AppSettings>();
+
+Console.WriteLine($"FeatureX: {settings.EnableFeatureX}, Cache: {settings.CacheSeconds}s");
 ```
 
-## How it works
+Example overlay (JSON + environment):
+```
+appsettings.json (optional):
+{
+    "App": {
+        "ConnectionString": "Server=localhost;Database=MyApp;",
+        "EnableFeatureX": false,
+        "CacheSeconds": 30
+    }
+}
+
+Environment variables:
+APP_EnableFeatureX=true
+APP_CacheSeconds=60
+```
+
+More examples (full, tested .cs files):
+
+- **[Basic Usage](Examples/BasicUsage.cs)** – File + environment layering pattern (full code)
+- **[AspNetCoreExample](Examples/AspNetCoreExample.cs)** – Web application integration
+- **[FileLayering](Examples/FileLayering.cs)** – Multiple JSON layers (deterministic last-write-wins)
+- **[ServiceLifetimes](Examples/ServiceLifetimes.cs)** – DI lifetimes + keyed registrations
+- **[DynamicDependencies](Examples/DynamicDependencies.cs)** – Rules reading other config mid-recompute
+- **[GenericProviderAPI](Examples/GenericProviderAPI.cs)** – Full generic provider control
+- **[MicrosoftAdapterExample](Examples/MicrosoftAdapterExample.cs)** – Integrate any `IConfigurationSource`
+- **[HttpPollingExample](Examples/HttpPollingExample.cs)** – Remote polling with change detection
+- **[StaticProviderExample](Examples/StaticProviderExample.cs)** – Seeding & composition with static rules
+
+---
+
+## Core Model (Rules, Providers, Merge, Dynamic)
+
+- **Rule**: Defines source + query + target configuration type
+- **Provider**: Returns a JSON object (optionally emits change signals)
+- **Merge**: Flatten (`Section:Key`) → last-write-wins per key → unflatten → bind to target type
+- **Arrays**: Full replacement (no element-wise merge)
+- **Recompute**: Any change signal triggers full rebuild of all rules in declared order (simple & correct, not minimal)
+- **Dynamic dependencies**: Factories (options/query) may read in-progress snapshots (order matters)
+- **Required vs Optional**: Required failures block the type; optional failures skip that rule
+- **DI Lifetimes & Keyed Services**: Register as Singleton (default), Scoped or Transient (with optional service keys)
+
+### Static Provider
+
+See **[StaticProviderExample.cs](Examples/StaticProviderExample.cs)** for seeding defaults and composing dependent configuration.
+
+---
+
+## Advanced Features
+
+### Service Lifetimes & Keyed Services
+Control how configuration types are registered in DI container. Default is Singleton, but you can specify Scoped/Transient and use keyed services for multiple configurations of the same type.
+→ **[Complete example: ServiceLifetimes.cs](Examples/ServiceLifetimes.cs)**
+
+### Generic Provider API  
+Use `Rule.From.Provider<TProvider, TOptions, TQuery>()` for full control over any provider type, including third-party providers.
+→ **[Complete example: GenericProviderAPI.cs](Examples/GenericProviderAPI.cs)**
+
+### Microsoft Configuration Adapter
+Plug any Microsoft `IConfigurationSource` (JSON, XML, Key Vault, User Secrets, etc.) into Cocoar's rule-based system.
+→ **[Complete example: MicrosoftAdapterExample.cs](Examples/MicrosoftAdapterExample.cs)**
+
+### HTTP Polling Provider
+Fetch configuration from HTTP endpoints with automatic polling. Only triggers recomputes when response actually changes.
+→ **[Complete example: HttpPollingExample.cs](Examples/HttpPollingExample.cs)**
+
+## Providers (Overview)
+
+| Provider | Package | Change Signal | Notes |
+|----------|---------|---------------|-------|
+| **File (JSON)** | Core | ✅ Filesystem watcher (debounced) | Paths/sections; good base layer |
+| **Environment** | Core | ❌ Snapshot only | Prefix filter; `__` & `:` nesting |
+| **HTTP Polling** | Extension | ✅ On real payload change | Optional headers; polling interval |
+| **Microsoft Adapter** | Extension | Depends on source | Wrap any `IConfigurationSource` |
+
+**All providers support:** Optional/required rules, dynamic factories, provider instance pooling.
+
+**Provider Documentation:**
+- [File Provider](src/Cocoar.Configuration/Providers/FileSourceProvider/README.md) - JSON files with filesystem watching
+- [Environment Provider](src/Cocoar.Configuration/Providers/EnvironmentVariableProvider/README.md) - Environment variables with prefix filtering  
+- [HTTP Polling Provider](src/Cocoar.Configuration.HttpPolling/README.md) - HTTP endpoint polling _(separate package)_
+- [Microsoft Adapter](src/Cocoar.Configuration.MicrosoftAdapter/README.md) - IConfigurationSource integration _(separate package)_
+
+## API Overview
+
+**ConfigManager**
+| Method | Behavior |
+|--------|----------|
+| `GetConfig<T>()` | Snapshot or null; never throws |
+| `GetRequiredConfig<T>()` | Snapshot or exception if missing |
+| `TryGetConfig<T>(out T?)` | true + value if available; else false/null |
+| `GetConfigAsJson(Type)` | Merged JSON (or null) |
+
+**Rule Creation (Fluent)**
+| Entry | Description |
+|-------|-------------|
+| `Rule.From.File(...)` | JSON files (watcher + debounce) |
+| `Rule.From.Environment(...)` | Environment snapshot (optional prefix) |
+| `Rule.From.Http(...)` | (Extension) polling with change detection |
+| `Rule.From.Provider<TProv,TOpt,TQuery>(...)` | Generic provider entry point |
+| `Rule.From.Static(...)` | Static object (seeding / defaults) |
+
+Semantics: Use Optional for non-critical layers; Required enforces presence.
+
+## Extensibility (Third-Party Providers)
+
+Cocoar.Configuration is designed to be extensible. Third-party packages can add their own fluent entry points (like `Rule.From.MyProvider()`) without modifying the core library.
+
+**For provider developers:** See the [Provider Development Guide](src/Cocoar.Configuration/Providers/README.md) for complete documentation on:
+- Implementing custom providers with the `ConfigSourceProvider<TInstanceOptions,TQueryOptions>` base class
+- Creating fluent extension methods for your provider
+- Provider lifecycle management and change emission patterns
+- Testing strategies and best practices
+
+**For users:** Simply install third-party provider packages and use their fluent APIs alongside the built-in providers.
+
+---
+
+---
+
+## Security
+
+* **Never commit secrets** to JSON files in your repository  
+* Use **environment variable overlays** or dedicated secret management systems  
+* For remote providers: Always use **TLS**, set reasonable **timeouts**, and include **auth headers** when needed  
+* Consider using Azure Key Vault, AWS Secrets Manager, or similar via the **Microsoft Adapter**
+
+---
+
+## Examples (Overview)
+
+The [`Examples/`](Examples/) folder contains **8 complete, compilable C# files** demonstrating real-world usage patterns. These are standalone code files (not tests) that you can copy-paste into your IDE and adapt for your needs:
+
+### Core Examples
+- **[BasicUsage.cs](Examples/BasicUsage.cs)** - Essential pattern: file + environment variable layering with ConfigManager
+- **[AspNetCoreExample.cs](Examples/AspNetCoreExample.cs)** - Complete web application with DI integration and configuration endpoints
+- **[FileLayering.cs](Examples/FileLayering.cs)** - Merge multiple JSON files with hierarchical overrides (dev.json → prod.json)
+
+### Advanced Configuration
+- **[ServiceLifetimes.cs](Examples/ServiceLifetimes.cs)** - Control DI registration: Singleton vs Scoped vs Transient, plus keyed services
+- **[DynamicDependencies.cs](Examples/DynamicDependencies.cs)** - Rules that read current config state during recompute (database connection based on environment)
+
+### Provider Extensions
+- **[GenericProviderAPI.cs](Examples/GenericProviderAPI.cs)** - Use `Rule.From.Provider<>()` for full control over any provider type
+- **[MicrosoftAdapterExample.cs](Examples/MicrosoftAdapterExample.cs)** - Plug Microsoft IConfigurationSource (Key Vault, User Secrets) into Cocoar rules
+- **[HttpPollingExample.cs](Examples/HttpPollingExample.cs)** - Fetch configuration from HTTP endpoints with change detection
+
+**💡 How to use**: Each example file is a complete C# program you can run. Copy the parts you need into your project and adapt the configuration types to match your needs.
+
+> **📋 Quality Assurance**: All example `.cs` files are compiled in CI (Roslyn compile test) to guarantee they stay syntactically valid and aligned with the current API surface. Functional behavior is covered by the regular test suite.
+
+---
+
+## Thread Safety & Performance
+
+- **Thread-safety**: Reading configuration is thread-safe. Recompute produces a new snapshot and swaps atomically.
+- **Recompute cost**: Full merge of all rules (O(n) w.r.t. rule count + JSON size). Partial recompute is on the roadmap.
+- **Provider reuse**: Instances reused while instance options remain stable; query changes rebuild subscriptions.
+
+---
+
+## How It Works (Detail)
 
 - You define rules. Each rule targets a specific config type (class/interface) and queries exactly one provider to produce a JSON object.
-- For a given type T, Cocoar starts from T’s defaults and merges each rule’s JSON into T in the configured order (last-write-wins, key-by-key).
+- For a given type T, Cocoar starts from T's defaults and merges each rule's JSON into T in the configured order (last-write-wins, key-by-key).
 - During a recompute, a rule can read the current in-progress snapshot from the ConfigManager (any type). This enables dynamic rules whose options depend on values produced by earlier rules in the same recompute.
-    - Example: One rule sets a URL; a later HTTP rule reads that URL via `configManager.GetRequiredConfig<MyHttpPollingSettings>()` and uses it for its request.
 - Objects are flattened into colon-keys (e.g., `Section:Enabled`), merged in order, then unflattened and deserialized into your target type.
 
 ### Change model and recompute
@@ -593,12 +261,12 @@ var cfg = app.Services.GetRequiredService<ConfigManager>().GetConfig<IMySettings
 ### Ordering and dependencies
 
 - Place dependency-producing rules before dependency-consuming rules.
-- Rules may read any type’s current snapshot during recompute. Avoid circular dependencies across types or rules to prevent surprises.
+- Rules may read any type's current snapshot during recompute. Avoid circular dependencies across types or rules to prevent surprises.
 
-Guidance for recompute-time reads
+**Guidance for recompute-time reads:**
 - GetRequiredConfig<T>() throws if T does not exist yet; use only if you guarantee T is produced earlier.
 - GetConfig<T>() returns null if T does not exist; handle nulls explicitly when reading dependencies.
-- For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — see `Rules.Using.FromStatic`).
+- For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — see `Rule.From.Static`).
 
 ### Merge semantics and limits
 
@@ -606,80 +274,73 @@ Guidance for recompute-time reads
 - Arrays are replace-only by design; an array value replaces the prior value at that key (no merging).
 - Keys follow `Section:Key` flattening during merge; final objects are unflattened before binding to your types.
 
-## Getting started
+---
 
-### Packages (NuGet)
+## Versioning & Stability
 
-- `Cocoar.Configuration`
-- `Cocoar.Configuration.AspNetCore` (optional)
-- `Cocoar.Configuration.HttpPolling` (optional)
-- `Cocoar.Configuration.MicrosoftAdapter` (optional)
+- Current: First stable release (1.0.0). SemVer intended.
+- Breaking changes only in major versions; minor for additive features; patch for fixes.
+- Provider abstractions evolve conservatively.
 
-### Working Examples
-
-All examples in this README are validated by automated tests. Check out [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs) to:
-- See complete, working code with proper error handling
-- Copy-paste tested examples into your IDE  
-- Understand the full context with imports and setup
-- Get intellisense and compile-time validation
-
-### Badges
-
-Add these to your repo once published:
-- Build: GitHub Actions Status
-- NuGet: package version badges for each package
-
-## Dynamic dependency example
-
-Later rules can read the in-progress configuration from the manager to parameterize themselves. Here a file (or any provider) provides a URL used by a subsequent HTTP rule.
-
-```csharp
-using Cocoar.Configuration.AspNetCore;
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider.Fluent;
-using Cocoar.Configuration.HttpPolling.Fluent;
-
-builder.Services.AddCocoarConfiguration([
-    // Base settings providing the URL
-    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "Remote"))
-         .For<MyHttpPollingSettings>()
-         .Required()
-         .Build(),
-
-    // HTTP rule reads the current URL from the manager during recompute
-    Rules.Using.FromHttp(cm => new HttpPollingRuleOptions(
-            urlPathOrAbsolute: cm.GetRequiredConfig<MyHttpPollingSettings>().Url,
-            baseAddress: "https://example.com",
-            pollInterval: TimeSpan.FromSeconds(5)
-        ))
-        .For<MyCfg>()
-        .Build()
-]);
-```
-
-## Providers at a glance
-
-- **FileSourceProvider**: Read JSON files; debounce filesystem notifications; see provider README for options and samples
-- **EnvironmentVariableProvider**: Map env vars with separators `__` and `:`; optional prefix filter  
-- **HttpPollingProvider**: Poll a JSON endpoint; emit only on real payload change
-- **MicrosoftConfigurationSourceProvider**: Plug any IConfigurationSource into rules
-
-See the provider READMEs linked above for detailed options and examples.
+---
 
 ## Contributing
 
 Issues and PRs welcome. Please keep provider abstractions stable and deterministic (e.g., option keys for instance pooling) and follow the merge semantics described in ARCHITECTURE.md.
 
-**📝 Documentation Quality**: All README examples are backed by automated tests. When contributing new examples or changing existing ones, please update the corresponding tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs) to ensure they remain accurate and functional.
+**📝 Documentation Quality**: The core API patterns shown in this README are validated by automated tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs). The [`Examples/`](Examples/) folder contains comprehensive, compilable demonstration files that you can run directly. When contributing, please ensure examples remain accurate and functional.
 
 ---
 
 For deeper details, examples, and roadmap, check src/Cocoar.Configuration/README.md and ARCHITECTURE.md.
 
-## Known gaps and next steps
+---
 
-- Array merge semantics: Arrays currently replace prior values. Additional strategies (append/merge/custom) are under consideration.
-- Null/empty handling: Edge cases (nulls and empty objects) will be documented precisely; current behavior follows JSON deserialization defaults after key merge.
-- Change emissions: Environment provider does not emit changes by default (snapshot only). If you need change-driven recompute, combine with other providers.
-- Circular dependencies: Rules can read any type’s current snapshot during recompute. Avoid cycles; detection/guardrails may be added.
-- DI lifetimes: Resulting config types are singletons today; this may evolve.
+## Current Limitations (Current State)
+
+**Recompute model:** On any change emission, the manager recomputes all rules from scratch in order (last-write-wins merge). This is simple and correct but not minimal; a future optimization could recompute only affected rules downstream from the changed provider.
+
+**Provider lifecycle:** Managed by an internal `RuleManager` per rule which reuses providers when instance options don't change and rebuilds subscriptions when query options change. This enables dynamic factories without recreating instances unnecessarily.
+
+**Array merge semantics:** Arrays are replaced completely (not merged element-wise). Objects are flattened to colon keys and merged key-by-key. Additional array strategies (append/merge/custom) are under consideration.
+
+**Null/empty handling:** Edge cases (nulls and empty objects) follow JSON deserialization defaults after key merge. Precise behavior will be documented as the API stabilizes.
+
+**Change emissions:** Environment provider does not emit changes by default (snapshot only). File provider emits on filesystem changes. If you need change-driven recompute for environment variables, combine with other providers that do emit.
+
+**Circular dependencies:** Rules can read any type's current snapshot during recompute via `GetConfig<T>()` calls in options/query factories. Avoid circular dependencies across types; detection/guardrails may be added.
+
+**DI lifetimes:** Configuration types are registered as singletons by default. Support for scoped/transient lifetimes exists but may evolve.
+
+---
+
+## Roadmap (Short)
+
+- **Partial recompute:** Only recompute rules downstream from changed providers to reduce work on frequent changes
+- **Provider pooling:** Better lifecycle reuse across recomputes with `IDisposable` support for long-lived connections  
+- **Array merge strategies:** Replace (current) / append / custom merge logic for array values
+- **Clean up naming:** Minor inconsistencies (e.g., env prefix vs memberPath terminology) for better API consistency
+- **Additional providers:** HTTP Server-Sent Events, SignalR live streams, timer-less push models
+- **Nullability improvements:** Tidy up nullable reference type annotations across the API surface
+
+See [ARCHITECTURE.md](src/Cocoar.Configuration/ARCHITECTURE.md) & provider READMEs for details.
+
+---
+
+*(This README reflects the current code state – future multi-targeting or optimizations will be documented when implemented.)*
+
+---
+
+## Why Not Just Microsoft IConfiguration?
+
+| Aspect | `Cocoar.Configuration` | Plain `IConfiguration` |
+|--------|------------------------|------------------------|
+| Strong typing | Direct injection of concrete / interface config types | Manual binding or `IOptions<T>` wrappers |
+| Multi-source layering | Explicit, ordered rule list (deterministic) | Order influenced by registration / provider ordering |
+| Change handling | Atomic full recompute with dynamic rule factories | Incremental value lookups; custom reload logic per provider |
+| Dynamic dependencies | Rules can read in-progress snapshots | Typically manual: pull values after build or inside factories |
+| Extensibility model | Generic provider base + fluent rule DSL | Add or implement `IConfigurationSource` / `IConfigurationProvider` |
+| Diagnostics | Access merged JSON per type | Must traverse configuration tree / know keys |
+| Keyed DI & lifetimes | Built-in for each config type | Additional wiring required |
+
+Use Cocoar when you want deterministic layering, dynamic dependency evaluation, atomic snapshots and strongly typed access without repetitive binding code. Stay with plain `IConfiguration` if you only need a simple hierarchical key/value store and existing providers already cover your scenario.

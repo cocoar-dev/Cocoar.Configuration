@@ -5,7 +5,7 @@ The latest main branch and the most recent release are supported for security fi
 
 ## Reporting a vulnerability
 Please do not open public issues for potential vulnerabilities. Instead:
-- Email: security@cocoar.dev (or use your private channel if you have one)
+- Email: bwi@cocoar.dev (or use your private channel if you have one)
 - Include a minimal reproduction, impact assessment, and affected versions/commits.
 - We aim to acknowledge reports within 72 hours.
 
