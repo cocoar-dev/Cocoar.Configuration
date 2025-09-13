@@ -16,12 +16,19 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
     <!-- Common NuGet metadata -->
-    <RepositoryUrl>https://github.com/cocoar-dev/Cocoar.Configuration</RepositoryUrl>
+    <RepositoryUrl>https://github.com/cocoar-dev/cocoar.configuration</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <!-- Package Description & Discovery -->
+    <PackageDescription>Lightweight, strongly-typed configuration aggregation for .NET. Compose config from multiple sources (files, environment variables, HTTP endpoints, Microsoft IConfiguration) with predictable last-wins merge semantics and live recompute on changes.</PackageDescription>
+    <PackageTags>configuration;config;settings;json;reactive;csharp;dotnet;aspnetcore;dependency-injection;merge;variables;recompute</PackageTags>
+    <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>Initial release of Cocoar.Configuration - lightweight, strongly-typed configuration aggregation for .NET with multi-source composition and live recompute capabilities.</PackageReleaseNotes>
 
     <Authors>Bernhard Windisch</Authors>
     <Company>COCOAR</Company>
@@ -30,5 +37,10 @@
     <!-- SourceLink: publish repo URL and embed source link info -->
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    </ItemGroup>
+
+    <!-- Include README.md in packages -->
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="README.md" />
     </ItemGroup>
 </Project>
