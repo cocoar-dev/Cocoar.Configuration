@@ -103,12 +103,13 @@ builder.AddCocoarConfiguration(
 
 var app = builder.Build();
 
-// Resolve the manager and get a typed snapshot (throws if missing)
-var settings = app.Services
-        .GetRequiredService<ConfigManager>()
-        .GetRequiredConfig<AppSettings>();
-
+// Direct typed injection (preferred): resolve your config type directly from DI
+var settings = app.Services.GetRequiredService<AppSettings>();
 Console.WriteLine($"FeatureX: {settings.EnableFeatureX}, Cache: {settings.CacheSeconds}s");
+
+// Alternative (advanced): you can inject ConfigManager when you need meta access
+// var manager = app.Services.GetRequiredService<ConfigManager>();
+// var settingsViaManager = manager.GetRequiredConfig<AppSettings>();
 ```
 
 
@@ -128,6 +129,8 @@ Open the solution: [`src/Examples/Examples.sln`](src/Examples/Examples.sln) or r
 ```
 dotnet run --project src/Examples/BasicUsage
 ```
+
+> Direct Injection vs `ConfigManager`: In normal application code you inject your typed configuration (class or mapped interface) directly. Inject `ConfigManager` only for meta scenarios (e.g., conditionally accessing multiple config types, diagnostics, dynamic factory logic). All examples now prioritize direct injection; `/manager` in the AspNetCore example shows the alternative.
 
 ---
 

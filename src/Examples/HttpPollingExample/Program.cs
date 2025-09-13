@@ -39,9 +39,8 @@ public static class Program
             .Optional()
         );
         var serviceProvider = services.BuildServiceProvider();
-        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-        var apiConfig = configManager.GetRequiredConfig<ApiConfiguration>();
-        var featureFlags = configManager.GetConfig<RemoteFeatureFlags>();
+        var apiConfig = serviceProvider.GetRequiredService<ApiConfiguration>();
+        var featureFlags = serviceProvider.GetService<RemoteFeatureFlags>();
         Console.WriteLine($"API Base: {apiConfig.BaseUrl} FeatureFlags Beta: {featureFlags?.EnableBetaFeatures}");
     }
 }

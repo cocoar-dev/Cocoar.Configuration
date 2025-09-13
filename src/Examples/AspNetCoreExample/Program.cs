@@ -43,15 +43,10 @@ public static class Program
                 .For<DatabaseSettings>()
         );
         var app = builder.Build();
-        app.MapGet("/config", (ConfigManager configManager) =>
+        app.MapGet("/config", (IAppSettings appSettings, DatabaseSettings? dbSettings) => new
         {
-            var appSettings = configManager.GetConfig<IAppSettings>();
-            var dbSettings = configManager.GetConfig<DatabaseSettings>();
-            return new
-            {
-                Application = new { appSettings?.ApplicationName, appSettings?.Version, appSettings?.IsProduction },
-                Database = new { HasConnectionString = !string.IsNullOrEmpty(dbSettings?.ConnectionString), dbSettings?.CommandTimeout, dbSettings?.EnableRetryOnFailure }
-            };
+            Application = new { appSettings.ApplicationName, appSettings.Version, appSettings.IsProduction },
+            Database = new { HasConnectionString = !string.IsNullOrEmpty(dbSettings?.ConnectionString), dbSettings?.CommandTimeout, dbSettings?.EnableRetryOnFailure }
         });
         app.MapGet("/health", (IAppSettings appSettings) => new
         {
@@ -59,6 +54,17 @@ public static class Program
             Application = appSettings.ApplicationName,
             Version = appSettings.Version,
             Environment = appSettings.IsProduction ? "Production" : "Development"
+        });
+        app.MapGet("/manager", (ConfigManager manager) =>
+        {
+            var appSettings = manager.GetRequiredConfig<IAppSettings>();
+            var dbSettings = manager.GetConfig<DatabaseSettings>();
+            return new
+            {
+                RetrievedVia = "ConfigManager",
+                Application = new { appSettings.ApplicationName, appSettings.Version, appSettings.IsProduction },
+                Database = new { HasConnectionString = !string.IsNullOrEmpty(dbSettings?.ConnectionString), dbSettings?.CommandTimeout, dbSettings?.EnableRetryOnFailure }
+            };
         });
         app.Run();
     }
