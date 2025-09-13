@@ -35,11 +35,11 @@ Currently only **net9.0** is built. Multi-targeting can be added later.
 ### Install (Example)
 ```xml
 <ItemGroup>
-    <PackageReference Include="Cocoar.Configuration" Version="1.0.0" />
-    <!-- Optional -->
-    <PackageReference Include="Cocoar.Configuration.AspNetCore" Version="1.0.0" />
-    <PackageReference Include="Cocoar.Configuration.HttpPolling" Version="1.0.0" />
-    <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" Version="1.0.0" />
+        <PackageReference Include="Cocoar.Configuration" />
+        <!-- Optional extensions -->
+        <PackageReference Include="Cocoar.Configuration.AspNetCore" />
+        <PackageReference Include="Cocoar.Configuration.HttpPolling" />
+        <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" />
 </ItemGroup>
 ```
 
@@ -299,9 +299,11 @@ dotnet run --project src/Examples/GenericProviderAPI
 
 ## Versioning & Stability
 
-- Current: First stable release (1.0.0). SemVer intended.
-- Breaking changes only in major versions; minor for additive features; patch for fixes.
+- Stable releases follow **SemVer**; see GitHub Releases or NuGet version history for changes.
+- Breaking changes only in MAJOR versions; MINOR for additive features; PATCH for fixes.
 - Provider abstractions evolve conservatively.
+
+> Packages are published under the NuGet organization **cocoar**.
 
 ---
 
