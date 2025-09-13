@@ -1,5 +1,9 @@
 # Cocoar.Configuration
 
+<p align="left">
+        <img src="social-preview.png" alt="Cocoar.Configuration" width="520" style="max-width:100%;height:auto;" />
+</p>
+
 Lightweight, strongly-typed configuration aggregation for .NET (current target framework: **net9.0**).
 
 <!-- Badges (NuGet placeholder until published) -->

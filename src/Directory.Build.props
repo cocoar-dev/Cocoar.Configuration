@@ -31,6 +31,7 @@
     <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>Initial release of Cocoar.Configuration - lightweight, strongly-typed configuration aggregation for .NET with multi-source composition and live recompute capabilities.</PackageReleaseNotes>
+    <PackageIcon>package-icon.png</PackageIcon>
 
     <Authors>Bernhard Windisch</Authors>
     <Company>COCOAR</Company>
@@ -44,5 +45,6 @@
     <!-- Include README.md in packages -->
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="README.md" />
+        <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="package-icon.png" />
     </ItemGroup>
 </Project>
