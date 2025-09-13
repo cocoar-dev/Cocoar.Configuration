@@ -107,17 +107,22 @@ APP_EnableFeatureX=true
 APP_CacheSeconds=60
 ```
 
-More examples (full, tested .cs files):
+More examples (multi-project solution under `src/Examples/`):
 
-- **[Basic Usage](Examples/BasicUsage.cs)** – File + environment layering pattern (full code)
-- **[AspNetCoreExample](Examples/AspNetCoreExample.cs)** – Web application integration
-- **[FileLayering](Examples/FileLayering.cs)** – Multiple JSON layers (deterministic last-write-wins)
-- **[ServiceLifetimes](Examples/ServiceLifetimes.cs)** – DI lifetimes + keyed registrations
-- **[DynamicDependencies](Examples/DynamicDependencies.cs)** – Rules reading other config mid-recompute
-- **[GenericProviderAPI](Examples/GenericProviderAPI.cs)** – Full generic provider control
-- **[MicrosoftAdapterExample](Examples/MicrosoftAdapterExample.cs)** – Integrate any `IConfigurationSource`
-- **[HttpPollingExample](Examples/HttpPollingExample.cs)** – Remote polling with change detection
-- **[StaticProviderExample](Examples/StaticProviderExample.cs)** – Seeding & composition with static rules
+- **[BasicUsage](src/Examples/BasicUsage/Program.cs)** – File + environment layering pattern (full code)
+- **[AspNetCoreExample](src/Examples/AspNetCoreExample/Program.cs)** – Web application integration
+- **[FileLayering](src/Examples/FileLayering/Program.cs)** – Multiple JSON layers (deterministic last-write-wins)
+- **[ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)** – DI lifetimes + keyed registrations
+- **[DynamicDependencies](src/Examples/DynamicDependencies/Program.cs)** – Rules reading other config mid-recompute
+- **[GenericProviderAPI](src/Examples/GenericProviderAPI/Program.cs)** – Full generic provider control
+- **[MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample/Program.cs)** – Integrate any `IConfigurationSource`
+- **[HttpPollingExample](src/Examples/HttpPollingExample/Program.cs)** – Remote polling with change detection
+- **[StaticProviderExample](src/Examples/StaticProviderExample/Program.cs)** – Seeding & composition with static rules
+
+Open the solution: [`src/Examples/Examples.sln`](src/Examples/Examples.sln) or run an example directly, e.g.:
+```
+dotnet run --project src/Examples/BasicUsage
+```
 
 ---
 
@@ -134,7 +139,7 @@ More examples (full, tested .cs files):
 
 ### Static Provider
 
-See **[StaticProviderExample.cs](Examples/StaticProviderExample.cs)** for seeding defaults and composing dependent configuration.
+See [`src/Examples/StaticProviderExample/Program.cs`](src/Examples/StaticProviderExample/Program.cs) for seeding defaults and composing dependent configuration.
 
 ---
 
@@ -142,19 +147,19 @@ See **[StaticProviderExample.cs](Examples/StaticProviderExample.cs)** for seedin
 
 ### Service Lifetimes & Keyed Services
 Control how configuration types are registered in DI container. Default is Singleton, but you can specify Scoped/Transient and use keyed services for multiple configurations of the same type.
-→ **[Complete example: ServiceLifetimes.cs](Examples/ServiceLifetimes.cs)**
+→ Example: [`src/Examples/ServiceLifetimes/Program.cs`](src/Examples/ServiceLifetimes/Program.cs)
 
 ### Generic Provider API  
 Use `Rule.From.Provider<TProvider, TOptions, TQuery>()` for full control over any provider type, including third-party providers.
-→ **[Complete example: GenericProviderAPI.cs](Examples/GenericProviderAPI.cs)**
+→ Example: [`src/Examples/GenericProviderAPI/Program.cs`](src/Examples/GenericProviderAPI/Program.cs)
 
 ### Microsoft Configuration Adapter
 Plug any Microsoft `IConfigurationSource` (JSON, XML, Key Vault, User Secrets, etc.) into Cocoar's rule-based system.
-→ **[Complete example: MicrosoftAdapterExample.cs](Examples/MicrosoftAdapterExample.cs)**
+→ Example: [`src/Examples/MicrosoftAdapterExample/Program.cs`](src/Examples/MicrosoftAdapterExample/Program.cs)
 
 ### HTTP Polling Provider
 Fetch configuration from HTTP endpoints with automatic polling. Only triggers recomputes when response actually changes.
-→ **[Complete example: HttpPollingExample.cs](Examples/HttpPollingExample.cs)**
+→ Example: [`src/Examples/HttpPollingExample/Program.cs`](src/Examples/HttpPollingExample/Program.cs)
 
 ## Providers (Overview)
 
@@ -221,25 +226,29 @@ Cocoar.Configuration is designed to be extensible. Third-party packages can add 
 
 ## Examples (Overview)
 
-The [`Examples/`](Examples/) folder contains **8 complete, compilable C# files** demonstrating real-world usage patterns. These are standalone code files (not tests) that you can copy-paste into your IDE and adapt for your needs:
+Multi-project examples live under [`src/Examples/`](src/Examples/) (see [`src/Examples/README.md`](src/Examples/README.md)). Each folder is a runnable console (or minimal) project with its own `Program.cs`:
 
 ### Core Examples
-- **[BasicUsage.cs](Examples/BasicUsage.cs)** - Essential pattern: file + environment variable layering with ConfigManager
-- **[AspNetCoreExample.cs](Examples/AspNetCoreExample.cs)** - Complete web application with DI integration and configuration endpoints
-- **[FileLayering.cs](Examples/FileLayering.cs)** - Merge multiple JSON files with hierarchical overrides (dev.json → prod.json)
+- `BasicUsage` – File + environment layering
+- `AspNetCoreExample` – Web app integration
+- `FileLayering` – Multi-file deterministic layering
 
 ### Advanced Configuration
-- **[ServiceLifetimes.cs](Examples/ServiceLifetimes.cs)** - Control DI registration: Singleton vs Scoped vs Transient, plus keyed services
-- **[DynamicDependencies.cs](Examples/DynamicDependencies.cs)** - Rules that read current config state during recompute (database connection based on environment)
+- `ServiceLifetimes` – DI lifetimes & keyed registrations
+- `DynamicDependencies` – Reading prior config during recompute
 
 ### Provider Extensions
-- **[GenericProviderAPI.cs](Examples/GenericProviderAPI.cs)** - Use `Rule.From.Provider<>()` for full control over any provider type
-- **[MicrosoftAdapterExample.cs](Examples/MicrosoftAdapterExample.cs)** - Plug Microsoft IConfigurationSource (Key Vault, User Secrets) into Cocoar rules
-- **[HttpPollingExample.cs](Examples/HttpPollingExample.cs)** - Fetch configuration from HTTP endpoints with change detection
+- `GenericProviderAPI` – Generic provider composition
+- `MicrosoftAdapterExample` – Adapting `IConfigurationSource`
+- `HttpPollingExample` – Remote polling with change detection
+- `StaticProviderExample` – Static seeding & dependent composition
 
-**💡 How to use**: Each example file is a complete C# program you can run. Copy the parts you need into your project and adapt the configuration types to match your needs.
+Run any example:
+```
+dotnet run --project src/Examples/GenericProviderAPI
+```
 
-> **📋 Quality Assurance**: All example `.cs` files are compiled in CI (Roslyn compile test) to guarantee they stay syntactically valid and aligned with the current API surface. Functional behavior is covered by the regular test suite.
+> **Quality Assurance**: The examples solution ([`src/Examples/Examples.sln`](src/Examples/Examples.sln)) is built in CI to ensure examples stay aligned with the API. Functional behaviors are additionally covered by unit/integration tests.
 
 ---
 
@@ -300,7 +309,7 @@ The [`Examples/`](Examples/) folder contains **8 complete, compilable C# files**
 
 Issues and PRs welcome. Please keep provider abstractions stable and deterministic (e.g., option keys for instance pooling) and follow the merge semantics described in ARCHITECTURE.md.
 
-**📝 Documentation Quality**: Example files under [`Examples/`](Examples/) are compiled in CI to ensure they remain in sync with the current API. Functional behavior is covered by the regular test suite. When contributing, keep examples minimal and idiomatic.
+**📝 Documentation Quality**: Projects under [`src/Examples/`](src/Examples/) are built in CI to ensure they remain in sync with the current API. Keep examples minimal and idiomatic when contributing.
 
 ---
 
