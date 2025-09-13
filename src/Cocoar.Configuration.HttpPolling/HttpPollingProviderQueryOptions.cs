@@ -2,24 +2,24 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.HttpPolling;
 
-public sealed class HttpPollingProviderQueryOptions : ISourceProviderQueryOptions
+public sealed class HttpPollingProviderQueryOptions : IProviderQuery
 {
     public string UrlPathOrAbsolute { get; }
-    // Selecting a property (section) from the fetched JSON payload, optional
-    public string? KeyPrefix { get; }
+    // Selecting a property (section) from the fetched JSON payload, optional (colon-separated path)
+    public string? ConfigurationPath { get; }
     // Optionally wrap the resulting object into this path
-    public string? WrapperPath { get; }
+    public string? TargetPath { get; }
     public IReadOnlyDictionary<string, string>? Headers { get; }
 
     public HttpPollingProviderQueryOptions(
         string urlPathOrAbsolute,
-        string? keyPrefix = null,
-        string? wrapperPath = null,
+        string? configurationPath = null,
+        string? targetPath = null,
         IReadOnlyDictionary<string,string>? headers = null)
     {
         UrlPathOrAbsolute = urlPathOrAbsolute ?? throw new ArgumentNullException(nameof(urlPathOrAbsolute));
-        KeyPrefix = keyPrefix;
-        WrapperPath = wrapperPath;
+        ConfigurationPath = configurationPath;
+        TargetPath = targetPath;
         Headers = headers;
     }
 }

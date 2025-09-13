@@ -5,11 +5,11 @@ using Cocoar.Configuration.Providers.Abstractions;
 namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 
 public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptions options)
-    : ConfigSourceProvider<EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(options)
+    : ConfigurationProvider<EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> GetValueAsync(EnvironmentVariableProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(EnvironmentVariableProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
-    var prefix = queryOptions.KeyPrefix;
+    var prefix = queryOptions.EnvironmentPrefix;
         var variables = Environment.GetEnvironmentVariables();
         var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
@@ -33,7 +33,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     var element = doc.RootElement.Clone();
 
         // Use the base class helper to wrap if needed
-    return Task.FromResult(WrapIfNeeded(element, queryOptions.WrapperPath));
+    return Task.FromResult(WrapIfNeeded(element, queryOptions.TargetPath));
     }
 
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)

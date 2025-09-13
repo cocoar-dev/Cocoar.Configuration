@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Cocoar.Configuration.Fluent;
 
 public abstract class RuleBuilderBase<TBuilder>
@@ -6,7 +8,7 @@ public abstract class RuleBuilderBase<TBuilder>
     protected bool _required = true;
     protected Func<bool>? _useWhen;
     protected Type? _concreteType;
-    protected Type? _interfaceType;
+    protected readonly List<ConfigRegistration> _registrations = new();
 
     public TBuilder Required(bool value = true)
     {
@@ -24,20 +26,64 @@ public abstract class RuleBuilderBase<TBuilder>
 
     public TBuilder For<TConcrete>()
     {
-        _concreteType = typeof(TConcrete);
-        return (TBuilder)this;
+        return For<TConcrete>(serviceLifetime: null, serviceKey: null);
     }
 
-    public TBuilder As<TInterface>()
+    public TBuilder For<TConcrete>(ServiceLifetime? serviceLifetime, string? serviceKey = null)
     {
-        _interfaceType = typeof(TInterface);
+        _concreteType = typeof(TConcrete);
+        
+        // If serviceLifetime is specified, automatically register the concrete type
+        if (serviceLifetime.HasValue)
+        {
+            var lifetime = serviceLifetime.Value;
+            ValidateRegistration(lifetime, serviceKey);
+            var registration = new ConfigRegistration(_concreteType!, _concreteType!, lifetime, serviceKey);
+            _registrations.Add(registration);
+        }
+        
         return (TBuilder)this;
     }
 
-    protected ConfigTypeDefinition BuildTypeDefinition()
+    public TBuilder As<TInterface>(ServiceLifetime? serviceLifetime = null, string? serviceKey = null)
+    {
+        var lifetime = serviceLifetime ?? ServiceLifetime.Singleton;
+        ValidateRegistration(lifetime, serviceKey);
+        var registration = new ConfigRegistration(_concreteType!, typeof(TInterface), lifetime, serviceKey);
+        _registrations.Add(registration);
+        return (TBuilder)this;
+    }
+
+    private void ValidateRegistration(ServiceLifetime lifetime, string? serviceKey)
+    {
+        if (_concreteType is null)
+            throw new InvalidOperationException("Concrete type must be specified via For<T>() before adding service registrations.");
+
+        // Check if there's already a registration with the same lifetime and key
+        var existingRegistration = _registrations.FirstOrDefault(r => 
+            r.ServiceLifetime == lifetime && r.ServiceKey == serviceKey);
+        
+        if (existingRegistration != null)
+        {
+            var keyDescription = serviceKey is null ? "without a key" : $"with key '{serviceKey}'";
+            throw new InvalidOperationException(
+                $"A {lifetime} registration {keyDescription} already exists for type {_concreteType.Name}. " +
+                "Each lifetime can only be registered once per key.");
+        }
+    }
+
+    protected IReadOnlyList<ConfigRegistration> BuildTypeDefinitions()
     {
         if (_concreteType is null)
             throw new InvalidOperationException("Concrete type must be specified via For<T>().");
-        return new ConfigTypeDefinition(_concreteType, _interfaceType);
+        
+        // If no explicit registrations were made, create a default singleton registration
+        if (_registrations.Count == 0)
+        {
+            var defaultRegistration = new ConfigRegistration(_concreteType);
+            return new[] { defaultRegistration };
+        }
+        
+        return _registrations.AsReadOnly();
     }
 }

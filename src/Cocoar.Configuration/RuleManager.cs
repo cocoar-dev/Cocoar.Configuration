@@ -12,7 +12,7 @@ internal sealed class RuleManager : IDisposable
     private readonly ILogger _logger;
     private readonly ProviderRegistry _registry;
     private ProviderRegistry.ProviderHandle? _providerHandle;
-    private ConfigSourceProvider? _provider;
+    private ConfigurationProvider? _provider;
     private string? _providerKey;
     private IDisposable? _subscription;
     private string? _queryKey;
@@ -25,7 +25,7 @@ internal sealed class RuleManager : IDisposable
         _registry = registry;
     }
 
-    public ConfigTypeDefinition TypeDefinition => _rule.ConfigContract;
+    public ConfigRegistration TypeDefinition => _rule.Registration;
     public bool Required => _rule.Options?.Required == true;
     public IObservable<bool> Changes => _changes.AsObservable();
 
@@ -41,7 +41,7 @@ internal sealed class RuleManager : IDisposable
 
         // Resolve options and manage provider reuse
         var providerOptions = _rule.ResolveProviderOptions(accessor);
-        var newProviderKey = providerOptions.CalculateKey();
+        var newProviderKey = providerOptions.GenerateProviderKey();
     if (_provider == null || _providerKey != newProviderKey)
         {
             RebuildProvider(providerOptions);
@@ -57,22 +57,22 @@ internal sealed class RuleManager : IDisposable
 
         try
         {
-            var value = await _provider!.GetValueAsync(queryOptions, ct).ConfigureAwait(false);
+            var value = await _provider!.FetchConfigurationAsync(queryOptions, ct).ConfigureAwait(false);
             return (include: true, value);
         }
         catch (Exception ex)
         {
             if (Required)
             {
-                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
-                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConfigContract.ConfigType.Name}", ex);
+                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
+                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.Registration.ConcreteType.Name}", ex);
             }
-            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConfigContract.ConfigType.Name);
+            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
             return (include: false, value: default);
         }
     }
 
-    private void RebuildProvider(ISourceProviderInstanceOptions providerOptions)
+    private void RebuildProvider(IProviderConfiguration providerOptions)
     {
         // Dispose current subscription and release provider lease
         Unsubscribe();
@@ -84,10 +84,10 @@ internal sealed class RuleManager : IDisposable
 
         _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
         _provider = _providerHandle.Provider;
-        _providerKey = providerOptions.CalculateKey();
+        _providerKey = providerOptions.GenerateProviderKey();
     }
 
-    private void Resubscribe(ISourceProviderQueryOptions queryOptions)
+    private void Resubscribe(IProviderQuery queryOptions)
     {
         Unsubscribe();
         _queryKey = ComputeQueryKey(queryOptions);
@@ -108,7 +108,7 @@ internal sealed class RuleManager : IDisposable
         }
     }
 
-    private static string ComputeQueryKey(ISourceProviderQueryOptions query)
+    private static string ComputeQueryKey(IProviderQuery query)
     {
         // Use simple serialization for a stable key; assumes query types are simple DTOs
         return JsonSerializer.Serialize(query, query.GetType());

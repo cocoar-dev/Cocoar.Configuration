@@ -1,0 +1,56 @@
+# top-most EditorConfig file
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+# C# code style
+[*.cs]
+dotnet_sort_system_directives_first = true
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_prefer_primary_constructors = true:suggestion
+
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:silent
+
+csharp_new_line_before_open_brace = all
+csharp_new_line_between_query_expression_clauses = true
+
+csharp_style_expression_bodied_methods = when_possible:suggestion
+csharp_style_expression_bodied_properties = when_possible:suggestion
+csharp_style_expression_bodied_accessors = when_possible:suggestion
+
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
+csharp_style_prefer_readonly_struct = true:suggestion
+csharp_style_prefer_static_local_function = true:suggestion
+csharp_prefer_simple_default_expression = true:suggestion
+
+# Dotnet code style
+[*.{cs,vb}]
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+dotnet_style_null_propagation = true:suggestion
+dotnet_style_coalesce_expression = true:suggestion
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+
+# Naming conventions
+dotnet_naming_rule.private_fields_should_be_camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be_camel_case.style = camel_case
+
+# symbol group
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+# style
+dotnet_naming_style.camel_case.capitalization = camel_case
+

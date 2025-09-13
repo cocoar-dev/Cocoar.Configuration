@@ -12,39 +12,43 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
-  <PackageReference Include="Microsoft.Extensions.Configuration" />
-  <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
-  <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-  <PackageReference Include="Microsoft.Extensions.Configuration.Ini" />
-  <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
-  <PackageReference Include="Microsoft.Extensions.Primitives" />
+        <PackageReference Include="Microsoft.Extensions.Configuration" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Ini" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+        <PackageReference Include="Microsoft.Extensions.Primitives" />
         <PackageReference Include="Microsoft.Reactive.Testing" />
         <PackageReference Include="System.Reactive" />
         <PackageReference Include="xunit" />
         <PackageReference Include="xunit.runner.visualstudio">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
 
     <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="Xunit" />
-  <Using Include="Cocoar.Configuration.Extensions" />
     </ItemGroup>
 
     <ItemGroup>
-    <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
-    <ProjectReference Include="..\..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
-    <ProjectReference Include="..\..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
+        <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+        <ProjectReference Include="..\..\Cocoar.Configuration.AspNetCore\Cocoar.Configuration.AspNetCore.csproj" />
+        <ProjectReference Include="..\..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
+        <ProjectReference Include="..\..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="TestConfigFiles\config1.json">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-      <None Update="TestConfigFiles\config2.json">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
+        <None Update="TestConfigFiles\config1.json">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
+        <None Update="TestConfigFiles\config2.json">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>

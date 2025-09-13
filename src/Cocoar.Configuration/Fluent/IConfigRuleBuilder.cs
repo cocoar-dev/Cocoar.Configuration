@@ -6,4 +6,9 @@ namespace Cocoar.Configuration.Fluent;
 public interface IConfigRuleBuilder
 {
     ConfigRule Build();
+    
+    /// <summary>
+    /// Builds multiple ConfigRules when multiple registrations are configured (e.g., different service lifetimes).
+    /// </summary>
+    IEnumerable<ConfigRule> BuildRules();
 }

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using System.Runtime.CompilerServices;
-using Cocoar.Configuration.Extensions;
 using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.AspNetCore;
@@ -23,19 +22,65 @@ public static class CocoarConfigurationAspNetCoreExtensions
 
         var ruleList = rules.ToList();
         var configManager = new ConfigManager(ruleList).Initialize();
-        builder.Services.AddSingleton<ConfigManager>(configManager);
-        var types = ruleList.Select(r => r.ConfigContract).Distinct();
+        builder.Services.AddSingleton(configManager);
+        
+        var types = ruleList.Select(r => r.Registration).Distinct();
         foreach (var type in types)
         {
-            if (type.ImplementationType != null)
+            // Register concrete type with the appropriate lifetime
+            RegisterServiceWithLifetime(builder.Services, type.ConcreteType, type.ServiceLifetime, type.ServiceKey, 
+                _ => configManager.GetRequiredConfig(type.ConcreteType));
+
+            // Register contract type (interface) if specified
+            if (type.ContractType != null)
             {
-                builder.Services.AddSingleton(type.ImplementationType, sp => configManager.GetRequiredConfig(type.ConfigType));
+                RegisterServiceWithLifetime(builder.Services, type.ContractType, type.ServiceLifetime, type.ServiceKey, 
+                    _ => configManager.GetRequiredConfig(type.ConcreteType));
             }
-            builder.Services.AddSingleton(type.ConfigType, sp => configManager.GetRequiredConfig(type.ConfigType));
         }
         _store.Remove(builder);
         _store.Add(builder, configManager);
         return builder;
+    }
+
+    private static void RegisterServiceWithLifetime(IServiceCollection services, Type serviceType, ServiceLifetime lifetime, string? serviceKey, Func<IServiceProvider, object> factory)
+    {
+        if (serviceKey == null)
+        {
+            // Register without key
+            switch (lifetime)
+            {
+                case ServiceLifetime.Singleton:
+                    services.AddSingleton(serviceType, factory);
+                    break;
+                case ServiceLifetime.Scoped:
+                    services.AddScoped(serviceType, factory);
+                    break;
+                case ServiceLifetime.Transient:
+                    services.AddTransient(serviceType, factory);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
+            }
+        }
+        else
+        {
+            // Register with key
+            switch (lifetime)
+            {
+                case ServiceLifetime.Singleton:
+                    services.AddKeyedSingleton(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                case ServiceLifetime.Scoped:
+                    services.AddKeyedScoped(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                case ServiceLifetime.Transient:
+                    services.AddKeyedTransient(serviceType, serviceKey, (sp, _) => factory(sp));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
+            }
+        }
     }
 
     /// <summary>
@@ -52,7 +97,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         IEnumerable<IConfigRuleBuilder> builders)
-        => AddCocoarConfiguration(builder, builders.Select(b => b.Build()));
+        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()));
 
     /// <summary>
     /// Overload for params usage with fluent builders.

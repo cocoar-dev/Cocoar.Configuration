@@ -6,7 +6,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
 public sealed class FileSourceProvider(FileSourceProviderOptions options)
-    : ConfigSourceProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>(options)
+    : ConfigurationProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>(options)
 {
     private readonly ConcurrentDictionary<string, JsonElement> _fileCache = new();
     private readonly ConcurrentDictionary<string, IObservable<JsonElement>> _changeStreams = new();
@@ -19,7 +19,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             IdentityMode = PathIdentityMode.CurrentOrOldPath
         });
 
-    public override Task<JsonElement> GetValueAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
         var filename = queryOptions.Filename;
         if (!_fileCache.TryGetValue(filename, out var value))
@@ -29,16 +29,13 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         }
 
         JsonElement result = value;
-        if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
+        if (!string.IsNullOrWhiteSpace(queryOptions.ConfigurationPath))
         {
-            result = value.ValueKind == JsonValueKind.Object &&
-                     value.TryGetProperty(queryOptions.SectionPath, out var section)
-                ? section
-                : JsonDocument.Parse("{}").RootElement;
+            result = SelectByPath(value, queryOptions.ConfigurationPath);
         }
 
         // Use the base class helper to wrap if needed
-    return Task.FromResult(WrapIfNeeded(result, queryOptions.WrapperPath));
+    return Task.FromResult(WrapIfNeeded(result, queryOptions.TargetPath));
     }
 
     public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)
@@ -49,7 +46,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
                 // apply per-query debounce if provided; default is no debounce
-                .Let(stream => queryOptions.Debounce is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
+                .Let(stream => queryOptions.DebounceTime is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
                 {
                     JsonElement newValue;
@@ -63,15 +60,10 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                         newValue = JsonDocument.Parse("{}").RootElement;
                     }
                     _fileCache[fn] = newValue;
-                    JsonElement newSection = newValue;
-                    if (!string.IsNullOrWhiteSpace(queryOptions.SectionPath))
-                    {
-                        newSection = newValue.ValueKind == JsonValueKind.Object &&
-                                     newValue.TryGetProperty(queryOptions.SectionPath, out var section)
-                            ? section
-                            : JsonDocument.Parse("{}").RootElement;
-                    }
-                    return WrapIfNeeded(newSection, queryOptions.WrapperPath);
+                    JsonElement newSection = string.IsNullOrWhiteSpace(queryOptions.ConfigurationPath)
+                        ? newValue
+                        : SelectByPath(newValue, queryOptions.ConfigurationPath);
+                    return WrapIfNeeded(newSection, queryOptions.TargetPath);
                 })
                 .Publish()
                 .RefCount()

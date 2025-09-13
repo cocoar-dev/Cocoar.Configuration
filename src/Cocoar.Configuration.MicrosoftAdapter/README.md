@@ -3,7 +3,7 @@
 Use any Microsoft.Extensions.Configuration IConfigurationSource as a Cocoar provider rule.
 
 - Options: `MicrosoftConfigurationSourceProviderOptions(IConfigurationSource source)`
-- Query: `MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix?, wrapperPath?)`
+- Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?, targetPath?)`
 - Change semantics: relies on the underlying source/provider; many built-in configuration sources don't push change notifications here, so treat it as snapshot unless your source supports reloads.
 
 ## When to use
@@ -30,7 +30,7 @@ var rules = new[]
                 })
                 .Sources[0]
         ),
-        queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(keyPrefix: "My:Section")
+        queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
     )
     .ForType<MySettings>()
     .Optional()
