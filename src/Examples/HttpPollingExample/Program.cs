@@ -1,0 +1,47 @@
+// Migrated from root Examples/HttpPollingExample.cs
+
+using Cocoar.Configuration;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers.StaticJsonProvider;
+using Microsoft.Extensions.DependencyInjection;
+
+public class RemoteFeatureFlags
+{
+    public bool EnableNewDashboard { get; set; }
+    public bool EnableBetaFeatures { get; set; }
+    public string[] AllowedRegions { get; set; } = Array.Empty<string>();
+}
+
+public class ApiConfiguration
+{
+    public string BaseUrl { get; set; } = "";
+    public string ApiKey { get; set; } = "";
+    public int PollIntervalSeconds { get; set; } = 30;
+}
+
+public static class Program
+{
+    public static void Main(string[] args)
+    {
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration(
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Api"))
+                .For<ApiConfiguration>()
+                .Required(),
+            Rule.From.Static<RemoteFeatureFlags>(_ => new RemoteFeatureFlags
+            {
+                EnableNewDashboard = true,
+                EnableBetaFeatures = false,
+                AllowedRegions = new[] { "us-east-1", "eu-west-1" }
+            })
+            .For<RemoteFeatureFlags>()
+            .Optional()
+        );
+        var serviceProvider = services.BuildServiceProvider();
+        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+        var apiConfig = configManager.GetRequiredConfig<ApiConfiguration>();
+        var featureFlags = configManager.GetConfig<RemoteFeatureFlags>();
+        Console.WriteLine($"API Base: {apiConfig.BaseUrl} FeatureFlags Beta: {featureFlags?.EnableBetaFeatures}");
+    }
+}

@@ -62,6 +62,31 @@ jobs:
             dotnet nuget push "$pkg" --source github --skip-duplicate --api-key "${{ secrets.GITHUB_TOKEN }}"
           done
         
+      - name: Push to NuGet.org
+        if: success()
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          shopt -s nullglob
+          for pkg in ./nupkgs/*.nupkg; do
+            case "$pkg" in
+              *.symbols.nupkg) continue ;;
+            esac
+            echo "➡️ pushing $pkg to nuget.org"
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+
+      - name: Push symbols to NuGet.org
+        if: success()
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          shopt -s nullglob
+          for pkg in ./nupkgs/*.snupkg; do
+            echo "➡️ pushing symbols $pkg to nuget.org"
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:

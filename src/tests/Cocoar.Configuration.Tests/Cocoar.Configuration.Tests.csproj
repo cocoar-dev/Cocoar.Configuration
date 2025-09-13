@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <PackageReference Include="coverlet.collector" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
