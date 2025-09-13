@@ -39,6 +39,14 @@ Currently only **net9.0** is built. Multi-targeting can be added later.
 </ItemGroup>
 ```
 
+Quick CLI install commands:
+```
+dotnet add package Cocoar.Configuration
+dotnet add package Cocoar.Configuration.AspNetCore
+dotnet add package Cocoar.Configuration.HttpPolling
+dotnet add package Cocoar.Configuration.MicrosoftAdapter
+```
+
 ---
 
 ## Quick Start
@@ -288,7 +296,7 @@ The [`Examples/`](Examples/) folder contains **8 complete, compilable C# files**
 
 Issues and PRs welcome. Please keep provider abstractions stable and deterministic (e.g., option keys for instance pooling) and follow the merge semantics described in ARCHITECTURE.md.
 
-**📝 Documentation Quality**: The core API patterns shown in this README are validated by automated tests in [`ReadmeExamplesTests.cs`](src/tests/Cocoar.Configuration.Tests/ReadmeExamplesTests.cs). The [`Examples/`](Examples/) folder contains comprehensive, compilable demonstration files that you can run directly. When contributing, please ensure examples remain accurate and functional.
+**📝 Documentation Quality**: Example files under [`Examples/`](Examples/) are compiled in CI to ensure they remain in sync with the current API. Functional behavior is covered by the regular test suite. When contributing, keep examples minimal and idiomatic.
 
 ---
 
