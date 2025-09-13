@@ -26,8 +26,7 @@ public static class Program
             .Required()
         );
         var serviceProvider = services.BuildServiceProvider();
-        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-        var config = configManager.GetRequiredConfig<AppSettings>();
+        var config = serviceProvider.GetRequiredService<AppSettings>();
         Console.WriteLine($"App: {config.ApplicationName} FeatureA: {config.EnableFeatureA} Retries: {config.MaxRetries}");
     }
 }

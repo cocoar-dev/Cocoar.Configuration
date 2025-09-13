@@ -41,9 +41,8 @@ public static class Program
                 .For<MartenStartupSettings>()
         );
         var app = builder.Build();
-        var configManager = app.Services.GetRequiredService<ConfigManager>();
-        var startupConfig = configManager.GetConfig<IStartupSettings>();
-        var martenConfig = configManager.GetConfig<MartenStartupSettings>();
+        var startupConfig = app.Services.GetService<IStartupSettings>();
+        var martenConfig = app.Services.GetService<MartenStartupSettings>();
         Console.WriteLine($"Startup: {startupConfig?.ConnectionString} Logging: {startupConfig?.EnableLogging} Timeout: {startupConfig?.TimeoutSeconds}");
         Console.WriteLine($"Marten: {martenConfig?.DatabaseConnection} Migrations: {martenConfig?.EnableMigrations} Schema: {martenConfig?.Schema}");
     }

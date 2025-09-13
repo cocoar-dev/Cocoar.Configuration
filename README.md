@@ -4,33 +4,53 @@
         <img src="social-preview.png" alt="Cocoar.Configuration" width="520" style="max-width:100%;height:auto;" />
 </p>
 
-Lightweight, strongly-typed configuration aggregation for .NET (current target framework: **net9.0**).
+Lightweight, strongly-typed, deterministic multi-source configuration layering for .NET (current target framework: **net9.0**).
 
-<!-- Badges (NuGet placeholder until published) -->
 ![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)
 ![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-<!-- Future: NuGet badge once package is public -->
-<!-- ![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg) -->
+[![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
+[![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 
-> **At a glance**
-> * Layer multiple sources (files, environment variables, HTTP, adapters) with deterministic **last‑write‑wins** merge
-> * Providers return JSON objects; some emit change signals for live updates
-> * On any change a full ordered recompute occurs; result swap is atomic
-> * Direct DI access to your config types (no required `IConfiguration` / `IOptions` wrappers)
 
 ---
 
-## Supported Framework & Packages (Current State)
+## Why Cocoar Instead of Plain `IConfiguration`?
 
-Currently only **net9.0** is built. Multi-targeting can be added later.
+| Aspect | Cocoar.Configuration | Plain `IConfiguration` |
+|--------|----------------------|------------------------|
+| Strong typing | Inject concrete / interface config types directly | Bind then wrap in `IOptions<T>` |
+| Multi-source layering | Explicit ordered rule list (deterministic) | Registration / provider order sensitive |
+| Change handling | Atomic full recompute → consistent snapshot | Incremental lookups; per‑provider reload patterns |
+| Dynamic dependencies | Rules can read in‑progress snapshots | Manual / post-build wiring |
+| Extensibility | Generic provider base + fluent DSL | Implement `IConfigurationSource` / provider |
+| Diagnostics | Access merged snapshot per type | Traverse hierarchical keys manually |
+| Keyed DI & lifetimes | First-class (singleton/scoped/transient + keys) | Manual patterns |
 
-| Package | Description | TFM (current) |
-|---------|-------------|---------------|
-| `Cocoar.Configuration` | Core (File + Environment providers, merge orchestration) | net9.0 |
-| `Cocoar.Configuration.AspNetCore` | WebApplicationBuilder / DI convenience | net9.0 |
+> Use Cocoar when you want deterministic layering, atomic strongly‑typed snapshots, dynamic rule composition and simpler DI. Stick with plain `IConfiguration` for very basic hierarchical key/value scenarios where existing providers already suffice.
+
+---
+
+## At a Glance
+
+- Deterministic ordered merge (last-write-wins per key)
+- Strongly typed injection (no `IOptions` boilerplate required)
+- Change‑aware providers trigger atomic snapshot swaps
+- Dynamic rule factories (rules can depend on earlier config)
+- Extensible provider model (file, environment, HTTP, Microsoft adapter, custom)
+
+---
+
+## Packages & Target Framework
+
+Currently only **net9.0** is shipped. Multi-targeting (e.g. `net8.0`) may be added later.
+
+| Package | Description | TFM |
+|---------|-------------|-----|
+| `Cocoar.Configuration` | Core (file + environment providers, merge orchestration) | net9.0 |
+| `Cocoar.Configuration.AspNetCore` | WebApplicationBuilder / DI convenience extensions | net9.0 |
 | `Cocoar.Configuration.HttpPolling` | HTTP polling provider | net9.0 |
-| `Cocoar.Configuration.MicrosoftAdapter` | Adapter for Microsoft IConfigurationSource | net9.0 |
+| `Cocoar.Configuration.MicrosoftAdapter` | Adapter for Microsoft `IConfigurationSource` | net9.0 |
 
 ### Install (Example)
 ```xml
@@ -83,29 +103,15 @@ builder.AddCocoarConfiguration(
 
 var app = builder.Build();
 
-// Resolve the manager and get a typed snapshot (throws if missing)
-var settings = app.Services
-        .GetRequiredService<ConfigManager>()
-        .GetRequiredConfig<AppSettings>();
-
+// Direct typed injection (preferred): resolve your config type directly from DI
+var settings = app.Services.GetRequiredService<AppSettings>();
 Console.WriteLine($"FeatureX: {settings.EnableFeatureX}, Cache: {settings.CacheSeconds}s");
+
+// Alternative (advanced): you can inject ConfigManager when you need meta access
+// var manager = app.Services.GetRequiredService<ConfigManager>();
+// var settingsViaManager = manager.GetRequiredConfig<AppSettings>();
 ```
 
-Example overlay (JSON + environment):
-```
-appsettings.json (optional):
-{
-    "App": {
-        "ConnectionString": "Server=localhost;Database=MyApp;",
-        "EnableFeatureX": false,
-        "CacheSeconds": 30
-    }
-}
-
-Environment variables:
-APP_EnableFeatureX=true
-APP_CacheSeconds=60
-```
 
 More examples (multi-project solution under `src/Examples/`):
 
@@ -124,18 +130,20 @@ Open the solution: [`src/Examples/Examples.sln`](src/Examples/Examples.sln) or r
 dotnet run --project src/Examples/BasicUsage
 ```
 
+> Direct Injection vs `ConfigManager`: In normal application code you inject your typed configuration (class or mapped interface) directly. Inject `ConfigManager` only for meta scenarios (e.g., conditionally accessing multiple config types, diagnostics, dynamic factory logic). All examples now prioritize direct injection; `/manager` in the AspNetCore example shows the alternative.
+
 ---
 
-## Core Model (Rules, Providers, Merge, Dynamic)
+## Concepts
 
-- **Rule**: Defines source + query + target configuration type
-- **Provider**: Returns a JSON object (optionally emits change signals)
-- **Merge**: Flatten (`Section:Key`) → last-write-wins per key → unflatten → bind to target type
-- **Arrays**: Full replacement (no element-wise merge)
-- **Recompute**: Any change signal triggers full rebuild of all rules in declared order (simple & correct, not minimal)
-- **Dynamic dependencies**: Factories (options/query) may read in-progress snapshots (order matters)
-- **Required vs Optional**: Required failures block the type; optional failures skip that rule
-- **DI Lifetimes & Keyed Services**: Register as Singleton (default), Scoped or Transient (with optional service keys)
+- **Rule**: Defines source + optional query + target configuration type.
+- **Provider**: Pluggable source (file, environment, HTTP, adapter, static, custom) that may emit change notifications.
+- **Merge**: Ordered last-write-wins per flattened key (`Section:Key`) then rebound to your target type.
+- **Arrays**: Replaced as whole values (no element-wise merge) by design.
+- **Recompute**: Any emitting provider triggers full ordered recompute → atomic snapshot swap (simple & predictable).
+- **Dynamic dependencies**: Rule factories (options/query) can read in-progress snapshots produced earlier in the same recompute.
+- **Required vs Optional**: Required rule failure blocks that config type; optional failure skips the layer.
+- **DI Lifetimes & Keys**: Register config types as singleton (default), scoped, transient and/or keyed.
 
 ### Static Provider
 
@@ -161,7 +169,7 @@ Plug any Microsoft `IConfigurationSource` (JSON, XML, Key Vault, User Secrets, e
 Fetch configuration from HTTP endpoints with automatic polling. Only triggers recomputes when response actually changes.
 → Example: [`src/Examples/HttpPollingExample/Program.cs`](src/Examples/HttpPollingExample/Program.cs)
 
-## Providers (Overview)
+## Providers (Built-in & Extensions)
 
 | Provider | Package | Change Signal | Notes |
 |----------|---------|---------------|-------|
@@ -178,38 +186,18 @@ Fetch configuration from HTTP endpoints with automatic polling. Only triggers re
 - [HTTP Polling Provider](src/Cocoar.Configuration.HttpPolling/README.md) - HTTP endpoint polling _(separate package)_
 - [Microsoft Adapter](src/Cocoar.Configuration.MicrosoftAdapter/README.md) - IConfigurationSource integration _(separate package)_
 
-## API Overview
-
-**ConfigManager**
-| Method | Behavior |
-|--------|----------|
-| `GetConfig<T>()` | Snapshot or null; never throws |
-| `GetRequiredConfig<T>()` | Snapshot or exception if missing |
-| `TryGetConfig<T>(out T?)` | true + value if available; else false/null |
-| `GetConfigAsJson(Type)` | Merged JSON (or null) |
-
-**Rule Creation (Fluent)**
-| Entry | Description |
-|-------|-------------|
-| `Rule.From.File(...)` | JSON files (watcher + debounce) |
-| `Rule.From.Environment(...)` | Environment snapshot (optional prefix) |
-| `Rule.From.Http(...)` | (Extension) polling with change detection |
-| `Rule.From.Provider<TProv,TOpt,TQuery>(...)` | Generic provider entry point |
-| `Rule.From.Static(...)` | Static object (seeding / defaults) |
 
 Semantics: Use Optional for non-critical layers; Required enforces presence.
 
-## Extensibility (Third-Party Providers)
+### Extensibility
 
-Cocoar.Configuration is designed to be extensible. Third-party packages can add their own fluent entry points (like `Rule.From.MyProvider()`) without modifying the core library.
+Create third‑party providers by implementing the generic provider base and adding fluent entry points (e.g. `Rule.From.MyProvider()`). See the [Provider Development Guide](src/Cocoar.Configuration/Providers/README.md) for:
+- Custom provider implementation patterns
+- Fluent API extension guidance
+- Instance lifecycle & change emission
+- Testing strategies
 
-**For provider developers:** See the [Provider Development Guide](src/Cocoar.Configuration/Providers/README.md) for complete documentation on:
-- Implementing custom providers with the `ConfigSourceProvider<TInstanceOptions,TQueryOptions>` base class
-- Creating fluent extension methods for your provider
-- Provider lifecycle management and change emission patterns
-- Testing strategies and best practices
-
-**For users:** Simply install third-party provider packages and use their fluent APIs alongside the built-in providers.
+Users just install the provider package and compose alongside built-ins.
 
 ---
 
@@ -224,7 +212,7 @@ Cocoar.Configuration is designed to be extensible. Third-party packages can add 
 
 ---
 
-## Examples (Overview)
+## Examples
 
 Multi-project examples live under [`src/Examples/`](src/Examples/) (see [`src/Examples/README.md`](src/Examples/README.md)). Each folder is a runnable console (or minimal) project with its own `Program.cs`:
 
@@ -260,26 +248,26 @@ dotnet run --project src/Examples/GenericProviderAPI
 
 ---
 
-## How It Works (Detail)
+## Deep Dive: Execution & Merge Pipeline
 
-- You define rules. Each rule targets a specific config type (class/interface) and queries exactly one provider to produce a JSON object.
-- For a given type T, Cocoar starts from T's defaults and merges each rule's JSON into T in the configured order (last-write-wins, key-by-key).
-- During a recompute, a rule can read the current in-progress snapshot from the ConfigManager (any type). This enables dynamic rules whose options depend on values produced by earlier rules in the same recompute.
-- Objects are flattened into colon-keys (e.g., `Section:Enabled`), merged in order, then unflattened and deserialized into your target type.
+- Each rule targets one configuration type and queries exactly one provider to contribute a structured layer.
+- A recompute builds an ordered list of layers, flattens them into colon keys, applies last-write-wins per key, then materializes a fresh typed snapshot.
+- Dynamic factories may read snapshots already built earlier in the recompute to influence later rule options or queries.
+- Arrays are replaced whole; objects merge by key; nulls follow default JSON deserialization semantics.
 
-### Change model and recompute
+### Change Model
 
 - Providers may emit change notifications (e.g., file watcher, HTTP polling). The environment provider typically does not emit by default and is treated as snapshot input.
 - On any provider change, Cocoar recomputes all rules for all target types in order and atomically swaps the cache. Consumers see consistent snapshots.
 - If your rule factories (options/query) depend on current config, provider instances/subscriptions are rebuilt during recompute so dynamic dependencies take effect.
 
-### Required vs optional rules
+### Required vs Optional Rules
 
 - Each rule can be marked required or optional.
 - Required: failures (e.g., missing file, HTTP error) cause the recompute to fail for that rule/type.
 - Optional: failures are tolerated and the rule is skipped for that recompute.
 
-### Ordering and dependencies
+### Ordering & Dependencies
 
 - Place dependency-producing rules before dependency-consuming rules.
 - Rules may read any type's current snapshot during recompute. Avoid circular dependencies across types or rules to prevent surprises.
@@ -289,7 +277,7 @@ dotnet run --project src/Examples/GenericProviderAPI
 - GetConfig<T>() returns null if T does not exist; handle nulls explicitly when reading dependencies.
 - For guaranteed existence, seed the dependency type with an explicit rule (e.g., a static provider/factory rule — see `Rule.From.Static`).
 
-### Merge semantics and limits
+### Merge Semantics & Limits
 
 - Last-write-wins, key-by-key merge of JSON objects using colon-key flattening.
 - Arrays are replace-only by design; an array value replaces the prior value at that key (no merging).
@@ -317,31 +305,11 @@ Issues and PRs welcome. Please keep provider abstractions stable and determinist
 
 For deeper details, examples, and roadmap, check src/Cocoar.Configuration/README.md and ARCHITECTURE.md.
 
----
-
-## Current Limitations (Current State)
-
-**Recompute model:** On any change emission, the manager recomputes all rules from scratch in order (last-write-wins merge). This is simple and correct but not minimal; a future optimization could recompute only affected rules downstream from the changed provider.
-
-**Provider lifecycle:** Managed by an internal `RuleManager` per rule which reuses providers when instance options don't change and rebuilds subscriptions when query options change. This enables dynamic factories without recreating instances unnecessarily.
-
-**Array merge semantics:** Arrays are replaced completely (not merged element-wise). Objects are flattened to colon keys and merged key-by-key. Additional array strategies (append/merge/custom) are under consideration.
-
-**Null/empty handling:** Edge cases (nulls and empty objects) follow JSON deserialization defaults after key merge. Precise behavior will be documented as the API stabilizes.
-
-**Change emissions:** Environment provider does not emit changes by default (snapshot only). File provider emits on filesystem changes. If you need change-driven recompute for environment variables, combine with other providers that do emit.
-
-**Circular dependencies:** Rules can read any type's current snapshot during recompute via `GetConfig<T>()` calls in options/query factories. Avoid circular dependencies across types; detection/guardrails may be added.
-
-**DI lifetimes:** Configuration types are registered as singletons by default. Support for scoped/transient lifetimes exists but may evolve.
-
----
 
 ## Roadmap (Short)
 
 - **Partial recompute:** Only recompute rules downstream from changed providers to reduce work on frequent changes
 - **Provider pooling:** Better lifecycle reuse across recomputes with `IDisposable` support for long-lived connections  
-- **Array merge strategies:** Replace (current) / append / custom merge logic for array values
 - **Clean up naming:** Minor inconsistencies (e.g., env prefix vs memberPath terminology) for better API consistency
 - **Additional providers:** HTTP Server-Sent Events, SignalR live streams, timer-less push models
 - **Nullability improvements:** Tidy up nullable reference type annotations across the API surface
@@ -354,16 +322,4 @@ See [ARCHITECTURE.md](src/Cocoar.Configuration/ARCHITECTURE.md) & provider READM
 
 ---
 
-## Why Not Just Microsoft IConfiguration?
-
-| Aspect | `Cocoar.Configuration` | Plain `IConfiguration` |
-|--------|------------------------|------------------------|
-| Strong typing | Direct injection of concrete / interface config types | Manual binding or `IOptions<T>` wrappers |
-| Multi-source layering | Explicit, ordered rule list (deterministic) | Order influenced by registration / provider ordering |
-| Change handling | Atomic full recompute with dynamic rule factories | Incremental value lookups; custom reload logic per provider |
-| Dynamic dependencies | Rules can read in-progress snapshots | Typically manual: pull values after build or inside factories |
-| Extensibility model | Generic provider base + fluent rule DSL | Add or implement `IConfigurationSource` / `IConfigurationProvider` |
-| Diagnostics | Access merged JSON per type | Must traverse configuration tree / know keys |
-| Keyed DI & lifetimes | Built-in for each config type | Additional wiring required |
-
-Use Cocoar when you want deterministic layering, dynamic dependency evaluation, atomic snapshots and strongly typed access without repetitive binding code. Stay with plain `IConfiguration` if you only need a simple hierarchical key/value store and existing providers already cover your scenario.
+<!-- Comparison moved near top as "Why Cocoar Instead of Plain IConfiguration?" -->

@@ -65,10 +65,9 @@ public static class Program
             }).For<RegionSpecificConfig>()
         );
         var serviceProvider = services.BuildServiceProvider();
-        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-        var apiSettings = configManager.GetConfig<ApiSettings>();
-        var featureFlags = configManager.GetConfig<FeatureFlags>();
-        var regionConfig = configManager.GetConfig<RegionSpecificConfig>();
-        Console.WriteLine($"API: {apiSettings?.BaseUrl} Flags theme: {featureFlags?.Theme} Region DB: {regionConfig?.DatabaseEndpoint}");
+        var apiSettings = serviceProvider.GetRequiredService<ApiSettings>();
+        var featureFlags = serviceProvider.GetService<FeatureFlags>();
+        var regionConfig = serviceProvider.GetService<RegionSpecificConfig>();
+        Console.WriteLine($"API: {apiSettings.BaseUrl} Flags theme: {featureFlags?.Theme} Region DB: {regionConfig?.DatabaseEndpoint}");
     }
 }

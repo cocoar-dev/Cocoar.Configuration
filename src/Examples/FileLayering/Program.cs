@@ -32,8 +32,7 @@ public static class Program
                 .Optional()
         );
         var serviceProvider = services.BuildServiceProvider();
-        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-        var config = configManager.GetConfig<AppConfig>();
+        var config = serviceProvider.GetService<AppConfig>();
         Console.WriteLine($"App: {config?.ApplicationName} Version: {config?.Version} LogLevel: {config?.LogLevel}");
     }
 }

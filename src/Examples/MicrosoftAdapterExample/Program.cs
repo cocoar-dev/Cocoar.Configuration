@@ -54,9 +54,8 @@ public static class Program
             .Required()
         );
         var serviceProvider = services.BuildServiceProvider();
-        var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-        var dbSettings = configManager.GetRequiredConfig<DatabaseSettings>();
-        var appSettings = configManager.GetRequiredConfig<AppSettings>();
+        var dbSettings = serviceProvider.GetRequiredService<DatabaseSettings>();
+        var appSettings = serviceProvider.GetRequiredService<AppSettings>();
         Console.WriteLine($"DB Timeout: {dbSettings.CommandTimeout} App: {appSettings.ApplicationName} v{appSettings.Version}");
     }
 }
