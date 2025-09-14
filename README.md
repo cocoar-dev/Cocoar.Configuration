@@ -1,8 +1,6 @@
 # Cocoar.Configuration
 
-<p align="left">
-        <img src="social-preview.png" alt="Cocoar.Configuration" width="520" style="max-width:100%;height:auto;" />
-</p>
+![Cocoar.Configuration](social-preview-small.png)
 
 Lightweight, strongly-typed, deterministic multi-source configuration layering for .NET (current target framework: **net9.0**).
 
@@ -15,29 +13,29 @@ Lightweight, strongly-typed, deterministic multi-source configuration layering f
 
 ---
 
-## Why Cocoar Instead of Plain `IConfiguration`?
+## Why Cocoar.Configuration
 
-| Aspect | Cocoar.Configuration | Plain `IConfiguration` |
-|--------|----------------------|------------------------|
-| Strong typing | Inject concrete / interface config types directly | Bind then wrap in `IOptions<T>` |
-| Multi-source layering | Explicit ordered rule list (deterministic) | Registration / provider order sensitive |
-| Change handling | Atomic full recompute → consistent snapshot | Incremental lookups; per‑provider reload patterns |
-| Dynamic dependencies | Rules can read in‑progress snapshots | Manual / post-build wiring |
-| Extensibility | Generic provider base + fluent DSL | Implement `IConfigurationSource` / provider |
-| Diagnostics | Access merged snapshot per type | Traverse hierarchical keys manually |
-| Keyed DI & lifetimes | First-class (singleton/scoped/transient + keys) | Manual patterns |
+Deterministic, strongly-typed, rule-driven configuration layering that complements (not replaces) Microsoft.Extensions.Configuration.
 
-> Use Cocoar when you want deterministic layering, atomic strongly‑typed snapshots, dynamic rule composition and simpler DI. Stick with plain `IConfiguration` for very basic hierarchical key/value scenarios where existing providers already suffice.
+### Design Goals at a Glance
+
+- **Explicit ordered layering**: Deterministic last-write-wins per key.
+- **Typed direct injection**: Inject config classes or mapped interfaces (no `IOptions<T>` ceremony).
+- **Atomic snapshot recompute**: Full ordered rebuild on change → consistent view for all consumers.
+- **Dynamic rule factories**: Later rules can read earlier in-progress snapshots to shape options/queries.
+- **Pluggable provider model**: File, environment, HTTP polling, Microsoft adapter, static & custom.
+- **DI lifetimes & keys**: Configure singleton (default), scoped, transient, keyed variants per type.
+- **Per-type diagnostics**: Inspect merged snapshots when troubleshooting.
+
+### Interoperability
+
+Bring any existing `IConfigurationSource` via the Microsoft Adapter package; adopt incrementally alongside your existing configuration.
+
+### When to Reach for It
+
+Use Cocoar.Configuration when you want reproducible merges, explicit ordering, direct typed DI, dynamic composition between layers, or richer provider extensibility with a unified change model. Keep plain `IConfiguration` when simple hierarchical key/value access with existing providers is sufficient.
 
 ---
-
-## At a Glance
-
-- Deterministic ordered merge (last-write-wins per key)
-- Strongly typed injection (no `IOptions` boilerplate required)
-- Change‑aware providers trigger atomic snapshot swaps
-- Dynamic rule factories (rules can depend on earlier config)
-- Extensible provider model (file, environment, HTTP, Microsoft adapter, custom)
 
 ---
 
