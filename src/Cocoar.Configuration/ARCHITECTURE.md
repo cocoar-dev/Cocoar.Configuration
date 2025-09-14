@@ -29,19 +29,19 @@ This document captures the current design, behavior, and implementation details 
 
 ```mermaid
 flowchart LR
-  App["App / DI consumers"] -->|GetConfig<T>| CM[ConfigManager]
-  CM -->|manages| RM[RuleManager (per rule)]
-  RM -->|Acquire (ProviderType, CalculateKey)| PR[ProviderRegistry]
+  App["App / DI consumers"] -->|"GetConfig&lt;T&gt;"| CM[ConfigManager]
+  CM -->|manages| RM[RuleManager per rule]
+  RM -->|"Acquire (ProviderType, CalculateKey)"| PR[ProviderRegistry]
   subgraph Providers
     FSP[FileSourceProvider]
     EVP[EnvironmentVariableProvider]
     HPP[HttpPollingProvider]
   end
   PR -->|ProviderHandle| Providers
-  RM -->|FetchConfiguration/Changes with QueryOptions| Providers
-  Providers -->|JSON object| RM
-  RM -->|flatten & merge| CM
-  Providers -->|Changes (IObservable)| RM -->|Recompute| CM
+  RM -->|"FetchConfiguration/Changes with QueryOptions"| Providers
+  Providers -->|"JSON object"| RM
+  RM -->|"flatten & merge"| CM
+  Providers -->|"Changes (IObservable)"| RM -->|Recompute| CM
 ```
 - ConfigManager
   - Holds ordered rules and orchestrates a per-rule RuleManager
@@ -87,6 +87,7 @@ flowchart LR
 ## DI & Access
 
 - ServiceCollection extension registers ConfigManager as singleton and exposes requested config contracts (and implementation types when declared). Registration uses GetRequiredConfig to ensure mandatory presence at startup.
+- Supports different service lifetimes (Singleton, Scoped, Transient) and optional service keys for multi-tenant scenarios.
 - Access via ConfigManager:
   - GetConfig<T>() / GetConfig(Type): returns current snapshot or null when missing.
   - GetRequiredConfig<T>() / GetRequiredConfig(Type): throws InvalidOperationException when missing.
@@ -95,6 +96,7 @@ flowchart LR
 ## Logging
 
 - Internal minimal logger interfaces wired in ConfigManager for events: recompute start/finish, rule skip, optional/required failures, and trigger errors.
+- ConfigurationAnalyzer runs during initialization to detect potential issues like mixing static and dynamic providers, and logs rule summaries including required/optional counts.
 
 ## Error Handling
 
@@ -125,28 +127,29 @@ flowchart LR
 - File + Env + HTTP overlay with DI:
 
 ```csharp
-services.AddCocoarConfiguration(
-  Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
-  Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_")).For<MySectionSettings>(),
-  // Generic order: Concrete type first, optional interface second
-  Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
-        optionsFactory: _ => new HttpPollingProviderOptions("https://config.example.com", TimeSpan.FromSeconds(10)),
-  queryFactory: _ => new HttpPollingProviderQueryOptions("/v1/settings", configurationPath: "SectionA")
-    )
-);
+services.AddCocoarConfiguration([
+  Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
+  Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("MYAPP_")).For<MySectionSettings>(),
+  Rule.From.HttpPolling(cfg => new HttpPollingRuleOptions(
+    urlPathOrAbsolute: "/v1/settings",
+    baseAddress: "https://config.example.com",
+    pollInterval: TimeSpan.FromSeconds(10)
+  )).For<MySectionSettings>()
+]);
 ```
 
 ## Quick Reference (Contracts)
 
 - ConfigRuleOptions: UseWhen (Func<bool>), Required (bool)
-- ConfigRegistration: ConfigType, ImplementationType?
+- ConfigRegistration: ConcreteType, ContractType?, ServiceLifetime, ServiceKey?
 - Provider base: ConfigurationProvider<TInstanceOptions, TQueryOptions>
-- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?)
+- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?, debounceTime?)
 - Env options/query: EnvironmentVariableProviderOptions(environmentPrefix?), EnvironmentVariableProviderQueryOptions(configurationPath?, targetPath?)
   - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
-- HTTP options/query: HttpPollingProviderOptions(baseAddress?, interval?, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?)
+- HTTP options/query: HttpPollingProviderOptions(baseAddress?, pollInterval, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)
+- Static provider: StaticJsonProviderOptions(jsonValue), StaticJsonProviderQueryOptions(targetPath?)
 
 ## Version
 
-- Commit date: 2025-09-11
-- Branch: feature/cleanup
+- Document updated: 2025-09-14
+- Branch: readme (analysis branch for documentation review)
