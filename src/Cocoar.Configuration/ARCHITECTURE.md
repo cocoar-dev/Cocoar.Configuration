@@ -1,6 +1,6 @@
-# Cocoar.Configuration — Architecture & Status (2025-09-11)
+# Cocoar.Configuration — Architecture & Status (Last Updated: 2025-09-14)
 
-This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work.
+This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work. It has been synchronized against the codebase as of 2025-09-14.
 
 ## Goals
 
@@ -19,9 +19,10 @@ This document captures the current design, behavior, and implementation details 
   - Options (UseWhen, Required)
 - Factory deferral: rule factories (instance/query option factories) are stored, not executed at rule construction time. They are invoked during recompute, enabling dynamic dependencies between rules.
 - Providers
-  - Implement FetchConfigurationAsync(query) and Changes(query)
-  - Startup behavior: ConfigManager calls FetchConfigurationAsync for every rule immediately (no waiting for polls/watchers). Changes() streams do not emit an initial value; they only emit on subsequent source changes.
+  - Implement `FetchConfigurationAsync(query)` and `Changes(query)`.
+  - Startup behavior: `ConfigManager` executes an initial synchronous recompute invoking `FetchConfigurationAsync` for every active rule (honoring `UseWhen`). There is no initial emission from any provider's `Changes()` stream; recomputes after startup are triggered solely by change notifications.
   - Instance options live in the provider constructor; queries are per-call to allow reuse and dynamic binding.
+  - Reuse: Providers are pooled by a provider-specific identity key (see Provider Reuse & Identity Keys section).
 - Dynamic dependencies: during recompute, later rules can read earlier outputs via ConfigManager (e.g., GetRequiredConfig<T>), thanks to a working snapshot that is updated after each rule’s merge.
 - Architecture diagram
   - See the visual diagram in `architecture.drawio` (open with diagrams.net/draw.io).
@@ -44,10 +45,10 @@ flowchart LR
   Providers -->|"Changes (IObservable)"| RM -->|Recompute| CM
 ```
 - ConfigManager
-  - Holds ordered rules and orchestrates a per-rule RuleManager
-  - Recompute: merge flattened JSON objects; later rules win per key
-  - On change (any provider): recompute all rules; RuleManagers manage provider reuse/subscriptions keyed by options/query
-  - Required rule: throws on failure; optional rules are skipped with a warning
+  - Holds the ordered list of rules and materializes a distinct `RuleManager` per rule.
+  - Recompute: merges flattened JSON objects per contract/concrete type; later rules win per key (last-write-wins).
+  - Change handling: any provider change triggers a full, locked recompute of all active rules (coarse-grained lock; no parallel recomputes). Recompute is not cancelled once started.
+  - Required rule: failure aborts the entire recompute (exception thrown). Optional rule: failure is logged (warning) and its contribution is skipped.
 
 ### Recompute & working snapshot
 
@@ -57,25 +58,37 @@ flowchart LR
 ## Current Providers
 
 - FileSourceProvider
-  - Options: directory + optional debounce for the internal watcher
-  - Query: filename, optional configurationPath/targetPath
-  - Behavior: maintains a folder watcher; per filename change stream; caches last JSON per file
-  - Watcher errors during Changes() are swallowed to keep stream alive; FetchConfigurationAsync still throws on missing file (so Required rules fail properly in recompute). No initial emission from Changes().
+  - Options: `FileSourceProviderOptions(directory, debounceTime?)` (debounce applies to underlying watcher events; provider reuse key is the fully resolved directory path only).
+  - Query: `FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?, debounceTime?)` (query-level debounce throttles the emission stream for that rule only; previously undocumented here).
+  - Behavior: maintains a directory watcher; caches last parsed JSON per filename; change stream emits only after file system events (no initial emission). Errors reading the file during a change are swallowed and an empty JSON object is emitted to keep the stream alive. Initial recompute throws on missing file for required rules.
 - EnvironmentVariableProvider
-  - Options: optional environmentPrefix
-  - Query: optional configurationPath/targetPath (prefix concept is mapped to configurationPath)
-  - Behavior: snapshot read via FetchConfigurationAsync at startup; Changes() is a no-op (does not emit initially).
+  - Options: `EnvironmentVariableProviderOptions(environmentPrefix?)` (provider reuse key is constant; all environment rules share one provider instance regardless of prefix differences in queries).
+  - Query: `EnvironmentVariableProviderQueryOptions(environmentPrefix?, targetPath?)` (there is no `configurationPath`; prefix filtering happens directly on the environment variables; previous version incorrectly mentioned a configuration path for selection).
+  - Behavior: snapshot read via `FetchConfigurationAsync` at recompute; `Changes()` is `Observable.Never` (no dynamic updates). Supports nested object construction via `__`, `:`, or `.` separators (single `_` literal).
 - HttpPollingProvider
-  - Options: optional baseAddress, pollInterval, optional HttpMessageHandler (for tests)
-  - Query: urlPathOrAbsolute, optional configurationPath/targetPath, optional headers
-  - Behavior: single HttpClient per provider; FetchConfigurationAsync fetches immediately at startup; Changes() polls on interval and emits only when payload actually changes; caches last value per query key to avoid duplicate recompute on immediate reads
+  - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval? = 5s default, handler?)`.
+  - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)`.
+  - Behavior: single `HttpClient` per provider instance; initial fetch performed during recompute; `Changes()` polls at `PollInterval` and emits only when the JSON payload (after optional selection & wrapping) differs from the cached last value for that query key.
 - MicrosoftConfigurationSourceProvider (Adapter)
-  - Wraps Microsoft.Extensions.Configuration sources (JSON, INI, environment variables, etc.) and adapts them to this system.
-  - Honors reload-on-change via Microsoft change tokens; environment variables typically don’t emit changes.
-  - Query supports keyPrefix and optional wrapperPath.
+  - Wraps `Microsoft.Extensions.Configuration` sources (JSON, INI, environment variables, etc.) and adapts them.
+  - Honors reload-on-change via change tokens of the underlying provider (if the source supports it).
+  - Query uses `ConfigurationPrefix` and `TargetPath` for optional wrapping.
 - StaticJsonProvider
   - Supplies a static JSON value (explicit seeding) and never emits changes.
-  - Useful to seed dependent rules or provide defaults via fluent Rules.Using.FromStatic.
+  - Reuse key is a constant (all static providers with differing values are separate rules but provider identity key itself is "Static").
+  - Useful to seed dependent rules or provide defaults via the fluent `Rules.Using.FromStatic` helpers.
+
+### Provider Reuse & Identity Keys
+
+| Provider | Identity Key Strategy | Notes |
+|----------|-----------------------|-------|
+| FileSourceProvider | Absolute directory path | Debounce differences do not create new provider instances. |
+| EnvironmentVariableProvider | Constant ("Environment:Global") | One shared instance regardless of prefix per rule. |
+| HttpPollingProvider | Serialized provider options (baseAddress + handler identity) | Separate instance per distinct base address / handler. |
+| MicrosoftConfigurationSourceProvider | `Source.GetType().FullName|BasePath|Identity` | Distinct sources/base paths create new instances. |
+| StaticJsonProvider | Constant ("Static") | Value differences handled at rule/query level; provider reused. |
+
+Query-level subscription keys are based on serialization of the entire query object; any change to query options forces resubscription.
 
 ## Merge Semantics
 
@@ -93,10 +106,10 @@ flowchart LR
   - GetRequiredConfig<T>() / GetRequiredConfig(Type): throws InvalidOperationException when missing.
   - TryGetConfig<T>(out T?) / TryGetConfig(Type, out object?): convenience for null-safe checks.
 
-## Logging
+## Logging & Analysis
 
-- Internal minimal logger interfaces wired in ConfigManager for events: recompute start/finish, rule skip, optional/required failures, and trigger errors.
-- ConfigurationAnalyzer runs during initialization to detect potential issues like mixing static and dynamic providers, and logs rule summaries including required/optional counts.
+- Uses standard `ILogger` (no custom abstraction) for recompute lifecycle, required/optional rule failures, and change-trigger errors.
+- `ConfigurationAnalyzer` (invoked once during `Initialize`) currently performs lightweight informational logging (counts, static-vs-dynamic mix heuristic) and does not build a dependency graph or detect cycles; prior wording implying deeper analysis has been clarified.
 
 ## Error Handling
 
@@ -119,8 +132,7 @@ flowchart LR
 
 ## Testing Status
 
-- Unit tests for File, Environment, HTTP providers; integration tests for Microsoft adapter; end-to-end dynamic dependency test; static seeding tests.
-- Full solution tests: green as of 2025-09-11 (43 tests).
+- Tests exist for core providers (File, Environment, HTTP), Microsoft adapter integration, dynamic dependency scenarios, and static seeding. (Exact counts omitted to avoid staleness; run the test suite for current status.)
 
 ## Usage Examples
 
@@ -144,12 +156,11 @@ services.AddCocoarConfiguration([
 - ConfigRegistration: ConcreteType, ContractType?, ServiceLifetime, ServiceKey?
 - Provider base: ConfigurationProvider<TInstanceOptions, TQueryOptions>
 - File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?, debounceTime?)
-- Env options/query: EnvironmentVariableProviderOptions(environmentPrefix?), EnvironmentVariableProviderQueryOptions(configurationPath?, targetPath?)
+- Env options/query: EnvironmentVariableProviderOptions(environmentPrefix?), EnvironmentVariableProviderQueryOptions(environmentPrefix?, targetPath?)
   - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
-- HTTP options/query: HttpPollingProviderOptions(baseAddress?, pollInterval, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)
+- HTTP options/query: HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)
 - Static provider: StaticJsonProviderOptions(jsonValue), StaticJsonProviderQueryOptions(targetPath?)
 
 ## Version
 
-- Document updated: 2025-09-14
-- Branch: readme (analysis branch for documentation review)
+- Last synchronized with code: 2025-09-14 (branch: `readme`).
