@@ -46,5 +46,6 @@
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="README.md" />
         <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="package-icon.png" />
+        <None Include="$(MSBuildThisFileDirectory)\..\social-preview-small.png" Pack="true" PackagePath="social-preview-small.png" />
     </ItemGroup>
 </Project>
