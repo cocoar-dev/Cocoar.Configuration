@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1] - 2025-09-14
+Branding / assets update.
+
+- Replaced NuGet package icon (`package-icon.png`).
+- Updated README image.
+- Updated GitHub social preview images (`social-preview.png`, `social-preview-small.png`) stored at repo root.
+- No functional/code changes.
+
 ## [0.9.0] - 2025-09-14
 Initial release 🎉
 
