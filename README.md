@@ -15,25 +15,18 @@ Lightweight, strongly-typed, deterministic multi-source configuration layering f
 
 ## Why Cocoar.Configuration?
 
-Deterministic, strongly-typed, rule-driven configuration layering that **complements (not replaces)** `Microsoft.Extensions.Configuration`.
+Deterministic, strongly-typed, rule-driven configuration layering that **complements** `Microsoft.Extensions.Configuration`.
 
-**Design Goals**
+### Design Goals at a Glance
 
-* Explicit ordered layering → deterministic *last-write-wins*
-* Strongly-typed direct injection (no `IOptions<T>`)
-* Atomic recompute snapshots → consistent view for all consumers
-* Dynamic rule factories (rules can depend on earlier snapshots)
-* Pluggable provider model (file, env, HTTP, Microsoft adapter, static, custom)
-* Flexible DI lifetimes & keys
-* Per-type diagnostics
-
-**When to use it**
-
-* You need reproducible merges with explicit ordering
-* You want direct typed DI or dynamic composition between layers
-* You need richer provider extensibility with a unified change model
-
-Stick with plain `IConfiguration` if hierarchical key/value access is enough.
+- **Explicit ordered layering**: Deterministic last-write-wins per key.
+- **Typed direct injection**: Inject config classes or mapped interfaces (no `IOptions<T>` ceremony).
+- **Atomic snapshot recompute**: Full ordered rebuild on change → consistent view for all consumers.
+- **Dynamic rule factories**: Later rules can read earlier in-progress snapshots to shape options/queries.
+- **Pluggable provider model**: File, environment, HTTP polling, Microsoft adapter, static & custom.
+- **DI lifetimes & keys**: Configure singleton (default), scoped, transient, keyed variants per type.
+- **Per-type diagnostics**: Inspect merged snapshots when troubleshooting.
+- **Interoperability**: Bring any existing `IConfigurationSource` via the Microsoft Adapter package.
 
 ---
 
@@ -68,13 +61,11 @@ Minimal example (file + environment layering, strongly-typed access):
 
 ```csharp
 // ...
-builder.AddCocoarConfiguration(
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("appsettings.json", "App"))
-                                .For<AppSettings>().Optional(),
-
-                Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("APP_"))
-                                .For<AppSettings>()
-);
+builder
+    .AddCocoarConfiguration(
+        Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("appsettings.json", "App")).For<AppSettings>().Optional(),
+        Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("APP_")).For<AppSettings>()
+    );
 ```
 
 Then inject your config type directly:
@@ -84,20 +75,14 @@ var settings = app.Services.GetRequiredService<AppSettings>();
 Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
 ```
 
-More examples in [`src/Examples/`](src/Examples/) or run:
-
-```sh
-dotnet run --project src/Examples/BasicUsage
-```
-
----
-
 ## Concepts
 
 * **Rule**: Source + optional query + target configuration type
 * **Provider**: Pluggable source (file, env, HTTP, static, custom, adapter)
 * **Merge**: Ordered *last-write-wins* per flattened key
 * **Recompute**: Any change → full recompute → atomic snapshot swap
+* **Dynamic dependencies**: Rule factories (options/query) can read in-progress snapshots.
+* **Required vs Optional**: Pptional failure skips the layer.
 * **DI Lifetimes & Keys**: Register as singleton (default), scoped, transient, keyed
 
 👉 [Read more in the **Concepts Deep Dive**](docs/CONCEPTS.md)
@@ -133,10 +118,10 @@ Built-in and extension providers:
 
 ## Security
 
-* Never commit secrets to repo
-* Prefer environment variable overlays / secret managers
-* For remote providers: use TLS, timeouts, auth headers
-* Key Vault / Secrets Manager integration via Microsoft Adapter
+* **Never commit secrets** to JSON files in your repository  
+* Use **environment variable overlays** or dedicated secret management systems  
+* For remote providers: Always use **TLS**, set reasonable **timeouts**, and include **auth headers** when needed  
+* Consider using Azure Key Vault, AWS Secrets Manager, or similar via the **Microsoft Adapter**
 
 ---
 
@@ -144,15 +129,15 @@ Built-in and extension providers:
 
 Multi-project solution under [`src/Examples/`](src/Examples/) with runnable demos:
 
-* BasicUsage – File + env layering
-* AspNetCoreExample – Web integration
-* FileLayering – Deterministic multi-file layering
-* ServiceLifetimes – DI lifetimes + keyed registrations
-* DynamicDependencies – rules reading other config
-* GenericProviderAPI – provider extensibility
-* MicrosoftAdapterExample – IConfigurationSource integration
-* HttpPollingExample – remote polling
-* StaticProviderExample – seeding & dependent composition
+- **[BasicUsage](src/Examples/BasicUsage/Program.cs)** – File + environment layering pattern (full code)
+- **[AspNetCoreExample](src/Examples/AspNetCoreExample/Program.cs)** – Web application integration
+- **[FileLayering](src/Examples/FileLayering/Program.cs)** – Multiple JSON layers (deterministic last-write-wins)
+- **[ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)** – DI lifetimes + keyed registrations
+- **[DynamicDependencies](src/Examples/DynamicDependencies/Program.cs)** – Rules reading other config mid-recompute
+- **[GenericProviderAPI](src/Examples/GenericProviderAPI/Program.cs)** – Full generic provider control
+- **[MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample/Program.cs)** – Integrate any `IConfigurationSource`
+- **[HttpPollingExample](src/Examples/HttpPollingExample/Program.cs)** – Remote polling with change detection
+- **[StaticProviderExample](src/Examples/StaticProviderExample/Program.cs)** – Seeding & composition with static rules
 
 ---
 
@@ -176,18 +161,13 @@ For more in-depth documentation, see:
 
 ---
 
-## Versioning & Roadmap
+## Versioning & Stability
 
-* Follows **SemVer**
-* Breaking changes → MAJOR, new features → MINOR, fixes → PATCH
-* Roadmap highlights:
+- Stable releases follow **SemVer**; see GitHub Releases or NuGet version history for changes.
+- Breaking changes only in MAJOR versions; MINOR for additive features; PATCH for fixes.
+- Provider abstractions evolve conservatively.
 
-        * Partial recompute
-        * Provider pooling / IDisposable support
-        * Additional providers (SSE, SignalR push)
-        * Nullability improvements
-
----
+> Packages are published under the NuGet organization **cocoar**.
 
 ## Contributing
 
