@@ -63,8 +63,9 @@ Minimal example (file + environment layering, strongly-typed access):
 // ...
 builder
     .AddCocoarConfiguration(
-        Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("appsettings.json", "App")).For<AppSettings>().Optional(),
-        Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("APP_")).For<AppSettings>()
+        // New concise overloads:
+        Rule.From.File("appsettings.json", "App").For<AppSettings>().Optional(),
+        Rule.From.Environment("APP_").For<AppSettings>()
     );
 ```
 

@@ -31,13 +31,14 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.AddCocoarConfiguration(
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "StartUp"))
+            // Using new concise overloads
+            Rule.From.File("config.json", "StartUp")
                 .For<StartUpConfiguration>().As<IStartupSettings>().Optional(),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Marten"))
+            Rule.From.File("config.json", "Marten")
                 .For<MartenStartupSettings>().Optional(),
-            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions())
+            Rule.From.Environment() // all env vars (demo only; normally specify a prefix)
                 .For<StartUpConfiguration>().As<IStartupSettings>(),
-            Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("MARTEN_"))
+            Rule.From.Environment("MARTEN_")
                 .For<MartenStartupSettings>()
         );
         var app = builder.Build();

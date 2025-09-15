@@ -9,4 +9,9 @@ public static class RulesExtensions
             cm => optionsFactory(cm).ToProviderOptions(),
             cm => optionsFactory(cm).ToQueryOptions()
         );
+
+    public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
+        File(this Rule.Dsl _, string filePath, string? configurationPath = null)
+        => _.File(_ => FileSourceRuleOptions.FromFilePath(filePath, configurationPath));
+
 }

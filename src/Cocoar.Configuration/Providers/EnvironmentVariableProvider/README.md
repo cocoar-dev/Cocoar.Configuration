@@ -11,17 +11,27 @@ Project configuration from environment variables, optionally filtered by a prefi
 - Container/Kubernetes or PaaS environments where env vars are the canonical override layer.
 - Simple toggles and scalar values.
 
-## Example
+## Examples
 
 ```csharp
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Fluent.ProviderOptions;
 
+// 1. Verbose factory form (existing)
 services.AddCocoarConfiguration(
-    // Base from file
     Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection")).For<MySection>(),
-    // Env overlay, considering variables like MYAPP_*
     Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP")).For<MySection>()
+);
+
+// 2. New concise overload (prefix only)
+services.AddCocoarConfiguration(
+    Rule.From.File("./appsettings.json", "MySection").For<MySection>(),
+    Rule.From.Environment("MYAPP").For<MySection>()
+);
+
+// 3. No prefix (consume all variables; generally only for controlled test envs)
+services.AddCocoarConfiguration(
+    Rule.From.Environment().For<RawEnvDump>()
 );
 ```
 
@@ -39,3 +49,15 @@ Environment variable mapping rules (with prefix "MYAPP"):
 
 Known gaps
 - Provider does not emit changes by default; treat as snapshot input. If change-driven recompute is required, combine with other providers.
+
+## Overload Summary
+
+```csharp
+// Factory form (dynamic or advanced scenarios)
+Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(prefix))
+
+// New concise form
+Rule.From.Environment(prefix?)
+```
+
+Prefer the concise form when a static (or empty) prefix is sufficient. Use the factory when you need to compute the prefix or adjust query options dynamically using previously built config snapshots.
