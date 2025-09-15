@@ -18,10 +18,12 @@ public class HttpPollingProviderTests
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
-        var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(50), handler));
+        var provider =
+            new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(50),
+                handler));
         var result = await provider.FetchConfigurationAsync(new HttpPollingProviderQueryOptions("/api/config"));
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
-    Assert.True(result.TryGetProperty("Value", out var v));
+        Assert.True(result.TryGetProperty("Value", out var v));
         Assert.Equal(1, v.GetInt32());
     }
 
@@ -31,18 +33,20 @@ public class HttpPollingProviderTests
         // two responses: first value=1 then value=2
         var queue = new Queue<HttpResponseMessage>(new[]
         {
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json") },
-            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{ \"Value\": 2 }", Encoding.UTF8, "application/json") }
+            new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json") },
+            new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StringContent("{ \"Value\": 2 }", Encoding.UTF8, "application/json") }
         });
         var handler = new QueueHandler(queue);
 
-    var services = new ServiceCollection();
+        var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
             Rule.From
                 .MicrosoftSource(cm => new MicrosoftConfigurationSourceRuleOptions(
                     new ConfigurationBuilder()
-                        .AddInMemoryCollection(new Dictionary<string,string?> { ["Remote:Url"] = "/api/config" })
+                        .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "/api/config" })
                         .Sources[0],
                     configurationPrefix: "Remote"
                 ))
@@ -52,8 +56,8 @@ public class HttpPollingProviderTests
                 .HttpPolling(configManager => new HttpPollingRuleOptions(
                     urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
                     baseAddress: "https://example.com",
-            // Give CI plenty of time; we will actively wait for the change
-            pollInterval: TimeSpan.FromMilliseconds(50),
+                    // Give CI plenty of time; we will actively wait for the change
+                    pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler
                 ))
                 .When(() => true)
@@ -72,6 +76,7 @@ public class HttpPollingProviderTests
             second = manager.GetConfig<MyCfg>();
             if (second?.Value == 2) break;
         }
+
         Assert.Equal(2, second?.Value);
     }
 
@@ -93,8 +98,10 @@ public class HttpPollingProviderTests
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
-    // Use a large interval so even on slow CI a short wait won't reach first tick
-    var provider = new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromSeconds(2), handler));
+        // Use a large interval so even on slow CI a short wait won't reach first tick
+        var provider =
+            new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromSeconds(2),
+                handler));
 
         var emitted = false;
         using var sub = provider
@@ -102,7 +109,7 @@ public class HttpPollingProviderTests
             .Subscribe(_ => emitted = true);
 
         // assert: no initial emission before first interval elapses
-    await Task.Delay(150); // still far below 2s interval
+        await Task.Delay(150); // still far below 2s interval
         Assert.False(emitted);
     }
 
@@ -110,11 +117,19 @@ public class HttpPollingProviderTests
     {
         private readonly HttpResponseMessage _response;
         public FakeHandler(HttpResponseMessage response) => _response = response;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
             => Task.FromResult(Clone(_response));
 
         private static HttpResponseMessage Clone(HttpResponseMessage resp)
-            => new(resp.StatusCode) { Content = resp.Content is null ? null : new StringContent(resp.Content.ReadAsStringAsync().GetAwaiter().GetResult(), Encoding.UTF8, resp.Content.Headers.ContentType?.MediaType ?? "application/json") };
+            => new(resp.StatusCode)
+            {
+                Content = resp.Content is null
+                    ? null
+                    : new StringContent(resp.Content.ReadAsStringAsync().GetAwaiter().GetResult(), Encoding.UTF8,
+                        resp.Content.Headers.ContentType?.MediaType ?? "application/json")
+            };
     }
 
     private sealed class QueueHandler : HttpMessageHandler
@@ -122,15 +137,19 @@ public class HttpPollingProviderTests
         private readonly Queue<HttpResponseMessage> _queue;
         private HttpResponseMessage? _last;
         public QueueHandler(Queue<HttpResponseMessage> queue) => _queue = queue;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
         {
             if (_queue.Count > 0)
             {
                 _last = _queue.Dequeue();
                 return Task.FromResult(_last);
             }
+
             // Return last known response to keep config steady
-            var fallback = _last ?? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{ }", Encoding.UTF8, "application/json") };
+            var fallback = _last ?? new HttpResponseMessage(HttpStatusCode.OK)
+                { Content = new StringContent("{ }", Encoding.UTF8, "application/json") };
             return Task.FromResult(fallback);
         }
     }

@@ -10,6 +10,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
 {
     private readonly ConcurrentDictionary<string, JsonElement> _fileCache = new();
     private readonly ConcurrentDictionary<string, IObservable<JsonElement>> _changeStreams = new();
+
     private readonly FileSystemObservable _fsObservable = new(
         options.Directory,
         new FileSystemObservableOptions
@@ -19,7 +20,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             IdentityMode = PathIdentityMode.CurrentOrOldPath
         });
 
-    public override Task<JsonElement> FetchConfigurationAsync(FileSourceProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(FileSourceProviderQueryOptions queryOptions,
+        CancellationToken ct = default)
     {
         var filename = queryOptions.Filename;
         if (!_fileCache.TryGetValue(filename, out var value))
@@ -37,7 +39,8 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
         return _changeStreams.GetOrAdd(filename, fn =>
             _fsObservable
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
-                             (ev.OldPath != null && Path.GetFileName(ev.OldPath).Equals(fn, StringComparison.OrdinalIgnoreCase)))
+                             (ev.OldPath != null && Path.GetFileName(ev.OldPath)
+                                 .Equals(fn, StringComparison.OrdinalIgnoreCase)))
                 // apply per-query debounce if provided; default is no debounce
                 .Let(stream => queryOptions.DebounceTime is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
@@ -52,6 +55,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                         // Avoid faulting the change stream; emit empty object instead
                         newValue = JsonDocument.Parse("{}").RootElement;
                     }
+
                     _fileCache[fn] = newValue;
                     return newValue;
                 })
@@ -68,6 +72,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             // Throw to allow ConfigManager to honor Required rules
             throw new FileNotFoundException($"Config file not found: {fullPath}", fullPath);
         }
+
         var json = File.ReadAllText(fullPath);
         return JsonDocument.Parse(json).RootElement.Clone();
     }

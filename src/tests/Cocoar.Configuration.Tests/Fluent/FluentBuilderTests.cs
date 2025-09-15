@@ -1,5 +1,4 @@
 using Cocoar.Configuration.Fluent;
-
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;

@@ -32,15 +32,25 @@ public class SnapshotChangeDeletionTests
         private readonly Subject<JsonElement> _changes = new();
         public Dictionary<string, JsonElement> State = new();
         public int FetchCount;
-        public MutableProvider() { }
-        public MutableProvider(IProviderConfiguration _) { }
+
+        public MutableProvider()
+        {
+        }
+
+        public MutableProvider(IProviderConfiguration _)
+        {
+        }
+
         public override IObservable<JsonElement> Changes(IProviderQuery query) => _changes;
-        public override Task<JsonElement> FetchConfigurationAsync(IProviderQuery query, CancellationToken cancellationToken = default)
+
+        public override Task<JsonElement> FetchConfigurationAsync(IProviderQuery query,
+            CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref FetchCount);
             using var doc = JsonDocument.Parse(JsonSerializer.Serialize(State));
             return Task.FromResult(doc.RootElement.Clone());
         }
+
         public void Apply(Action<Dictionary<string, JsonElement>> mutator)
         {
             mutator(State);
@@ -49,8 +59,18 @@ public class SnapshotChangeDeletionTests
         }
     }
 
-    private sealed class Opts : IProviderConfiguration { private readonly string _k; public Opts(string k)=>_k=k; public string GenerateProviderKey()=>_k; }
-    private sealed class Q : IProviderQuery { public string GenerateProviderKey()=>"q"; }
+    private sealed class Opts : IProviderConfiguration
+    {
+        private readonly string _k;
+        public Opts(string k) => _k = k;
+        public string GenerateProviderKey() => _k;
+    }
+
+    private sealed class Q : IProviderQuery
+    {
+        public string GenerateProviderKey() => "q";
+    }
+
     private sealed record ConfigA(string? A, string? B, string? C);
 
     [Fact]
@@ -59,8 +79,11 @@ public class SnapshotChangeDeletionTests
         var p = new MutableProvider(new Opts("m1"));
         p.State["A"] = JsonDocument.Parse("\"one\"").RootElement.Clone();
         p.State["B"] = JsonDocument.Parse("\"two\"").RootElement.Clone();
-        var rules = new [] { new ConfigRule(typeof(MutableProvider), new Opts("m1"), new Q(), new ConfigRegistration(typeof(ConfigA))) };
-        var manager = new ConfigManager(rules, NullLogger.Instance, (t,o)=>p, debounceMilliseconds:10).Initialize();
+        var rules = new[]
+        {
+            new ConfigRule(typeof(MutableProvider), new Opts("m1"), new Q(), new ConfigRegistration(typeof(ConfigA)))
+        };
+        var manager = new ConfigManager(rules, NullLogger.Instance, (t, o) => p, debounceMilliseconds: 10).Initialize();
         await Task.Delay(30);
         var initial = manager.GetRequiredConfig<ConfigA>();
         Assert.Equal("one", initial.A);
@@ -68,7 +91,11 @@ public class SnapshotChangeDeletionTests
         Assert.Null(initial.C);
 
         // Remove B and add C
-        p.Apply(d=> { d.Remove("B"); d["C"] = JsonDocument.Parse("\"three\"").RootElement.Clone(); });
+        p.Apply(d =>
+        {
+            d.Remove("B");
+            d["C"] = JsonDocument.Parse("\"three\"").RootElement.Clone();
+        });
         await Task.Delay(80);
         var updated = manager.GetRequiredConfig<ConfigA>();
         Assert.Equal("one", updated.A);
@@ -76,7 +103,7 @@ public class SnapshotChangeDeletionTests
         Assert.Equal("three", updated.C);
 
         // Ensure another unrelated change doesn't resurrect B
-        p.Apply(d=> { d["A"] = JsonDocument.Parse("\"one1\"").RootElement.Clone(); });
+        p.Apply(d => { d["A"] = JsonDocument.Parse("\"one1\"").RootElement.Clone(); });
         await Task.Delay(80);
         var updated2 = manager.GetRequiredConfig<ConfigA>();
         Assert.Equal("one1", updated2.A);

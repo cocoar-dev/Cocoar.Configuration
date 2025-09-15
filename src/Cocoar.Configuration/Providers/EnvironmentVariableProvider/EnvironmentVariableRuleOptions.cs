@@ -22,6 +22,7 @@ public sealed class EnvironmentVariableRuleOptions
 
 
     public EnvironmentVariableProviderOptions ToProviderOptions() => new(_environmentPrefix);
+
     // Provider currently uses query.EnvironmentPrefix as the prefix filter; map environmentPrefix here for correct behavior
     public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_environmentPrefix);
 }

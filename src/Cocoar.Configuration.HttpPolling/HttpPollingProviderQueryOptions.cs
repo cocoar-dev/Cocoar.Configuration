@@ -8,8 +8,8 @@ public sealed class HttpPollingProviderQueryOptions : IProviderQuery
     public IReadOnlyDictionary<string, string>? Headers { get; }
 
     public HttpPollingProviderQueryOptions(
-    string urlPathOrAbsolute,
-    IReadOnlyDictionary<string,string>? headers = null)
+        string urlPathOrAbsolute,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         UrlPathOrAbsolute = urlPathOrAbsolute ?? throw new ArgumentNullException(nameof(urlPathOrAbsolute));
         Headers = headers;

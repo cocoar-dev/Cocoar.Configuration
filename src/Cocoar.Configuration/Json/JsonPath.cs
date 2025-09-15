@@ -36,7 +36,11 @@ internal static class JsonPath
 
     public static bool TrySelectByPath(JsonElement root, string path, out JsonElement result)
     {
-        if (string.IsNullOrWhiteSpace(path)) { result = root; return true; }
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            result = root;
+            return true;
+        }
 
         var cur = root;
         var span = path.AsSpan();
@@ -51,11 +55,19 @@ internal static class JsonPath
             {
                 if (cur.ValueKind == JsonValueKind.Array && TryParseNonNegativeInt(seg, out var idx))
                 {
-                    if ((uint)idx >= (uint)cur.GetArrayLength()) { result = default; return false; }
+                    if ((uint)idx >= (uint)cur.GetArrayLength())
+                    {
+                        result = default;
+                        return false;
+                    }
+
                     cur = cur[idx];
                 }
                 else if (!TryGetPropertyUtf8(cur, seg, out var next))
-                { result = default; return false; }
+                {
+                    result = default;
+                    return false;
+                }
                 else cur = next;
             }
 
@@ -63,7 +75,8 @@ internal static class JsonPath
             start += rel + 1;
         }
 
-        result = cur; return true;
+        result = cur;
+        return true;
     }
 
     public static JsonElement SelectByPathOrEmpty(JsonElement root, string path)
@@ -83,9 +96,26 @@ internal static class JsonPath
     // --- helpers ---
     private static bool TryParseNonNegativeInt(ReadOnlySpan<char> s, out int value)
     {
-        var v = 0; if (s.IsEmpty) { value = 0; return false; }
-        foreach (var c in s) { if ((uint)(c - '0') > 9u) { value = 0; return false; } v = v * 10 + (c - '0'); }
-        value = v; return true;
+        var v = 0;
+        if (s.IsEmpty)
+        {
+            value = 0;
+            return false;
+        }
+
+        foreach (var c in s)
+        {
+            if ((uint)(c - '0') > 9u)
+            {
+                value = 0;
+                return false;
+            }
+
+            v = v * 10 + (c - '0');
+        }
+
+        value = v;
+        return true;
     }
 
     private static bool TryGetPropertyUtf8(JsonElement obj, ReadOnlySpan<char> name, out JsonElement value)
@@ -107,22 +137,24 @@ internal static class JsonPath
                 var written = Encoding.UTF8.GetBytes(name, rented);
                 return obj.TryGetProperty(new ReadOnlySpan<byte>(rented, 0, written), out value);
             }
-            finally { ArrayPool<byte>.Shared.Return(rented); }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
         }
     }
 }
 
 // Optional ergonomics: extension methods
 
-    internal static class JsonElementExtensions
-    {
-        public static bool TrySelectByPath(this JsonElement root, string path, out JsonElement value)
-            => JsonPath.TrySelectByPath(root, path, out value);
+internal static class JsonElementExtensions
+{
+    public static bool TrySelectByPath(this JsonElement root, string path, out JsonElement value)
+        => JsonPath.TrySelectByPath(root, path, out value);
 
-        public static JsonElement SelectByPathOrEmpty(this JsonElement root, string path)
-            => JsonPath.SelectByPathOrEmpty(root, path);
+    public static JsonElement SelectByPathOrEmpty(this JsonElement root, string path)
+        => JsonPath.SelectByPathOrEmpty(root, path);
 
-        public static JsonElement WrapIfNeeded(this JsonElement element, string? path)
-            => JsonPath.WrapIfNeeded(element, path);
-    }
-
+    public static JsonElement WrapIfNeeded(this JsonElement element, string? path)
+        => JsonPath.WrapIfNeeded(element, path);
+}

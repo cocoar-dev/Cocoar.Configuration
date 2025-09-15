@@ -7,7 +7,6 @@ namespace Cocoar.Configuration.AspNetCore;
 
 public static class CocoarConfigurationAspNetCoreExtensions
 {
-
     private static readonly ConditionalWeakTable<WebApplicationBuilder, ConfigManager> _store = new();
 
     /// <summary>
@@ -17,33 +16,34 @@ public static class CocoarConfigurationAspNetCoreExtensions
         this WebApplicationBuilder builder,
         IEnumerable<ConfigRule> rules)
     {
-
         builder.Services.ThrowIfAlreadyRegistered();
 
         var ruleList = rules.ToList();
         var configManager = new ConfigManager(ruleList).Initialize();
         builder.Services.AddSingleton(configManager);
-        
+
         var types = ruleList.Select(r => r.Registration).Distinct();
         foreach (var type in types)
         {
             // Register concrete type with the appropriate lifetime
-            RegisterServiceWithLifetime(builder.Services, type.ConcreteType, type.ServiceLifetime, type.ServiceKey, 
+            RegisterServiceWithLifetime(builder.Services, type.ConcreteType, type.ServiceLifetime, type.ServiceKey,
                 _ => configManager.GetRequiredConfig(type.ConcreteType));
 
             // Register contract type (interface) if specified
             if (type.ContractType != null)
             {
-                RegisterServiceWithLifetime(builder.Services, type.ContractType, type.ServiceLifetime, type.ServiceKey, 
+                RegisterServiceWithLifetime(builder.Services, type.ContractType, type.ServiceLifetime, type.ServiceKey,
                     _ => configManager.GetRequiredConfig(type.ConcreteType));
             }
         }
+
         _store.Remove(builder);
         _store.Add(builder, configManager);
         return builder;
     }
 
-    private static void RegisterServiceWithLifetime(IServiceCollection services, Type serviceType, ServiceLifetime lifetime, string? serviceKey, Func<IServiceProvider, object> factory)
+    private static void RegisterServiceWithLifetime(IServiceCollection services, Type serviceType,
+        ServiceLifetime lifetime, string? serviceKey, Func<IServiceProvider, object> factory)
     {
         if (serviceKey == null)
         {
@@ -122,5 +122,4 @@ public static class CocoarConfigurationAspNetCoreExtensions
     {
         return builder.GetCocoarConfigManager().GetRequiredConfig<T>();
     }
-
 }

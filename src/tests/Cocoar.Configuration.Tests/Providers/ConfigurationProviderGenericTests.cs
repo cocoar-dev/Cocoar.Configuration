@@ -25,9 +25,12 @@ public class ConfigurationProviderGenericTests
 
     private sealed class TestProvider : ConfigurationProvider<TestProviderOptions, TestProviderQuery>
     {
-        public TestProvider(TestProviderOptions options) : base(options) { }
+        public TestProvider(TestProviderOptions options) : base(options)
+        {
+        }
 
-        public override Task<JsonElement> FetchConfigurationAsync(TestProviderQuery query, CancellationToken ct = default)
+        public override Task<JsonElement> FetchConfigurationAsync(TestProviderQuery query,
+            CancellationToken ct = default)
         {
             using var doc = JsonDocument.Parse("{}");
             return Task.FromResult(doc.RootElement.Clone());
@@ -42,10 +45,10 @@ public class ConfigurationProviderGenericTests
     {
         var provider = new TestProvider(new TestProviderOptions("test"));
         var wrongQuery = new WrongQueryType();
-        
-        var ex = await Assert.ThrowsAsync<ArgumentException>(
-            () => provider.FetchConfigurationAsync(wrongQuery, CancellationToken.None));
-        
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            provider.FetchConfigurationAsync(wrongQuery, CancellationToken.None));
+
         Assert.Equal("query", ex.ParamName);
         Assert.Contains("Expected query of type", ex.Message);
         Assert.Contains("TestProviderQuery", ex.Message);
@@ -57,10 +60,9 @@ public class ConfigurationProviderGenericTests
     {
         var provider = new TestProvider(new TestProviderOptions("test"));
         var wrongQuery = new WrongQueryType();
-        
-        var ex = Assert.Throws<ArgumentException>(
-            () => provider.Changes(wrongQuery));
-        
+
+        var ex = Assert.Throws<ArgumentException>(() => provider.Changes(wrongQuery));
+
         Assert.Equal("query", ex.ParamName);
         Assert.Contains("Expected query of type", ex.Message);
         Assert.Contains("TestProviderQuery", ex.Message);

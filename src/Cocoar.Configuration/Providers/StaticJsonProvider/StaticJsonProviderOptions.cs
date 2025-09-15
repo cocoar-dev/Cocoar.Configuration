@@ -6,6 +6,7 @@ namespace Cocoar.Configuration.Providers.StaticJsonProvider;
 public sealed class StaticJsonProviderOptions(JsonElement value) : IProviderConfiguration
 {
     public JsonElement Value { get; } = value;
+
     // Static value; reuse under a constant key to avoid unnecessary churn
     public string GenerateProviderKey() => "Static";
 }

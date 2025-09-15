@@ -42,7 +42,7 @@ public class TryGetAndStaticSeedingTests
         var ok = mgr.TryGetConfig<SeededSettings>(out var s);
         Assert.True(ok);
         Assert.NotNull(s);
-    Assert.Equal("A", s.Name);
+        Assert.Equal("A", s.Name);
         Assert.Equal(42, s.Value);
     }
 
@@ -88,6 +88,7 @@ public class TryGetAndStaticSeedingTests
             .For<Container>()
             .Build();
 
-        Assert.Throws<InvalidOperationException>(() => new ConfigManager(new[] { dependentRule }, NullLogger.Instance).Initialize());
+        Assert.Throws<InvalidOperationException>(() =>
+            new ConfigManager(new[] { dependentRule }, NullLogger.Instance).Initialize());
     }
 }

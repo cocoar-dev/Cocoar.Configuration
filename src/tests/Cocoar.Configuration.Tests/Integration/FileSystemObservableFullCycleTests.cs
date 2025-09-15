@@ -12,12 +12,12 @@ public class FileSystemObservableFullCycleTests
     public void Watcher_reports_create_change_rename_delete_correctly()
     {
         // ── arrange test directory ───────────────────────────────────────────
-        var dir  = Path.Combine(Path.GetTempPath(), "FsRx_Int_" + Guid.NewGuid());
+        var dir = Path.Combine(Path.GetTempPath(), "FsRx_Int_" + Guid.NewGuid());
         Directory.CreateDirectory(dir);
 
         var opts = new FileSystemObservableOptions
         {
-            DebounceTime = TimeSpan.FromMilliseconds(50),          // per-file
+            DebounceTime = TimeSpan.FromMilliseconds(50), // per-file
             IdentityMode = PathIdentityMode.CurrentOrOldPath
         };
 
@@ -43,7 +43,7 @@ public class FileSystemObservableFullCycleTests
 
             // ── 2️⃣ modify twice fast → expect ONE Changed ───────────────
             File.AppendAllText(f1, "x");
-            Thread.Sleep(20);                 // within debounce window
+            Thread.Sleep(20); // within debounce window
             File.AppendAllText(f1, "y");
 
             WaitUntil(() => received.Any());
@@ -77,7 +77,7 @@ public class FileSystemObservableFullCycleTests
         }
         finally
         {
-            watcher.Dispose();                // stop before deleting dir
+            watcher.Dispose(); // stop before deleting dir
             Directory.Delete(dir, true);
         }
     }

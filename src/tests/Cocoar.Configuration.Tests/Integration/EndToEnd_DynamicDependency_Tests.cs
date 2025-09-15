@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using Cocoar.Configuration.Fluent;
-
 using Cocoar.Configuration.HttpPolling;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +13,7 @@ public class EndToEndDynamicDependencyTests
     {
         public Remote Remote { get; set; } = new();
     }
+
     public class Remote
     {
         public string Url { get; set; } = "/api/config1";
@@ -49,10 +49,10 @@ public class EndToEndDynamicDependencyTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // File rule provides BaseSettings (including Remote.Url)
-          Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(file, TimeSpan.FromMilliseconds(80)))
-              .For<BaseSettings>()
-                 .Required()
-                 .Build(),
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(file, TimeSpan.FromMilliseconds(80)))
+                .For<BaseSettings>()
+                .Required()
+                .Build(),
 
             // HTTP rule depends on BaseSettings.Remote.Url for its query
             Rule.From
@@ -88,6 +88,7 @@ public class EndToEndDynamicDependencyTests
             second = manager.GetConfig<MyConfig>();
             if (second?.Value == 2) break;
         }
+
         Assert.Equal(2, second?.Value);
 
         // Cleanup
@@ -99,7 +100,9 @@ public class EndToEndDynamicDependencyTests
         private readonly Dictionary<string, HttpResponseMessage> _map;
         private HttpResponseMessage? _last;
         public PathSwitchHandler(Dictionary<string, HttpResponseMessage> map) => _map = map;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
         {
             if (request.RequestUri is not null && _map.TryGetValue(request.RequestUri.PathAndQuery, out var resp))
             {
@@ -119,7 +122,8 @@ public class EndToEndDynamicDependencyTests
             {
                 Content = resp.Content is null
                     ? null
-                    : new StringContent(resp.Content.ReadAsStringAsync().GetAwaiter().GetResult(), Encoding.UTF8, resp.Content.Headers.ContentType?.MediaType ?? "application/json")
+                    : new StringContent(resp.Content.ReadAsStringAsync().GetAwaiter().GetResult(), Encoding.UTF8,
+                        resp.Content.Headers.ContentType?.MediaType ?? "application/json")
             };
     }
 }

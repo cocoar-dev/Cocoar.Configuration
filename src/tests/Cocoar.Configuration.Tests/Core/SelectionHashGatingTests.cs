@@ -11,13 +11,18 @@ public class SelectionHashGatingTests
 {
     private sealed class MutableProvider : ConfigurationProvider<MutableProvider.Options, MutableProvider.Query>
     {
-        public sealed class Options : IProviderConfiguration { }
+        public sealed class Options : IProviderConfiguration
+        {
+        }
+
         public sealed class Query(IObservable<JsonElement> stream) : IProviderQuery
         {
             public IObservable<JsonElement> Stream => stream;
         }
 
-        public MutableProvider(Options options) : base(options) { }
+        public MutableProvider(Options options) : base(options)
+        {
+        }
 
         public static int FetchCount;
         private JsonElement _current;
@@ -31,7 +36,11 @@ public class SelectionHashGatingTests
         public override IObservable<JsonElement> Changes(Query query)
         {
             var subject = new System.Reactive.Subjects.Subject<JsonElement>();
-            query.Stream.Subscribe(e => { _current = e; subject.OnNext(e); });
+            query.Stream.Subscribe(e =>
+            {
+                _current = e;
+                subject.OnNext(e);
+            });
             return subject;
         }
     }
@@ -39,7 +48,7 @@ public class SelectionHashGatingTests
     [Fact]
     public async Task Selection_hash_gating_suppresses_unchanged_selected_subtree()
     {
-    MutableProvider.FetchCount = 0;
+        MutableProvider.FetchCount = 0;
 
         static JsonElement Parse(string json)
         {
@@ -54,8 +63,8 @@ public class SelectionHashGatingTests
         // Selected subtree changes (value = 2)
         var selectedChange = Parse("{\"select\":{\"value\":2},\"noise\":2}");
 
-    // BehaviorSubject ensures initial value is available to subscriber before first fetch
-    var subject = new System.Reactive.Subjects.BehaviorSubject<JsonElement>(initial);
+        // BehaviorSubject ensures initial value is available to subscriber before first fetch
+        var subject = new System.Reactive.Subjects.BehaviorSubject<JsonElement>(initial);
 
         var rule = ConfigRule
             .Create<MutableProvider, MutableProvider.Options, MutableProvider.Query>(
@@ -66,9 +75,9 @@ public class SelectionHashGatingTests
 
         var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
 
-    Assert.Equal(1, MutableProvider.FetchCount); // initial fetch should succeed with selection
+        Assert.Equal(1, MutableProvider.FetchCount); // initial fetch should succeed with selection
 
-    // First change: selected subtree identical -> one recompute expected (hash was null before, now set)
+        // First change: selected subtree identical -> one recompute expected (hash was null before, now set)
         subject.OnNext(noiseChange);
         await Task.Delay(400); // allow debounce window
         Assert.Equal(2, MutableProvider.FetchCount);

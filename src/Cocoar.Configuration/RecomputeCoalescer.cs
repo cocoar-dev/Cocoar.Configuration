@@ -15,13 +15,13 @@ internal sealed class RecomputeCoalescer : IDisposable
     private readonly int _trailingMs;
     private readonly Action<int> _invoke;
 
-    private int _earliestPending = int.MaxValue;          // Pending (not yet started) earliest index.
-    private int _earliestDuringRun = int.MaxValue;        // Events that arrive while a pass is running.
-    private int _running = 0;                             // 0 = idle, 1 = running.
+    private int _earliestPending = int.MaxValue; // Pending (not yet started) earliest index.
+    private int _earliestDuringRun = int.MaxValue; // Events that arrive while a pass is running.
+    private int _running = 0; // 0 = idle, 1 = running.
 
     private System.Timers.Timer? _trailingTimer;
-    private System.Timers.Timer? _initialTimer;           // One-shot timer for initial debounce.
-    private readonly object _lock = new();                // Protect timer lifecycle.
+    private System.Timers.Timer? _initialTimer; // One-shot timer for initial debounce.
+    private readonly object _lock = new(); // Protect timer lifecycle.
 
     public RecomputeCoalescer(ILogger logger, Action<int> invoke, int initialDebounceMs, int trailingMs)
     {
@@ -42,6 +42,7 @@ internal sealed class RecomputeCoalescer : IDisposable
                 current = Volatile.Read(ref _earliestDuringRun);
                 if (index >= current) return; // existing earlier or equal index already captured
             } while (Interlocked.CompareExchange(ref _earliestDuringRun, index, current) != current);
+
             return;
         }
 
@@ -63,6 +64,7 @@ internal sealed class RecomputeCoalescer : IDisposable
                 if (index >= pending) break; // existing earlier or equal pending index
             }
         } while (Interlocked.CompareExchange(ref _earliestPending, index, pending) != pending);
+
         ScheduleTrailing();
     }
 
@@ -142,6 +144,7 @@ internal sealed class RecomputeCoalescer : IDisposable
             {
                 _trailingTimer.Stop();
             }
+
             _trailingTimer.Start();
         }
     }
@@ -167,6 +170,7 @@ internal sealed class RecomputeCoalescer : IDisposable
                     current = Volatile.Read(ref _earliestPending);
                     if (during >= current) break;
                 } while (Interlocked.CompareExchange(ref _earliestPending, during, current) != current);
+
                 ScheduleTrailing();
             }
         }

@@ -15,7 +15,7 @@ internal class ConfigurationRepository
     /// Gets the current configuration dictionary (or pending if available).
     /// Thread-safe access to avoid race conditions.
     /// </summary>
-    public Dictionary<ConfigRegistration, JsonElement> CurrentConfigurations 
+    public Dictionary<ConfigRegistration, JsonElement> CurrentConfigurations
     {
         get
         {

@@ -9,7 +9,8 @@ public sealed class MicrosoftConfigurationSourceProviderOptions : IProviderConfi
     public string? BasePath { get; }
     public string? Identity { get; }
 
-    public MicrosoftConfigurationSourceProviderOptions(IConfigurationSource source, string? basePath = null, string? identity = null)
+    public MicrosoftConfigurationSourceProviderOptions(IConfigurationSource source, string? basePath = null,
+        string? identity = null)
     {
         Source = source;
         BasePath = basePath;

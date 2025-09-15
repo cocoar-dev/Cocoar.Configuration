@@ -2,7 +2,6 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Text.Json;
 using Cocoar.Configuration.Fluent;
-
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,18 +17,18 @@ public class FileSourceProviderTests
         var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
 
         // Act
-    var result = await provider.FetchConfigurationAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath)));
+        var result =
+            await provider.FetchConfigurationAsync(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath)));
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
-    // With centralized selection removed from provider, full document is returned
-    Assert.True(result.TryGetProperty("SectionA", out var section));
-    Assert.True(section.TryGetProperty("Enabled", out var enabled));
-    Assert.Equal(JsonValueKind.True, enabled.ValueKind);
-        
+        // With centralized selection removed from provider, full document is returned
+        Assert.True(result.TryGetProperty("SectionA", out var section));
+        Assert.True(section.TryGetProperty("Enabled", out var enabled));
+        Assert.Equal(JsonValueKind.True, enabled.ValueKind);
     }
-    
+
     [Fact]
     public async Task FileProvider_Notification_Fires_OnFileChange()
     {
@@ -38,7 +37,9 @@ public class FileSourceProviderTests
         File.WriteAllText(tempPath, @"{ ""SectionA"": { ""Enabled"": true } }");
 
         // shorten debounce for faster tests (100 ms is plenty)
-        var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!, TimeSpan.FromMilliseconds(100)));
+        var provider =
+            new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!,
+                TimeSpan.FromMilliseconds(100)));
 
         // ① subscribe (starts watcher)  ② convert to Task (actually subscribes)
         var changeTask = provider
@@ -55,7 +56,7 @@ public class FileSourceProviderTests
             @"{ ""SectionA"": { ""Enabled"": false } }");
 
         // assert ────────────────────────────────────────────────────────────────
-        var notification = await changeTask;   // will complete well < 5 s
+        var notification = await changeTask; // will complete well < 5 s
         Assert.NotNull(notification);
         Assert.Equal(JsonValueKind.False,
             notification.GetProperty("SectionA").GetProperty("Enabled").ValueKind);
@@ -67,8 +68,6 @@ public class FileSourceProviderTests
     [Fact]
     public async Task ConfigManager_ReturnsConfigFromFileProvider()
     {
-
-
         var tempPath = Path.GetTempFileName();
 
         try
@@ -77,17 +76,17 @@ public class FileSourceProviderTests
 
             var services = new ServiceCollection();
             services.AddCocoarConfiguration([
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath)).Select("SectionA").For<TestClass>().As<IMySectionSettings>()
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath)).Select("SectionA").For<TestClass>()
+                    .As<IMySectionSettings>()
             ]);
-            
+
             var sp = services.BuildServiceProvider();
-            
+
             var manager = sp.GetRequiredService<ConfigManager>();
 
             var result = manager.GetConfig<IMySectionSettings>();
             Assert.NotNull(result);
             Assert.True(result.Enabled);
-            
         }
         finally
         {
@@ -101,7 +100,7 @@ public class FileSourceProviderTests
         // Arrange
         var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
         var config2 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config2.json"));
-        
+
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config1)).Select("SectionA").For<TestClass>(),
@@ -109,19 +108,18 @@ public class FileSourceProviderTests
         ]);
 
         var sp = services.BuildServiceProvider();
-        
+
         var manager = sp.GetRequiredService<ConfigManager>();
         var result = manager.GetConfig<TestClass>();
-        
-        
+
+
         // Assert
         Assert.NotNull(result);
-        
+
         // Merge logic would go here, for now just check both are loaded
         Assert.Equal(false, result.Enabled);
         Assert.Equal(42, result.Value);
         Assert.Equal("Leer", result.StringValue);
-
     }
 
     public interface IMySectionSettings
@@ -152,10 +150,9 @@ public class FileSourceProviderTests
         // cleanup
         File.Delete(tempPath);
     }
-    
 }
 
-public class TestClass: FileSourceProviderTests.IMySectionSettings
+public class TestClass : FileSourceProviderTests.IMySectionSettings
 {
     public bool Enabled { get; set; }
     public int Value { get; set; } = 2;

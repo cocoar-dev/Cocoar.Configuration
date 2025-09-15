@@ -28,7 +28,7 @@ internal static class ConfigurationDeserializer
     private static JsonSerializerOptions CreateDefaultOptions()
     {
         var options = new JsonSerializerOptions();
-        
+
         // Register converters for common primitives
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
         options.Converters.Add(new StringToPrimitiveConverter<int>());
@@ -36,7 +36,7 @@ internal static class ConfigurationDeserializer
         options.Converters.Add(new StringToPrimitiveConverter<float>());
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
-        
+
         return options;
     }
 }

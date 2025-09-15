@@ -38,7 +38,7 @@ internal static class ConfigurationAnalyzer
     {
         var hasStaticProviders = false;
         var hasNonStaticProviders = false;
-        
+
         foreach (var rule in rules)
         {
             if (rule.ProviderType.Name.Contains("Static"))
@@ -54,7 +54,7 @@ internal static class ConfigurationAnalyzer
         if (hasStaticProviders && hasNonStaticProviders)
         {
             logger.LogInformation("Configuration includes both static seed rules and dynamic providers. " +
-                "Ensure static rules come before rules that depend on them.");
+                                  "Ensure static rules come before rules that depend on them.");
         }
     }
 
@@ -65,8 +65,9 @@ internal static class ConfigurationAnalyzer
 
         if (requiredRules.Any() && optionalRules.Any())
         {
-            logger.LogInformation("Configuration has {RequiredCount} required rules and {OptionalCount} optional rules. " +
-                "Required rules will fail the entire recompute on error.", 
+            logger.LogInformation(
+                "Configuration has {RequiredCount} required rules and {OptionalCount} optional rules. " +
+                "Required rules will fail the entire recompute on error.",
                 requiredRules.Count, optionalRules.Count);
         }
 
@@ -75,7 +76,7 @@ internal static class ConfigurationAnalyzer
         if (factoryRules.Any())
         {
             logger.LogInformation("Found {FactoryRuleCount} rules with dynamic factories. " +
-                "Ensure dependent types are produced by earlier rules to avoid GetRequiredConfig exceptions.",
+                                  "Ensure dependent types are produced by earlier rules to avoid GetRequiredConfig exceptions.",
                 factoryRules.Count);
         }
     }
