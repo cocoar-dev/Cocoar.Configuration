@@ -21,7 +21,7 @@ _No changes yet._
 - Test Suite Expansion: new tests for partial recompute, cancellation, selection hash gating, key deletions; added explanatory headers.
 - Performance Foundations: hashing + earliest-index logic lays groundwork for future benchmarks.
 - Documentation & Examples Refresh: updated architecture & provider docs to Fetch → Select → Mount → Merge; removed legacy two-argument file section usage.
-- API Surface Cleanup: removed obsolete params & helpers; `.Pick` renamed; pruned unused hash utilities.
+- API Surface Cleanup: removed obsolete params & helpers; pruned unused hash utilities.
 - Reliability & Determinism: provider injection seam enables deterministic tests; strengthened dynamic dependency scenarios.
 - Logging & Error Handling Consistency: resilient change-trigger error handling while preserving required/optional semantics.
 
@@ -37,7 +37,6 @@ _No changes yet._
 + Rule.From.File("base.json").MountAt("Config:Base")...
 ```
 
-Rename any `.Pick(...)` usage to `.Select(...)`.
 
 ## [0.9.2] - 2025-09-15
 
