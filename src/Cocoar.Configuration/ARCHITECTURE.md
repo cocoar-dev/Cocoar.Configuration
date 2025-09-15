@@ -185,10 +185,6 @@ The configuration pipeline now supports incremental recomputation:
 
 Future optimizations (excluded from this commit) include fine-grained skipping inside the recomputed suffix and performance benchmarks to guide hash algorithm selection.
 
-## Version
-
-- Last synchronized with code: 2025-09-15
-
 ### Static Rule Set (No Runtime Add/Remove)
 
 The set of configuration rules is intentionally immutable after `ConfigManager.Initialize()`. Dynamic
@@ -203,3 +199,7 @@ false, the rule is skipped and its previous contribution removed on the next pas
 practical effect of a disabled rule without structural changes. This keeps ordering deterministic and
 guarantees predictable incremental recompute behavior. Support for true dynamic structural mutation
 can be revisited if a compelling scenario emerges.
+
+## Version
+
+- Last synchronized with code: 2025-09-15

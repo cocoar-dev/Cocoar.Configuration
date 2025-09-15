@@ -63,8 +63,8 @@ Minimal example (file + environment layering, strongly-typed access):
 // ...
 builder
     .AddCocoarConfiguration(
-        // New concise overloads:
-        Rule.From.File("appsettings.json", "App").For<AppSettings>().Optional(),
+        // File + env layering (rule-level selection via .Select)
+        Rule.From.File("appsettings.json").Select("App").For<AppSettings>().Optional(),
         Rule.From.Environment("APP_").For<AppSettings>()
     );
 ```
@@ -156,9 +156,11 @@ For more in-depth documentation, see:
 
 ## Thread Safety & Performance
 
-* Reading config is thread-safe
-* Recompute is O(n) per rules + JSON size
-* Providers reused across recomputes when options stable
+* Reading config is thread-safe (atomic snapshot swap)
+* Incremental recompute: only from earliest changed rule onward (prefix reused)
+* Selection-hash gating: unchanged selected subtree events skipped
+* Providers reused across recomputes when instance options stable
+* Static rule set: rules immutable after initialization (use `UseWhen` to toggle)
 
 ---
 
