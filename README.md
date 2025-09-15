@@ -81,9 +81,9 @@ Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
 * **Rule**: Source + optional query + target configuration type
 * **Provider**: Pluggable source (file, env, HTTP, static, custom, adapter)
 * **Merge**: Ordered *last-write-wins* per flattened key
-* **Recompute**: Any change → full recompute → atomic snapshot swap
-* **Dynamic dependencies**: Rule factories (options/query) can read in-progress snapshots.
-* **Required vs Optional**: Pptional failure skips the layer.
+* **Recompute**: Incremental – reuse unchanged prefix; only recompute from earliest changed rule; atomic snapshot publish.
+* **Dynamic dependencies**: Rule factories (options/query) can read earlier in-progress rule outputs during a pass.
+* **Required vs Optional**: Optional failure skips the layer.
 * **DI Lifetimes & Keys**: Register as singleton (default), scoped, transient, keyed
 
 👉 [Read more in the **Concepts Deep Dive**](docs/CONCEPTS.md)
