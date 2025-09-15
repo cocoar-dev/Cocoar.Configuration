@@ -53,9 +53,8 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         {
             element = SelectByPath(element, query.ConfigurationPath);
         }
-        var wrapped = WrapIfNeeded(element, query.TargetPath);
-        _lastByKey[key] = wrapped;
-        return wrapped;
+    _lastByKey[key] = element;
+    return element;
     }
 
     public override IObservable<JsonElement> Changes(HttpPollingProviderQueryOptions query)
@@ -89,17 +88,16 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     {
                         element = SelectByPath(element, query.ConfigurationPath);
                     }
-                    var wrapped = WrapIfNeeded(element, query.TargetPath);
                     var key = MakeKey(query);
                     if (_lastByKey.TryGetValue(key, out var last))
                     {
-                        if (JsonElementEqualityComparer.Instance.Equals(last, wrapped))
+                        if (JsonElementEqualityComparer.Instance.Equals(last, element))
                         {
-                            return (changed: false, value: wrapped);
+                            return (changed: false, value: element);
                         }
                     }
-                    _lastByKey[key] = wrapped;
-                    return (changed: true, value: wrapped);
+                    _lastByKey[key] = element;
+                    return (changed: true, value: element);
                 }
                 catch
                 {
@@ -132,7 +130,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         var hdr = query.Headers == null
             ? string.Empty
             : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-    return $"{query.UrlPathOrAbsolute}|{query.ConfigurationPath}|{query.TargetPath}|{hdr}";
+    return $"{query.UrlPathOrAbsolute}|{query.ConfigurationPath}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>

@@ -44,16 +44,16 @@ public class ConfigRule(
     public IProviderQuery ResolveQueryOptions(ConfigManager manager)
         => _queryOptionsFactory(manager);
 
-    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(TOptions providerOptions, TQueryOptions queryOptions, ConfigRegistration typeDefinition, Func<bool>? useWhen = null, bool required = true)
+    public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
+        TOptions providerOptions,
+        TQueryOptions queryOptions,
+        ConfigRegistration typeDefinition,
+        ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
         where TQueryOptions : IProviderQuery
     {
-        var options = new ConfigRuleOptions
-        {
-            UseWhen = useWhen,
-            Required = required
-        };
+        options ??= new ConfigRuleOptions();
         return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, typeDefinition, options);
     }
 
@@ -61,17 +61,12 @@ public class ConfigRule(
         Func<ConfigManager, TOptions> providerOptionsFactory,
         Func<ConfigManager, TQueryOptions> queryOptionsFactory,
         ConfigRegistration typeDefinition,
-        Func<bool>? useWhen = null,
-        bool required = true)
+        ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
         where TQueryOptions : IProviderQuery
     {
-        var options = new ConfigRuleOptions
-        {
-            UseWhen = useWhen,
-            Required = required
-        };
+        options ??= new ConfigRuleOptions();
         return new ConfigRule(
             typeof(TProvider),
             m => providerOptionsFactory(m),

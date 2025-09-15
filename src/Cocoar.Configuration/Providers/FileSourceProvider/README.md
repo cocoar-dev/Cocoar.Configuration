@@ -3,7 +3,7 @@
 Read JSON from files and watch for changes with debounce.
 
 - Options: `FileSourceProviderOptions(directory, debounceTime)`
-- Query: `FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?)`
+- Query: `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)`
 - Change semantics: watches the file's directory and emits per-file change signals; debounced to avoid bursts. Transient IO errors in the change stream are swallowed to keep the stream alive. `FetchConfigurationAsync` throws on missing file so required rules can fail appropriately.
 
 ## When to use

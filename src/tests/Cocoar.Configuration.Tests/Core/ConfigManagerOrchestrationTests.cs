@@ -19,7 +19,6 @@ public class ConfigManagerOrchestrationTests
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? TargetPath => null;
         }
 
         public static int CallCount;
@@ -51,8 +50,7 @@ public class ConfigManagerOrchestrationTests
             new CountingProvider.Options("K"),
             new CountingProvider.Query("Q", changeBus.AsObservable()),
             new ConfigRegistration(typeof(object)),
-            useWhen: () => true,
-            required: true);
+            new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         // Act: Initialize triggers exactly one compute
         _ = new ConfigManager(new[] { rule }).Initialize();
@@ -88,7 +86,8 @@ public class MicrosoftProviderAdapterTests
             MicrosoftConfigurationSourceProviderQueryOptions>(
             new MicrosoftConfigurationSourceProviderOptions(memSource),
             new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section"),
-            new ConfigRegistration(typeof(MicrosoftProviderAdapterTests.DemoConfig))
+            new ConfigRegistration(typeof(MicrosoftProviderAdapterTests.DemoConfig)),
+            new ConfigRuleOptions()
         );
 
         var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();

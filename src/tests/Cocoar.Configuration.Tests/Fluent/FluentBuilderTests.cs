@@ -63,7 +63,7 @@ public class FluentBuilderTests
                 .Build();
 
             var envRule = Rule.From
-                .Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null, targetPath: null))
+                .Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null))
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
@@ -96,7 +96,7 @@ public class FluentBuilderTests
         try
         {
             var rule = Rule.From
-                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", null, TimeSpan.FromMilliseconds(50)))
+                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", TimeSpan.FromMilliseconds(50)))
                 .For<TestClass>()
                 .Build();
 

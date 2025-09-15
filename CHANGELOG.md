@@ -1,18 +1,13 @@
 # Changelog
 
 ## [Unreleased]
-### Added
-- Concise fluent overloads for File and Environment providers:
-	- `Rule.From.File(string filePath, string? configurationPath = null)`
-	- `Rule.From.Environment(string? environmentPrefix = null)`
-	These complement existing factory forms allowing dynamic option/query computation.
+_No notable changes yet._
 
-### Documentation
-- Updated provider READMEs (File, Environment) with overload summaries.
-- Updated main `README.md` Quick Start + examples (`BasicUsage`, `FileLayering`, `AspNetCoreExample`, `ServiceLifetimes`) to showcase concise overloads.
+## [0.9.2] - 2025-09-15
 
-### Notes
-- Factory lambda forms remain for advanced scenarios (dynamic debounce, conditional section selection, custom option shaping).
+- Added: Concise overloads Rule.From.File(...), Rule.From.Environment(...).
+- Added: .MountAt fluent API for rule mounting.
+- Migration: Replace targetPath: "A:B" with .MountAt("A:B").
 
 ## [0.9.1] - 2025-09-14
 Branding / assets update.
