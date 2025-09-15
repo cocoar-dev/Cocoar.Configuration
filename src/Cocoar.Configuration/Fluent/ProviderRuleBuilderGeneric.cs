@@ -27,7 +27,8 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
             var opts = new ConfigRuleOptions(
                     Required: _required,
                     UseWhen: _useWhen)
-                .WithMount(_mountPath);
+                .WithMount(_mountPath)
+                .WithSelect(_selectPath);
 
             var rule = ConfigRule.Create<TProvider, TInstanceOptions, TQueryOptions>(
                 _instanceFactory,

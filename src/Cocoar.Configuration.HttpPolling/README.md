@@ -1,41 +1,74 @@
 # HttpPollingProvider
 
-Fetch JSON over HTTP(S) on an interval and emit change signals only when the payload changes.
+Periodically poll an HTTP endpoint returning JSON and merge into configuration.
 
-- Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?, httpMessageHandler?)`
-- Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, headers?)`
-- Change semantics: polls at `pollInterval` and emits only when the fetched JSON differs from the last payload. Internally caches last payload per query and reuses a single HttpClient per provider instance.
+- Options: `HttpPollingProviderOptions(HttpClient httpClient, TimeSpan? interval = null)`
+- Query: `HttpPollingProviderQueryOptions(string path)` (path relative to base address)
+- Rule construction now uses rule-level `.Select("Section:Sub")` rather than query-level configurationPath (removed).
 
-## When to use
+## Features
 
-- Centralized config service backing multiple apps.
-- Remote feature flags or operational toggles where polling is acceptable.
+- Periodic polling (default interval if not specified in options; configure in `HttpPollingProviderOptions`).
+- Change detection: compares raw payload text to last payload; emits change if different.
+- Subsequent rule-level pipeline: Fetch → Select (optional) → Mount (optional) → Merge.
 
-## Example
+## Basic Usage
 
 ```csharp
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.HttpPolling.Fluent;
-using Cocoar.Configuration.HttpPolling.Fluent.ProviderOptions;
+services.AddHttpClient("config", c => c.BaseAddress = new Uri("https://config.example.com/"));
 
 services.AddCocoarConfiguration(
-    Rules.Using.FromHttp(_ => new HttpPollingRuleOptions(
-        urlPathOrAbsolute: "/v1/settings",
-        baseAddress: "https://config.example.com",
-        pollInterval: TimeSpan.FromSeconds(10)
-    ))
-    .For<MyRemoteSettings>()
-    .When(() => true)
-    .Optional()
+    Rule.From.HttpPolling(
+        _ => HttpPollingRuleOptions.FromPath("service.json"),
+        // provider options factory (http client + interval)
+        sp => new HttpPollingProviderOptions(sp.GetRequiredService<IHttpClientFactory>().CreateClient("config"), TimeSpan.FromSeconds(30))
+    ).Select("Service").For<ServiceSettings>().Build()
 );
+```
+
+## Concise Usage
+
+If you have registered an `HttpClient` named `config` and a default interval via options:
+
+```csharp
+services.AddCocoarConfiguration(
+    Rule.From.HttpPolling("service.json").Select("Service").For<ServiceSettings>().Build()
+);
+```
+
+## Mounting Example
+
+```csharp
+services.AddCocoarConfiguration(
+    Rule.From.HttpPolling("feature.json")
+        .Select("Feature")
+        .MountAt("Features:Primary")
+        .For<FeatureSettings>()
+        .Build()
+);
+```
+
+## Migration from Previous Version
+
+Previously you might have written:
+
+```csharp
+Rule.From.HttpPolling(_ => HttpPollingRuleOptions.FromPath("service.json", configurationPath: "Service"))
+    .For<ServiceSettings>()
+    .Build();
+```
+
+Now write:
+
+```csharp
+Rule.From.HttpPolling("service.json")
+    .Select("Service")
+    .For<ServiceSettings>()
+    .Build();
 ```
 
 ## Notes
 
-- For change-only recompute, ensure the remote endpoint returns unchanged JSON when values don’t change.
-- Consider future push models (SSE/SignalR) when lower latency is needed.
-- Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
-- See the root `README.md` ("How it works") and `ARCHITECTURE.md` for merge semantics, recompute behavior, and dynamic dependencies.
-
-Known gaps
-- Arrays replace prior values; alternate strategies may be added.
+- `.Select` is optional; omit it to bind the entire JSON root.
+- `.MountAt` lets you relocate the (selected) subtree under a different root path before merge.
+- HTTP errors surface on required rules during fetch; transient failures do not remove the last known good configuration— they only block updates until a successful poll.

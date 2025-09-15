@@ -49,8 +49,8 @@ public class EndToEndDynamicDependencyTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
             // File rule provides BaseSettings (including Remote.Url)
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(file, null, TimeSpan.FromMilliseconds(80)))
-                 .For<BaseSettings>()
+          Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(file, TimeSpan.FromMilliseconds(80)))
+              .For<BaseSettings>()
                  .Required()
                  .Build(),
 

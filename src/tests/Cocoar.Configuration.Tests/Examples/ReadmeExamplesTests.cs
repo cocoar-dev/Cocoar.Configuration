@@ -67,7 +67,7 @@ public class ReadmeExamplesTests
             // This code matches the README example exactly
             var rules = new []
             {
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build(),
@@ -117,7 +117,7 @@ public class ReadmeExamplesTests
             
             var rules = new []
             {
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build()
@@ -179,7 +179,7 @@ public class ReadmeExamplesTests
             // This matches the README dynamic dependency example (simplified for testing)
             builder.Services.AddCocoarConfiguration([
                 // Base settings providing the URL
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "Remote"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("Remote")
                      .For<MyHttpPollingSettings>()
                      .Required()
                      .Build(),
@@ -240,7 +240,7 @@ public class ReadmeExamplesTests
             var rules = new []
             {
                 // File first (base layer)
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettingsExtended>()
                     .As<IMySettingsExtended>()
                     .Build(),

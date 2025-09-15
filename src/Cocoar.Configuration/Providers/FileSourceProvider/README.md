@@ -2,8 +2,8 @@
 
 Read JSON from files and watch for changes with debounce.
 
-- Options: `FileSourceProviderOptions(directory, debounceTime)`
-- Query: `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)`
+- Options: `FileSourceProviderOptions(directory, debounceTime?)`
+- Query: `FileSourceProviderQueryOptions(filename, debounceTime?)`
 - Change semantics: watches the file's directory and emits per-file change signals; debounced to avoid bursts. Transient IO errors in the change stream are swallowed to keep the stream alive. `FetchConfigurationAsync` throws on missing file so required rules can fail appropriately.
 
 ## When to use
@@ -15,23 +15,29 @@ Read JSON from files and watch for changes with debounce.
 
 ```csharp
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Fluent.ProviderOptions;
 
-// 1. Verbose factory form (existing)
+// 1. Factory form + rule-level selection
 services.AddCocoarConfiguration(
-    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection", debounceTime: TimeSpan.FromMilliseconds(150))).For<MySection>(),
-    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.Local.json", "MySection")).For<MySection>()
+    Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", debounceTime: TimeSpan.FromMilliseconds(150)))
+        .Select("MySection")
+        .For<MySection>()
+        .Build(),
+    Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./appsettings.Local.json"))
+        .Select("MySection")
+        .For<MySection>()
+        .Optional()
+        .Build()
 );
 
-// 2. New concise overload (uses defaults & optional configurationPath)
+// 2. Concise form + .Select for subsection
 services.AddCocoarConfiguration(
-    Rule.From.File("./appsettings.json", "MySection").For<MySection>(),
-    Rule.From.File("./appsettings.Local.json", "MySection").For<MySection>().Optional()
+    Rule.From.File("./appsettings.json").Select("MySection").For<MySection>().Build(),
+    Rule.From.File("./appsettings.Local.json").Select("MySection").For<MySection>().Optional().Build()
 );
 
-// 3. Without configuration path (root bind) + optional
+// 3. Root bind (no selection) + optional
 services.AddCocoarConfiguration(
-    Rule.From.File("./myfeature.json").For<MyFeatureSettings>().Optional()
+    Rule.From.File("./myfeature.json").For<MyFeatureSettings>().Optional().Build()
 );
 ```
 
@@ -39,22 +45,19 @@ services.AddCocoarConfiguration(
 
 - Arrays are not merged—only objects. Later rules overwrite earlier keys (last-wins).
 - On any emitted change, `ConfigManager` recomputes all rules and atomically swaps the cache.
-- See the root `README.md` ("How it works") and `ARCHITECTURE.md` for merge semantics, recompute behavior, and dynamic dependencies.
-
-Known gaps
-- Arrays replace prior values; alternate strategies may be added.
+- For subsection binding use `.Select("Section:Sub")`; for relocation use `.MountAt("Root:Sub")`.
 
 ## Overload Summary
 
 ```csharp
-// Factory form (full control; can compute options/query from current in-progress snapshot)
-Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(path, configurationPath, debounceTime: ...))
+// Factory form (full control)
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(path, debounceTime: ...)).Select("Section")
 
-// New concise form (no lambda, quickest path)
-Rule.From.File(path, configurationPath?)
+// Concise form
+Rule.From.File(path).Select("Section") // omit .Select for root binding
 ```
 
-Prefer the concise form when you just need a simple file + (optional) configuration path. Use the factory when:
-- You need a custom debounce time
-- You want dynamic path/section selection based on earlier rules
-- You need to manipulate provider or query options beyond file + section
+Prefer the concise form when you need a simple file plus optional subsection selection via `.Select`. Use the factory when:
+- You need a custom debounce time.
+- You want dynamic filename based on earlier rules.
+- You need to compute debounce or other options from current snapshot.

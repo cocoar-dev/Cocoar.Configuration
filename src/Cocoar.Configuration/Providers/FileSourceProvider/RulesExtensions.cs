@@ -11,7 +11,7 @@ public static class RulesExtensions
         );
 
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        File(this Rule.Dsl _, string filePath, string? configurationPath = null)
-        => _.File(_ => FileSourceRuleOptions.FromFilePath(filePath, configurationPath));
+        File(this Rule.Dsl _, string filePath)
+        => _.File(_ => FileSourceRuleOptions.FromFilePath(filePath));
 
 }

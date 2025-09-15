@@ -28,7 +28,7 @@ public class FluentBuilderTests
         var config1 = Path.GetFullPath(Path.Combine("TestConfigFiles", "config1.json"));
 
         var rule = Rule.From
-            .File(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA"))
+            .File(_ => FileSourceRuleOptions.FromFilePath(config1)).Select("SectionA")
             .For<TestClass>()
             .Build();
 
@@ -57,7 +57,7 @@ public class FluentBuilderTests
         try
         {
             var fileRule = Rule.From
-                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA"))
+                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile)).Select("SectionA")
                 .For<TestClass>()
                 .As<IMySectionSettings>()
                 .Build();
@@ -96,7 +96,8 @@ public class FluentBuilderTests
         try
         {
             var rule = Rule.From
-                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, "SectionA", TimeSpan.FromMilliseconds(50)))
+                .File(_ => FileSourceRuleOptions.FromFilePath(tempFile, TimeSpan.FromMilliseconds(50)))
+                .Select("SectionA")
                 .For<TestClass>()
                 .Build();
 

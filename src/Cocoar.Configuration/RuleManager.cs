@@ -58,6 +58,25 @@ internal sealed class RuleManager : IDisposable
         try
         {
             var value = await _provider!.FetchConfigurationAsync(queryOptions, ct).ConfigureAwait(false);
+
+            // Select stage
+            var selectPath = _rule.Options?.SelectPath;
+            if (!string.IsNullOrWhiteSpace(selectPath))
+            {
+                try
+                {
+                    value = Json.JsonPath.SelectColonDelimited(value, selectPath);
+                }
+                catch (Exception ex)
+                {
+                    if (Required)
+                        throw new InvalidOperationException($"Selection path '{selectPath}' failed for provider {_rule.ProviderType.Name}", ex);
+                    _logger.LogWarning(ex, "Selection path '{SelectPath}' failed; skipping optional rule.", selectPath);
+                    return (include: false, value: default);
+                }
+            }
+
+            // Mount stage
             var mountPath = _rule.Options?.MountPath;
             if (!string.IsNullOrWhiteSpace(mountPath))
             {

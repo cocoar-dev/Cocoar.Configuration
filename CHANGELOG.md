@@ -1,7 +1,32 @@
 # Changelog
 
 ## [Unreleased]
-_No notable changes yet._
+
+### Breaking
+- Removed: Query-level `configurationPath` (File / HTTP Polling) replaced by rule-level `.Select(...)`.
+- Removed: (Earlier) query-level `targetPath` (now fully migrated to `.MountAt(...)`; note for upgrades from <0.9.2).
+
+### Added
+- Added: Rule-level `.Select(path)` to extract a subsection prior to mounting / merging.
+- Added: Centralized pipeline (Fetch → Select → Mount → Merge) documented; providers now always return full root JSON.
+
+### Changed
+- Simplified provider query option signatures (no path parameters; only identity + provider-specific timing/debounce fields).
+- Centralized selection & mounting logic inside `RuleManager` using `JsonPath.SelectColonDelimited`.
+
+### Migration
+```diff
+- Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("appsettings.json", configurationPath: "A:B")).For<MyCfg>().Build();
++ Rule.From.File("appsettings.json").Select("A:B").For<MyCfg>().Build();
+
+- Rule.From.HttpPolling(_ => HttpPollingRuleOptions.FromPath("service.json", configurationPath: "Service")).For<Service>().Build();
++ Rule.From.HttpPolling("service.json").Select("Service").For<Service>().Build();
+
+- Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("base.json", targetPath: "Config:Base"))...
++ Rule.From.File("base.json").MountAt("Config:Base")...
+```
+
+If you previously used an experimental `.Pick(...)`, rename it to `.Select(...)`.
 
 ## [0.9.2] - 2025-09-15
 

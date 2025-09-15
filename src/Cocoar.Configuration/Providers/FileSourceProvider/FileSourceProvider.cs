@@ -28,13 +28,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             _fileCache[filename] = value;
         }
 
-        JsonElement result = value;
-        if (!string.IsNullOrWhiteSpace(queryOptions.ConfigurationPath))
-        {
-            result = SelectByPath(value, queryOptions.ConfigurationPath);
-        }
-
-        return Task.FromResult(result);
+        return Task.FromResult(value);
     }
 
     public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)
@@ -59,10 +53,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                         newValue = JsonDocument.Parse("{}").RootElement;
                     }
                     _fileCache[fn] = newValue;
-                    JsonElement newSection = string.IsNullOrWhiteSpace(queryOptions.ConfigurationPath)
-                        ? newValue
-                        : SelectByPath(newValue, queryOptions.ConfigurationPath);
-                    return newSection;
+                    return newValue;
                 })
                 .Publish()
                 .RefCount()

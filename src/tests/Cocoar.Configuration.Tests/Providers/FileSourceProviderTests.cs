@@ -18,13 +18,15 @@ public class FileSourceProviderTests
         var provider = new FileSourceProvider(new FileSourceProviderOptions(Path.GetDirectoryName(tempPath)!));
 
         // Act
-        var result = await provider.FetchConfigurationAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath),"SectionA"));
+    var result = await provider.FetchConfigurationAsync( new FileSourceProviderQueryOptions(Path.GetFileName(tempPath)));
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.True(result.TryGetProperty("Enabled", out var enabled));
-        Assert.Equal(JsonValueKind.True, enabled.ValueKind);
+    // With centralized selection removed from provider, full document is returned
+    Assert.True(result.TryGetProperty("SectionA", out var section));
+    Assert.True(section.TryGetProperty("Enabled", out var enabled));
+    Assert.Equal(JsonValueKind.True, enabled.ValueKind);
         
     }
     
@@ -40,7 +42,7 @@ public class FileSourceProviderTests
 
         // ① subscribe (starts watcher)  ② convert to Task (actually subscribes)
         var changeTask = provider
-            .Changes(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA"))
+            .Changes(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath)))
             .FirstAsync()
             .Timeout(TimeSpan.FromSeconds(5)) // fail fast if it never comes
             .ToTask();
@@ -56,7 +58,7 @@ public class FileSourceProviderTests
         var notification = await changeTask;   // will complete well < 5 s
         Assert.NotNull(notification);
         Assert.Equal(JsonValueKind.False,
-            notification.GetProperty("Enabled").ValueKind);
+            notification.GetProperty("SectionA").GetProperty("Enabled").ValueKind);
 
         // cleanup
         File.Delete(tempPath);
@@ -75,7 +77,7 @@ public class FileSourceProviderTests
 
             var services = new ServiceCollection();
             services.AddCocoarConfiguration([
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath, "SectionA")).For<TestClass>().As<IMySectionSettings>()
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempPath)).Select("SectionA").For<TestClass>().As<IMySectionSettings>()
             ]);
             
             var sp = services.BuildServiceProvider();
@@ -102,8 +104,8 @@ public class FileSourceProviderTests
         
         var services = new ServiceCollection();
         services.AddCocoarConfiguration([
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config1, "SectionA")).For<TestClass>(),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config2, "SectionA")).For<TestClass>(),
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config1)).Select("SectionA").For<TestClass>(),
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(config2)).Select("SectionA").For<TestClass>(),
         ]);
 
         var sp = services.BuildServiceProvider();
@@ -140,7 +142,7 @@ public class FileSourceProviderTests
 
         var emitted = false;
         using var sub = provider
-            .Changes(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath), "SectionA"))
+            .Changes(new FileSourceProviderQueryOptions(Path.GetFileName(tempPath)))
             .Subscribe(_ => emitted = true);
 
         // assert: no initial emission

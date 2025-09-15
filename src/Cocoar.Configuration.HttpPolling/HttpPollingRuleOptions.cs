@@ -10,12 +10,10 @@ public sealed class HttpPollingRuleOptions
 
     // Query-level
     public string UrlPathOrAbsolute { get; }
-    public string? ConfigurationPath { get; }
     public IReadOnlyDictionary<string, string>? Headers { get; }
 
     public HttpPollingRuleOptions(
         string urlPathOrAbsolute,
-    string? configurationPath = null,
         string? baseAddress = null,
         TimeSpan? pollInterval = null,
         HttpMessageHandler? handler = null,
@@ -23,7 +21,6 @@ public sealed class HttpPollingRuleOptions
     {
         if (string.IsNullOrWhiteSpace(urlPathOrAbsolute)) throw new ArgumentException("urlPathOrAbsolute is required", nameof(urlPathOrAbsolute));
         UrlPathOrAbsolute = urlPathOrAbsolute;
-    ConfigurationPath = configurationPath;
         BaseAddress = baseAddress;
         PollInterval = pollInterval;
         Handler = handler;
@@ -31,5 +28,5 @@ public sealed class HttpPollingRuleOptions
     }
 
     public HttpPollingProviderOptions ToProviderOptions() => new(BaseAddress, PollInterval, Handler);
-    public HttpPollingProviderQueryOptions ToQueryOptions() => new(UrlPathOrAbsolute, ConfigurationPath, Headers);
+    public HttpPollingProviderQueryOptions ToQueryOptions() => new(UrlPathOrAbsolute, headers: Headers);
 }

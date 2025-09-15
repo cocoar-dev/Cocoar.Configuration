@@ -69,6 +69,17 @@ internal static class JsonPath
     public static JsonElement SelectByPathOrEmpty(JsonElement root, string path)
         => TrySelectByPath(root, path, out var found) ? found : EmptyObject;
 
+    /// <summary>
+    /// Public helper used by pipeline to select a colon-delimited path; throws if not found.
+    /// </summary>
+    public static JsonElement SelectColonDelimited(JsonElement root, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return root;
+        if (!TrySelectByPath(root, path, out var found))
+            throw new KeyNotFoundException($"Path '{path}' not found in JSON document.");
+        return found;
+    }
+
     // --- helpers ---
     private static bool TryParseNonNegativeInt(ReadOnlySpan<char> s, out int value)
     {
