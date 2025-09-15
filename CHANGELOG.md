@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+_No notable changes yet._
+
+## [0.9.2] - 2025-09-15
+
+- Added: Concise overloads Rule.From.File(...), Rule.From.Environment(...).
+- Added: .MountAt fluent API for rule mounting.
+- Migration: Replace targetPath: "A:B" with .MountAt("A:B").
+
 ## [0.9.1] - 2025-09-14
 Branding / assets update.
 

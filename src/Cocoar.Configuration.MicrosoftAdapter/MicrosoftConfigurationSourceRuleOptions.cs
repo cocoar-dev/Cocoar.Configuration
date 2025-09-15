@@ -9,25 +9,22 @@ public sealed class MicrosoftConfigurationSourceRuleOptions
     public string? BasePath { get; }
     public string? Identity { get; }
     public string? ConfigurationPrefix { get; }
-    public string? TargetPath { get; }
 
     public MicrosoftConfigurationSourceRuleOptions(
         IConfigurationSource source,
         string? basePath = null,
         string? identity = null,
-        string? configurationPrefix = null,
-        string? targetPath = null)
+    string? configurationPrefix = null)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
         BasePath = basePath;
         Identity = identity;
-        ConfigurationPrefix = configurationPrefix;
-        TargetPath = targetPath;
+    ConfigurationPrefix = configurationPrefix;
     }
 
     public MicrosoftConfigurationSourceProviderOptions ToProviderOptions()
         => new(Source, BasePath, Identity);
 
     public MicrosoftConfigurationSourceProviderQueryOptions ToQueryOptions()
-        => new(ConfigurationPrefix, TargetPath);
+        => new(ConfigurationPrefix);
 }

@@ -9,4 +9,9 @@ public static class RulesExtensions
             cm => optionsFactory(cm).ToProviderOptions(),
             cm => optionsFactory(cm).ToQueryOptions()
         );
+
+    public static
+        ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
+            EnvironmentVariableProviderQueryOptions> Environment(this Rule.Dsl _, string? environmentPrefix = null)
+        => _.Environment(_ => EnvironmentVariableRuleOptions.FromPrefix(environmentPrefix));
 }

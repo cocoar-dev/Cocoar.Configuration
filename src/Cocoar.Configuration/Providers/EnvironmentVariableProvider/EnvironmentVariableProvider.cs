@@ -32,8 +32,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     using var doc = JsonDocument.Parse(json);
     var element = doc.RootElement.Clone();
 
-        // Use the base class helper to wrap if needed
-    return Task.FromResult(WrapIfNeeded(element, queryOptions.TargetPath));
+        return Task.FromResult(element);
     }
 
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)

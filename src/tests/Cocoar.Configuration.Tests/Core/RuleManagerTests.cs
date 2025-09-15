@@ -20,8 +20,7 @@ public partial class RuleManagerTests
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("file.json"),
             new ConfigRegistration(typeof(object)),
-            useWhen: () => false,
-            required: true);
+            new ConfigRuleOptions(Required: true, UseWhen: () => false));
 
     var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
@@ -35,8 +34,7 @@ public partial class RuleManagerTests
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
             new ConfigRegistration(typeof(object)),
-            useWhen: () => true,
-            required: true);
+            new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
     var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default));
@@ -49,8 +47,7 @@ public partial class RuleManagerTests
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
             new ConfigRegistration(typeof(object)),
-            useWhen: () => true,
-            required: false);
+            new ConfigRuleOptions(Required: false, UseWhen: () => true));
 
     var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var (include, _) = await rm.ComputeAsync(new ConfigManager(Array.Empty<ConfigRule>()), default);
@@ -66,7 +63,6 @@ public partial class RuleManagerTests
     private sealed class InMemoryQueryOptions(string id) : IProviderQuery
     {
         public string Id => id;
-        public string? TargetPath => null;
     }
 
     private sealed class InMemoryProvider(InMemoryProviderOptions options)
@@ -98,11 +94,10 @@ public partial class RuleManagerTests
         var queryFactoryCalls = 0;
 
     var rule = ConfigRule.Create<InMemoryProvider, InMemoryProviderOptions, InMemoryQueryOptions>(
-            providerOptionsFactory: _ => { providerFactoryCalls++; return new InMemoryProviderOptions("K1"); },
-            queryOptionsFactory: _ => { queryFactoryCalls++; return new InMemoryQueryOptions("Q1"); },
-            typeDefinition: typeDef,
-            useWhen: () => true,
-            required: true);
+        providerOptionsFactory: _ => { providerFactoryCalls++; return new InMemoryProviderOptions("K1"); },
+        queryOptionsFactory: _ => { queryFactoryCalls++; return new InMemoryQueryOptions("Q1"); },
+        typeDefinition: typeDef,
+        new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
     var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
@@ -124,8 +119,7 @@ public partial class RuleManagerTests
             providerOptionsFactory: _ => new InMemoryProviderOptions("K1"),
             queryOptionsFactory: _ => new InMemoryQueryOptions(qId),
             typeDefinition: typeDef,
-            useWhen: () => true,
-            required: true);
+            new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
     var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
         var acc = new ConfigManager(Array.Empty<ConfigRule>());
@@ -140,7 +134,7 @@ public partial class RuleManagerTests
 
     // Minimal fake provider to simulate failures
     private sealed class FakeFileProviderOptions(string dir) : IProviderConfiguration { public string Dir => dir; }
-    private sealed class FakeFileProviderQuery(string name, bool fail = false) : IProviderQuery { public string Name => name; public bool Fail => fail; public string? TargetPath => null; }
+    private sealed class FakeFileProviderQuery(string name, bool fail = false) : IProviderQuery { public string Name => name; public bool Fail => fail; }
     private sealed class FakeFileProvider(FakeFileProviderOptions options) : ConfigurationProvider<FakeFileProviderOptions, FakeFileProviderQuery>(options)
     {
         public override Task<JsonElement> FetchConfigurationAsync(FakeFileProviderQuery query, CancellationToken ct = default)
@@ -162,8 +156,7 @@ public partial class RuleManagerTests
             new EmittingProvider.Options("K"),
             new EmittingProvider.Query("Q", changeBus),
             new ConfigRegistration(typeof(object)),
-            useWhen: () => true,
-            required: true);
+            new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
     var logger = NullLogger.Instance;
     var rm = new RuleManager(rule, logger, new ProviderRegistry());
@@ -195,7 +188,6 @@ public partial class RuleManagerTests
         {
             public string Id => id;
             public IObservable<Unit> Trigger => trigger;
-            public string? TargetPath => null;
         }
 
         public override Task<JsonElement> FetchConfigurationAsync(Query query, CancellationToken ct = default)
@@ -246,7 +238,6 @@ public partial class RuleManagerTests
     private sealed class IdentityQuery(string id) : IProviderQuery
     {
         public string Id => id;
-        public string? TargetPath => null;
     }
 
     private sealed class IdentityProvider(IdentityOptions options)
@@ -279,12 +270,12 @@ public partial class RuleManagerTests
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
             new ConfigRegistration(typeof(object)),
-            required: true);
+            new ConfigRuleOptions());
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q2"),
             new ConfigRegistration(typeof(object)),
-            required: true);
+            new ConfigRuleOptions());
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
     var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);
@@ -305,12 +296,12 @@ public partial class RuleManagerTests
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
             new ConfigRegistration(typeof(object)),
-            required: true);
+            new ConfigRuleOptions());
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("B"),
             new IdentityQuery("Q2"),
             new ConfigRegistration(typeof(object)),
-            required: true);
+            new ConfigRuleOptions());
 
     var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
     var rm2 = new RuleManager(rule2, NullLogger.Instance, registry);

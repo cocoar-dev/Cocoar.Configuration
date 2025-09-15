@@ -3,7 +3,7 @@
 Use any Microsoft.Extensions.Configuration IConfigurationSource as a Cocoar provider rule.
 
 - Options: `MicrosoftConfigurationSourceProviderOptions(IConfigurationSource source)`
-- Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?, targetPath?)`
+- Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?)`
 - Change semantics: relies on the underlying source/provider; many built-in configuration sources don't push change notifications here, so treat it as snapshot unless your source supports reloads.
 
 ## When to use

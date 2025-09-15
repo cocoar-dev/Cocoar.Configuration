@@ -47,9 +47,10 @@ public class TryGetAndStaticSeedingTests
     }
 
     [Fact]
-    public void FromStatic_With_TargetPath_Nests_Value()
+    public void FromStatic_With_MountPath_Nests_Value()
     {
-    var rule = Rule.From.Static<SeededSettings>(_ => new SeededSettings { Name = "B", Value = 7 }, targetPath: "Inner")
+        var rule = Rule.From.Static<SeededSettings>(_ => new SeededSettings { Name = "B", Value = 7 })
+            .MountAt("Inner")
             .For<Outer>()
             .Build();
 
@@ -67,7 +68,8 @@ public class TryGetAndStaticSeedingTests
             .For<SeededSettings>()
             .Build();
 
-    var dependentRule = Rule.From.Static<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), targetPath: "Dep")
+        var dependentRule = Rule.From.Static<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>())
+            .MountAt("Dep")
             .For<Container>()
             .Build();
 
@@ -81,7 +83,8 @@ public class TryGetAndStaticSeedingTests
     [Fact]
     public void FromStatic_AbsentSeed_GetRequired_Throws()
     {
-    var dependentRule = Rule.From.Static<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>(), targetPath: "Dep")
+        var dependentRule = Rule.From.Static<SeededSettings>(cm => cm.GetRequiredConfig<SeededSettings>())
+            .MountAt("Dep")
             .For<Container>()
             .Build();
 

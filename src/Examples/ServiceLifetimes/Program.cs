@@ -29,15 +29,15 @@ public static class Program
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Database"))
+            Rule.From.File("config.json", "Database")
                 .For<DatabaseConfig>()
                 .As<IDatabaseConfig>(),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Cache"))
+            Rule.From.File("config.json", "Cache")
                 .For<CacheConfig>(ServiceLifetime.Scoped),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "PrimaryDB"))
+            Rule.From.File("config.json", "PrimaryDB")
                 .For<DatabaseConfig>(ServiceLifetime.Singleton, "primary-db")
                 .As<IDatabaseConfig>(ServiceLifetime.Singleton, "primary"),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "SecondaryDB"))
+            Rule.From.File("config.json", "SecondaryDB")
                 .For<DatabaseConfig>()
                 .As<IDatabaseConfig>(ServiceLifetime.Singleton, "secondary")
         );

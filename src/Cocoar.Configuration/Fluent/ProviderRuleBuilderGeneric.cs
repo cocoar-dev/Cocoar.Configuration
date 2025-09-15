@@ -24,13 +24,17 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
         var typeDefs = BuildTypeDefinitions();
         foreach (var typeDef in typeDefs)
         {
-            yield return ConfigRule.Create<TProvider, TInstanceOptions, TQueryOptions>(
+            var opts = new ConfigRuleOptions(
+                    Required: _required,
+                    UseWhen: _useWhen)
+                .WithMount(_mountPath);
+
+            var rule = ConfigRule.Create<TProvider, TInstanceOptions, TQueryOptions>(
                 _instanceFactory,
                 _queryFactory,
                 typeDef,
-                useWhen: _useWhen,
-                required: _required
-            );
+                opts);
+            yield return rule;
         }
     }
 
@@ -39,7 +43,7 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
         var rules = BuildRules().ToList();
         if (rules.Count != 1)
             throw new InvalidOperationException($"Build() can only be used when exactly one registration is configured, but found {rules.Count}. Use BuildRules() instead.");
-        
+
         return rules[0];
     }
 }

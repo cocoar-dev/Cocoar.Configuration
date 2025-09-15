@@ -16,13 +16,11 @@ public class ConfigurationProviderGenericTests
     private sealed class TestProviderQuery : IProviderQuery
     {
         public string Id { get; }
-        public string? TargetPath => null;
         public TestProviderQuery(string id) => Id = id;
     }
 
     private sealed class WrongQueryType : IProviderQuery
     {
-        public string? TargetPath => null;
     }
 
     private sealed class TestProvider : ConfigurationProvider<TestProviderOptions, TestProviderQuery>

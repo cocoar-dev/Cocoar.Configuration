@@ -12,18 +12,19 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
         var json = ProviderOptions.Value.ValueKind == JsonValueKind.Undefined
             ? JsonDocument.Parse("{}").RootElement
             : ProviderOptions.Value;
-    return Task.FromResult(WrapIfNeeded(json, query.TargetPath));
+        return Task.FromResult(json);
     }
 
     public override IObservable<JsonElement> Changes(StaticJsonProviderQueryOptions queryOptions)
         => Observable.Empty<JsonElement>();
 
-    public static ConfigRule CreateRule<TConfigType>(JsonElement value, string? TargetPath = null, Func<bool>? useWhen = null, bool required = true)
-        => ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
+    public static ConfigRule CreateRule<TConfigType>(JsonElement value, Func<bool>? useWhen = null, bool required = true)
+    {
+        var opts = new ConfigRuleOptions(Required: required, UseWhen: useWhen);
+        return ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
             _ => new StaticJsonProviderOptions(value),
-            _ => new StaticJsonProviderQueryOptions(TargetPath),
+            _ => new StaticJsonProviderQueryOptions(),
             new ConfigRegistration(typeof(TConfigType)),
-            useWhen,
-            required
-        );
+            opts);
+    }
 }

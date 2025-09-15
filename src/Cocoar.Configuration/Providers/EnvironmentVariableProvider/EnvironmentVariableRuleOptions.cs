@@ -4,27 +4,24 @@ namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 public sealed class EnvironmentVariableRuleOptions
 {
     private readonly string? _environmentPrefix;
-    private readonly string? _targetPath;
 
     /// <summary>
     /// Create options for the environment variable provider.
-    /// environmentPrefix filters environment variables by the given prefix (e.g. "MYAPP_"),
-    /// targetPath optionally wraps the resulting object under a property path in the target config.
+    /// environmentPrefix filters environment variables by the given prefix (e.g. "MYAPP_").
     /// </summary>
-    public EnvironmentVariableRuleOptions(string? environmentPrefix = null, string? targetPath = null)
+    public EnvironmentVariableRuleOptions(string? environmentPrefix = null)
     {
         _environmentPrefix = environmentPrefix;
-        _targetPath = targetPath;
     }
 
     /// <summary>
     /// Preferred factory with clearer names.
     /// </summary>
-    public static EnvironmentVariableRuleOptions FromPrefix(string? environmentPrefix, string? targetPath = null)
-        => new(environmentPrefix: environmentPrefix, targetPath: targetPath);
+    public static EnvironmentVariableRuleOptions FromPrefix(string? environmentPrefix)
+        => new(environmentPrefix: environmentPrefix);
 
 
     public EnvironmentVariableProviderOptions ToProviderOptions() => new(_environmentPrefix);
     // Provider currently uses query.EnvironmentPrefix as the prefix filter; map environmentPrefix here for correct behavior
-    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_environmentPrefix, _targetPath);
+    public EnvironmentVariableProviderQueryOptions ToQueryOptions() => new(_environmentPrefix);
 }

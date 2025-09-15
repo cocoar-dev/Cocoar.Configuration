@@ -57,26 +57,26 @@ flowchart LR
 
 ## Current Providers
 
-- FileSourceProvider
+ - FileSourceProvider
   - Options: `FileSourceProviderOptions(directory, debounceTime?)` (debounce applies to underlying watcher events; provider reuse key is the fully resolved directory path only).
-  - Query: `FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?, debounceTime?)` (query-level debounce throttles the emission stream for that rule only; previously undocumented here).
+  - Query: `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)` (query-level debounce throttles the emission stream for that rule only).
   - Behavior: maintains a directory watcher; caches last parsed JSON per filename; change stream emits only after file system events (no initial emission). Errors reading the file during a change are swallowed and an empty JSON object is emitted to keep the stream alive. Initial recompute throws on missing file for required rules.
 - EnvironmentVariableProvider
-  - Options: `EnvironmentVariableProviderOptions(environmentPrefix?)` (provider reuse key is constant; all environment rules share one provider instance regardless of prefix differences in queries).
-  - Query: `EnvironmentVariableProviderQueryOptions(environmentPrefix?, targetPath?)` (there is no `configurationPath`; prefix filtering happens directly on the environment variables; previous version incorrectly mentioned a configuration path for selection).
-  - Behavior: snapshot read via `FetchConfigurationAsync` at recompute; `Changes()` is `Observable.Never` (no dynamic updates). Supports nested object construction via `__`, `:`, or `.` separators (single `_` literal).
+  - Options: `EnvironmentVariableProviderOptions(environmentPrefix?)` (provider reuse key is constant; all environment rules share one provider instance regardless of differing prefixes).
+  - Query: `EnvironmentVariableProviderQueryOptions(environmentPrefix?)` (no selection path; filtering happens directly on env variables).
+  - Behavior: snapshot read via `FetchConfigurationAsync`; `Changes()` is `Observable.Never`. Supports nested object construction via `__`, `:`, or `.` separators (single `_` is literal).
 - HttpPollingProvider
   - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval? = 5s default, handler?)`.
-  - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)`.
-  - Behavior: single `HttpClient` per provider instance; initial fetch performed during recompute; `Changes()` polls at `PollInterval` and emits only when the JSON payload (after optional selection & wrapping) differs from the cached last value for that query key.
+  - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, headers?)`.
+  - Behavior: single `HttpClient` per provider instance; polls at `PollInterval` and emits only when selected JSON changes.
 - MicrosoftConfigurationSourceProvider (Adapter)
-  - Wraps `Microsoft.Extensions.Configuration` sources (JSON, INI, environment variables, etc.) and adapts them.
-  - Honors reload-on-change via change tokens of the underlying provider (if the source supports it).
-  - Query uses `ConfigurationPrefix` and `TargetPath` for optional wrapping.
+  - Wraps `Microsoft.Extensions.Configuration` sources (JSON, INI, environment variables, etc.).
+  - Honors reload-on-change via underlying change tokens.
+  - Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?)`.
 - StaticJsonProvider
   - Supplies a static JSON value (explicit seeding) and never emits changes.
-  - Reuse key is a constant (all static providers with differing values are separate rules but provider identity key itself is "Static").
-  - Useful to seed dependent rules or provide defaults via the fluent `Rules.Using.FromStatic` helpers.
+  - Reuse key constant ("Static").
+  - Useful to seed dependent rules or provide defaults.
 
 ### Provider Reuse & Identity Keys
 
@@ -152,15 +152,35 @@ services.AddCocoarConfiguration([
 
 ## Quick Reference (Contracts)
 
-- ConfigRuleOptions: UseWhen (Func<bool>), Required (bool)
+- ConfigRuleOptions (record): Required (bool), UseWhen (Func<bool>?), MountPath (string?)
+- Rule-level mounting: call `.MountAt("Path:To:Node")` on the fluent builder to nest the provider's JSON under that path. Providers no longer implement per-query target wrapping.
 - ConfigRegistration: ConcreteType, ContractType?, ServiceLifetime, ServiceKey?
-- Provider base: ConfigurationProvider<TInstanceOptions, TQueryOptions>
-- File options/query: FileSourceProviderOptions(dir, debounceTime?), FileSourceProviderQueryOptions(filename, configurationPath?, targetPath?, debounceTime?)
-- Env options/query: EnvironmentVariableProviderOptions(environmentPrefix?), EnvironmentVariableProviderQueryOptions(environmentPrefix?, targetPath?)
-  - Nesting separators: "__" (double underscore), ":", and ".". Single '_' is treated as a literal.
-- HTTP options/query: HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?), HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, targetPath?, headers?)
-- Static provider: StaticJsonProviderOptions(jsonValue), StaticJsonProviderQueryOptions(targetPath?)
+- Provider base: `ConfigurationProvider<TInstanceOptions, TQueryOptions>`
+- File: `FileSourceProviderOptions(dir, debounceTime?)`, `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)`
+- Environment: `EnvironmentVariableProviderOptions(environmentPrefix?)`, `EnvironmentVariableProviderQueryOptions(environmentPrefix?)`
+  - Nesting separators for key materialization: `__` (double underscore), `:`, and `.`. Single `_` is literal.
+- HTTP: `HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?)`, `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, headers?)`
+- Static: `StaticJsonProviderOptions(jsonValue)`, (query object internal—no target/mount semantics).
+
+### Migration Note (Breaking Change)
+
+`TargetPath` (query-level) has been removed. Use rule-level `.MountAt(...)` instead:
+
+```csharp
+// Before (legacy targetPath parameter on query options)
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json", "SectionA", /* targetPath: "My:Mounted" */))
+    .For<MySettings>()
+    .Build();
+
+// After
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json", "SectionA"))
+    .MountAt("My:Mounted")
+    .For<MySettings>()
+    .Build();
+```
+
+Benefits: simpler provider query types, consistent mounting across all providers, centralized wrapping logic in `RuleManager`.
 
 ## Version
 
-- Last synchronized with code: 2025-09-14 (branch: `readme`).
+- Last synchronized with code: 2025-09-15 (branch: `refactoring-fluent-api`).

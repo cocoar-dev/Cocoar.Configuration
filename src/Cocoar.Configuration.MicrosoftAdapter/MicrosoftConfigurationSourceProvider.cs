@@ -22,8 +22,8 @@ public sealed class MicrosoftConfigurationSourceProvider(
         var provider = BuildProvider();
         var root = new ConfigurationRoot(new[] { provider });
         var dict = Flatten(root, query.ConfigurationPrefix);
-        var element = DictToJson(dict);
-        return Task.FromResult(WrapIfNeeded(element, query.TargetPath));
+    var element = DictToJson(dict);
+    return Task.FromResult(element);
     }
 
     public override IObservable<JsonElement> Changes(MicrosoftConfigurationSourceProviderQueryOptions query)
@@ -35,7 +35,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
             {
                 var root = new ConfigurationRoot(new[] { provider });
                 var dict = Flatten(root, query.ConfigurationPrefix);
-                var json = WrapIfNeeded(DictToJson(dict), query.TargetPath);
+                var json = DictToJson(dict);
                 observer.OnNext(json);
             }
 

@@ -9,6 +9,7 @@ public abstract class RuleBuilderBase<TBuilder>
     protected Func<bool>? _useWhen;
     protected Type? _concreteType;
     protected readonly List<ConfigRegistration> _registrations = new();
+    protected string? _mountPath; // optional relocation path
 
     public TBuilder Required(bool value = true)
     {
@@ -21,6 +22,14 @@ public abstract class RuleBuilderBase<TBuilder>
     public TBuilder When(Func<bool> predicate)
     {
         _useWhen = predicate;
+        return (TBuilder)this;
+    }
+
+    // Relocate (mount) the fetched subtree under a new colon-separated root path.
+    public TBuilder MountAt(string mountPath)
+    {
+        if (string.IsNullOrWhiteSpace(mountPath)) throw new ArgumentException("mountPath cannot be null/empty", nameof(mountPath));
+        _mountPath = mountPath.Trim();
         return (TBuilder)this;
     }
 

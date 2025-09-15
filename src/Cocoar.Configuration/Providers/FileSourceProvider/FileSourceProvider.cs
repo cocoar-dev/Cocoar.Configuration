@@ -34,8 +34,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             result = SelectByPath(value, queryOptions.ConfigurationPath);
         }
 
-        // Use the base class helper to wrap if needed
-    return Task.FromResult(WrapIfNeeded(result, queryOptions.TargetPath));
+        return Task.FromResult(result);
     }
 
     public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)
@@ -63,7 +62,7 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
                     JsonElement newSection = string.IsNullOrWhiteSpace(queryOptions.ConfigurationPath)
                         ? newValue
                         : SelectByPath(newValue, queryOptions.ConfigurationPath);
-                    return WrapIfNeeded(newSection, queryOptions.TargetPath);
+                    return newSection;
                 })
                 .Publish()
                 .RefCount()

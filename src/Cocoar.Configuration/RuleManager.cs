@@ -58,6 +58,11 @@ internal sealed class RuleManager : IDisposable
         try
         {
             var value = await _provider!.FetchConfigurationAsync(queryOptions, ct).ConfigureAwait(false);
+            var mountPath = _rule.Options?.MountPath;
+            if (!string.IsNullOrWhiteSpace(mountPath))
+            {
+                value = Json.JsonPath.WrapIfNeeded(value, mountPath);
+            }
             return (include: true, value);
         }
         catch (Exception ex)

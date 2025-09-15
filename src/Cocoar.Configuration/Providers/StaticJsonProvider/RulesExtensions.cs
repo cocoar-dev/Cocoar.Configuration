@@ -9,11 +9,11 @@ public static class RulesExtensions
         StaticJsonProvider,
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
-    > Static<T>(this Rule.Dsl dsl, Func<ConfigManager, T> factory, string? targetPath = null)
+    > Static<T>(this Rule.Dsl dsl, Func<ConfigManager, T> factory)
     {
         return new(
             cm => new StaticJsonProviderOptions(System.Text.Json.JsonSerializer.SerializeToElement(factory(cm)!)),
-            _ => new StaticJsonProviderQueryOptions(targetPath)
+            _ => new StaticJsonProviderQueryOptions()
         );
     }
 }

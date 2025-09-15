@@ -2,7 +2,4 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers.StaticJsonProvider;
 
-public sealed class StaticJsonProviderQueryOptions(string? targetPath = null) : IProviderQuery
-{
-    public string? TargetPath { get; } = targetPath;
-}
+public sealed class StaticJsonProviderQueryOptions() : IProviderQuery { }
