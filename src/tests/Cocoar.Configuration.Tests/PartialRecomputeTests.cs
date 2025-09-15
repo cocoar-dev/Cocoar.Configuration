@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Cocoar.Configuration.Tests;
 
+[Collection("StressTests")] // Prevent parallel execution to avoid resource contention
 /*
  * PartialRecomputeTests
  * ---------------------

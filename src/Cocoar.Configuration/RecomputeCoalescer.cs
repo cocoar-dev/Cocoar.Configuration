@@ -85,8 +85,13 @@ internal sealed class RecomputeCoalescer : IDisposable
             {
                 try
                 {
-                    var startIdx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
-                    if (startIdx != int.MaxValue) StartPass(startIdx);
+                    // Double-check that we're still idle before starting pass
+                    // Another thread might have started a pass in the meantime
+                    if (Volatile.Read(ref _running) == 0)
+                    {
+                        var startIdx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
+                        if (startIdx != int.MaxValue) StartPass(startIdx);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -123,8 +128,13 @@ internal sealed class RecomputeCoalescer : IDisposable
                 {
                     try
                     {
-                        var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
-                        if (idx != int.MaxValue) StartPass(idx);
+                        // Double-check that we're still idle before starting pass
+                        // Another thread might have started a pass in the meantime
+                        if (Volatile.Read(ref _running) == 0)
+                        {
+                            var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
+                            if (idx != int.MaxValue) StartPass(idx);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -151,8 +161,11 @@ internal sealed class RecomputeCoalescer : IDisposable
 
     private void StartPass(int idx)
     {
-        Interlocked.Exchange(ref _earliestDuringRun, int.MaxValue);
+        // Critical: Set running state before clearing earliestDuringRun to prevent race condition
+        // where Signal() might miss events during the state transition
         Interlocked.Exchange(ref _running, 1);
+        Interlocked.Exchange(ref _earliestDuringRun, int.MaxValue);
+        
         try
         {
             _invoke(idx);

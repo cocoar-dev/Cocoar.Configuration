@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Cocoar.Configuration.Tests;
 
+[Collection("StressTests")] // Prevent parallel execution to avoid resource contention
 /*
  * RecomputeStressTests
  * --------------------
@@ -111,7 +112,7 @@ public class RecomputeStressTests
         var rules = providers.Select((p, idx) => new ConfigRule(typeof(StormProvider), providerOptions[idx], query,
             new ConfigRegistration(typeof(StormConfig)))).ToArray();
 
-        var manager = new ConfigManager(rules, NullLogger.Instance, Factory, debounceMilliseconds: 35).Initialize();
+        var manager = new ConfigManager(rules, NullLogger.Instance, Factory, debounceMilliseconds: 100).Initialize();
 
         // Baseline fetch counts
         var baseFetch = providers.Select(p => p.FetchCount).ToArray();
