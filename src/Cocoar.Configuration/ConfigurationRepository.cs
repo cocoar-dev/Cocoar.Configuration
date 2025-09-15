@@ -54,6 +54,14 @@ internal class ConfigurationRepository
     }
 
     /// <summary>
+    /// Abandons any in-progress pending update without committing changes.
+    /// </summary>
+    public void RollbackUpdate()
+    {
+        _pendingConfigurations = null;
+    }
+
+    /// <summary>
     /// Finds a configuration registration by type (concrete or contract type).
     /// </summary>
     public ConfigRegistration? FindRegistration<T>()

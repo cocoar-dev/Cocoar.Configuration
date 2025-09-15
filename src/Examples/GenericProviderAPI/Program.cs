@@ -19,11 +19,12 @@ public static class Program
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(
             Rule.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
-                instanceOptions: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
-                queryOptions: _ => new FileSourceProviderQueryOptions(Filename: "appsettings.json", ConfigurationPath: "App")
-            )
-            .For<AppSettings>()
-            .Required()
+                    instanceOptions: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
+                    queryOptions: _ => new FileSourceProviderQueryOptions(Filename: "appsettings.json")
+                )
+                .Select("App")
+                .For<AppSettings>()
+                .Required()
         );
         var serviceProvider = services.BuildServiceProvider();
         var config = serviceProvider.GetRequiredService<AppSettings>();

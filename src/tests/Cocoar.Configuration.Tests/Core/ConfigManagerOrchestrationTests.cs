@@ -58,9 +58,9 @@ public class ConfigManagerOrchestrationTests
         // Assert: exactly one call so far
         Assert.Equal(1, CountingProvider.CallCount);
 
-        // Emit a change and wait briefly
-        changeBus.OnNext(Unit.Default);
-        await Task.Delay(50);
+    // Emit a change and wait for debounce window (>300ms default debounce)
+    changeBus.OnNext(Unit.Default);
+    await Task.Delay(400);
 
         // Assert: recomputed once more
         Assert.Equal(2, CountingProvider.CallCount);

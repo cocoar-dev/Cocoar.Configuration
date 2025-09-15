@@ -29,6 +29,10 @@ internal sealed class RuleManager : IDisposable
     public bool Required => _rule.Options?.Required == true;
     public IObservable<bool> Changes => _changes.AsObservable();
 
+    // Per-rule flattened contribution from last successful compute (already flattened, not merged)
+    internal Dictionary<string, JsonElement>? LastFlatContribution { get; set; }
+    internal string? LastSelectionHash { get; set; }
+
     public async Task<(bool include, JsonElement value)> ComputeAsync(ConfigManager accessor, CancellationToken ct)
     {
         // Handle UseWhen predicate
@@ -118,9 +122,46 @@ internal sealed class RuleManager : IDisposable
         _subscription = _provider!
             .Changes(queryOptions)
             .Subscribe(
-                _ => { try { _changes.OnNext(true); } catch { /* ignore */ } },
-                _ => { try { _changes.OnNext(true); } catch { /* ignore */ } }
+                element =>
+                {
+                    try
+                    {
+                        var selected = ApplySelect(element);
+                        var hash = ComputeSelectionHash(selected);
+                        if (hash == LastSelectionHash) return; // suppress identical selection
+                        LastSelectionHash = hash;
+                        _changes.OnNext(true);
+                    }
+                    catch { /* suppress selection errors; provider fetch path will surface them */ }
+                },
+                _ =>
+                {
+                    try { _changes.OnNext(true); } catch { /* ignore */ }
+                }
             );
+    }
+
+    private JsonElement ApplySelect(JsonElement value)
+    {
+        var selectPath = _rule.Options?.SelectPath;
+        if (!string.IsNullOrWhiteSpace(selectPath))
+        {
+            try { value = Json.JsonPath.SelectColonDelimited(value, selectPath); }
+            catch { /* ignore here; gating only */ }
+        }
+        return value;
+    }
+
+    private static string ComputeSelectionHash(JsonElement value)
+    {
+        try
+        {
+            var raw = value.GetRawText();
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(raw);
+            return Convert.ToHexString(sha.ComputeHash(bytes));
+        }
+        catch { return string.Empty; }
     }
 
     private void Unsubscribe()

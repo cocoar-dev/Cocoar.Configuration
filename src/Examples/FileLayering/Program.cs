@@ -21,10 +21,10 @@ public static class Program
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(
-            // New concise overload usage
-            Rule.From.File("base.json", "App").For<AppConfig>().Optional(),
-            Rule.From.File("production.json", "App").For<AppConfig>().Optional(),
-            Rule.From.File("local.json", "App").For<AppConfig>().Optional()
+            // Updated for new selection API
+            Rule.From.File("base.json").Select("App").For<AppConfig>().Optional(),
+            Rule.From.File("production.json").Select("App").For<AppConfig>().Optional(),
+            Rule.From.File("local.json").Select("App").For<AppConfig>().Optional()
         );
         var serviceProvider = services.BuildServiceProvider();
         var config = serviceProvider.GetService<AppConfig>();

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Utilities;
+using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration;
 
@@ -19,15 +20,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private readonly ProviderRegistry _providerRegistry;
     private readonly ILogger _logger;
     private volatile bool _initialized;
-
-    public ConfigManager(IEnumerable<ConfigRule> rules, ILogger? logger = null)
+    private readonly object _recomputeGate = new();
+    private CancellationTokenSource? _recomputeCts;
+    private Task? _currentRecomputeTask;
+    private readonly int _debounceMs;
+    public ConfigManager(IEnumerable<ConfigRule> rules, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
         _rules = rules.ToList();
         _logger = logger ?? NullLogger.Instance;
-        _providerRegistry = new ProviderRegistry(_logger);
+        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
         _repository = new ConfigurationRepository();
         _orchestrator = new ConfigurationOrchestrator(_repository, _logger);
         _subscriptionManager = new ChangeSubscriptionManager(_logger);
+        _debounceMs = debounceMilliseconds;
     }
 
     // --- Public API -------------------------------------------------
@@ -144,6 +149,37 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private void RebuildSubscriptions()
     {
         _subscriptionManager.CreateSubscriptions(_ruleManagers,
-            () => { _orchestrator.RecomputeAllConfigurationsSafe(_ruleManagers, this); });
+            startIndex => ScheduleRecompute(startIndex), _debounceMs, 40);
     }
+
+    private void ScheduleRecompute(int startIndex)
+    {
+        CancellationTokenSource cts;
+        Task task;
+        lock (_recomputeGate)
+        {
+            try { _recomputeCts?.Cancel(); } catch { /* ignore */ }
+            _recomputeCts?.Dispose();
+            _recomputeCts = new CancellationTokenSource();
+            cts = _recomputeCts;
+            task = _currentRecomputeTask = Task.Run(() =>
+            {
+                try
+                {
+                    _orchestrator.RecomputeAllConfigurationsSafe(_ruleManagers, this, startIndex, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Swallow expected cancellation
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Recompute failed");
+                }
+            }, cts.Token);
+        }
+    }
+
+    // Exposed for testing (optional) to await current recompute
+    internal Task? CurrentRecomputeTask => _currentRecomputeTask;
 }

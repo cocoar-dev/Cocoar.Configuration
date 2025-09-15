@@ -136,7 +136,7 @@ Query-level subscription keys are based on serialization of the entire query obj
 
 ```csharp
 services.AddCocoarConfiguration([
-  Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
+  Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json")).Select("SectionA").For<MySectionSettings>(),
   Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("MYAPP_")).For<MySectionSettings>(),
   Rule.From.HttpPolling(cfg => new HttpPollingRuleOptions(
     urlPathOrAbsolute: "/v1/settings",
@@ -159,7 +159,7 @@ services.AddCocoarConfiguration([
 
 Before (legacy configurationPath + targetPath in provider/query options):
 ```csharp
-Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json", "SectionA"))
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json")).Select("SectionA")
     .For<MySettings>()
     .Build();
 ```
@@ -173,6 +173,33 @@ Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json"))
 ```
 Benefits: simpler queries; centralized Fetch → Select → Mount → Merge enabling future partial recompute.
 
+### Incremental Recompute (Overview)
+
+The configuration pipeline now supports incremental recomputation:
+
+- Provider change events are selection-hash gated: if the selected subtree (after `.Select`) is unchanged, no recompute is scheduled.
+- When changes occur, only the suffix of rules from the earliest changed index is recomputed (providers refetched); the prefix is reconstructed from stored per-rule flattened contributions without provider calls.
+- Cancellation: a new earlier-index change arriving mid-pass cancels the in-flight recompute and restarts from the new earliest index, ensuring minimal redundant work.
+- Debounce refinement: first change executes promptly (configurable initial delay) and subsequent rapid changes are coalesced in a short trailing window, reducing latency for isolated updates while collapsing bursts.
+- Deletions: if a later fetch omits keys previously contributed by that rule, those keys are removed from the merged configuration unless overridden by later rules.
+
+Future optimizations (excluded from this commit) include fine-grained skipping inside the recomputed suffix and performance benchmarks to guide hash algorithm selection.
+
 ## Version
 
-- Last synchronized with code: 2025-09-15 (branch: `refactor-configuration-path`).
+- Last synchronized with code: 2025-09-15
+
+### Static Rule Set (No Runtime Add/Remove)
+
+The set of configuration rules is intentionally immutable after `ConfigManager.Initialize()`. Dynamic
+add/remove (structural mutation) was evaluated and deferred because it would:
+
+- Complicate incremental recompute (earliest-index stability, cancellation restarts)
+- Require subscription & provider handle churn for little practical gain
+- Increase locking complexity and potential for subtle race conditions
+
+Instead, conditional participation is handled via `UseWhen` predicates. When `UseWhen` evaluates to
+false, the rule is skipped and its previous contribution removed on the next pass, achieving the
+practical effect of a disabled rule without structural changes. This keeps ordering deterministic and
+guarantees predictable incremental recompute behavior. Support for true dynamic structural mutation
+can be revisited if a compelling scenario emerges.

@@ -13,11 +13,13 @@ internal sealed class ProviderRegistry
     private readonly ConcurrentDictionary<(Type type, string key), Entry> _entries = new();
     private readonly ILogger _logger;
     private readonly bool _diagnosticsEnabled;
+    private readonly Func<Type, IProviderConfiguration, ConfigurationProvider>? _factory;
 
-    public ProviderRegistry(ILogger? logger = null, bool enableDiagnostics = false)
+    public ProviderRegistry(ILogger? logger = null, bool enableDiagnostics = false, Func<Type, IProviderConfiguration, ConfigurationProvider>? factory = null)
     {
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
         _diagnosticsEnabled = enableDiagnostics;
+        _factory = factory;
     }
 
     // Entry is internal to avoid inconsistent accessibility while keeping it scoped to the registry.
@@ -100,8 +102,14 @@ internal sealed class ProviderRegistry
         }
     }
 
-    private static ConfigurationProvider CreateProvider(Type providerType, IProviderConfiguration options)
+    private ConfigurationProvider CreateProvider(Type providerType, IProviderConfiguration options)
     {
+        if (_factory is not null)
+        {
+            var inst = _factory(providerType, options);
+            if (inst == null) throw new InvalidOperationException("Factory produced null provider instance.");
+            return inst;
+        }
         var instance = Activator.CreateInstance(providerType, options) as ConfigurationProvider
                        ?? throw new InvalidOperationException($"Could not create provider {providerType.Name}.");
         return instance;
