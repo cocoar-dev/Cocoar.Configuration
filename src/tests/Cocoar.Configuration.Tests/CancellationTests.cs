@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Xunit;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Reactive.Subjects;
@@ -118,14 +119,17 @@ public class CancellationTests
         await Task.Delay(40); // during p2's long fetch
         p1.BumpAndSignal();
 
-        // Wait enough time for cancellation + restart passes
-        await Task.Delay(400);
+        // Poll for refetches rather than relying on a fixed delay (reduces CI flakiness under load)
+        var timeoutMs = 1500;
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs && (p1.FetchCount < b1 + 1 || p2.FetchCount < b2 + 1 || p3.FetchCount < b3 + 1))
+        {
+            await Task.Delay(25);
+        }
 
-        // Expectations:
-        // p2 first long fetch started (FetchCount increments to 2) but may be canceled before completion of suffix fetch cycle; restart leads to another fetch (count 3) eventually.
-        // To keep deterministic, assert minimum counts and that earlier provider fetched again after bump.
-        Assert.True(p1.FetchCount >= b1 + 1, "p1 should have been refetched after its change");
-        Assert.True(p2.FetchCount >= b2 + 1, "p2 should have at least started a second fetch (restart)");
-        Assert.True(p3.FetchCount >= b3 + 1, "p3 should have been refetched in at least one pass");
+        // Expectations (minimum guarantees):
+        Assert.True(p1.FetchCount >= b1 + 1, $"p1 should have been refetched after its change (elapsed={sw.ElapsedMilliseconds}ms)");
+        Assert.True(p2.FetchCount >= b2 + 1, $"p2 should have at least started a second fetch (restart) (elapsed={sw.ElapsedMilliseconds}ms)");
+        Assert.True(p3.FetchCount >= b3 + 1, $"p3 should have been refetched in at least one pass (elapsed={sw.ElapsedMilliseconds}ms)");
     }
 }

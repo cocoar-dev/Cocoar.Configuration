@@ -92,3 +92,53 @@ Fetch → Select → Mount → Flatten → Merge → Materialize Snapshot → Pu
 
 * Required: failures block recompute for that type.
 * Optional: failures tolerated and skipped.
+
+---
+
+## Correctness Guarantees
+
+The incremental engine optimizes work (prefix reuse, selection-hash gating, cancellation, debounce) but MUST preserve the exact end-state a full serial recompute would have produced.
+
+### Invariants After Quiescence
+
+1. Last-write-wins ordering: For the static rule sequence R0..Rn the published snapshot equals applying each participating rule in order and overwriting flattened keys.
+2. No regression: A key cannot revert to an older value once overwritten by a later rule unless a subsequent change reintroduces that older value via a new provider emission.
+3. Proper deletions: Keys removed by a recomputed rule disappear unless re-added later in the sequence.
+4. Atomicity: Consumers never observe a partially merged intermediate state; only fully merged snapshots are published.
+5. Selection isolation: Changes outside a rule's selected subtree never force recompute nor alter snapshot state.
+
+### Test Suites Enforcing These
+
+* DifferentialCorrectnessFuzzTests: Random mutation waves; compares final published flattened map to a naive full recompute (independent merge) ensuring bit-level equality.
+* OverlappingRecomputeCorrectnessTests: Descending index storms maximize cancellation; verifies each provider's latest versioned contribution is reflected (no lost updates).
+* Existing partial recompute & deletion tests: Confirm earliest-index detection + deletion propagation semantics.
+
+### Removed Timing Heuristics
+
+Early load tests asserted wall-clock thresholds and per-provider refetch counts; these were dropped because timing variance is environmental and not a correctness dimension. The differential comparison provides a stronger, deterministic guarantee.
+
+### Planned Extensions
+
+* Rule-order permutation differential runs (shuffle static ordering per test run) to demonstrate correct precedence handling independent of concurrency.
+* Optional debug-only invariant: compute naive merge post-publish and assert equality (disabled in production for cost reasons).
+
+These layers ensure optimisation cannot silently compromise correctness.
+
+---
+
+## Testing Strategy (Overview)
+
+The correctness guarantees above are enforced by a layered test taxonomy:
+
+| Layer | Purpose | Representative Suites |
+|-------|---------|-----------------------|
+| Differential end-state | Prove incremental == full naive merge | `DifferentialCorrectnessFuzzTests` |
+| Incrementality rules | Earliest-index, prefix replay, suffix recompute | `PartialRecomputeTests`, `OverlappingRecomputeCorrectnessTests` |
+| Cancellation & coalescing | Ensure no lost updates under restart storms | `CancellationTests`, `OverlappingRecomputeCorrectnessTests` |
+| Deletion semantics | Removal propagation & non-resurrection | `SnapshotChangeDeletionTests` |
+| Stress & burst behaviour | Stability under high-frequency change storms | `RecomputeStressTests` |
+| Provider integration | Source-specific behaviors (file, env, HTTP, adapter) | `Providers/*` suites |
+
+Each suite asserts functional invariants, not timing heuristics. Fuzz differential tests are the final safety net ensuring every optimisation preserves the canonical merge result.
+
+For an at-a-glance summary see the "Quality & Reliability" section in the top-level `README.md`.

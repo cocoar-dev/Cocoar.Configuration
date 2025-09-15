@@ -164,6 +164,27 @@ For more in-depth documentation, see:
 
 ---
 
+## Quality & Reliability
+
+This project invests heavily in **correctness-first incremental recompute**. Optimisations (prefix reuse, cancellation, selection‑hash gating, debounce) are all guarded by strong differential and stress tests so performance never compromises determinism.
+
+Core test suites (see `src/tests/`):
+
+| Suite | Focus | Guarantee
+|-------|-------|----------|
+| `DifferentialCorrectnessFuzzTests` | Random multi-provider mutation waves | Final published snapshot bit-for-bit equals a naive full merge |
+| `PartialRecomputeTests` | Prefix reuse / earliest-index accuracy | Unchanged prefix providers are never refetched |
+| `OverlappingRecomputeCorrectnessTests` | Cancellation under descending storms | No lost updates; latest versions survive heavy overlap |
+| `CancellationTests` | Mid-pass abort & restart | Earlier changes preempt wasted later work |
+| `SnapshotChangeDeletionTests` | Deletion propagation | Removed keys do not resurrect spuriously |
+| `RecomputeStressTests` | Burst & jitter durability | Bounded passes; stable end-state |
+| Provider suites (`Providers/*Tests`) | Integration of file/env/http/adapter | Source-specific semantics remain correct |
+
+**Why call this out?** Incremental configuration layering is deceptively complex once you introduce cancellation and reuse. Many libraries silently drop updates or leak stale keys; these suites explicitly prevent that class of regression.
+
+
+---
+
 ## Versioning & Stability
 
 - Stable releases follow **SemVer**; see GitHub Releases or NuGet version history for changes.

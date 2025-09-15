@@ -31,6 +31,8 @@ internal class ConfigurationOrchestrator
     {
     // Flat maps by config contract, merged by rule order (last wins). Seeded by prefix replay logic.
     var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
+    // Track which rule contributed each key to enable safe deletion
+    var keyProvenance = new Dictionary<ConfigRegistration, Dictionary<string, int>>();
 
         _repository.BeginUpdate();
         var list = ruleManagers.ToList();
@@ -50,8 +52,16 @@ internal class ConfigurationOrchestrator
                     flatMap = new Dictionary<string, JsonElement>();
                     tempFlatMaps[rmPrefix.TypeDefinition] = flatMap;
                 }
+                if (!keyProvenance.TryGetValue(rmPrefix.TypeDefinition, out var provenance))
+                {
+                    provenance = new Dictionary<string, int>();
+                    keyProvenance[rmPrefix.TypeDefinition] = provenance;
+                }
                 foreach (var kvp in rmPrefix.LastFlatContribution)
+                {
                     flatMap[kvp.Key] = kvp.Value;
+                    provenance[kvp.Key] = i; // Track which rule contributed this key
+                }
 
                 _repository.UpdateConfiguration(rmPrefix.TypeDefinition, JsonConfigurationProcessor.Unflatten(flatMap));
             }
@@ -74,23 +84,34 @@ internal class ConfigurationOrchestrator
                 flatMap = new Dictionary<string, JsonElement>();
                 tempFlatMaps[rm.TypeDefinition] = flatMap;
             }
+            if (!keyProvenance.TryGetValue(rm.TypeDefinition, out var provenance))
+            {
+                provenance = new Dictionary<string, int>();
+                keyProvenance[rm.TypeDefinition] = provenance;
+            }
 
             var newFlatContribution = JsonConfigurationProcessor.Flatten(value);
-            // Deletion handling: remove keys contributed previously by this rule that are now absent
+            // Safe deletion handling: only remove keys that were actually contributed by this rule
             if (rm.LastFlatContribution is { } oldContribution)
             {
                 foreach (var oldKey in oldContribution.Keys)
                 {
                     if (!newFlatContribution.ContainsKey(oldKey))
                     {
-                        // Only remove if current flat map value originated from this rule. Since we do not track per-key provenance,
-                        // we conservatively remove; later rules will re-add if they override.
-                        flatMap.Remove(oldKey);
+                        // Only remove if this rule was the one that contributed the key
+                        if (provenance.TryGetValue(oldKey, out var contributingRule) && contributingRule == i)
+                        {
+                            flatMap.Remove(oldKey);
+                            provenance.Remove(oldKey);
+                        }
                     }
                 }
             }
             foreach (var kvp in newFlatContribution)
+            {
                 flatMap[kvp.Key] = kvp.Value;
+                provenance[kvp.Key] = i; // Track that this rule contributed this key
+            }
             rm.LastFlatContribution = newFlatContribution; // store raw per-rule delta
 
             var unflattened = JsonConfigurationProcessor.Unflatten(flatMap);
