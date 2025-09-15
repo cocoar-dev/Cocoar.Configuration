@@ -24,41 +24,107 @@ internal class ConfigurationOrchestrator
     /// Recomputes all configurations from the provided rule managers.
     /// </summary>
     public async Task RecomputeAllConfigurationsAsync(
-        IEnumerable<RuleManager> ruleManagers, 
+        IEnumerable<RuleManager> ruleManagers,
         ConfigManager configManager,
+        int startIndex = 0,
         CancellationToken cancellationToken = default)
     {
-        // Flat maps by config contract, merged by rule order (last wins)
-        var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
-        
-        // Install working snapshot for in-progress reads
-        _repository.BeginUpdate();
+    // Flat maps by config contract, merged by rule order (last wins). Seeded by prefix replay logic.
+    var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
+    // Track which rule contributed each key to enable safe deletion
+    var keyProvenance = new Dictionary<ConfigRegistration, Dictionary<string, int>>();
 
-        foreach (var rm in ruleManagers)
+        _repository.BeginUpdate();
+        var list = ruleManagers.ToList();
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // For prefix before startIndex, replay stored per-rule flat contributions instead of re-fetching
+        if (startIndex > 0)
         {
+            for (int i = 0; i < startIndex && i < list.Count; i++)
+            {
+                var rmPrefix = list[i];
+                if (rmPrefix.LastFlatContribution == null) continue; // rule previously skipped/failed
+
+                if (!tempFlatMaps.TryGetValue(rmPrefix.TypeDefinition, out var flatMap))
+                {
+                    flatMap = new Dictionary<string, JsonElement>();
+                    tempFlatMaps[rmPrefix.TypeDefinition] = flatMap;
+                }
+                if (!keyProvenance.TryGetValue(rmPrefix.TypeDefinition, out var provenance))
+                {
+                    provenance = new Dictionary<string, int>();
+                    keyProvenance[rmPrefix.TypeDefinition] = provenance;
+                }
+                foreach (var kvp in rmPrefix.LastFlatContribution)
+                {
+                    flatMap[kvp.Key] = kvp.Value;
+                    provenance[kvp.Key] = i; // Track which rule contributed this key
+                }
+
+                _repository.UpdateConfiguration(rmPrefix.TypeDefinition, JsonConfigurationProcessor.Unflatten(flatMap));
+            }
+        }
+
+        for (int i = startIndex; i < list.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rm = list[i];
             var (include, value) = await rm.ComputeAsync(configManager, cancellationToken).ConfigureAwait(false);
-            if (!include) continue;
+            if (!include)
+            {
+                // Clear previous contribution if rule no longer participates
+                rm.LastFlatContribution = null;
+                continue;
+            }
 
             if (!tempFlatMaps.TryGetValue(rm.TypeDefinition, out var flatMap))
             {
                 flatMap = new Dictionary<string, JsonElement>();
                 tempFlatMaps[rm.TypeDefinition] = flatMap;
             }
+            if (!keyProvenance.TryGetValue(rm.TypeDefinition, out var provenance))
+            {
+                provenance = new Dictionary<string, int>();
+                keyProvenance[rm.TypeDefinition] = provenance;
+            }
 
-            var flatOutcome = JsonConfigurationProcessor.Flatten(value);
-            foreach (var kvp in flatOutcome)
-                flatMap[kvp.Key] = kvp.Value; // last rule wins per key
+            var newFlatContribution = JsonConfigurationProcessor.Flatten(value);
+            // Safe deletion handling: only remove keys that were actually contributed by this rule
+            if (rm.LastFlatContribution is { } oldContribution)
+            {
+                foreach (var oldKey in oldContribution.Keys)
+                {
+                    if (!newFlatContribution.ContainsKey(oldKey))
+                    {
+                        // Only remove if this rule was the one that contributed the key
+                        if (provenance.TryGetValue(oldKey, out var contributingRule) && contributingRule == i)
+                        {
+                            flatMap.Remove(oldKey);
+                            provenance.Remove(oldKey);
+                        }
+                    }
+                }
+            }
+            foreach (var kvp in newFlatContribution)
+            {
+                flatMap[kvp.Key] = kvp.Value;
+                provenance[kvp.Key] = i; // Track that this rule contributed this key
+            }
+            rm.LastFlatContribution = newFlatContribution; // store raw per-rule delta
 
-            // Update working snapshot for this type so subsequent rules can read it
-            var partial = JsonConfigurationProcessor.Unflatten(flatMap);
-            _repository.UpdateConfiguration(rm.TypeDefinition, partial);
+            var unflattened = JsonConfigurationProcessor.Unflatten(flatMap);
+            _repository.UpdateConfiguration(rm.TypeDefinition, unflattened);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = JsonConfigurationProcessor.Unflatten(flatMap);
-
         _repository.CommitUpdate(nextConfig);
+
+    // Previous merged flat maps cache removed (no longer required after per-rule contribution + deletion handling).
     }
 
     /// <summary>
@@ -66,14 +132,34 @@ internal class ConfigurationOrchestrator
     /// </summary>
     public void RecomputeAllConfigurationsSafe(
         IEnumerable<RuleManager> ruleManagers,
-        ConfigManager configManager)
+        ConfigManager configManager,
+        int startIndex = 0,
+        CancellationToken cancellationToken = default)
     {
-        // Prevent concurrent recomputes and ensure atomic swap
         lock (_recomputeLock)
         {
             _logger.LogDebug("Recompute started");
-            RecomputeAllConfigurationsAsync(ruleManagers, configManager).GetAwaiter().GetResult();
-            _logger.LogDebug("Recompute finished");
+            try
+            {
+                RecomputeAllConfigurationsAsync(ruleManagers, configManager, startIndex, cancellationToken).GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Recompute cancelled");
+                // Ensure repository not left in pending state
+                _repository.RollbackUpdate();
+                throw;
+            }
+            catch
+            {
+                // On failure ensure pending cleared to avoid inconsistent CurrentConfigurations
+                _repository.RollbackUpdate();
+                throw;
+            }
+            finally
+            {
+                _logger.LogDebug("Recompute finished");
+            }
         }
     }
 }

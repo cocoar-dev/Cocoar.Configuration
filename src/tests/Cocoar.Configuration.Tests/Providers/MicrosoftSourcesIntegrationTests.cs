@@ -28,19 +28,22 @@ public class MicrosoftSourcesIntegrationTests
 
         var rules = new[]
         {
-            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
-                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
-            )
-            .For<DemoConfig>()
-            .Required()
-            .Build(),
+            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
+                    MicrosoftConfigurationSourceProviderQueryOptions>(
+                    instanceOptions: _ =>
+                        new MicrosoftConfigurationSourceProviderOptions(jsonSource, basePath: basePath),
+                    queryOptions: _ =>
+                        new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
+                )
+                .For<DemoConfig>()
+                .Required()
+                .Build(),
         };
 
         var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
         var initial = mgr.GetConfig<DemoConfig>();
         Assert.NotNull(initial);
-    Assert.True(initial.Enabled);
+        Assert.True(initial.Enabled);
         Assert.Equal(1, initial.Value);
 
         // mutate file
@@ -55,8 +58,9 @@ public class MicrosoftSourcesIntegrationTests
             updated = mgr.GetConfig<DemoConfig>();
             if (updated?.Value == 2 && updated.Enabled == false) break;
         }
+
         Assert.NotNull(updated);
-    Assert.False(updated.Enabled);
+        Assert.False(updated.Enabled);
         Assert.Equal(2, updated.Value);
 
         dir.Delete(recursive: true);
@@ -77,13 +81,16 @@ public class MicrosoftSourcesIntegrationTests
 
         var rules = new[]
         {
-            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
-                queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
-            )
-            .For<DemoConfig>()
-            .Required()
-            .Build(),
+            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
+                    MicrosoftConfigurationSourceProviderQueryOptions>(
+                    instanceOptions: _ =>
+                        new MicrosoftConfigurationSourceProviderOptions(iniSource, basePath: basePath),
+                    queryOptions: _ =>
+                        new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
+                )
+                .For<DemoConfig>()
+                .Required()
+                .Build(),
         };
 
         var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
@@ -107,6 +114,7 @@ public class MicrosoftSourcesIntegrationTests
             updated = mgr.GetConfig<DemoConfig>();
             if (updated?.Value == 3 && updated.Enabled == false) break;
         }
+
         Assert.NotNull(updated);
         Assert.False(updated!.Enabled);
         Assert.Equal(3, updated.Value);
@@ -130,19 +138,21 @@ public class MicrosoftSourcesIntegrationTests
 
             var rules = new[]
             {
-                Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                    instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
-                    queryOptions:    _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
-                )
-                .For<DemoConfig>()
-                .Required()
-                .Build(),
+                Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
+                        MicrosoftConfigurationSourceProviderQueryOptions>(
+                        instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(envSource),
+                        queryOptions: _ =>
+                            new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section")
+                    )
+                    .For<DemoConfig>()
+                    .Required()
+                    .Build(),
             };
 
             var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
             var cfg = mgr.GetConfig<DemoConfig>();
             Assert.NotNull(cfg);
-        Assert.True(cfg.Enabled);
+            Assert.True(cfg.Enabled);
             Assert.Equal(7, cfg.Value);
 
             // update env var; Microsoft provider has no change token for env vars

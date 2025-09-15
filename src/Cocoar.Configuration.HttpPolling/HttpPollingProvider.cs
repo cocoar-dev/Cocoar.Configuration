@@ -49,10 +49,6 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
         var element = doc.RootElement.Clone();
-        if (!string.IsNullOrWhiteSpace(query.ConfigurationPath))
-        {
-            element = SelectByPath(element, query.ConfigurationPath);
-        }
     _lastByKey[key] = element;
     return element;
     }
@@ -84,10 +80,6 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
                     var element = doc.RootElement.Clone();
-                    if (!string.IsNullOrWhiteSpace(query.ConfigurationPath))
-                    {
-                        element = SelectByPath(element, query.ConfigurationPath);
-                    }
                     var key = MakeKey(query);
                     if (_lastByKey.TryGetValue(key, out var last))
                     {
@@ -130,7 +122,7 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         var hdr = query.Headers == null
             ? string.Empty
             : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-    return $"{query.UrlPathOrAbsolute}|{query.ConfigurationPath}|{hdr}";
+    return $"{query.UrlPathOrAbsolute}|{hdr}";
     }
 
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>

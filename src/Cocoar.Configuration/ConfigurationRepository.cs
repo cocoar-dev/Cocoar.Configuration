@@ -15,7 +15,7 @@ internal class ConfigurationRepository
     /// Gets the current configuration dictionary (or pending if available).
     /// Thread-safe access to avoid race conditions.
     /// </summary>
-    public Dictionary<ConfigRegistration, JsonElement> CurrentConfigurations 
+    public Dictionary<ConfigRegistration, JsonElement> CurrentConfigurations
     {
         get
         {
@@ -51,6 +51,14 @@ internal class ConfigurationRepository
     {
         _configs = finalConfigurations;
         _pendingConfigurations = null; // Clear working snapshot after atomic swap
+    }
+
+    /// <summary>
+    /// Abandons any in-progress pending update without committing changes.
+    /// </summary>
+    public void RollbackUpdate()
+    {
+        _pendingConfigurations = null;
     }
 
     /// <summary>

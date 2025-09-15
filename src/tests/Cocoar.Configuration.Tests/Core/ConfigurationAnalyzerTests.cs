@@ -40,7 +40,7 @@ public class ConfigurationAnalyzerTests
 
         // Assert
         Assert.Contains(logMessages, msg => msg.Contains("static seed rules") && msg.Contains("dynamic providers"));
-        
+
         foreach (var msg in logMessages)
         {
             _output.WriteLine($"LOG: {msg}");
@@ -72,7 +72,7 @@ public class ConfigurationAnalyzerTests
         // Assert
         Assert.Contains(logMessages, msg => msg.Contains("required rules") && msg.Contains("optional rules"));
         Assert.Contains(logMessages, msg => msg.Contains("TestConfig"));
-        
+
         foreach (var msg in logMessages)
         {
             _output.WriteLine($"LOG: {msg}");
@@ -97,8 +97,9 @@ public class ConfigurationAnalyzerTests
         var manager = new ConfigManager(rules, logger).Initialize();
 
         // Assert
-        Assert.Contains(logMessages, msg => msg.Contains("static seed rules") || msg.Contains("Configuration rule summary"));
-        
+        Assert.Contains(logMessages,
+            msg => msg.Contains("static seed rules") || msg.Contains("Configuration rule summary"));
+
         foreach (var msg in logMessages)
         {
             _output.WriteLine($"MANAGER LOG: {msg}");
@@ -122,7 +123,8 @@ public class ConfigurationAnalyzerTests
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => NullDisposable.Instance;
         public bool IsEnabled(LogLevel logLevel) => true;
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
         {
             _messages.Add($"[{logLevel}] {formatter(state, exception)}");
         }
@@ -130,7 +132,10 @@ public class ConfigurationAnalyzerTests
         private class NullDisposable : IDisposable
         {
             public static readonly NullDisposable Instance = new();
-            public void Dispose() { }
+
+            public void Dispose()
+            {
+            }
         }
     }
 }

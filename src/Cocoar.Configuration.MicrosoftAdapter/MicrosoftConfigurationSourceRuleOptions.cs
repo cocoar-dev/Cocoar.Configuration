@@ -14,12 +14,12 @@ public sealed class MicrosoftConfigurationSourceRuleOptions
         IConfigurationSource source,
         string? basePath = null,
         string? identity = null,
-    string? configurationPrefix = null)
+        string? configurationPrefix = null)
     {
         Source = source ?? throw new ArgumentNullException(nameof(source));
         BasePath = basePath;
         Identity = identity;
-    ConfigurationPrefix = configurationPrefix;
+        ConfigurationPrefix = configurationPrefix;
     }
 
     public MicrosoftConfigurationSourceProviderOptions ToProviderOptions()

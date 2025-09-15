@@ -1,5 +1,4 @@
 using Cocoar.Configuration.Fluent;
-
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Cocoar.Configuration.AspNetCore;
@@ -28,16 +27,16 @@ public class ReadmeExamplesTests
     #region README Example 1: Define Settings
 
     // This matches the README example exactly
-    public interface IMySettings 
-    { 
-        bool Enabled { get; } 
-        int Value { get; } 
+    public interface IMySettings
+    {
+        bool Enabled { get; }
+        int Value { get; }
     }
 
-    public sealed class MySettings : IMySettings 
-    { 
-        public bool Enabled { get; set; } 
-        public int Value { get; set; } 
+    public sealed class MySettings : IMySettings
+    {
+        public bool Enabled { get; set; }
+        public int Value { get; set; }
     }
 
     #endregion
@@ -47,17 +46,17 @@ public class ReadmeExamplesTests
     {
         // 📖 README EXAMPLE: Basic configuration with file + environment layers
         // This demonstrates the core pattern shown in the "Quick start" section
-        
+
         // Create temporary JSON file for the example
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "MySection": {
-                "Enabled": true,
-                "Value": 42
-            }
-        }
-        """);
+                                        {
+                                            "MySection": {
+                                                "Enabled": true,
+                                                "Value": 42
+                                            }
+                                        }
+                                        """);
 
         // Set environment variable for override example
         Environment.SetEnvironmentVariable("MYAPP_Enabled", "false");
@@ -65,9 +64,9 @@ public class ReadmeExamplesTests
         try
         {
             // This code matches the README example exactly
-            var rules = new []
+            var rules = new[]
             {
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build(),
@@ -98,26 +97,26 @@ public class ReadmeExamplesTests
     {
         // 📖 README EXAMPLE: ASP.NET Core integration
         // Shows how to register Cocoar with the DI container
-        
+
         // Create temporary JSON file
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "MySection": {
-                "Enabled": true,
-                "Value": 123
-            }
-        }
-        """);
+                                        {
+                                            "MySection": {
+                                                "Enabled": true,
+                                                "Value": 123
+                                            }
+                                        }
+                                        """);
 
         try
         {
             // This matches the README ASP.NET Core example
             var builder = WebApplication.CreateBuilder();
-            
-            var rules = new []
+
+            var rules = new[]
             {
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettings>()
                     .As<IMySettings>()
                     .Build()
@@ -126,7 +125,7 @@ public class ReadmeExamplesTests
             builder.Services.AddCocoarConfiguration(rules);
 
             var app = builder.Build();
-            
+
             // This matches the README example
             var cfg = app.Services.GetRequiredService<ConfigManager>().GetConfig<IMySettings>();
 
@@ -161,16 +160,16 @@ public class ReadmeExamplesTests
     {
         // 📖 README EXAMPLE: Dynamic dependencies
         // Shows how later rules can read config from earlier rules during recompute
-        
+
         // Create config file with URL for dynamic dependency
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "Remote": {
-                "Url": "/api/config"
-            }
-        }
-        """);
+                                        {
+                                            "Remote": {
+                                                "Url": "/api/config"
+                                            }
+                                        }
+                                        """);
 
         try
         {
@@ -179,13 +178,14 @@ public class ReadmeExamplesTests
             // This matches the README dynamic dependency example (simplified for testing)
             builder.Services.AddCocoarConfiguration([
                 // Base settings providing the URL
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "Remote"))
-                     .For<MyHttpPollingSettings>()
-                     .Required()
-                     .Build(),
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("Remote")
+                    .For<MyHttpPollingSettings>()
+                    .Required()
+                    .Build(),
 
                 // Static rule that reads the URL (simplified instead of HTTP for testing)
-                Rule.From.Static(cm => new {
+                Rule.From.Static(cm => new
+                    {
                         Name = $"Config from {cm.GetRequiredConfig<MyHttpPollingSettings>().Url}",
                         Active = true
                     })
@@ -195,14 +195,14 @@ public class ReadmeExamplesTests
 
             var app = builder.Build();
             var configAccessor = app.Services.GetRequiredService<ConfigManager>();
-            
+
             // Verify dynamic dependency works
             var httpSettings = configAccessor.GetConfig<MyHttpPollingSettings>();
             var dynamicConfig = configAccessor.GetConfig<MyCfg>();
 
             Assert.NotNull(httpSettings);
             Assert.Equal("/api/config", httpSettings.Url);
-            
+
             Assert.NotNull(dynamicConfig);
             Assert.Contains("/api/config", dynamicConfig.Name);
             Assert.True(dynamicConfig.Active);
@@ -218,18 +218,18 @@ public class ReadmeExamplesTests
     {
         // 📖 README EXAMPLE: Layered configuration pattern  
         // Demonstrates how environment variables override file settings
-        
+
         // This test verifies the layered configuration pattern shown in README
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "MySection": {
-                "Enabled": true,
-                "Value": 100,
-                "Secret": "from-file"
-            }
-        }
-        """);
+                                        {
+                                            "MySection": {
+                                                "Enabled": true,
+                                                "Value": 100,
+                                                "Secret": "from-file"
+                                            }
+                                        }
+                                        """);
 
         // Environment override
         Environment.SetEnvironmentVariable("MYAPP_Value", "200");
@@ -237,10 +237,10 @@ public class ReadmeExamplesTests
 
         try
         {
-            var rules = new []
+            var rules = new[]
             {
                 // File first (base layer)
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile, "MySection"))
+                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettingsExtended>()
                     .As<IMySettingsExtended>()
                     .Build(),
@@ -255,8 +255,8 @@ public class ReadmeExamplesTests
             var cfg = manager.GetConfig<IMySettingsExtended>();
 
             Assert.NotNull(cfg);
-            Assert.True(cfg.Enabled);        // From file (not overridden)
-            Assert.Equal(200, cfg.Value);    // From environment (overridden)
+            Assert.True(cfg.Enabled); // From file (not overridden)
+            Assert.Equal(200, cfg.Value); // From environment (overridden)
             Assert.Equal("from-env", cfg.Secret); // From environment (overridden)
         }
         finally
@@ -287,11 +287,11 @@ public class ReadmeExamplesTests
         // Example from README: Basic Usage section
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "Enabled": true,
-            "Value": 42
-        }
-        """);
+                                        {
+                                            "Enabled": true,
+                                            "Value": 42
+                                        }
+                                        """);
 
         try
         {
@@ -313,7 +313,7 @@ public class ReadmeExamplesTests
 
             // Verify the rules were created with correct lifetimes
             Assert.Equal(ServiceLifetime.Singleton, singletonRule.Registration.ServiceLifetime);
-            Assert.Equal(ServiceLifetime.Scoped, scopedRule.Registration.ServiceLifetime);  
+            Assert.Equal(ServiceLifetime.Scoped, scopedRule.Registration.ServiceLifetime);
             Assert.Equal(ServiceLifetime.Transient, transientRule.Registration.ServiceLifetime);
         }
         finally
@@ -328,26 +328,26 @@ public class ReadmeExamplesTests
         // Example from README: Multiple Registrations with Keys section
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "Enabled": true,
-            "Value": 42
-        }
-        """);
+                                        {
+                                            "Enabled": true,
+                                            "Value": 42
+                                        }
+                                        """);
 
         try
         {
             // This code matches the README example exactly
             var rules = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .As<IMySettings>(ServiceLifetime.Singleton, "cache")      // Singleton for caching
-                .As<IMySettings>(ServiceLifetime.Scoped, "request")       // Scoped for request processing  
-                .As<IMySettings>(ServiceLifetime.Transient, "temp")       // Transient for temporary use
+                .As<IMySettings>(ServiceLifetime.Singleton, "cache") // Singleton for caching
+                .As<IMySettings>(ServiceLifetime.Scoped, "request") // Scoped for request processing  
+                .As<IMySettings>(ServiceLifetime.Transient, "temp") // Transient for temporary use
                 .BuildRules()
                 .ToList();
 
             // Verify multiple rules were created
             Assert.Equal(3, rules.Count);
-            
+
             // Verify correct lifetimes and keys
             var singletonRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Singleton);
             var scopedRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Scoped);
@@ -380,24 +380,24 @@ public class ReadmeExamplesTests
         }
     }
 
-    [Fact]  
+    [Fact]
     public void ReadmeExample_ServiceLifetimes_BackwardCompatibility_Works()
     {
         // Example from README: Backward Compatibility section
         var tempJsonFile = Path.GetTempFileName();
         File.WriteAllText(tempJsonFile, """
-        {
-            "Enabled": true,
-            "Value": 42
-        }
-        """);
+                                        {
+                                            "Enabled": true,
+                                            "Value": 42
+                                        }
+                                        """);
 
         try
         {
             // This code matches the README example exactly
             var rule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
                 .For<MySettings>()
-                .Build();  // Implicitly creates singleton registration
+                .Build(); // Implicitly creates singleton registration
 
             // Verify default singleton behavior
             Assert.Equal(ServiceLifetime.Singleton, rule.Registration.ServiceLifetime);

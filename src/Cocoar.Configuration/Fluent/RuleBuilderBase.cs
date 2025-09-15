@@ -10,6 +10,7 @@ public abstract class RuleBuilderBase<TBuilder>
     protected Type? _concreteType;
     protected readonly List<ConfigRegistration> _registrations = new();
     protected string? _mountPath; // optional relocation path
+    protected string? _selectPath; // optional selection path (colon-delimited)
 
     public TBuilder Required(bool value = true)
     {
@@ -30,6 +31,14 @@ public abstract class RuleBuilderBase<TBuilder>
     {
         if (string.IsNullOrWhiteSpace(mountPath)) throw new ArgumentException("mountPath cannot be null/empty", nameof(mountPath));
         _mountPath = mountPath.Trim();
+        return (TBuilder)this;
+    }
+
+    // Select a nested subsection from the fetched JSON before mounting.
+    public TBuilder Select(string selectPath)
+    {
+        if (string.IsNullOrWhiteSpace(selectPath)) throw new ArgumentException("selectPath cannot be null/empty", nameof(selectPath));
+        _selectPath = selectPath.Trim();
         return (TBuilder)this;
     }
 

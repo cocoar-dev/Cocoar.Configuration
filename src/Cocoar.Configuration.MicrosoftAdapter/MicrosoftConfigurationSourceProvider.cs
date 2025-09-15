@@ -6,7 +6,8 @@ namespace Cocoar.Configuration.MicrosoftAdapter;
 
 public sealed class MicrosoftConfigurationSourceProvider(
     MicrosoftConfigurationSourceProviderOptions options
-) : ConfigurationProvider<MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(options)
+) : ConfigurationProvider<MicrosoftConfigurationSourceProviderOptions,
+    MicrosoftConfigurationSourceProviderQueryOptions>(options)
 {
     private IConfigurationProvider BuildProvider()
     {
@@ -17,13 +18,14 @@ public sealed class MicrosoftConfigurationSourceProvider(
         return builder.Build().Providers.Last();
     }
 
-    public override Task<JsonElement> FetchConfigurationAsync(MicrosoftConfigurationSourceProviderQueryOptions query, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(MicrosoftConfigurationSourceProviderQueryOptions query,
+        CancellationToken ct = default)
     {
         var provider = BuildProvider();
         var root = new ConfigurationRoot(new[] { provider });
         var dict = Flatten(root, query.ConfigurationPrefix);
-    var element = DictToJson(dict);
-    return Task.FromResult(element);
+        var element = DictToJson(dict);
+        return Task.FromResult(element);
     }
 
     public override IObservable<JsonElement> Changes(MicrosoftConfigurationSourceProviderQueryOptions query)
@@ -31,6 +33,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
         return System.Reactive.Linq.Observable.Create<JsonElement>(observer =>
         {
             var provider = BuildProvider();
+
             void publish()
             {
                 var root = new ConfigurationRoot(new[] { provider });
@@ -67,6 +70,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
                 dict[kv.Key] = kv.Value;
             }
         }
+
         return dict;
     }
 
@@ -84,10 +88,13 @@ public sealed class MicrosoftConfigurationSourceProvider(
                     nextDict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                     cur[parts[i]] = nextDict;
                 }
+
                 cur = nextDict;
             }
+
             cur[parts[^1]] = v;
         }
+
         var json = JsonSerializer.Serialize(root);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();

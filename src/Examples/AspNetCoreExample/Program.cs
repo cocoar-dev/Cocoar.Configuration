@@ -33,12 +33,12 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.AddCocoarConfiguration(
-            // Concise overloads
-            Rule.From.File("config.json", "App")
+            // Updated for selection API
+            Rule.From.File("config.json").Select("App")
                 .For<AppSettings>().As<IAppSettings>().Optional(),
             Rule.From.Environment("APP_")
                 .For<AppSettings>().As<IAppSettings>(),
-            Rule.From.File("config.json", "Database")
+            Rule.From.File("config.json").Select("Database")
                 .For<DatabaseSettings>().Optional(),
             Rule.From.Environment("DB_")
                 .For<DatabaseSettings>()

@@ -19,13 +19,13 @@ using Cocoar.Configuration.Fluent.ProviderOptions;
 
 // 1. Verbose factory form (existing)
 services.AddCocoarConfiguration(
-    Rules.Using.FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json", "MySection")).For<MySection>(),
-    Rules.Using.FromEnvironment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP")).For<MySection>()
+    Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json")).Select("MySection").For<MySection>(),
+    Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP")).For<MySection>()
 );
 
 // 2. New concise overload (prefix only)
 services.AddCocoarConfiguration(
-    Rule.From.File("./appsettings.json", "MySection").For<MySection>(),
+    Rule.From.File("./appsettings.json").Select("MySection").For<MySection>(),
     Rule.From.Environment("MYAPP").For<MySection>()
 );
 

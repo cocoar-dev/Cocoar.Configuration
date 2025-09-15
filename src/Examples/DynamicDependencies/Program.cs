@@ -38,7 +38,7 @@ public static class Program
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Api"))
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiSettings>()
                 .Required(),
             Rule.From.Static<FeatureFlags>(configManager =>
@@ -50,7 +50,7 @@ public static class Program
                 }
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
             }).For<FeatureFlags>(),
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Region"))
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
                 .For<RegionSettings>()
                 .Required(),
             Rule.From.Static<RegionSpecificConfig>(configManager =>

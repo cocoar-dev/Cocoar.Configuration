@@ -7,7 +7,8 @@ namespace Cocoar.Configuration.Providers.StaticJsonProvider;
 public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     : ConfigurationProvider<StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(StaticJsonProviderQueryOptions query, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(StaticJsonProviderQueryOptions query,
+        CancellationToken ct = default)
     {
         var json = ProviderOptions.Value.ValueKind == JsonValueKind.Undefined
             ? JsonDocument.Parse("{}").RootElement
@@ -18,7 +19,8 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     public override IObservable<JsonElement> Changes(StaticJsonProviderQueryOptions queryOptions)
         => Observable.Empty<JsonElement>();
 
-    public static ConfigRule CreateRule<TConfigType>(JsonElement value, Func<bool>? useWhen = null, bool required = true)
+    public static ConfigRule CreateRule<TConfigType>(JsonElement value, Func<bool>? useWhen = null,
+        bool required = true)
     {
         var opts = new ConfigRuleOptions(Required: required, UseWhen: useWhen);
         return ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(

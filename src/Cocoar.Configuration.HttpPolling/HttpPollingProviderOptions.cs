@@ -8,7 +8,8 @@ public sealed class HttpPollingProviderOptions : IProviderConfiguration
     public TimeSpan PollInterval { get; }
     public HttpMessageHandler? Handler { get; }
 
-    public HttpPollingProviderOptions(string? baseAddress = null, TimeSpan? pollInterval = null, HttpMessageHandler? handler = null)
+    public HttpPollingProviderOptions(string? baseAddress = null, TimeSpan? pollInterval = null,
+        HttpMessageHandler? handler = null)
     {
         BaseAddress = baseAddress;
         PollInterval = pollInterval ?? TimeSpan.FromSeconds(5);

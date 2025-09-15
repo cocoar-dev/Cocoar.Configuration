@@ -7,9 +7,10 @@ namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptions options)
     : ConfigurationProvider<EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(EnvironmentVariableProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<JsonElement> FetchConfigurationAsync(EnvironmentVariableProviderQueryOptions queryOptions,
+        CancellationToken ct = default)
     {
-    var prefix = queryOptions.EnvironmentPrefix;
+        var prefix = queryOptions.EnvironmentPrefix;
         var variables = Environment.GetEnvironmentVariables();
         var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
@@ -20,7 +21,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             {
                 if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     continue;
-        AddToNestedDict(dict, key.Substring(prefix.Length), variables[keyObj]);
+                AddToNestedDict(dict, key.Substring(prefix.Length), variables[keyObj]);
             }
             else
             {
@@ -28,9 +29,9 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             }
         }
 
-    var json = JsonSerializer.Serialize(dict);
-    using var doc = JsonDocument.Parse(json);
-    var element = doc.RootElement.Clone();
+        var json = JsonSerializer.Serialize(dict);
+        using var doc = JsonDocument.Parse(json);
+        var element = doc.RootElement.Clone();
 
         return Task.FromResult(element);
     }
@@ -56,8 +57,10 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
                 nextDict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 current[seg] = nextDict;
             }
+
             current = nextDict;
         }
+
         current[parts[^1]] = value;
     }
 
@@ -78,6 +81,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
                     yield return sb.ToString();
                     sb.Clear();
                 }
+
                 i++;
                 continue;
             }
@@ -95,6 +99,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
                         yield return sb.ToString();
                         sb.Clear();
                     }
+
                     i = j;
                     continue;
                 }
@@ -104,6 +109,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             sb.Append(c);
             i++;
         }
+
         if (sb.Length > 0)
             yield return sb.ToString();
     }
@@ -114,8 +120,8 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         // If starts with double underscore, treat as delimiter and remove it.
         if (s.Length >= 2 && s[0] == '_' && s[1] == '_')
             return s[2..];
-    // Otherwise, trim a single leading ':' or '_' if present
-    if (s[0] == ':' || s[0] == '_')
+        // Otherwise, trim a single leading ':' or '_' if present
+        if (s[0] == ':' || s[0] == '_')
             return s[1..];
         return s;
     }
@@ -123,5 +129,4 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
 
     public override IObservable<JsonElement> Changes(EnvironmentVariableProviderQueryOptions queryOptions)
         => System.Reactive.Linq.Observable.Never<JsonElement>();
-
 }

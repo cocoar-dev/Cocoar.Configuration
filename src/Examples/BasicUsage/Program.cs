@@ -31,10 +31,10 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.AddCocoarConfiguration(
-            // Using new concise overloads
-            Rule.From.File("config.json", "StartUp")
+            // Updated: use File(path).Select(section) after removal of section param overload
+            Rule.From.File("config.json").Select("StartUp")
                 .For<StartUpConfiguration>().As<IStartupSettings>().Optional(),
-            Rule.From.File("config.json", "Marten")
+            Rule.From.File("config.json").Select("Marten")
                 .For<MartenStartupSettings>().Optional(),
             Rule.From.Environment() // all env vars (demo only; normally specify a prefix)
                 .For<StartUpConfiguration>().As<IStartupSettings>(),

@@ -1,6 +1,6 @@
-# Cocoar.Configuration — Architecture & Status (Last Updated: 2025-09-14)
+# Cocoar.Configuration — Architecture & Status (Last Updated: 2025-09-15)
 
-This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work. It has been synchronized against the codebase as of 2025-09-14.
+This document captures the current design, behavior, and implementation details to onboard quickly and to guide future work. It has been synchronized against the codebase as of 2025-09-15.
 
 ## Goals
 
@@ -58,25 +58,21 @@ flowchart LR
 ## Current Providers
 
  - FileSourceProvider
-  - Options: `FileSourceProviderOptions(directory, debounceTime?)` (debounce applies to underlying watcher events; provider reuse key is the fully resolved directory path only).
-  - Query: `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)` (query-level debounce throttles the emission stream for that rule only).
-  - Behavior: maintains a directory watcher; caches last parsed JSON per filename; change stream emits only after file system events (no initial emission). Errors reading the file during a change are swallowed and an empty JSON object is emitted to keep the stream alive. Initial recompute throws on missing file for required rules.
+  - Options: `FileSourceProviderOptions(directory, debounceTime?)`
+  - Query: `FileSourceProviderQueryOptions(filename, debounceTime?)` (query-level debounce throttles the emission stream for that rule only). Use rule-level `.Select("Section:Sub")` to extract subsections.
+  - Behavior: directory watcher; caches last parsed JSON; emits after FS events. Errors during change handling yield empty JSON. Missing required file throws during recompute.
 - EnvironmentVariableProvider
-  - Options: `EnvironmentVariableProviderOptions(environmentPrefix?)` (provider reuse key is constant; all environment rules share one provider instance regardless of differing prefixes).
-  - Query: `EnvironmentVariableProviderQueryOptions(environmentPrefix?)` (no selection path; filtering happens directly on env variables).
-  - Behavior: snapshot read via `FetchConfigurationAsync`; `Changes()` is `Observable.Never`. Supports nested object construction via `__`, `:`, or `.` separators (single `_` is literal).
+  - Options: `EnvironmentVariableProviderOptions(environmentPrefix?)`
+  - Query: `EnvironmentVariableProviderQueryOptions(environmentPrefix?)`
+  - Behavior: snapshot read only; no change stream.
 - HttpPollingProvider
-  - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval? = 5s default, handler?)`.
-  - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, headers?)`.
-  - Behavior: single `HttpClient` per provider instance; polls at `PollInterval` and emits only when selected JSON changes.
+  - Options: `HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?)`
+  - Query: `HttpPollingProviderQueryOptions(urlPathOrAbsolute, headers?)`
+  - Behavior: polls and emits when payload JSON changes. Use `.Select(...)` at rule level to narrow the subtree.
 - MicrosoftConfigurationSourceProvider (Adapter)
-  - Wraps `Microsoft.Extensions.Configuration` sources (JSON, INI, environment variables, etc.).
-  - Honors reload-on-change via underlying change tokens.
-  - Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?)`.
+  - Query: `MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix?)`
 - StaticJsonProvider
-  - Supplies a static JSON value (explicit seeding) and never emits changes.
-  - Reuse key constant ("Static").
-  - Useful to seed dependent rules or provide defaults.
+  - Supplies static JSON; never changes.
 
 ### Provider Reuse & Identity Keys
 
@@ -140,7 +136,7 @@ Query-level subscription keys are based on serialization of the entire query obj
 
 ```csharp
 services.AddCocoarConfiguration([
-  Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json", "SectionA")).For<MySectionSettings>(),
+  Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./config.json")).Select("SectionA").For<MySectionSettings>(),
   Rule.From.Environment(_ => new EnvironmentVariableRuleOptions("MYAPP_")).For<MySectionSettings>(),
   Rule.From.HttpPolling(cfg => new HttpPollingRuleOptions(
     urlPathOrAbsolute: "/v1/settings",
@@ -152,35 +148,58 @@ services.AddCocoarConfiguration([
 
 ## Quick Reference (Contracts)
 
-- ConfigRuleOptions (record): Required (bool), UseWhen (Func<bool>?), MountPath (string?)
-- Rule-level mounting: call `.MountAt("Path:To:Node")` on the fluent builder to nest the provider's JSON under that path. Providers no longer implement per-query target wrapping.
-- ConfigRegistration: ConcreteType, ContractType?, ServiceLifetime, ServiceKey?
-- Provider base: `ConfigurationProvider<TInstanceOptions, TQueryOptions>`
-- File: `FileSourceProviderOptions(dir, debounceTime?)`, `FileSourceProviderQueryOptions(filename, configurationPath?, debounceTime?)`
+- ConfigRuleOptions (record): Required (bool), UseWhen (Func<bool>?), SelectPath (string?), MountPath (string?)
+- Rule-level selection & mounting: `.Select("Section:Sub")` then `.MountAt("Container")` (optional). Pipeline: Fetch → Select → Mount → Merge.
+- File: `FileSourceProviderOptions(dir, debounceTime?)`, `FileSourceProviderQueryOptions(filename, debounceTime?)`
 - Environment: `EnvironmentVariableProviderOptions(environmentPrefix?)`, `EnvironmentVariableProviderQueryOptions(environmentPrefix?)`
-  - Nesting separators for key materialization: `__` (double underscore), `:`, and `.`. Single `_` is literal.
-- HTTP: `HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?)`, `HttpPollingProviderQueryOptions(urlPathOrAbsolute, configurationPath?, headers?)`
-- Static: `StaticJsonProviderOptions(jsonValue)`, (query object internal—no target/mount semantics).
+- HTTP: `HttpPollingProviderOptions(baseAddress?, pollInterval?=5s, handler?)`, `HttpPollingProviderQueryOptions(urlPathOrAbsolute, headers?)`
+- Static: `StaticJsonProviderOptions(jsonValue)`
 
 ### Migration Note (Breaking Change)
 
-`TargetPath` (query-level) has been removed. Use rule-level `.MountAt(...)` instead:
-
+Before (legacy configurationPath + targetPath in provider/query options):
 ```csharp
-// Before (legacy targetPath parameter on query options)
-Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json", "SectionA", /* targetPath: "My:Mounted" */))
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json")).Select("SectionA")
     .For<MySettings>()
     .Build();
-
-// After
-Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json", "SectionA"))
+```
+After (rule-level select + mount):
+```csharp
+Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("settings.json"))
+    .Select("SectionA")
     .MountAt("My:Mounted")
     .For<MySettings>()
     .Build();
 ```
+Benefits: simpler queries; centralized Fetch → Select → Mount → Merge enabling future partial recompute.
 
-Benefits: simpler provider query types, consistent mounting across all providers, centralized wrapping logic in `RuleManager`.
+### Incremental Recompute (Overview)
+
+The configuration pipeline now supports incremental recomputation:
+
+- Provider change events are selection-hash gated: if the selected subtree (after `.Select`) is unchanged, no recompute is scheduled.
+- When changes occur, only the suffix of rules from the earliest changed index is recomputed (providers refetched); the prefix is reconstructed from stored per-rule flattened contributions without provider calls.
+- Cancellation: a new earlier-index change arriving mid-pass cancels the in-flight recompute and restarts from the new earliest index, ensuring minimal redundant work.
+- Debounce refinement: first change executes promptly (configurable initial delay) and subsequent rapid changes are coalesced in a short trailing window, reducing latency for isolated updates while collapsing bursts.
+- Deletions: if a later fetch omits keys previously contributed by that rule, those keys are removed from the merged configuration unless overridden by later rules.
+
+Future optimizations (excluded from this commit) include fine-grained skipping inside the recomputed suffix and performance benchmarks to guide hash algorithm selection.
+
+### Static Rule Set (No Runtime Add/Remove)
+
+The set of configuration rules is intentionally immutable after `ConfigManager.Initialize()`. Dynamic
+add/remove (structural mutation) was evaluated and deferred because it would:
+
+- Complicate incremental recompute (earliest-index stability, cancellation restarts)
+- Require subscription & provider handle churn for little practical gain
+- Increase locking complexity and potential for subtle race conditions
+
+Instead, conditional participation is handled via `UseWhen` predicates. When `UseWhen` evaluates to
+false, the rule is skipped and its previous contribution removed on the next pass, achieving the
+practical effect of a disabled rule without structural changes. This keeps ordering deterministic and
+guarantees predictable incremental recompute behavior. Support for true dynamic structural mutation
+can be revisited if a compelling scenario emerges.
 
 ## Version
 
-- Last synchronized with code: 2025-09-15 (branch: `refactoring-fluent-api`).
+- Last synchronized with code: 2025-09-15

@@ -20,24 +20,24 @@ internal class ChangeSubscriptionManager : IDisposable
     /// </summary>
     public void CreateSubscriptions(
         IEnumerable<RuleManager> ruleManagers,
-        Action recomputeCallback)
+        Action<int> recomputeFromIndexCallback,
+        int debounceMilliseconds = 300,
+        int trailingMilliseconds = 40)
     {
         DisposeAllSubscriptions();
+        var list = ruleManagers.ToList();
+        var coalescer = new RecomputeCoalescer(_logger, recomputeFromIndexCallback, debounceMilliseconds, trailingMilliseconds);
+        _changeSubscriptions.Add(coalescer); // ensure disposal of timers
 
-        foreach (var rm in ruleManagers)
+        for (int i = 0; i < list.Count; i++)
         {
-            var subscription = rm.Changes
-                .Subscribe(_ =>
-                {
-                    try
-                    {
-                        recomputeCallback();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Recompute failed from change trigger");
-                    }
-                });
+            var idx = i;
+            var rm = list[i];
+            var subscription = rm.Changes.Subscribe(_ =>
+            {
+                try { coalescer.Signal(idx); }
+                catch (Exception ex) { _logger.LogError(ex, "Recompute failed from change trigger"); }
+            });
             _changeSubscriptions.Add(subscription);
         }
     }

@@ -9,12 +9,19 @@ using Microsoft.Extensions.Primitives;
 
 public class ConfigManagerOrchestrationTests
 {
-    private readonly struct Unit { public static readonly Unit Default = new(); }
+    private readonly struct Unit
+    {
+        public static readonly Unit Default = new();
+    }
 
     private sealed class CountingProvider(CountingProvider.Options options)
         : ConfigurationProvider<CountingProvider.Options, CountingProvider.Query>(options)
     {
-        public sealed class Options(string key) : IProviderConfiguration { public string Key => key; }
+        public sealed class Options(string key) : IProviderConfiguration
+        {
+            public string Key => key;
+        }
+
         public sealed class Query(string id, IObservable<Unit> trigger) : IProviderQuery
         {
             public string Id => id;
@@ -23,7 +30,8 @@ public class ConfigManagerOrchestrationTests
 
         public static int CallCount;
 
-        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(Query query, System.Threading.CancellationToken ct = default)
+        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(Query query,
+            System.Threading.CancellationToken ct = default)
         {
             System.Threading.Interlocked.Increment(ref CallCount);
             using var doc = System.Text.Json.JsonDocument.Parse("{\"ok\":true}");
@@ -58,9 +66,9 @@ public class ConfigManagerOrchestrationTests
         // Assert: exactly one call so far
         Assert.Equal(1, CountingProvider.CallCount);
 
-        // Emit a change and wait briefly
+        // Emit a change and wait for debounce window (>300ms default debounce)
         changeBus.OnNext(Unit.Default);
-        await Task.Delay(50);
+        await Task.Delay(400);
 
         // Assert: recomputed once more
         Assert.Equal(2, CountingProvider.CallCount);
@@ -78,7 +86,7 @@ public class MicrosoftProviderAdapterTests
             ["My:Section:Enabled"] = "true",
             ["My:Section:Value"] = "42"
         };
-    var memSource = new SimpleInMemoryConfigurationSource(memData);
+        var memSource = new SimpleInMemoryConfigurationSource(memData);
 
         var rule = ConfigRule.Create<
             MicrosoftConfigurationSourceProvider,
@@ -107,12 +115,15 @@ public class MicrosoftProviderAdapterTests
     private sealed class SimpleInMemoryConfigurationSource(IDictionary<string, string?> data) : IConfigurationSource
     {
         private readonly IDictionary<string, string?> _data = data;
-        public IConfigurationProvider Build(IConfigurationBuilder builder) => new SimpleInMemoryConfigurationProvider(_data);
+
+        public IConfigurationProvider Build(IConfigurationBuilder builder) =>
+            new SimpleInMemoryConfigurationProvider(_data);
     }
 
     private sealed class SimpleInMemoryConfigurationProvider : IConfigurationProvider
     {
         private readonly IDictionary<string, string?> _data;
+
         public SimpleInMemoryConfigurationProvider(IDictionary<string, string?> data)
         {
             _data = new Dictionary<string, string?>(data, StringComparer.OrdinalIgnoreCase);
@@ -130,12 +141,17 @@ public class MicrosoftProviderAdapterTests
                 var child = idx >= 0 ? suffix.Substring(0, idx) : suffix;
                 keys.Add(child);
             }
+
             return keys.Concat(earlierKeys).OrderBy(k => k, StringComparer.OrdinalIgnoreCase);
         }
 
-        public IChangeToken GetReloadToken() => new Microsoft.Extensions.Primitives.CancellationChangeToken(new System.Threading.CancellationToken(false));
+        public IChangeToken GetReloadToken() =>
+            new Microsoft.Extensions.Primitives.CancellationChangeToken(new System.Threading.CancellationToken(false));
 
-        public void Load() { /* no-op: data provided upfront */ }
+        public void Load()
+        {
+            /* no-op: data provided upfront */
+        }
 
         public void Set(string key, string? value)
         {

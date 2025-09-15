@@ -45,6 +45,7 @@ internal static class JsonConfigurationProcessor
                         next = new Dictionary<string, object>();
                         current[key] = next;
                     }
+
                     current = (Dictionary<string, object>)next;
                 }
             }

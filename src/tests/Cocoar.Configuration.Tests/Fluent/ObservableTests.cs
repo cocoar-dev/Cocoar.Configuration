@@ -19,28 +19,28 @@ public sealed class FileSystemObservableTests : ReactiveTest
     {
         var sch = new TestScheduler();
         var source = sch.CreateColdObservable(
-            OnNext( 010, New("a")),
-            OnNext( 020, New("a")),    // within window
-            OnNext( 030, New("b")),
-            OnNext( 080, New("a")),    // after window – new round
+            OnNext(010, New("a")),
+            OnNext(020, New("a")), // within window
+            OnNext(030, New("b")),
+            OnNext(080, New("a")), // after window – new round
             OnCompleted<FileSystemChange>(200));
 
         var results = sch.Start(
             () => source
                 .GroupBy(ch => ch.Path)
                 .SelectMany(g => g.Throttle(TimeSpan.FromTicks(50), sch)),
-            created:    0,
-            subscribed: 0,     // ← subscribe at t=0
-            disposed:   1000);
+            created: 0,
+            subscribed: 0, // ← subscribe at t=0
+            disposed: 1000);
 
         // Expect: last for "a" @70, "b" @80, last for "a" @130
         Assert.Equal(3, results.Messages.Count(m => m.Value.Kind == NotificationKind.OnNext));
         Assert.Equal("a", results.Messages[0].Value.Value.Path);
-        Assert.Equal( 071, results.Messages[0].Time);
+        Assert.Equal(071, results.Messages[0].Time);
         Assert.Equal("b", results.Messages[1].Value.Value.Path);
-        Assert.Equal( 081, results.Messages[1].Time);
+        Assert.Equal(081, results.Messages[1].Time);
         Assert.Equal("a", results.Messages[2].Value.Value.Path);
-        Assert.Equal( 131, results.Messages[2].Time);
+        Assert.Equal(131, results.Messages[2].Time);
     }
 
     // helper to build test items quickly
@@ -62,7 +62,7 @@ public sealed class FileSystemObservableTests : ReactiveTest
             OnNext(020, renamed),
             OnCompleted<FileSystemChange>(200));
 
-        Func<FileSystemChange,string> Key = ch => ch.OldPath ?? ch.Path;
+        Func<FileSystemChange, string> Key = ch => ch.OldPath ?? ch.Path;
 
         var result = sch.Start(() =>
             source
@@ -83,13 +83,13 @@ public sealed class FileSystemObservableTests : ReactiveTest
     {
         var sch = new TestScheduler();
         var src = sch.CreateColdObservable(
-            OnNext( 05, new FileSystemChange(FileSystemChangeType.Created, "x.cfg")),
-            OnNext( 10, new FileSystemChange(FileSystemChangeType.Changed, "x.cfg")),
-            OnNext( 15, new FileSystemChange(FileSystemChangeType.Created, "y.cfg")),
+            OnNext(05, new FileSystemChange(FileSystemChangeType.Created, "x.cfg")),
+            OnNext(10, new FileSystemChange(FileSystemChangeType.Changed, "x.cfg")),
+            OnNext(15, new FileSystemChange(FileSystemChangeType.Created, "y.cfg")),
             OnCompleted<FileSystemChange>(200));
 
         var result = sch.Start(() =>
-            src.CollapseBurst(TimeSpan.FromTicks(30), ch => ch.Path, sch));  // quiet gap 30 with scheduler
+            src.CollapseBurst(TimeSpan.FromTicks(30), ch => ch.Path, sch)); // quiet gap 30 with scheduler
 
         var batches = result.Messages.Where(n => n.Value.Kind == NotificationKind.OnNext).ToList();
         Assert.NotEmpty(batches);
@@ -111,14 +111,14 @@ public sealed class FileSystemObservableTests : ReactiveTest
         {
             var evt = new List<FileSystemChange>();
             using var sub = new FileSystemObservable(dir,
-                                new FileSystemObservableOptions { DebounceTime = TimeSpan.FromMilliseconds(50) })
-                            .Subscribe(evt.Add);
+                    new FileSystemObservableOptions { DebounceTime = TimeSpan.FromMilliseconds(50) })
+                .Subscribe(evt.Add);
 
             var file = Path.Combine(dir, "new.json");
-            File.WriteAllText(file, "{}");                // trigger event
+            File.WriteAllText(file, "{}"); // trigger event
             File.SetLastWriteTimeUtc(file, DateTime.UtcNow); // make sure
 
-            SpinWait.SpinUntil(() => evt.Any(), 2000);    // wait ≤2 s
+            SpinWait.SpinUntil(() => evt.Any(), 2000); // wait ≤2 s
 
             Assert.Single(evt);
             Assert.Contains(evt[0].ChangeType,

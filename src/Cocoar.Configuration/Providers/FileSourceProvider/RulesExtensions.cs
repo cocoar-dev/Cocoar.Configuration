@@ -4,14 +4,14 @@ namespace Cocoar.Configuration.Providers.FileSourceProvider;
 
 public static class RulesExtensions
 {
-    public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions> File(this Rule.Dsl _, Func<ConfigManager, FileSourceRuleOptions> optionsFactory)
+    public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
+        File(this Rule.Dsl _, Func<ConfigManager, FileSourceRuleOptions> optionsFactory)
         => Rule.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
             cm => optionsFactory(cm).ToProviderOptions(),
             cm => optionsFactory(cm).ToQueryOptions()
         );
 
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        File(this Rule.Dsl _, string filePath, string? configurationPath = null)
-        => _.File(_ => FileSourceRuleOptions.FromFilePath(filePath, configurationPath));
-
+        File(this Rule.Dsl _, string filePath)
+        => _.File(_ => FileSourceRuleOptions.FromFilePath(filePath));
 }

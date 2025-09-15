@@ -26,7 +26,7 @@ public static class Program
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json", "Api"))
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiConfiguration>()
                 .Required(),
             Rule.From.Static<RemoteFeatureFlags>(_ => new RemoteFeatureFlags

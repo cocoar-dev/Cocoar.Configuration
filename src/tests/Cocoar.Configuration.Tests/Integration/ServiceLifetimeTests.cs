@@ -35,7 +35,7 @@ public class ServiceLifetimeTests
         // Assert
         var service1 = provider.GetRequiredService<IMyService>();
         var service2 = provider.GetRequiredService<IMyService>();
-        
+
         Assert.Same(service1, service2); // Should be same instance (singleton)
         Assert.Equal("Test", service1.Name);
         Assert.Equal(42, service1.Value);
@@ -65,7 +65,7 @@ public class ServiceLifetimeTests
         using var scope2 = provider.CreateScope();
         var service2 = scope2.ServiceProvider.GetRequiredService<IMyService>();
         Assert.NotSame(service1A, service2);
-        
+
         Assert.Equal("Test", service1A.Name);
         Assert.Equal(42, service1A.Value);
     }
@@ -87,7 +87,7 @@ public class ServiceLifetimeTests
         // Assert
         var service1 = provider.GetRequiredService<IMyService>();
         var service2 = provider.GetRequiredService<IMyService>();
-        
+
         Assert.NotSame(service1, service2); // Should be different instances (transient)
         Assert.Equal("Test", service1.Name);
         Assert.Equal(42, service1.Value);
@@ -236,7 +236,7 @@ public class ServiceLifetimeTests
         var serviceProvider = services.BuildServiceProvider();
         var instance1 = serviceProvider.GetRequiredService<IMyService>();
         var instance2 = serviceProvider.GetRequiredService<IMyService>();
-        
+
         Assert.Same(instance1, instance2); // Should be the same instance (singleton behavior)
         Assert.Equal("Test", instance1.Name);
         Assert.Equal(42, instance1.Value);
@@ -257,7 +257,7 @@ public class ServiceLifetimeTests
         Assert.Equal(typeof(MyServiceConfig), rule.Registration.ConcreteType);
     }
 
-    [Fact] 
+    [Fact]
     public void Should_Register_Concrete_Type_With_For_Method_And_Key()
     {
         // Arrange & Act
@@ -278,16 +278,16 @@ public class ServiceLifetimeTests
         // Arrange & Act
         var builder = Rule.From.Static<MyServiceConfig>(_ => new MyServiceConfig { Name = "Test", Value = 42 })
             .For<MyServiceConfig>(ServiceLifetime.Scoped) // Register concrete as Scoped
-            .As<IMyService>(ServiceLifetime.Singleton);   // Also register interface as Singleton
+            .As<IMyService>(ServiceLifetime.Singleton); // Also register interface as Singleton
 
         var rules = builder.BuildRules().ToList();
 
         // Assert
         Assert.Equal(2, rules.Count);
-        
+
         var concreteRule = rules.First(r => r.Registration.ContractType == typeof(MyServiceConfig));
         var interfaceRule = rules.First(r => r.Registration.ContractType == typeof(IMyService));
-        
+
         Assert.Equal(ServiceLifetime.Scoped, concreteRule.Registration.ServiceLifetime);
         Assert.Equal(ServiceLifetime.Singleton, interfaceRule.Registration.ServiceLifetime);
     }
@@ -305,15 +305,15 @@ public class ServiceLifetimeTests
 
         // Assert
         Assert.Equal(3, rules.Count);
-        
+
         var rule1 = rules.First(r => r.Registration.ServiceKey == "key1");
         var rule2 = rules.First(r => r.Registration.ServiceKey == "key2");
         var rule3 = rules.First(r => r.Registration.ServiceKey == "key3");
-        
+
         Assert.Equal(ServiceLifetime.Singleton, rule1.Registration.ServiceLifetime);
         Assert.Equal(ServiceLifetime.Singleton, rule2.Registration.ServiceLifetime);
         Assert.Equal(ServiceLifetime.Scoped, rule3.Registration.ServiceLifetime);
-        
+
         // All should register the concrete type as both ConcreteType and ContractType
         foreach (var rule in rules)
         {
@@ -335,11 +335,11 @@ public class ServiceLifetimeTests
 
         // Assert
         Assert.Equal(3, rules.Count);
-        
+
         var singletonRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Singleton);
         var scopedRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Scoped);
         var transientRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Transient);
-        
+
         Assert.Equal("same-key", singletonRule.Registration.ServiceKey);
         Assert.Equal("same-key", scopedRule.Registration.ServiceKey);
         Assert.Equal("same-key", transientRule.Registration.ServiceKey);
@@ -375,9 +375,12 @@ public class ServiceLifetimeTests
         services.AddCocoarConfiguration(rules);
 
         // Assert - Check that all registrations are present in DI
-        var concreteKey1 = services.FirstOrDefault(s => s.ServiceType == typeof(MyServiceConfig) && s.ServiceKey?.ToString() == "key1");
-        var concreteKey2 = services.FirstOrDefault(s => s.ServiceType == typeof(MyServiceConfig) && s.ServiceKey?.ToString() == "key2");
-        var interfaceKey3 = services.FirstOrDefault(s => s.ServiceType == typeof(IMyService) && s.ServiceKey?.ToString() == "key3");
+        var concreteKey1 = services.FirstOrDefault(s =>
+            s.ServiceType == typeof(MyServiceConfig) && s.ServiceKey?.ToString() == "key1");
+        var concreteKey2 = services.FirstOrDefault(s =>
+            s.ServiceType == typeof(MyServiceConfig) && s.ServiceKey?.ToString() == "key2");
+        var interfaceKey3 =
+            services.FirstOrDefault(s => s.ServiceType == typeof(IMyService) && s.ServiceKey?.ToString() == "key3");
 
         Assert.NotNull(concreteKey1);
         Assert.NotNull(concreteKey2);

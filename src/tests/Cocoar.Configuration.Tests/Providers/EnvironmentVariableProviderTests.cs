@@ -97,7 +97,7 @@ public class EnvironmentVariableProviderTests
         Assert.True(result.TryGetProperty("FOO_BAR", out var fooBar));
         Assert.Equal("x", fooBar.GetString());
 
-    // Ensure nested keys via double underscore are present
+        // Ensure nested keys via double underscore are present
         Assert.True(result.TryGetProperty("Logging", out var logging));
         Assert.True(logging.TryGetProperty("Level", out var lvl));
         Assert.True(lvl.ValueKind == JsonValueKind.String);

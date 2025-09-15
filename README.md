@@ -63,8 +63,8 @@ Minimal example (file + environment layering, strongly-typed access):
 // ...
 builder
     .AddCocoarConfiguration(
-        // New concise overloads:
-        Rule.From.File("appsettings.json", "App").For<AppSettings>().Optional(),
+        // File + env layering (rule-level selection via .Select)
+        Rule.From.File("appsettings.json").Select("App").For<AppSettings>().Optional(),
         Rule.From.Environment("APP_").For<AppSettings>()
     );
 ```
@@ -81,9 +81,9 @@ Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
 * **Rule**: Source + optional query + target configuration type
 * **Provider**: Pluggable source (file, env, HTTP, static, custom, adapter)
 * **Merge**: Ordered *last-write-wins* per flattened key
-* **Recompute**: Any change → full recompute → atomic snapshot swap
-* **Dynamic dependencies**: Rule factories (options/query) can read in-progress snapshots.
-* **Required vs Optional**: Pptional failure skips the layer.
+* **Recompute**: Incremental – only recompute from earliest changed rule; atomic snapshot publish.
+* **Dynamic dependencies**: Rule factories (options/query) can read earlier in-progress rule outputs during a pass.
+* **Required vs Optional**: Optional failure skips the layer.
 * **DI Lifetimes & Keys**: Register as singleton (default), scoped, transient, keyed
 
 👉 [Read more in the **Concepts Deep Dive**](docs/CONCEPTS.md)
@@ -156,9 +156,32 @@ For more in-depth documentation, see:
 
 ## Thread Safety & Performance
 
-* Reading config is thread-safe
-* Recompute is O(n) per rules + JSON size
-* Providers reused across recomputes when options stable
+* Reading config is thread-safe (atomic snapshot swap)
+* Incremental recompute: only from earliest changed rule onward (prefix reused)
+* Selection-hash gating: unchanged selected subtree events skipped
+* Providers reused across recomputes when instance options stable
+* Static rule set: rules immutable after initialization (use `UseWhen` to toggle)
+
+---
+
+## Quality & Reliability
+
+This project invests heavily in **correctness-first incremental recompute**. Optimisations (prefix reuse, cancellation, selection‑hash gating, debounce) are all guarded by strong differential and stress tests so performance never compromises determinism.
+
+Core test suites (see `src/tests/`):
+
+| Suite | Focus | Guarantee
+|-------|-------|----------|
+| `DifferentialCorrectnessFuzzTests` | Random multi-provider mutation waves | Final published snapshot bit-for-bit equals a naive full merge |
+| `PartialRecomputeTests` | Prefix reuse / earliest-index accuracy | Unchanged prefix providers are never refetched |
+| `OverlappingRecomputeCorrectnessTests` | Cancellation under descending storms | No lost updates; latest versions survive heavy overlap |
+| `CancellationTests` | Mid-pass abort & restart | Earlier changes preempt wasted later work |
+| `SnapshotChangeDeletionTests` | Deletion propagation | Removed keys do not resurrect spuriously |
+| `RecomputeStressTests` | Burst & jitter durability | Bounded passes; stable end-state |
+| Provider suites (`Providers/*Tests`) | Integration of file/env/http/adapter | Source-specific semantics remain correct |
+
+**Why call this out?** Incremental configuration layering is deceptively complex once you introduce cancellation and reuse. Many libraries silently drop updates or leak stale keys; these suites explicitly prevent that class of regression.
+
 
 ---
 
