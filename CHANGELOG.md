@@ -3,7 +3,7 @@
 ## [Unreleased]
 _No changes yet._
 
-## [0.9.3] - 2025-09-15
+## [0.10.0] - 2025-09-15
 
 ### Breaking
 - Removed query-level `configurationPath` and `targetPath`; use rule-level `.Select(...)` and `.MountAt(...)`.
