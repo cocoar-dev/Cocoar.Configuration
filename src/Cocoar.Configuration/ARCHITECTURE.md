@@ -15,7 +15,7 @@ This document captures the current design, behavior, and implementation details 
   - ProviderType (e.g., File, Environment, HTTP)
   - ProviderOptions (instance options; define resource identity and lifetime)
   - QueryOptions (what to fetch/select from the provider)
-  - ConfigRegistration (contract+optional implementation type)
+  - Concrete Type (the configuration POCO type produced)
   - Options (UseWhen, Required)
 - Factory deferral: rule factories (instance/query option factories) are stored, not executed at rule construction time. They are invoked during recompute, enabling dynamic dependencies between rules.
 - Providers

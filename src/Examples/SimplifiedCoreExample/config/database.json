@@ -1,0 +1,5 @@
+{
+  "ConnectionString": "Server=localhost;Database=ExampleDb;Integrated Security=true;",
+  "CommandTimeout": 30,
+  "MaxRetries": 3
+}

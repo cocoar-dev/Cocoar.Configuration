@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Runtime.CompilerServices;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.DI;
 
 namespace Cocoar.Configuration.AspNetCore;
 
@@ -10,86 +12,67 @@ public static class CocoarConfigurationAspNetCoreExtensions
     private static readonly ConditionalWeakTable<WebApplicationBuilder, ConfigManager> _store = new();
 
     /// <summary>
-    /// Registers the ConfigManager and all requested config types with DI.
+    /// Registers the ConfigManager with ASP.NET Core dependency injection.
+    /// Uses the same API as ConfigManager for consistency.
     /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <param name="rules">Configuration rules defining where configurations come from</param>
+    /// <param name="bindings">Optional binding specifications defining interface mappings</param>
+    /// <param name="logger">Optional logger for ConfigManager</param>
+    /// <param name="debounceMilliseconds">Debounce time for configuration change notifications</param>
+    /// <returns>The WebApplicationBuilder for method chaining</returns>
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
-        IEnumerable<ConfigRule> rules)
+        IEnumerable<ConfigRule> rules,
+        IEnumerable<BindingSpec>? bindings = null,
+        ILogger? logger = null,
+        int debounceMilliseconds = 300)
     {
-        builder.Services.ThrowIfAlreadyRegistered();
-
         var ruleList = rules.ToList();
-        var configManager = new ConfigManager(ruleList).Initialize();
-        builder.Services.AddSingleton(configManager);
+        var bindingList = bindings?.ToList() ?? new List<BindingSpec>();
 
-        var types = ruleList.Select(r => r.Registration).Distinct();
-        foreach (var type in types)
+        // Create ConfigManager (same as core API)
+        var configManager = new ConfigManager(ruleList, bindingList, logger, debounceMilliseconds: debounceMilliseconds);
+        configManager.Initialize();
+
+        // Use DI project to register with ASP.NET Core's default Scoped lifetime
+        builder.Services.AddCocoarConfiguration(configManager, options =>
         {
-            // Register concrete type with the appropriate lifetime
-            RegisterServiceWithLifetime(builder.Services, type.ConcreteType, type.ServiceLifetime, type.ServiceKey,
-                _ => configManager.GetRequiredConfig(type.ConcreteType));
+            // ASP.NET Core defaults to Scoped lifetime which is perfect for web applications
+            options.DefaultRegistrationLifetime(ServiceLifetime.Scoped);
+        });
 
-            // Register contract type (interface) if specified
-            if (type.ContractType != null)
-            {
-                RegisterServiceWithLifetime(builder.Services, type.ContractType, type.ServiceLifetime, type.ServiceKey,
-                    _ => configManager.GetRequiredConfig(type.ConcreteType));
-            }
-        }
-
+        // Store ConfigManager per WebApplicationBuilder for build-time access
         _store.Remove(builder);
         _store.Add(builder, configManager);
         return builder;
     }
 
-    private static void RegisterServiceWithLifetime(IServiceCollection services, Type serviceType,
-        ServiceLifetime lifetime, string? serviceKey, Func<IServiceProvider, object> factory)
+    /// <summary>
+    /// Registers the ConfigManager with ASP.NET Core dependency injection (simple overload).
+    /// This overload is convenient when you only need rules without bindings.
+    /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <param name="rules">Configuration rules defining where configurations come from</param>
+    /// <param name="logger">Optional logger for ConfigManager</param>
+    /// <param name="debounceMilliseconds">Debounce time for configuration change notifications</param>
+    /// <returns>The WebApplicationBuilder for method chaining</returns>
+    public static WebApplicationBuilder AddCocoarConfiguration(
+        this WebApplicationBuilder builder,
+        IEnumerable<ConfigRule> rules,
+        ILogger? logger = null,
+        int debounceMilliseconds = 300)
     {
-        if (serviceKey == null)
-        {
-            // Register without key
-            switch (lifetime)
-            {
-                case ServiceLifetime.Singleton:
-                    services.AddSingleton(serviceType, factory);
-                    break;
-                case ServiceLifetime.Scoped:
-                    services.AddScoped(serviceType, factory);
-                    break;
-                case ServiceLifetime.Transient:
-                    services.AddTransient(serviceType, factory);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
-            }
-        }
-        else
-        {
-            // Register with key
-            switch (lifetime)
-            {
-                case ServiceLifetime.Singleton:
-                    services.AddKeyedSingleton(serviceType, serviceKey, (sp, _) => factory(sp));
-                    break;
-                case ServiceLifetime.Scoped:
-                    services.AddKeyedScoped(serviceType, serviceKey, (sp, _) => factory(sp));
-                    break;
-                case ServiceLifetime.Transient:
-                    services.AddKeyedTransient(serviceType, serviceKey, (sp, _) => factory(sp));
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Unsupported service lifetime");
-            }
-        }
+        return builder.AddCocoarConfiguration(rules, null, logger, debounceMilliseconds);
     }
 
     /// <summary>
     /// Overload for params usage (convenient for app code)
     /// </summary>
     public static WebApplicationBuilder AddCocoarConfiguration(
-        this WebApplicationBuilder services,
+        this WebApplicationBuilder builder,
         params ConfigRule[] rules)
-        => AddCocoarConfiguration(services, rules.AsEnumerable());
+        => AddCocoarConfiguration(builder, rules.AsEnumerable(), null, null, 300);
 
     /// <summary>
     /// Registers using fluent builders (IConfigRuleBuilder). Builders are materialized to rules internally.
@@ -97,7 +80,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         IEnumerable<IConfigRuleBuilder> builders)
-        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()));
+        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()), null, null, 300);
 
     /// <summary>
     /// Overload for params usage with fluent builders.
@@ -106,7 +89,6 @@ public static class CocoarConfigurationAspNetCoreExtensions
         this WebApplicationBuilder builder,
         params IConfigRuleBuilder[] builders)
         => AddCocoarConfiguration(builder, builders.AsEnumerable());
-
 
     public static ConfigManager GetCocoarConfigManager(this WebApplicationBuilder builder)
         => _store.TryGetValue(builder, out var cm)

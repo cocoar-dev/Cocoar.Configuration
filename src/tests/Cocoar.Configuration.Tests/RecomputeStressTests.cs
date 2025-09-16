@@ -110,9 +110,9 @@ public class RecomputeStressTests
         ConfigurationProvider Factory(Type t, IProviderConfiguration _) => queue.Dequeue();
 
         var rules = providers.Select((p, idx) => new ConfigRule(typeof(StormProvider), providerOptions[idx], query,
-            new ConfigRegistration(typeof(StormConfig)))).ToArray();
+            typeof(StormConfig))).ToArray();
 
-        var manager = new ConfigManager(rules, NullLogger.Instance, Factory, debounceMilliseconds: 100).Initialize();
+        var manager = new ConfigManager(rules, null, NullLogger.Instance, Factory, debounceMilliseconds: 100).Initialize();
 
         // Baseline fetch counts
         var baseFetch = providers.Select(p => p.FetchCount).ToArray();

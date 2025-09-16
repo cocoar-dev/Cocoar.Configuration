@@ -81,9 +81,9 @@ public class SnapshotChangeDeletionTests
         p.State["B"] = JsonDocument.Parse("\"two\"").RootElement.Clone();
         var rules = new[]
         {
-            new ConfigRule(typeof(MutableProvider), new Opts("m1"), new Q(), new ConfigRegistration(typeof(ConfigA)))
+            new ConfigRule(typeof(MutableProvider), new Opts("m1"), new Q(), typeof(ConfigA))
         };
-        var manager = new ConfigManager(rules, NullLogger.Instance, (t, o) => p, debounceMilliseconds: 10).Initialize();
+        var manager = new ConfigManager(rules, null, NullLogger.Instance, (t, o) => p, debounceMilliseconds: 10).Initialize();
         await Task.Delay(30);
         var initial = manager.GetRequiredConfig<ConfigA>();
         Assert.Equal("one", initial.A);

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.DI;
 
 namespace Cocoar.Configuration.Tests.Fluent;
 
@@ -32,7 +33,7 @@ public class FluentBuilderTests
             .Build();
 
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rule);
+        services.AddCocoarConfiguration([rule]);
         var sp = services.BuildServiceProvider();
 
         // Act
@@ -58,17 +59,17 @@ public class FluentBuilderTests
             var fileRule = Rule.From
                 .File(_ => FileSourceRuleOptions.FromFilePath(tempFile)).Select("SectionA")
                 .For<TestClass>()
-                .As<IMySectionSettings>()
                 .Build();
 
             var envRule = Rule.From
                 .Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: null))
                 .For<TestClass>()
-                .As<IMySectionSettings>()
                 .Build();
 
             var services = new ServiceCollection();
-            services.AddCocoarConfiguration(fileRule, envRule);
+            services.AddCocoarConfiguration([fileRule, envRule], [
+                Bind.Type<TestClass>().To<IMySectionSettings>()
+                ]);
             var sp = services.BuildServiceProvider();
 
             // Act
@@ -101,7 +102,7 @@ public class FluentBuilderTests
                 .Build();
 
             var services = new ServiceCollection();
-            services.AddCocoarConfiguration(rule);
+            services.AddCocoarConfiguration([rule]);
             var sp = services.BuildServiceProvider();
 
             var manager = sp.GetRequiredService<ConfigManager>();

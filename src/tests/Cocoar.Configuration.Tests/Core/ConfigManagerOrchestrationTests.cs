@@ -57,7 +57,7 @@ public class ConfigManagerOrchestrationTests
         var rule = ConfigRule.Create<CountingProvider, CountingProvider.Options, CountingProvider.Query>(
             new CountingProvider.Options("K"),
             new CountingProvider.Query("Q", changeBus.AsObservable()),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         // Act: Initialize triggers exactly one compute
@@ -94,11 +94,11 @@ public class MicrosoftProviderAdapterTests
             MicrosoftConfigurationSourceProviderQueryOptions>(
             new MicrosoftConfigurationSourceProviderOptions(memSource),
             new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "My:Section"),
-            new ConfigRegistration(typeof(MicrosoftProviderAdapterTests.DemoConfig)),
+            typeof(MicrosoftProviderAdapterTests.DemoConfig),
             new ConfigRuleOptions()
         );
 
-        var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager([rule ], null, NullLogger.Instance).Initialize();
         var cfg = mgr.GetConfig<DemoConfig>();
 
         Assert.NotNull(cfg);

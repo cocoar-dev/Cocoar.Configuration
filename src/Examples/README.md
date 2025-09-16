@@ -4,15 +4,18 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 
 ## Projects
 
-- BasicUsage – Common ASP.NET Core pattern with file + environment overrides
-- FileLayering – Multiple JSON file layering (base + env + local)
-- DynamicDependencies – Later rules derive values from earlier configurations
-- AspNetCoreExample – Minimal API exposing configuration via endpoints
-- GenericProviderAPI – Using the generic provider registration API
-- HttpPollingExample – Demonstrates pattern for remote/polling configuration
-- MicrosoftAdapterExample – Integrating `IConfigurationSource` providers
-- ServiceLifetimes – Controlling DI lifetimes and keyed registrations
-- StaticProviderExample – Static seeding and dependent recompute
+- **BasicUsage** – Common ASP.NET Core pattern with file + environment overrides
+- **FileLayering** – Multiple JSON file layering (base + env + local)  
+- **DynamicDependencies** – Later rules derive values from earlier configurations
+- **AspNetCoreExample** – Minimal API exposing configuration via endpoints
+- **GenericProviderAPI** – Using the generic provider registration API
+- **HttpPollingExample** – Demonstrates pattern for remote/polling configuration
+- **MicrosoftAdapterExample** – Integrating `IConfigurationSource` providers
+- **ServiceLifetimes** – Controlling DI lifetimes and keyed registrations
+- **StaticProviderExample** – Static seeding and dependent recompute
+- **DIExample** – Comprehensive DI integration patterns with advanced service registration
+- **SimplifiedCoreExample** – Pure core library usage without DI (ConfigManager only)
+- **BindingExample** – Interface binding without DI frameworks
 
 ## Running an Example
 ```pwsh

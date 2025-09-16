@@ -8,14 +8,14 @@ namespace Cocoar.Configuration;
 /// </summary>
 internal class ConfigurationRepository
 {
-    private volatile Dictionary<ConfigRegistration, JsonElement> _configs = new();
-    private volatile Dictionary<ConfigRegistration, JsonElement>? _pendingConfigurations;
+    private volatile Dictionary<Type, JsonElement> _configs = new();
+    private volatile Dictionary<Type, JsonElement>? _pendingConfigurations;
 
     /// <summary>
     /// Gets the current configuration dictionary (or pending if available).
     /// Thread-safe access to avoid race conditions.
     /// </summary>
-    public Dictionary<ConfigRegistration, JsonElement> CurrentConfigurations
+    public Dictionary<Type, JsonElement> CurrentConfigurations
     {
         get
         {
@@ -30,24 +30,24 @@ internal class ConfigurationRepository
     /// </summary>
     public void BeginUpdate()
     {
-        _pendingConfigurations = new Dictionary<ConfigRegistration, JsonElement>();
+    _pendingConfigurations = new Dictionary<Type, JsonElement>();
     }
 
     /// <summary>
     /// Adds or updates a configuration during an update session.
     /// </summary>
-    public void UpdateConfiguration(ConfigRegistration registration, JsonElement value)
+    public void UpdateConfiguration(Type type, JsonElement value)
     {
         if (_pendingConfigurations == null)
             throw new InvalidOperationException("Must call BeginUpdate() before updating configurations");
 
-        _pendingConfigurations[registration] = value;
+        _pendingConfigurations[type] = value;
     }
 
     /// <summary>
     /// Commits all pending changes atomically.
     /// </summary>
-    public void CommitUpdate(Dictionary<ConfigRegistration, JsonElement> finalConfigurations)
+    public void CommitUpdate(Dictionary<Type, JsonElement> finalConfigurations)
     {
         _configs = finalConfigurations;
         _pendingConfigurations = null; // Clear working snapshot after atomic swap
@@ -62,23 +62,22 @@ internal class ConfigurationRepository
     }
 
     /// <summary>
-    /// Finds a configuration registration by type (concrete or contract type).
+    /// Finds a configuration registration by concrete type.
     /// </summary>
-    public ConfigRegistration? FindRegistration<T>()
+    public Type? FindRegistration<T>()
     {
         return FindRegistration(typeof(T));
     }
 
     /// <summary>
-    /// Finds a configuration registration by type (concrete or contract type).
+    /// Finds a configuration registration by concrete type.
     /// Thread-safe to avoid race conditions.
     /// </summary>
-    public ConfigRegistration? FindRegistration(Type type)
+    public Type? FindRegistration(Type type)
     {
         // Capture current configurations once to avoid race condition
         var currentConfigs = CurrentConfigurations;
-        return currentConfigs.Keys.FirstOrDefault(k => k.ConcreteType == type)
-               ?? currentConfigs.Keys.FirstOrDefault(k => k.ContractType == type);
+    return currentConfigs.Keys.FirstOrDefault(k => k == type);
     }
 
     /// <summary>
@@ -95,12 +94,12 @@ internal class ConfigurationRepository
     /// </summary>
     public bool TryGetConfiguration(Type type, out JsonElement value)
     {
-        var registration = FindRegistration(type);
-        if (registration != null)
+        var foundType = FindRegistration(type);
+        if (foundType != null)
         {
             // Capture current configurations once to avoid race condition
             var currentConfigs = CurrentConfigurations;
-            if (currentConfigs.TryGetValue(registration, out value))
+            if (currentConfigs.TryGetValue(foundType, out value))
             {
                 return true;
             }
@@ -115,6 +114,6 @@ internal class ConfigurationRepository
     /// </summary>
     public JsonElement? GetConfigurationAsJson(Type type)
     {
-        return _configs.TryGetValue(new ConfigRegistration(type), out var value) ? value.Clone() : null;
+    return _configs.TryGetValue(type, out var value) ? value.Clone() : null;
     }
 }

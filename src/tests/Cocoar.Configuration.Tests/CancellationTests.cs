@@ -101,14 +101,11 @@ public class CancellationTests
         ConfigurationProvider Factory(Type t, IProviderConfiguration _) => queue.Dequeue();
         var rules = new[]
         {
-            new ConfigRule(typeof(SlowProvider), providerOptions1, queryOptions,
-                new ConfigRegistration(typeof(SlowProviderConfig)), new ConfigRuleOptions()),
-            new ConfigRule(typeof(SlowProvider), providerOptions2, queryOptions,
-                new ConfigRegistration(typeof(SlowProviderConfig)), new ConfigRuleOptions()),
-            new ConfigRule(typeof(SlowProvider), providerOptions3, queryOptions,
-                new ConfigRegistration(typeof(SlowProviderConfig)), new ConfigRuleOptions())
+            new ConfigRule(typeof(SlowProvider), providerOptions1, queryOptions,typeof(SlowProviderConfig), new ConfigRuleOptions()),
+            new ConfigRule(typeof(SlowProvider), providerOptions2, queryOptions,typeof(SlowProviderConfig), new ConfigRuleOptions()),
+            new ConfigRule(typeof(SlowProvider), providerOptions3, queryOptions,typeof(SlowProviderConfig), new ConfigRuleOptions())
         };
-        var manager = new ConfigManager(rules, NullLogger.Instance, Factory, debounceMilliseconds: 50).Initialize();
+        var manager = new ConfigManager(rules, null, NullLogger.Instance, Factory, debounceMilliseconds: 50).Initialize();
         var b1 = p1.FetchCount;
         var b2 = p2.FetchCount;
         var b3 = p3.FetchCount;

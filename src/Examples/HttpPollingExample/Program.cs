@@ -1,6 +1,7 @@
 // Migrated from root Examples/HttpPollingExample.cs
 
 using Cocoar.Configuration;
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
@@ -25,7 +26,7 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(
+        services.AddCocoarConfiguration([
             Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiConfiguration>()
                 .Required(),
@@ -37,7 +38,7 @@ public static class Program
             })
             .For<RemoteFeatureFlags>()
             .Optional()
-        );
+        ]);
         var serviceProvider = services.BuildServiceProvider();
         var apiConfig = serviceProvider.GetRequiredService<ApiConfiguration>();
         var featureFlags = serviceProvider.GetService<RemoteFeatureFlags>();

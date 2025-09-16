@@ -103,13 +103,10 @@ public class PartialRecomputeTests
         var providers = new Queue<CountingProvider>(new[] { p1, p2, p3 });
         ConfigurationProvider Factory(Type t, IProviderConfiguration _) => providers.Dequeue();
 
-        var r1 = new ConfigRule(typeof(CountingProvider), providerOptions1, queryOptions,
-            new ConfigRegistration(typeof(TestConfig)));
-        var r2 = new ConfigRule(typeof(CountingProvider), providerOptions2, queryOptions,
-            new ConfigRegistration(typeof(TestConfig)));
-        var r3 = new ConfigRule(typeof(CountingProvider), providerOptions3, queryOptions,
-            new ConfigRegistration(typeof(TestConfig)));
-        var manager = new ConfigManager(new[] { r1, r2, r3 }, NullLogger.Instance, Factory, debounceMilliseconds: 50)
+        var r1 = new ConfigRule(typeof(CountingProvider), providerOptions1, queryOptions, typeof(TestConfig));
+        var r2 = new ConfigRule(typeof(CountingProvider), providerOptions2, queryOptions, typeof(TestConfig));
+        var r3 = new ConfigRule(typeof(CountingProvider), providerOptions3, queryOptions,typeof(TestConfig));
+        var manager = new ConfigManager(new[] { r1, r2, r3 }, null, NullLogger.Instance, Factory, debounceMilliseconds: 50)
             .Initialize();
 
         // Warm-up fetch: each provider fetched once

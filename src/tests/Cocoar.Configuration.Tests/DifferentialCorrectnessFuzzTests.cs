@@ -149,7 +149,7 @@ public class DifferentialCorrectnessFuzzTests
                 SelectPath = i % 2 == 0 ? null : null, // keep simple (no selection) here; could add paths if sample JSON supports
                 MountPath = i % 2 == 1 ? $"layer{i}" : null
             };
-            var rule = new ConfigRule(typeof(PayloadProvider), new ProviderCfg($"prov-{i}"), new QueryCfg("q"), new ConfigRegistration(typeof(object)), opts);
+            var rule = new ConfigRule(typeof(PayloadProvider), new ProviderCfg($"prov-{i}"), new QueryCfg("q"), typeof(object), opts);
             rules.Add((rule, prov));
         }
 
@@ -163,7 +163,7 @@ public class DifferentialCorrectnessFuzzTests
         }
         factoryQueue = new Queue<PayloadProvider>(shuffled.Select(r => r.Provider));
         ConfigurationProvider Factory(Type _, IProviderConfiguration cfg) => factoryQueue.Dequeue();
-        var cm = new ConfigManager(shuffled.Select(r => r.Rule), NullLogger.Instance, Factory, debounceMilliseconds: 30).Initialize();
+        var cm = new ConfigManager(shuffled.Select(r => r.Rule), null, NullLogger.Instance, Factory, debounceMilliseconds: 30).Initialize();
 
         // Seed initial mutations
         foreach (var p in providers)

@@ -40,7 +40,7 @@ public class MicrosoftSourcesIntegrationTests
                 .Build(),
         };
 
-        var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(rules, null, NullLogger.Instance).Initialize();
         var initial = mgr.GetConfig<DemoConfig>();
         Assert.NotNull(initial);
         Assert.True(initial.Enabled);
@@ -93,7 +93,7 @@ public class MicrosoftSourcesIntegrationTests
                 .Build(),
         };
 
-        var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(rules, null, NullLogger.Instance).Initialize();
         var initial = mgr.GetConfig<DemoConfig>();
         Assert.NotNull(initial);
         Assert.True(initial!.Enabled);
@@ -149,7 +149,7 @@ public class MicrosoftSourcesIntegrationTests
                     .Build(),
             };
 
-            var mgr = new ConfigManager(rules, NullLogger.Instance).Initialize();
+            var mgr = new ConfigManager(rules, null, NullLogger.Instance).Initialize();
             var cfg = mgr.GetConfig<DemoConfig>();
             Assert.NotNull(cfg);
             Assert.True(cfg.Enabled);

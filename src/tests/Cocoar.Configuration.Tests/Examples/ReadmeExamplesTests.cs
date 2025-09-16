@@ -2,6 +2,7 @@ using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
 using Cocoar.Configuration.AspNetCore;
+using Cocoar.Configuration.DI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
@@ -68,15 +69,16 @@ public class ReadmeExamplesTests
             {
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettings>()
-                    .As<IMySettings>()
                     .Build(),
                 Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettings>()
-                    .As<IMySettings>()
                     .Build()
             };
 
-            var manager = new ConfigManager(rules).Initialize();
+
+            var manager = new ConfigManager(rules, [
+                Bind.Type<MySettings>().To<IMySettings>()
+                ]).Initialize();
             var cfg = manager.GetConfig<IMySettings>();
 
             // Verify the example works
@@ -117,12 +119,12 @@ public class ReadmeExamplesTests
             var rules = new[]
             {
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
-                    .For<MySettings>()
-                    .As<IMySettings>()
-                    .Build()
+                    .For<MySettings>().Build()
             };
 
-            builder.Services.AddCocoarConfiguration(rules);
+            builder.Services.AddCocoarConfiguration(rules, [
+                    Bind.Type<MySettings>().To<IMySettings>()
+                ]);
 
             var app = builder.Build();
 
@@ -242,16 +244,16 @@ public class ReadmeExamplesTests
                 // File first (base layer)
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile)).Select("MySection")
                     .For<MySettingsExtended>()
-                    .As<IMySettingsExtended>()
                     .Build(),
                 // Environment second (override layer)
                 Rule.From.Environment(_ => new EnvironmentVariableRuleOptions(environmentPrefix: "MYAPP_"))
                     .For<MySettingsExtended>()
-                    .As<IMySettingsExtended>()
                     .Build()
             };
 
-            var manager = new ConfigManager(rules).Initialize();
+            var manager = new ConfigManager(rules, [
+                Bind.Type<MySettingsExtended>().To<IMySettingsExtended>()
+            ]).Initialize();
             var cfg = manager.GetConfig<IMySettingsExtended>();
 
             Assert.NotNull(cfg);
@@ -279,143 +281,6 @@ public class ReadmeExamplesTests
         public bool Enabled { get; set; }
         public int Value { get; set; }
         public string Secret { get; set; } = "";
-    }
-
-    [Fact]
-    public void ReadmeExample_ServiceLifetimes_Basic_Works()
-    {
-        // Example from README: Basic Usage section
-        var tempJsonFile = Path.GetTempFileName();
-        File.WriteAllText(tempJsonFile, """
-                                        {
-                                            "Enabled": true,
-                                            "Value": 42
-                                        }
-                                        """);
-
-        try
-        {
-            // Test each lifetime type individually (matches README examples)
-            var singletonRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
-                .For<MySettings>()
-                .As<IMySettings>()
-                .Build();
-
-            var scopedRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
-                .For<MySettings>()
-                .As<IMySettings>(ServiceLifetime.Scoped)
-                .Build();
-
-            var transientRule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
-                .For<MySettings>()
-                .As<IMySettings>(ServiceLifetime.Transient)
-                .Build();
-
-            // Verify the rules were created with correct lifetimes
-            Assert.Equal(ServiceLifetime.Singleton, singletonRule.Registration.ServiceLifetime);
-            Assert.Equal(ServiceLifetime.Scoped, scopedRule.Registration.ServiceLifetime);
-            Assert.Equal(ServiceLifetime.Transient, transientRule.Registration.ServiceLifetime);
-        }
-        finally
-        {
-            File.Delete(tempJsonFile);
-        }
-    }
-
-    [Fact]
-    public void ReadmeExample_ServiceLifetimes_MultipleRegistrations_Works()
-    {
-        // Example from README: Multiple Registrations with Keys section
-        var tempJsonFile = Path.GetTempFileName();
-        File.WriteAllText(tempJsonFile, """
-                                        {
-                                            "Enabled": true,
-                                            "Value": 42
-                                        }
-                                        """);
-
-        try
-        {
-            // This code matches the README example exactly
-            var rules = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
-                .For<MySettings>()
-                .As<IMySettings>(ServiceLifetime.Singleton, "cache") // Singleton for caching
-                .As<IMySettings>(ServiceLifetime.Scoped, "request") // Scoped for request processing  
-                .As<IMySettings>(ServiceLifetime.Transient, "temp") // Transient for temporary use
-                .BuildRules()
-                .ToList();
-
-            // Verify multiple rules were created
-            Assert.Equal(3, rules.Count);
-
-            // Verify correct lifetimes and keys
-            var singletonRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Singleton);
-            var scopedRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Scoped);
-            var transientRule = rules.First(r => r.Registration.ServiceLifetime == ServiceLifetime.Transient);
-
-            Assert.Equal("cache", singletonRule.Registration.ServiceKey);
-            Assert.Equal("request", scopedRule.Registration.ServiceKey);
-            Assert.Equal("temp", transientRule.Registration.ServiceKey);
-
-            // Test DI integration
-            var services = new ServiceCollection();
-            services.AddCocoarConfiguration(rules);
-            var serviceProvider = services.BuildServiceProvider();
-
-            // Verify we can resolve with keys (matches README example)
-            var cached = serviceProvider.GetRequiredKeyedService<IMySettings>("cache");
-            var requestScoped = serviceProvider.GetRequiredKeyedService<IMySettings>("request");
-            var temp = serviceProvider.GetRequiredKeyedService<IMySettings>("temp");
-
-            Assert.True(cached.Enabled);
-            Assert.Equal(42, cached.Value);
-            Assert.True(requestScoped.Enabled);
-            Assert.Equal(42, requestScoped.Value);
-            Assert.True(temp.Enabled);
-            Assert.Equal(42, temp.Value);
-        }
-        finally
-        {
-            File.Delete(tempJsonFile);
-        }
-    }
-
-    [Fact]
-    public void ReadmeExample_ServiceLifetimes_BackwardCompatibility_Works()
-    {
-        // Example from README: Backward Compatibility section
-        var tempJsonFile = Path.GetTempFileName();
-        File.WriteAllText(tempJsonFile, """
-                                        {
-                                            "Enabled": true,
-                                            "Value": 42
-                                        }
-                                        """);
-
-        try
-        {
-            // This code matches the README example exactly
-            var rule = Rule.From.File(_ => FileSourceRuleOptions.FromFilePath(tempJsonFile))
-                .For<MySettings>()
-                .Build(); // Implicitly creates singleton registration
-
-            // Verify default singleton behavior
-            Assert.Equal(ServiceLifetime.Singleton, rule.Registration.ServiceLifetime);
-            Assert.Null(rule.Registration.ServiceKey);
-
-            // Test that it works in DI
-            var services = new ServiceCollection();
-            services.AddCocoarConfiguration(rule);
-            var serviceProvider = services.BuildServiceProvider();
-
-            var config = serviceProvider.GetRequiredService<MySettings>();
-            Assert.True(config.Enabled);
-            Assert.Equal(42, config.Value);
-        }
-        finally
-        {
-            File.Delete(tempJsonFile);
-        }
     }
 
     #endregion

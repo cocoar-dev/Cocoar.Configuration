@@ -13,29 +13,43 @@ namespace Cocoar.Configuration;
 public class ConfigManager : IConfigurationAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
+    private readonly List<BindingSpec> _bindings;
     private readonly ConfigurationRepository _repository;
     private readonly ConfigurationOrchestrator _orchestrator;
     private readonly ChangeSubscriptionManager _subscriptionManager;
     private readonly List<RuleManager> _ruleManagers = new();
     private readonly ProviderRegistry _providerRegistry;
+    private readonly BindingRegistry _bindingRegistry;
     private readonly ILogger _logger;
     private volatile bool _initialized;
     private readonly object _recomputeGate = new();
     private CancellationTokenSource? _recomputeCts;
     private Task? _currentRecomputeTask;
     private readonly int _debounceMs;
-    public ConfigManager(IEnumerable<ConfigRule> rules, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    public ConfigManager(IEnumerable<ConfigRule> rules, IEnumerable<BindingSpec>? bindings = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
         _rules = rules.ToList();
+        _bindings = bindings?.ToList() ?? new List<BindingSpec>();
         _logger = logger ?? NullLogger.Instance;
         _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
         _repository = new ConfigurationRepository();
         _orchestrator = new ConfigurationOrchestrator(_repository, _logger);
         _subscriptionManager = new ChangeSubscriptionManager(_logger);
+        _bindingRegistry = new BindingRegistry(_bindings, _logger);
         _debounceMs = debounceMilliseconds;
     }
 
     // --- Public API -------------------------------------------------
+
+    /// <summary>
+    /// Gets the configuration rules that define where configurations come from.
+    /// </summary>
+    public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
+
+    /// <summary>
+    /// Gets the binding specifications that define interface mappings.
+    /// </summary>
+    public IReadOnlyList<BindingSpec> Bindings => _bindings.AsReadOnly();
 
     public ConfigManager Initialize()
     {
@@ -60,14 +74,32 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public T? GetConfig<T>()
     {
+        // Try direct lookup first (existing behavior for concrete types)
         if (_repository.TryGetConfiguration<T>(out var jsonElement))
         {
             var registration = _repository.FindRegistration<T>();
             if (registration != null)
             {
                 // Deserialize to concrete type, then cast to requested type
-                var concreteValue = ConfigurationDeserializer.Deserialize(jsonElement, registration.ConcreteType);
+                var concreteValue = ConfigurationDeserializer.Deserialize(jsonElement, registration);
                 return (T?)concreteValue;
+            }
+        }
+
+        // Fallback: check binding registry for interface mapping
+        var requestedType = typeof(T);
+        if (_bindingRegistry.TryGetConcreteType(requestedType, out var concreteType))
+        {
+            // Found a mapping - try to get config for the concrete type
+            if (_repository.TryGetConfiguration(concreteType, out var concreteJsonElement))
+            {
+                var concreteRegistration = _repository.FindRegistration(concreteType);
+                if (concreteRegistration != null)
+                {
+                    // Deserialize to concrete type, then cast to interface
+                    var concreteValue = ConfigurationDeserializer.Deserialize(concreteJsonElement, concreteRegistration);
+                    return (T?)concreteValue;
+                }
             }
         }
 
@@ -93,12 +125,27 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public object? GetConfig(Type type)
     {
+        // Try direct lookup first
         if (_repository.TryGetConfiguration(type, out var jsonElement))
         {
             var registration = _repository.FindRegistration(type);
             if (registration != null)
             {
-                return ConfigurationDeserializer.Deserialize(jsonElement, registration.ConcreteType);
+                return ConfigurationDeserializer.Deserialize(jsonElement, registration);
+            }
+        }
+
+        // Fallback: check binding registry for interface mapping
+        if (_bindingRegistry.TryGetConcreteType(type, out var concreteType))
+        {
+            // Found a mapping - try to get config for the concrete type
+            if (_repository.TryGetConfiguration(concreteType, out var concreteJsonElement))
+            {
+                var concreteRegistration = _repository.FindRegistration(concreteType);
+                if (concreteRegistration != null)
+                {
+                    return ConfigurationDeserializer.Deserialize(concreteJsonElement, concreteRegistration);
+                }
             }
         }
 

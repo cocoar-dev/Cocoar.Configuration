@@ -1,6 +1,16 @@
 # Architecture
 
-## Execution & Merge Pipeline
+## System Overview
+
+Cocoar.Configuration consists of three main architectural layers:
+
+1. **Core Library**: Rule-based configuration merging and snapshot management
+2. **Binding System**: Interface-to-concrete type mapping for clean separation  
+3. **DI Integration Package**: Complete dependency injection integration with auto-registration
+
+---
+
+## Core Library: Execution & Merge Pipeline
 
 * Each rule targets one config type and queries exactly one provider.
 * Recompute builds ordered list of layers, flattens to colon keys, applies last-write-wins, then materializes snapshot.
@@ -85,6 +95,104 @@ Fetch → Select → Mount → Flatten → Merge → Materialize Snapshot → Pu
 * Stress / load benchmarks for high-frequency change storms.
 * Optional pluggable hash algorithm or structural diff.
 * Metrics hooks (pass duration, skipped rules count, gating hit rate).
+
+---
+
+## Binding System Architecture
+
+### Purpose
+The binding system provides clean separation between concrete configuration types and the interfaces they implement, enabling dependency injection without coupling the core library to DI frameworks.
+
+### Components
+
+**BindingSpec**: Immutable record defining a concrete type and its bound interfaces:
+```csharp
+public record BindingSpec(Type ConcreteType, IReadOnlySet<Type> BoundInterfaces);
+```
+
+**BindingRegistry**: Thread-safe registry managing interface → concrete type mappings with conflict detection:
+- **Registration**: Maps each interface to exactly one concrete type
+- **Conflict Detection**: Prevents multiple concrete types binding to same interface  
+- **Resolution**: Fast lookup from interface to concrete type during `GetConfig<T>()`
+
+**Fluent API**: Clean, discoverable binding creation:
+```csharp
+Bind.Type<PaymentConfig>().To<IPaymentConfig>().To<IReadOnlyConfig>()
+```
+
+### Resolution Process
+
+1. **Direct Lookup**: `GetConfig<ConcreteType>()` → direct snapshot access
+2. **Interface Binding Resolution**: `GetConfig<Interface>()` → binding registry lookup → concrete type → snapshot access → cast to interface
+3. **Validation**: Runtime verification that concrete type implements requested interface
+4. **Caching**: Fast path for repeated interface resolutions
+
+### Integration Points
+
+- **ConfigManager**: Accepts optional binding collection in constructor
+- **DI Package**: Uses bindings to automatically register interface services  
+- **Examples**: BindingExample demonstrates usage without DI, DIExample shows full DI integration
+
+---
+
+## DI Integration Package Architecture
+
+### Design Philosophy
+- **Zero-Config**: Works perfectly with just rules - no additional setup required
+- **Progressive Enhancement**: Add bindings and options only when needed  
+- **Fail-Safe**: Impossible to forget method calls or cause runtime surprises
+- **Standard Patterns**: Follows ASP.NET Core DI conventions
+
+### Core Components
+
+**CocoarConfigurationExtensions**: Main entry points with multiple overloads:
+- `AddCocoarConfiguration(rules)` - Simplest case, auto-registration only
+- `AddCocoarConfiguration(rules, bindings)` - Add interface bindings  
+- `AddCocoarConfiguration(rules, bindings, options)` - Full control with lifetime management
+- `AddCocoarConfiguration(configManager, options)` - Pre-built ConfigManager support
+
+**ServiceRegistrationOptions**: Configuration for auto-registration behavior:
+- **DefaultRegistrationLifetime**: Controls automatic registration (default: Scoped, null to disable)
+- **ServiceRegistrationBuilder**: Fluent Add/Remove API for fine-grained control
+
+**ServiceRegistration**: Type-safe service definition:
+```csharp  
+public record ServiceRegistration(Type ServiceType, ServiceLifetime Lifetime, object? ServiceKey = null);
+```
+
+### Auto-Registration Algorithm
+
+1. **Rule Types**: All concrete types from rules automatically registered with default lifetime
+2. **Binding Interfaces**: All interfaces from bindings automatically registered with default lifetime  
+3. **Explicit Overrides**: `options.Register.Add<T>()` registrations processed after auto-registration
+4. **Removals**: `options.Register.Remove<T>()` prevents auto-registration
+5. **ConfigManager**: Always registered as singleton for manual access
+
+### Service Resolution Flow
+
+```
+User Requests IPaymentConfig
+    ↓
+DI Container Lookup
+    ↓  
+Service Factory: serviceProvider.GetRequiredService<ConfigManager>()
+    ↓
+ConfigManager.GetConfig<IPaymentConfig>()
+    ↓
+Binding Resolution: IPaymentConfig → PaymentConfig  
+    ↓
+Snapshot Access + Cast
+    ↓
+Return IPaymentConfig Instance
+```
+
+### Lifetime Management
+
+- **Default**: Scoped (sensible for web applications, safe for console apps)
+- **Override**: `options.DefaultRegistrationLifetime(ServiceLifetime.Singleton)`  
+- **Disable**: `options.DefaultRegistrationLifetime(null)` - no auto-registration
+- **Per-Type**: `options.Register.Add<T>(ServiceLifetime.Transient)`
+- **Keyed Services**: `options.Register.Add<T>(ServiceLifetime.Scoped, "backup")`
 
 ---
 

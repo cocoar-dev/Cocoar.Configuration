@@ -30,9 +30,9 @@ internal class ConfigurationOrchestrator
         CancellationToken cancellationToken = default)
     {
     // Flat maps by config contract, merged by rule order (last wins). Seeded by prefix replay logic.
-    var tempFlatMaps = new Dictionary<ConfigRegistration, Dictionary<string, JsonElement>>();
+    var tempFlatMaps = new Dictionary<Type, Dictionary<string, JsonElement>>();
     // Track which rule contributed each key to enable safe deletion
-    var keyProvenance = new Dictionary<ConfigRegistration, Dictionary<string, int>>();
+    var keyProvenance = new Dictionary<Type, Dictionary<string, int>>();
 
         _repository.BeginUpdate();
         var list = ruleManagers.ToList();
@@ -119,7 +119,7 @@ internal class ConfigurationOrchestrator
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var nextConfig = new Dictionary<ConfigRegistration, JsonElement>();
+    var nextConfig = new Dictionary<Type, JsonElement>();
         foreach (var (type, flatMap) in tempFlatMaps)
             nextConfig[type] = JsonConfigurationProcessor.Unflatten(flatMap);
         _repository.CommitUpdate(nextConfig);

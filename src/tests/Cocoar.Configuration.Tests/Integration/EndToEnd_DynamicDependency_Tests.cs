@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
 using Cocoar.Configuration.Providers.FileSourceProvider;

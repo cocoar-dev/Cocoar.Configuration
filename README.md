@@ -38,6 +38,7 @@ Supported TFM: **net9.0** (multi-targeting planned).
 <ItemGroup>
         <PackageReference Include="Cocoar.Configuration" />
         <!-- Optional extensions -->
+        <PackageReference Include="Cocoar.Configuration.DI" />
         <PackageReference Include="Cocoar.Configuration.AspNetCore" />
         <PackageReference Include="Cocoar.Configuration.HttpPolling" />
         <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" />
@@ -48,6 +49,7 @@ CLI:
 
 ```sh
 dotnet add package Cocoar.Configuration
+dotnet add package Cocoar.Configuration.DI
 dotnet add package Cocoar.Configuration.AspNetCore
 dotnet add package Cocoar.Configuration.HttpPolling
 dotnet add package Cocoar.Configuration.MicrosoftAdapter
@@ -57,34 +59,71 @@ dotnet add package Cocoar.Configuration.MicrosoftAdapter
 
 ## Quick Start
 
-Minimal example (file + environment layering, strongly-typed access):
-
+### Simple Setup (Auto-Registration)
+Add rules; everything (concrete types + manager) is available immediately.
 ```csharp
-// ...
-builder
-    .AddCocoarConfiguration(
-        // File + env layering (rule-level selection via .Select)
-        Rule.From.File("appsettings.json").Select("App").For<AppSettings>().Optional(),
-        Rule.From.Environment("APP_").For<AppSettings>()
-    );
+services.AddCocoarConfiguration([rules]);
+```
+➡ Full runnable: `Examples/BasicUsage`
+
+### Interface Binding Setup
+Add interface mappings (optional, works with or without DI):
+```csharp
+services.AddCocoarConfiguration([rules], [
+    Bind.Type<DatabaseConfig>().To<IDatabaseConfig>()
+]);
+```
+➡ Full runnable: `Examples/BindingExample`
+
+### Advanced Setup (Full Control)
+Override lifetimes, disable or extend auto-registration, add keyed services:
+```csharp
+services.AddCocoarConfiguration([rules], [bindings], opts => {
+    opts.DefaultRegistrationLifetime(ServiceLifetime.Singleton);
+    opts.Register.Add<IPaymentConfig>(ServiceLifetime.Scoped, "backup");
+});
+```
+➡ Full runnable: `Examples/ServiceLifetimes`
+
+### Binding vs DI Registration
+
+These two concerns are independent and intentionally separated:
+
+| Concern | What You Define | Purpose | Where |
+|---------|------------------|---------|-------|
+| Binding | `Bind.Type<PaymentConfig>().To<IPaymentConfig>()` | Map concrete config types to one or more interfaces for clean consumption | Core (works without DI) |
+| DI Registration | `options.Register.Add<IPaymentConfig>(ServiceLifetime.Scoped, "backup")` | Control lifetimes, add/remove, keyed registrations in the host container | DI Package (`Cocoar.Configuration.DI`) |
+
+Key points:
+- You can use bindings without DI (access via `ConfigManager` interface lookups).
+- You can use DI auto-registration without any bindings (inject concrete types directly).
+- Combine them for the richest experience: bind interfaces, let DI auto-register both.
+- Disable auto-registration with `options.DefaultRegistrationLifetime(null)` and take full manual control via `options.Register`.
+
+Minimal patterns:
+```csharp
+services.AddCocoarConfiguration([rules]);                 // Concrete only
+services.AddCocoarConfiguration([rules], [bindings]);      // + Interfaces
+services.AddCocoarConfiguration([rules], [bindings], opts => { /* control */ });
 ```
 
-Then inject your config type directly:
-
-```csharp
-var settings = app.Services.GetRequiredService<AppSettings>();
-Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
-```
+#### When to Add Bindings?
+- Start with concrete types only while exploring providers.
+- Add a binding when: multiple consumers need a narrowed contract, or you want to hide writeable/internal members.
+- Bind multiple interfaces to the same concrete when different views (read-only, subset) are needed.
+- Skip bindings entirely if you only inject config into a composition root or a small number of services.
 
 ## Concepts
 
 * **Rule**: Source + optional query + target configuration type
+* **Binding**: Maps concrete configuration types to interfaces for clean DI
 * **Provider**: Pluggable source (file, env, HTTP, static, custom, adapter)
 * **Merge**: Ordered *last-write-wins* per flattened key
 * **Recompute**: Incremental – only recompute from earliest changed rule; atomic snapshot publish.
 * **Dynamic dependencies**: Rule factories (options/query) can read earlier in-progress rule outputs during a pass.
 * **Required vs Optional**: Optional failure skips the layer.
-* **DI Lifetimes & Keys**: Register as singleton (default), scoped, transient, keyed
+* **DI Auto-Registration**: Auto-registers config types and bound interfaces - configurable and can be disabled.
+* **Service Control**: Fine-grained Add/Remove control over service lifetimes and keys
 
 👉 [Read more in the **Concepts Deep Dive**](docs/CONCEPTS.md)
 
@@ -108,7 +147,11 @@ Built-in and extension providers:
 
 ## Advanced Features
 
-* **Service Lifetimes & Keys**: control DI lifetimes, keyed configs
+* **Complete DI Integration**: Zero-config auto-registration with `Cocoar.Configuration.DI` package
+* **Interface Binding System**: Clean separation with `Bind.Type<T>().To<Interface>()` mappings
+* **Service Lifetime Control**: Configurable default lifetimes plus fine-grained Remove/Add methods  
+* **Keyed Services**: Multiple registrations per type with service keys
+* **Fail-Safe API**: Impossible to forget method calls - always works out of the box
 * **Generic Provider API**: `Rule.From.Provider<>()` for full control
 * **Microsoft Adapter**: wrap any `IConfigurationSource`
 * **HTTP Polling Provider**: auto-change detection
@@ -130,15 +173,25 @@ Built-in and extension providers:
 
 Multi-project solution under [`src/Examples/`](src/Examples/) with runnable demos:
 
-- **[BasicUsage](src/Examples/BasicUsage/Program.cs)** – File + environment layering pattern (full code)
+**Core Examples:**
+- **[BasicUsage](src/Examples/BasicUsage/Program.cs)** – File + environment layering with interface binding
+- **[SimplifiedCoreExample](src/Examples/SimplifiedCoreExample/Program.cs)** – Pure core library usage (no DI)
+- **[BindingExample](src/Examples/BindingExample/Program.cs)** – Interface binding without DI frameworks
+
+**DI Integration:**  
+- **[DIExample](src/Examples/DIExample/Program.cs)** – Comprehensive DI integration showcase with advanced patterns
+- **[ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)** – Service lifetimes + keyed registrations with new API
 - **[AspNetCoreExample](src/Examples/AspNetCoreExample/Program.cs)** – Web application integration
+
+**Advanced Patterns:**
 - **[FileLayering](src/Examples/FileLayering/Program.cs)** – Multiple JSON layers (deterministic last-write-wins)
-- **[ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)** – DI lifetimes + keyed registrations
 - **[DynamicDependencies](src/Examples/DynamicDependencies/Program.cs)** – Rules reading other config mid-recompute
 - **[GenericProviderAPI](src/Examples/GenericProviderAPI/Program.cs)** – Full generic provider control
+- **[StaticProviderExample](src/Examples/StaticProviderExample/Program.cs)** – Seeding & composition with static rules
+
+**Provider Extensions:**
 - **[MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample/Program.cs)** – Integrate any `IConfigurationSource`
 - **[HttpPollingExample](src/Examples/HttpPollingExample/Program.cs)** – Remote polling with change detection
-- **[StaticProviderExample](src/Examples/StaticProviderExample/Program.cs)** – Seeding & composition with static rules
 
 ---
 
@@ -146,9 +199,12 @@ Multi-project solution under [`src/Examples/`](src/Examples/) with runnable demo
 
 For more in-depth documentation, see:
 
-* [Architecture](docs/ARCHITECTURE.md) – execution & merge pipeline, change model
+* [Migration Guide](docs/MIGRATION.md) – migrate from legacy fluent `.As<T>()` API to Binding + DI options
+* [Architecture](docs/ARCHITECTURE.md) – execution & merge pipeline, binding system, DI integration architecture
+* [Binding System](docs/BINDING.md) – interface mapping, resolution, guidelines
+* [Advanced Features](docs/ADVANCED.md) – complete DI integration, service lifetime control, interface binding patterns
+* [Concepts](docs/CONCEPTS.md) – rules, merge semantics, binding system, auto-registration concepts  
 * [Providers](docs/PROVIDERS.md) – static, file, env, HTTP, Microsoft adapter
-* [Concepts](docs/CONCEPTS.md) – rules, merge semantics, dependencies
 * [Examples](src/Examples/README.md) – runnable samples
 * [Provider Development Guide](docs/PROVIDER_DEV.md) – build your own provider
 

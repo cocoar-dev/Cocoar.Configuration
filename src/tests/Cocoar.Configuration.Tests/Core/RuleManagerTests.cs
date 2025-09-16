@@ -18,7 +18,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("file.json"),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions(Required: true, UseWhen: () => false));
 
         var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
@@ -32,7 +32,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
@@ -46,7 +46,7 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<FakeFileProvider, FakeFileProviderOptions, FakeFileProviderQuery>(
             new FakeFileProviderOptions("dir"),
             new FakeFileProviderQuery("missing.json", fail: true),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions(Required: false, UseWhen: () => true));
 
         var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
@@ -91,7 +91,7 @@ public partial class RuleManagerTests
     [Fact]
     public async Task RuleManager_Reuses_Provider_When_InstanceOptions_Unchanged()
     {
-        var typeDef = new ConfigRegistration(typeof(object));
+        var typeDef = typeof(object);
         var providerFactoryCalls = 0;
         var queryFactoryCalls = 0;
 
@@ -106,7 +106,7 @@ public partial class RuleManagerTests
                 queryFactoryCalls++;
                 return new InMemoryQueryOptions("Q1");
             },
-            typeDefinition: typeDef,
+            typeDef,
             new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
@@ -123,12 +123,12 @@ public partial class RuleManagerTests
     [Fact]
     public async Task RuleManager_Resubscribes_When_Query_Changes()
     {
-        var typeDef = new ConfigRegistration(typeof(object));
+        var typeDef = typeof(object);
         var qId = "Q1";
         var rule = ConfigRule.Create<InMemoryProvider, InMemoryProviderOptions, InMemoryQueryOptions>(
             providerOptionsFactory: _ => new InMemoryProviderOptions("K1"),
             queryOptionsFactory: _ => new InMemoryQueryOptions(qId),
-            typeDefinition: typeDef,
+            typeDef,
             new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         var rm = new RuleManager(rule, NullLogger.Instance, new ProviderRegistry());
@@ -178,12 +178,12 @@ public partial class RuleManagerTests
         var rule = ConfigRule.Create<EmittingProvider, EmittingProvider.Options, EmittingProvider.Query>(
             new EmittingProvider.Options("K"),
             new EmittingProvider.Query("Q", changeBus),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions(Required: true, UseWhen: () => true));
 
         var logger = NullLogger.Instance;
         var rm = new RuleManager(rule, logger, new ProviderRegistry());
-        var manager = new ConfigManager(new[] { rule }, logger).Initialize();
+        var manager = new ConfigManager(new[] { rule }, null, logger).Initialize();
 
         // first compute to set up subscription
         var _ = await rm.ComputeAsync(manager, default);
@@ -301,12 +301,12 @@ public partial class RuleManagerTests
         var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions());
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q2"),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions());
 
         var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);
@@ -327,12 +327,12 @@ public partial class RuleManagerTests
         var rule1 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("A"),
             new IdentityQuery("Q1"),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions());
         var rule2 = ConfigRule.Create<IdentityProvider, IdentityOptions, IdentityQuery>(
             new IdentityOptions("B"),
             new IdentityQuery("Q2"),
-            new ConfigRegistration(typeof(object)),
+            typeof(object),
             new ConfigRuleOptions());
 
         var rm1 = new RuleManager(rule1, NullLogger.Instance, registry);

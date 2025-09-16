@@ -1,0 +1,5 @@
+{
+  "ConnectionString": "Server=prod-db.company.com;Database=MainApp;Trusted_Connection=true;",
+  "CommandTimeout": 60,
+  "EnableLogging": false
+}
