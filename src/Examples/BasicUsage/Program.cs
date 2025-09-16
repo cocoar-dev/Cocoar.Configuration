@@ -30,17 +30,19 @@ public static class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
-        builder.AddCocoarConfiguration(
+        builder.AddCocoarConfiguration([
             // Updated: use File(path).Select(section) after removal of section param overload
             Rule.From.File("config.json").Select("StartUp")
-                .For<StartUpConfiguration>().As<IStartupSettings>().Optional(),
+                .For<StartUpConfiguration>().Optional(),
             Rule.From.File("config.json").Select("Marten")
                 .For<MartenStartupSettings>().Optional(),
             Rule.From.Environment() // all env vars (demo only; normally specify a prefix)
-                .For<StartUpConfiguration>().As<IStartupSettings>(),
+                .For<StartUpConfiguration>(),
             Rule.From.Environment("MARTEN_")
                 .For<MartenStartupSettings>()
-        );
+        ], [
+            Bind.Type<StartUpConfiguration>().To<IStartupSettings>()
+            ]);
         var app = builder.Build();
         var startupConfig = app.Services.GetService<IStartupSettings>();
         var martenConfig = app.Services.GetService<MartenStartupSettings>();

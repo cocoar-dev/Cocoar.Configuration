@@ -94,7 +94,7 @@ public class ConfigurationAnalyzerTests
         };
 
         // Act
-        var manager = new ConfigManager(rules, logger).Initialize();
+        var manager = new ConfigManager(rules, null, logger).Initialize();
 
         // Assert
         Assert.Contains(logMessages,

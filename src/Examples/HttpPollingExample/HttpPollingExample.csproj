@@ -8,7 +8,7 @@
     <RootNamespace>Examples.HttpPollingExample</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />
     <ProjectReference Include="..\..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -1,0 +1,6 @@
+{
+  "ApplicationName": "SimplifiedCoreExample",
+  "Version": "1.0.0",
+  "Environment": "Development",
+  "LogLevel": "Information"
+}

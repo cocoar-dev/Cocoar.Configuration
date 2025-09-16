@@ -26,7 +26,7 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
         return ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
             _ => new StaticJsonProviderOptions(value),
             _ => new StaticJsonProviderQueryOptions(),
-            new ConfigRegistration(typeof(TConfigType)),
+            typeof(TConfigType),
             opts);
     }
 }

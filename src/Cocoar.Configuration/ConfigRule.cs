@@ -6,12 +6,12 @@ public class ConfigRule(
     Type providerType,
     Func<ConfigManager, IProviderConfiguration> providerOptionsFactory,
     Func<ConfigManager, IProviderQuery> queryOptionsFactory,
-    ConfigRegistration configContract,
+    Type concreteType,
     ConfigRuleOptions? options = null)
 {
     // Public surface
     public Type ProviderType { get; } = providerType ?? throw new ArgumentNullException(nameof(providerType));
-    public ConfigRegistration Registration { get; } = configContract ?? throw new ArgumentNullException(nameof(configContract));
+    public Type ConcreteType { get; } = concreteType ?? throw new ArgumentNullException(nameof(concreteType));
     public ConfigRuleOptions? Options { get; } = options;
 
     // Internally, always store factories (instances are wrapped as trivial factories)
@@ -25,13 +25,13 @@ public class ConfigRule(
         Type providerType,
         IProviderConfiguration providerOptions,
         IProviderQuery queryOptions,
-        ConfigRegistration configContract,
+    Type concreteType,
         ConfigRuleOptions? options = null)
         : this(
             providerType,
             _ => providerOptions,
             _ => queryOptions,
-            configContract,
+            concreteType,
             options)
     {
         if (providerOptions is null) throw new ArgumentNullException(nameof(providerOptions));
@@ -47,20 +47,20 @@ public class ConfigRule(
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
         TOptions providerOptions,
         TQueryOptions queryOptions,
-        ConfigRegistration typeDefinition,
+    Type concreteType,
         ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
         where TQueryOptions : IProviderQuery
     {
         options ??= new ConfigRuleOptions();
-        return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, typeDefinition, options);
+    return new ConfigRule(typeof(TProvider), providerOptions, queryOptions, concreteType, options);
     }
 
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
         Func<ConfigManager, TOptions> providerOptionsFactory,
         Func<ConfigManager, TQueryOptions> queryOptionsFactory,
-        ConfigRegistration typeDefinition,
+    Type concreteType,
         ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
@@ -71,7 +71,7 @@ public class ConfigRule(
             typeof(TProvider),
             m => providerOptionsFactory(m),
             m => queryOptionsFactory(m),
-            typeDefinition,
+            concreteType,
             options);
     }
 

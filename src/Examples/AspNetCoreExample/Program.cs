@@ -32,17 +32,19 @@ public static class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
-        builder.AddCocoarConfiguration(
+        builder.AddCocoarConfiguration([
             // Updated for selection API
             Rule.From.File("config.json").Select("App")
-                .For<AppSettings>().As<IAppSettings>().Optional(),
+                .For<AppSettings>().Optional(),
             Rule.From.Environment("APP_")
-                .For<AppSettings>().As<IAppSettings>(),
+                .For<AppSettings>(),
             Rule.From.File("config.json").Select("Database")
                 .For<DatabaseSettings>().Optional(),
             Rule.From.Environment("DB_")
                 .For<DatabaseSettings>()
-        );
+        ], [
+            Bind.Type<AppSettings>().To<IAppSettings>()
+        ]);
         var app = builder.Build();
         app.MapGet("/config", (IAppSettings appSettings, DatabaseSettings? dbSettings) => new
         {

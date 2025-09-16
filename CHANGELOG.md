@@ -3,6 +3,28 @@
 ## [Unreleased]
 _No changes yet._
 
+## [0.11.0] - 2025-09-16
+
+### Added
+- New Binding System (`Bind.Type<T>().To<IInterface>()`) enabling interface mapping independent of DI.
+- `BindingRegistry` and runtime validation for interface→concrete compatibility.
+- `Cocoar.Configuration.DI` package: separation of concerns between interface binding and DI registration.
+- `ServiceRegistrationOptions.DefaultRegistrationLifetime(null)` to fully disable auto-registration.
+- Keyed service registration refinement via explicit `options.Register.Add<T>(lifetime, key)` model.
+- Comprehensive documentation: `docs/BINDING.md`, updated README Binding vs DI Registration section.
+
+### Changed
+- Auto-registration default clarified (Scoped) and now explicitly optional.
+- Examples reorganized: added dedicated Binding, DI, ServiceLifetimes demos; README minimized to one-liners.
+
+### Internal / Quality
+- Expanded test coverage for service lifetimes, keyed registrations, binding validation.
+- Documentation cleanup removing unreleased prototype terminology.
+
+### Migration Notes
+- For consumers of 0.9.x: follow 0.10.0 migration first (selection API changes), then optionally adopt bindings (purely additive).
+
+
 ## [0.10.0] - 2025-09-15
 
 ### Breaking

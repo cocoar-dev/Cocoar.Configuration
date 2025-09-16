@@ -25,7 +25,7 @@ internal sealed class RuleManager : IDisposable
         _registry = registry;
     }
 
-    public ConfigRegistration TypeDefinition => _rule.Registration;
+    public Type TypeDefinition => _rule.ConcreteType;
     public bool Required => _rule.Options?.Required == true;
     public IObservable<bool> Changes => _changes.AsObservable();
 
@@ -92,10 +92,10 @@ internal sealed class RuleManager : IDisposable
         {
             if (Required)
             {
-                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
-                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.Registration.ConcreteType.Name}", ex);
+                _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+                throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConcreteType.Name}", ex);
             }
-            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.Registration.ConcreteType.Name);
+            _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
             return (include: false, value: default);
         }
     }
@@ -113,12 +113,14 @@ internal sealed class RuleManager : IDisposable
         _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
         _provider = _providerHandle.Provider;
         _providerKey = providerOptions.GenerateProviderKey();
+        LastSelectionHash = null; // Clear hash gating state on provider rebuild
     }
 
     private void Resubscribe(IProviderQuery queryOptions)
     {
         Unsubscribe();
         _queryKey = ComputeQueryKey(queryOptions);
+        LastSelectionHash = null; // Clear hash gating state on new subscription
         _subscription = _provider!
             .Changes(queryOptions)
             .Subscribe(

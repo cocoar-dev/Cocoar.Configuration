@@ -26,7 +26,7 @@ public class TryGetAndStaticSeedingTests
     [Fact]
     public void TryGetConfig_ReturnsFalse_WhenMissing()
     {
-        var mgr = new ConfigManager(Array.Empty<ConfigRule>(), NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(Array.Empty<ConfigRule>(), null, NullLogger.Instance).Initialize();
         var ok = mgr.TryGetConfig<SeededSettings>(out var s);
         Assert.False(ok);
         Assert.Null(s);
@@ -37,7 +37,7 @@ public class TryGetAndStaticSeedingTests
     {
         var json = JsonSerializer.SerializeToElement(new SeededSettings { Name = "A", Value = 42 });
         var rule = StaticJsonProvider.CreateRule<SeededSettings>(json);
-        var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(new[] { rule }, null, NullLogger.Instance).Initialize();
 
         var ok = mgr.TryGetConfig<SeededSettings>(out var s);
         Assert.True(ok);
@@ -54,7 +54,7 @@ public class TryGetAndStaticSeedingTests
             .For<Outer>()
             .Build();
 
-        var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(new[] { rule }, null, NullLogger.Instance).Initialize();
         var outer = mgr.GetRequiredConfig<Outer>();
         Assert.NotNull(outer.Inner);
         Assert.Equal("B", outer.Inner!.Name);
@@ -73,7 +73,7 @@ public class TryGetAndStaticSeedingTests
             .For<Container>()
             .Build();
 
-        var mgr = new ConfigManager(new[] { seedRule, dependentRule }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(new[] { seedRule, dependentRule }, null, NullLogger.Instance).Initialize();
         var c = mgr.GetRequiredConfig<Container>();
         Assert.NotNull(c.Dep);
         Assert.Equal("Seed", c.Dep!.Name);
@@ -89,6 +89,6 @@ public class TryGetAndStaticSeedingTests
             .Build();
 
         Assert.Throws<InvalidOperationException>(() =>
-            new ConfigManager(new[] { dependentRule }, NullLogger.Instance).Initialize());
+            new ConfigManager(new[] { dependentRule }, null, NullLogger.Instance).Initialize());
     }
 }

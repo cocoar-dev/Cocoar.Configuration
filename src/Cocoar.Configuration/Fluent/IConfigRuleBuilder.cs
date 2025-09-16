@@ -8,7 +8,7 @@ public interface IConfigRuleBuilder
     ConfigRule Build();
 
     /// <summary>
-    /// Builds multiple ConfigRules when multiple registrations are configured (e.g., different service lifetimes).
+    /// Builds the rule sequence (currently always a single rule; retained for API stability).
     /// </summary>
     IEnumerable<ConfigRule> BuildRules();
 }

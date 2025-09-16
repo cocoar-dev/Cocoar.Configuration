@@ -21,30 +21,27 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
 
     public IEnumerable<ConfigRule> BuildRules()
     {
-        var typeDefs = BuildTypeDefinitions();
-        foreach (var typeDef in typeDefs)
-        {
-            var opts = new ConfigRuleOptions(
-                    Required: _required,
-                    UseWhen: _useWhen)
-                .WithMount(_mountPath)
-                .WithSelect(_selectPath);
+    var registration = BuildRegistration();
+        var opts = new ConfigRuleOptions(
+                Required: _required,
+                UseWhen: _useWhen)
+            .WithMount(_mountPath)
+            .WithSelect(_selectPath);
 
-            var rule = ConfigRule.Create<TProvider, TInstanceOptions, TQueryOptions>(
-                _instanceFactory,
-                _queryFactory,
-                typeDef,
-                opts);
-            yield return rule;
-        }
+        yield return ConfigRule.Create<TProvider, TInstanceOptions, TQueryOptions>(
+            _instanceFactory,
+            _queryFactory,
+            registration,
+            opts);
     }
 
-    public ConfigRule Build()
-    {
-        var rules = BuildRules().ToList();
-        if (rules.Count != 1)
-            throw new InvalidOperationException($"Build() can only be used when exactly one registration is configured, but found {rules.Count}. Use BuildRules() instead.");
+    public ConfigRule Build() => BuildRules().Single();
 
-        return rules[0];
+    /// <summary>
+    /// Implicit conversion to ConfigRule for convenience in collection expressions
+    /// </summary>
+    public static implicit operator ConfigRule(ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> builder)
+    {
+        return builder.Build();
     }
 }

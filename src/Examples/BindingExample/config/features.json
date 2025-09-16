@@ -1,0 +1,7 @@
+{
+  "EnableNewDashboard": true,
+  "EnableExperimentalFeatures": false,
+  "MaxConcurrentUsers": 100,
+  "CacheEnabled": true,
+  "ConfigVersion": "2.1"
+}

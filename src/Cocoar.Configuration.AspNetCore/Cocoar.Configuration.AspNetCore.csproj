@@ -6,5 +6,6 @@
 
 	<ItemGroup>
     <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />
   </ItemGroup>
 </Project>

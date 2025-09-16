@@ -1,6 +1,7 @@
 // Migrated from root Examples/MicrosoftAdapterExample.cs
 
-using Cocoar.Configuration;
+
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +25,7 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(
+        services.AddCocoarConfiguration([
             Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -52,7 +53,7 @@ public static class Program
             )
             .For<AppSettings>()
             .Required()
-        );
+        ]);
         var serviceProvider = services.BuildServiceProvider();
         var dbSettings = serviceProvider.GetRequiredService<DatabaseSettings>();
         var appSettings = serviceProvider.GetRequiredService<AppSettings>();

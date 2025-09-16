@@ -22,7 +22,7 @@ internal static class ConfigurationAnalyzer
         foreach (var rule in rulesList)
         {
             // Group rules by their target type
-            var targetType = rule.Registration.ContractType ?? rule.Registration.ConcreteType;
+            var targetType = rule.ConcreteType;
             if (!rulesByType.ContainsKey(targetType))
                 rulesByType[targetType] = new List<ConfigRule>();
             rulesByType[targetType].Add(rule);

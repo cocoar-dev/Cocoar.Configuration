@@ -1,0 +1,7 @@
+{
+  "MerchantId": "MERCH_12345",
+  "ApiKey": "pk_live_abcdef123456789",
+  "MaxTransactionAmount": 10000.00,
+  "EnableRefunds": true,
+  "InternalNotes": "Production payment configuration - handle with care"
+}

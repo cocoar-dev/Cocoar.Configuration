@@ -1,10 +1,13 @@
 // Migrated from root Examples/DynamicDependencies.cs
 
+using System.Data;
 using Cocoar.Configuration;
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.FileSourceProvider;
 using Cocoar.Configuration.Providers.StaticJsonProvider;
 using Microsoft.Extensions.DependencyInjection;
+using Rule = Cocoar.Configuration.Fluent.Rule;
 
 public class ApiSettings
 {
@@ -37,7 +40,7 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(
+        services.AddCocoarConfiguration([
             Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiSettings>()
                 .Required(),
@@ -63,7 +66,7 @@ public static class Program
                     _ => new RegionSpecificConfig { DatabaseEndpoint = "db-global.example.com", CdnUrl = "https://cdn-global.example.com", AvailableLanguages = new[] { "en" } }
                 };
             }).For<RegionSpecificConfig>()
-        );
+        ]);
         var serviceProvider = services.BuildServiceProvider();
         var apiSettings = serviceProvider.GetRequiredService<ApiSettings>();
         var featureFlags = serviceProvider.GetService<FeatureFlags>();

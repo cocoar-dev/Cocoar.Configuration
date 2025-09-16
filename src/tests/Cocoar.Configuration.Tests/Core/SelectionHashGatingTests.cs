@@ -70,10 +70,10 @@ public class SelectionHashGatingTests
             .Create<MutableProvider, MutableProvider.Options, MutableProvider.Query>(
                 new MutableProvider.Options(),
                 new MutableProvider.Query(subject),
-                new ConfigRegistration(typeof(object)),
+                typeof(object),
                 new ConfigRuleOptions(Required: true, SelectPath: "select"));
 
-        var mgr = new ConfigManager(new[] { rule }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(new[] { rule }, null, NullLogger.Instance).Initialize();
 
         Assert.Equal(1, MutableProvider.FetchCount); // initial fetch should succeed with selection
 

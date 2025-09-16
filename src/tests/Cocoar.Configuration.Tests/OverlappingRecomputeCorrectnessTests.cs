@@ -82,11 +82,11 @@ public class OverlappingRecomputeCorrectnessTests
             var p = new SeqProvider(new PCfg($"p{i}"));
             providers[i] = p;
             queue.Enqueue(p);
-            var rule = new ConfigRule(typeof(SeqProvider), new PCfg($"p{i}"), new QCfg("q"), new ConfigRegistration(typeof(object)));
+            var rule = new ConfigRule(typeof(SeqProvider), new PCfg($"p{i}"), new QCfg("q"), typeof(object));
             rules.Add((rule, p));
         }
         ConfigurationProvider Factory(Type _, IProviderConfiguration __) => queue.Dequeue();
-        var cm = new ConfigManager(rules.Select(r => r.Rule), NullLogger.Instance, Factory, debounceMilliseconds: 25).Initialize();
+        var cm = new ConfigManager(rules.Select(r => r.Rule), null, NullLogger.Instance, Factory, debounceMilliseconds: 25).Initialize();
 
         // Initial bump for all
         for (int i = 0; i < ruleCount; i++) providers[i].Bump($"k{i}");

@@ -7,6 +7,7 @@
     <Project Path="tests/Cocoar.Configuration.Tests/Cocoar.Configuration.Tests.csproj" />
   </Folder>
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
+  <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />
   <Project Path="Cocoar.Configuration.HttpPolling/Cocoar.Configuration.HttpPolling.csproj" />
   <Project Path="Cocoar.Configuration.MicrosoftAdapter/Cocoar.Configuration.MicrosoftAdapter.csproj" />
   <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />
