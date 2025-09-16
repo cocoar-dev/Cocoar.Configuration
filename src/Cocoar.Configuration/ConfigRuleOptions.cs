@@ -1,7 +1,7 @@
 namespace Cocoar.Configuration;
 
 public sealed record ConfigRuleOptions(
-    bool Required = true,
+    bool Required = false,
     Func<bool>? UseWhen = null,
     string? MountPath = null,
     string? SelectPath = null)

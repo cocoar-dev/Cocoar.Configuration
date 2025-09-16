@@ -3,6 +3,11 @@
 ## [Unreleased]
 _No changes yet._
 
+## [0.11.1] - 2025-09-16
+
+- Refactor configuration options to set default 'Required' value to false and remove unnecessary 'Optional' calls in tests
+- Add DI Options for Cocoar.Configuration.AspNetCore - AddCocoarConfiguration
+
 ## [0.11.0] - 2025-09-16
 
 ### Added

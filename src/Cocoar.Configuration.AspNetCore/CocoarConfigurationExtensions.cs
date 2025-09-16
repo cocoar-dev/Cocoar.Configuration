@@ -18,6 +18,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
     /// <param name="builder">The WebApplicationBuilder</param>
     /// <param name="rules">Configuration rules defining where configurations come from</param>
     /// <param name="bindings">Optional binding specifications defining interface mappings</param>
+    /// <param name="configureOptions">Optional action to configure service registration options</param>
     /// <param name="logger">Optional logger for ConfigManager</param>
     /// <param name="debounceMilliseconds">Debounce time for configuration change notifications</param>
     /// <returns>The WebApplicationBuilder for method chaining</returns>
@@ -25,6 +26,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
         this WebApplicationBuilder builder,
         IEnumerable<ConfigRule> rules,
         IEnumerable<BindingSpec>? bindings = null,
+        Action<ServiceRegistrationOptions>? configureOptions = null,
         ILogger? logger = null,
         int debounceMilliseconds = 300)
     {
@@ -40,6 +42,8 @@ public static class CocoarConfigurationAspNetCoreExtensions
         {
             // ASP.NET Core defaults to Scoped lifetime which is perfect for web applications
             options.DefaultRegistrationLifetime(ServiceLifetime.Scoped);
+            // Apply user configuration
+            configureOptions?.Invoke(options);
         });
 
         // Store ConfigManager per WebApplicationBuilder for build-time access
@@ -63,43 +67,71 @@ public static class CocoarConfigurationAspNetCoreExtensions
         ILogger? logger = null,
         int debounceMilliseconds = 300)
     {
-        return builder.AddCocoarConfiguration(rules, null, logger, debounceMilliseconds);
+        return builder.AddCocoarConfiguration(rules, null, null, logger, debounceMilliseconds);
     }
 
     /// <summary>
     /// Overload for params usage (convenient for app code)
     /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <param name="rules">Configuration rules as params</param>
+    /// <returns>The WebApplicationBuilder for method chaining</returns>
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         params ConfigRule[] rules)
-        => AddCocoarConfiguration(builder, rules.AsEnumerable(), null, null, 300);
+        => AddCocoarConfiguration(builder, rules.AsEnumerable(), null, null, null, 300);
 
     /// <summary>
     /// Registers using fluent builders (IConfigRuleBuilder). Builders are materialized to rules internally.
     /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <param name="builders">Configuration rule builders</param>
+    /// <returns>The WebApplicationBuilder for method chaining</returns>
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         IEnumerable<IConfigRuleBuilder> builders)
-        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()), null, null, 300);
+        => AddCocoarConfiguration(builder, builders.SelectMany(b => b.BuildRules()), null, null, null, 300);
 
     /// <summary>
     /// Overload for params usage with fluent builders.
     /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <param name="builders">Configuration rule builders as params</param>
+    /// <returns>The WebApplicationBuilder for method chaining</returns>
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
         params IConfigRuleBuilder[] builders)
         => AddCocoarConfiguration(builder, builders.AsEnumerable());
 
+    /// <summary>
+    /// Gets the registered ConfigManager from the WebApplicationBuilder.
+    /// </summary>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <returns>The ConfigManager instance</returns>
+    /// <exception cref="InvalidOperationException">Thrown if ConfigManager not registered</exception>
     public static ConfigManager GetCocoarConfigManager(this WebApplicationBuilder builder)
         => _store.TryGetValue(builder, out var cm)
             ? cm
             : throw new InvalidOperationException("CocoarConfigManager not registered!");
 
+    /// <summary>
+    /// Gets configuration of type T from the registered ConfigManager.
+    /// </summary>
+    /// <typeparam name="T">The configuration type</typeparam>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <returns>The configuration instance or null if not found</returns>
     public static T? GetCocoarConfiguration<T>(this WebApplicationBuilder builder)
     {
         return builder.GetCocoarConfigManager().GetConfig<T>();
     }
 
+    /// <summary>
+    /// Gets required configuration of type T from the registered ConfigManager.
+    /// </summary>
+    /// <typeparam name="T">The configuration type</typeparam>
+    /// <param name="builder">The WebApplicationBuilder</param>
+    /// <returns>The configuration instance</returns>
+    /// <exception cref="InvalidOperationException">Thrown if configuration not found</exception>
     public static T GetRequiredCocoarConfiguration<T>(this WebApplicationBuilder builder)
     {
         return builder.GetCocoarConfigManager().GetRequiredConfig<T>();

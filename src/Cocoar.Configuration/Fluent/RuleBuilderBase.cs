@@ -3,7 +3,7 @@ namespace Cocoar.Configuration.Fluent;
 public abstract class RuleBuilderBase<TBuilder>
     where TBuilder : RuleBuilderBase<TBuilder>
 {
-    protected bool _required = true;
+    protected bool _required = false;
     protected Func<bool>? _useWhen;
     protected Type? _concreteType;
     protected string? _mountPath; // optional relocation path
@@ -14,9 +14,7 @@ public abstract class RuleBuilderBase<TBuilder>
         _required = value;
         return (TBuilder)this;
     }
-
-    public TBuilder Optional() => Required(false);
-
+    
     public TBuilder When(Func<bool> predicate)
     {
         _useWhen = predicate;

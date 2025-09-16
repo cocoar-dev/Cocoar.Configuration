@@ -62,7 +62,6 @@ public class ConfigurationAnalyzerTests
                 .Build(),
             Rule.From.Environment(_ => new EnvironmentVariableRuleOptions())
                 .For<TestConfig>()
-                .Optional()
                 .Build()
         };
 
