@@ -59,12 +59,34 @@ dotnet add package Cocoar.Configuration.MicrosoftAdapter
 
 ## Quick Start
 
+Minimal example (file + environment layering, strongly-typed access):
+
+```csharp
+// ...
+builder
+    .AddCocoarConfiguration([
+        Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
+        Rule.From.Environment("APP_").For<AppSettings>()
+    ], [
+        Bind.Type<AppSettings>().To<IAppSettings>()
+    ]);
+```
+
+Then inject your config type directly:
+
+```csharp
+var settings = app.Services.GetRequiredService<AppSettings>();
+var isettings = app.Services.GetRequiredService<IAppSettings>();
+Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
+Console.WriteLine($"FeatureX: {isettings.EnableFeatureX}");
+```
+
 ### Simple Setup (Auto-Registration)
 Add rules; everything (concrete types + manager) is available immediately.
 ```csharp
 services.AddCocoarConfiguration([rules]);
 ```
-➡ Full runnable: `Examples/BasicUsage`
+➡ Full runnable: [Examples/BasicUsage](src/Examples/BasicUsage/Program.cs)
 
 ### Interface Binding Setup
 Add interface mappings (optional, works with or without DI):
@@ -73,7 +95,7 @@ services.AddCocoarConfiguration([rules], [
     Bind.Type<DatabaseConfig>().To<IDatabaseConfig>()
 ]);
 ```
-➡ Full runnable: `Examples/BindingExample`
+➡ Full runnable: [Examples/BindingExample](src/Examples/BindingExample/Program.cs)
 
 ### Advanced Setup (Full Control)
 Override lifetimes, disable or extend auto-registration, add keyed services:
@@ -83,7 +105,7 @@ services.AddCocoarConfiguration([rules], [bindings], opts => {
     opts.Register.Add<IPaymentConfig>(ServiceLifetime.Scoped, "backup");
 });
 ```
-➡ Full runnable: `Examples/ServiceLifetimes`
+➡ Full runnable: [Examples/ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)
 
 ### Binding vs DI Registration
 
