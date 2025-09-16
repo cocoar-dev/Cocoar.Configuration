@@ -51,8 +51,7 @@ public class HttpPollingProviderTests
                         .Sources[0],
                     configurationPrefix: "Remote"
                 ))
-                .For<MyHttpPollingSettings>()
-                .Optional(),
+                .For<MyHttpPollingSettings>(),
             Rule.From
                 .HttpPolling(configManager => new HttpPollingRuleOptions(
                     urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,

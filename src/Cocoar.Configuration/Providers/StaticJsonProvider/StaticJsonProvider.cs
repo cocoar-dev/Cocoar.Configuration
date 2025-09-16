@@ -20,7 +20,7 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
         => Observable.Empty<JsonElement>();
 
     public static ConfigRule CreateRule<TConfigType>(JsonElement value, Func<bool>? useWhen = null,
-        bool required = true)
+        bool required = false)
     {
         var opts = new ConfigRuleOptions(Required: required, UseWhen: useWhen);
         return ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
