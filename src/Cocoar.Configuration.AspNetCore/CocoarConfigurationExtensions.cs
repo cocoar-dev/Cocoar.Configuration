@@ -114,26 +114,4 @@ public static class CocoarConfigurationAspNetCoreExtensions
             ? cm
             : throw new InvalidOperationException("CocoarConfigManager not registered!");
 
-    /// <summary>
-    /// Gets configuration of type T from the registered ConfigManager.
-    /// </summary>
-    /// <typeparam name="T">The configuration type</typeparam>
-    /// <param name="builder">The WebApplicationBuilder</param>
-    /// <returns>The configuration instance or null if not found</returns>
-    public static T? GetCocoarConfiguration<T>(this WebApplicationBuilder builder)
-    {
-        return builder.GetCocoarConfigManager().GetConfig<T>();
-    }
-
-    /// <summary>
-    /// Gets required configuration of type T from the registered ConfigManager.
-    /// </summary>
-    /// <typeparam name="T">The configuration type</typeparam>
-    /// <param name="builder">The WebApplicationBuilder</param>
-    /// <returns>The configuration instance</returns>
-    /// <exception cref="InvalidOperationException">Thrown if configuration not found</exception>
-    public static T GetRequiredCocoarConfiguration<T>(this WebApplicationBuilder builder)
-    {
-        return builder.GetCocoarConfigManager().GetRequiredConfig<T>();
-    }
 }

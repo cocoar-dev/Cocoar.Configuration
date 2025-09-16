@@ -67,8 +67,6 @@ builder
     .AddCocoarConfiguration([
         Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
         Rule.From.Environment("APP_").For<AppSettings>()
-    ], [
-        Bind.Type<AppSettings>().To<IAppSettings>()
     ]);
 ```
 
@@ -76,9 +74,7 @@ Then inject your config type directly:
 
 ```csharp
 var settings = app.Services.GetRequiredService<AppSettings>();
-var isettings = app.Services.GetRequiredService<IAppSettings>();
 Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
-Console.WriteLine($"FeatureX: {isettings.EnableFeatureX}");
 ```
 
 ### Simple Setup (Auto-Registration)
