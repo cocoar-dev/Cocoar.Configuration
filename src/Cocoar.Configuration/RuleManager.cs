@@ -113,12 +113,14 @@ internal sealed class RuleManager : IDisposable
         _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
         _provider = _providerHandle.Provider;
         _providerKey = providerOptions.GenerateProviderKey();
+        LastSelectionHash = null; // Clear hash gating state on provider rebuild
     }
 
     private void Resubscribe(IProviderQuery queryOptions)
     {
         Unsubscribe();
         _queryKey = ComputeQueryKey(queryOptions);
+        LastSelectionHash = null; // Clear hash gating state on new subscription
         _subscription = _provider!
             .Changes(queryOptions)
             .Subscribe(
