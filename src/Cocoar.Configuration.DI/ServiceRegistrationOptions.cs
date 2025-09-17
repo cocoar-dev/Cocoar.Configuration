@@ -9,6 +9,7 @@ namespace Cocoar.Configuration.DI;
 public sealed class ServiceRegistrationOptions
 {
     private ServiceLifetime? _defaultLifetime = ServiceLifetime.Scoped;
+    private bool _autoRegisterReactiveConfigs = true;
     
     /// <summary>
     /// Gets the fluent registration builder for explicit service registrations.
@@ -24,6 +25,12 @@ public sealed class ServiceRegistrationOptions
     public ServiceLifetime? DefaultLifetime => _defaultLifetime;
 
     /// <summary>
+    /// Gets whether IReactiveConfig&lt;T&gt; should be automatically registered for all configuration types.
+    /// Default is true for maximum usability.
+    /// </summary>
+    public bool AutoRegisterReactiveConfigs => _autoRegisterReactiveConfigs;
+
+    /// <summary>
     /// Sets the default registration lifetime for all rule types and binding interfaces.
     /// Types not explicitly registered via the Register property will use this lifetime.
     /// Pass null to disable auto-registration entirely.
@@ -33,6 +40,19 @@ public sealed class ServiceRegistrationOptions
     public ServiceRegistrationOptions DefaultRegistrationLifetime(ServiceLifetime? lifetime)
     {
         _defaultLifetime = lifetime;
+        return this;
+    }
+
+    /// <summary>
+    /// Disables automatic registration of IReactiveConfig&lt;T&gt; for all configuration types.
+    /// Use this for advanced scenarios with hundreds of configuration types where you want 
+    /// to manually register only the reactive configs you actually need.
+    /// Default behavior is to auto-register all reactive configs as Singletons.
+    /// </summary>
+    /// <returns>This options instance for fluent chaining.</returns>
+    public ServiceRegistrationOptions DisableAutoReactiveRegistration()
+    {
+        _autoRegisterReactiveConfigs = false;
         return this;
     }
 }

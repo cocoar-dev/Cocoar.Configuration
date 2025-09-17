@@ -26,11 +26,11 @@
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
         <!-- Package Description & Discovery -->
-        <PackageDescription>Lightweight, strongly-typed, deterministic multi-source configuration layering for .NET. Compose config from files, environment variables, HTTP endpoints and Microsoft IConfiguration sources with predictable last-write-wins merge semantics and atomic live recompute on changes.</PackageDescription>
+    <PackageDescription>Powerful layered configuration for .NET—simple, strongly typed, reactive. Compose ordered rules (file, environment, HTTP polling, static, Microsoft IConfiguration) with deterministic last-write-wins merging, partial atomic recompute, and hash-gated reactive streams.</PackageDescription>
         <PackageTags>configuration;config;settings;json;reactive;csharp;dotnet;aspnetcore;dependency-injection;merge;variables;recompute</PackageTags>
         <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageReleaseNotes>Initial release: lightweight, strongly-typed, deterministic multi-source configuration layering with ordered last-write-wins merge and atomic recompute.</PackageReleaseNotes>
+    <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
         <PackageIcon>package-icon.png</PackageIcon>
 
         <Authors>Bernhard Windisch</Authors>

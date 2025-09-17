@@ -1,7 +1,23 @@
 # Changelog
 
 ## [Unreleased]
-_No changes yet._
+
+## [0.12.0] - 2025-09-17
+
+### Added
+- Reactive configuration channel: automatic `IReactiveConfig<T>` for every config type (singleton, hash-gated, error-resilient).
+- Auto DI registration for `IReactiveConfig<T>` (opt-out via `DisableAutoReactiveRegistration`).
+
+### Performance
+- Streaming JSON → MD5 hashing pipeline for selection & emission gating (reduced allocations, faster change detection).
+- Partial recompute optimizations (earliest changed rule restart) documented and hardened.
+
+### Documentation
+- README overhaul: simplified quick start, lifetimes, reactive defaults, full examples table with direct links.
+- Added `DEEP_DIVE.md` (advanced scenarios, tuning, dynamic dependencies).
+- Updated architecture doc: streaming MD5 hashing + reactive channel section.
+- Clarified partial recompute & reactive channel in Concepts; added migration note for merged reactive implementation.
+- Converted inline doc code references to clickable links across docs & examples.
 
 ## [0.11.1] - 2025-09-16
 
@@ -16,7 +32,7 @@ _No changes yet._
 - `Cocoar.Configuration.DI` package: separation of concerns between interface binding and DI registration.
 - `ServiceRegistrationOptions.DefaultRegistrationLifetime(null)` to fully disable auto-registration.
 - Keyed service registration refinement via explicit `options.Register.Add<T>(lifetime, key)` model.
-- Comprehensive documentation: `docs/BINDING.md`, updated README Binding vs DI Registration section.
+- Comprehensive documentation: [docs/BINDING.md](docs/BINDING.md), updated README Binding vs DI Registration section.
 
 ### Changed
 - Auto-registration default clarified (Scoped) and now explicitly optional.

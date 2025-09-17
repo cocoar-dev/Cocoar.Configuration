@@ -158,10 +158,15 @@ internal sealed class RuleManager : IDisposable
     {
         try
         {
-            var raw = value.GetRawText();
-            using var sha = System.Security.Cryptography.SHA256.Create();
-            var bytes = System.Text.Encoding.UTF8.GetBytes(raw);
-            return Convert.ToHexString(sha.ComputeHash(bytes));
+            using var md5 = System.Security.Cryptography.MD5.Create();
+            using var stream = new System.Security.Cryptography.CryptoStream(System.IO.Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
+            using var writer = new System.Text.Json.Utf8JsonWriter(stream);
+            
+            value.WriteTo(writer);
+            writer.Flush();
+            stream.FlushFinalBlock();
+            
+            return Convert.ToHexString(md5.Hash!);
         }
         catch { return string.Empty; }
     }
@@ -177,8 +182,24 @@ internal sealed class RuleManager : IDisposable
 
     private static string ComputeQueryKey(IProviderQuery query)
     {
-        // Use simple serialization for a stable key; assumes query types are simple DTOs
-        return JsonSerializer.Serialize(query, query.GetType());
+        // Use streaming serialization for stable key generation without string allocation
+        try
+        {
+            using var md5 = System.Security.Cryptography.MD5.Create();
+            using var stream = new System.Security.Cryptography.CryptoStream(System.IO.Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
+            using var writer = new System.Text.Json.Utf8JsonWriter(stream);
+            
+            System.Text.Json.JsonSerializer.Serialize(writer, query, query.GetType());
+            writer.Flush();
+            stream.FlushFinalBlock();
+            
+            return Convert.ToHexString(md5.Hash!);
+        }
+        catch
+        {
+            // Fallback to simple serialization for unusual query types
+            return System.Text.Json.JsonSerializer.Serialize(query, query.GetType());
+        }
     }
 
     public void Dispose()

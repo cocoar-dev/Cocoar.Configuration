@@ -2,7 +2,7 @@
 
 Focused demonstration of interface binding without using a DI container.
 
-Central documentation: see `docs/BINDING.md` for full concepts, guidelines, troubleshooting, and DI integration patterns.
+Central documentation: see [docs/BINDING.md](../../docs/BINDING.md) for full concepts, guidelines, troubleshooting, and DI integration patterns.
 
 What this example shows:
 - Rules producing a concrete config type

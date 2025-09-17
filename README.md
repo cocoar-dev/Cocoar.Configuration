@@ -1,9 +1,9 @@
 # Cocoar.Configuration
 
-![Cocoar.Configuration](social-preview-small.png)
+> Powerful layered configuration for .NET  
+> Simple • Strongly typed • Reactive
 
-Lightweight, strongly-typed, deterministic multi-source configuration layering for .NET
-(Current target framework: **net9.0**).
+![Cocoar.Configuration](social-preview-small.png)
 
 ![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)
 ![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)
@@ -12,267 +12,238 @@ Lightweight, strongly-typed, deterministic multi-source configuration layering f
 [![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 
 ---
+## Why?
 
-## Why Cocoar.Configuration?
+Most apps just need: *"Give me my configs, layered, strongly typed, and keep them fresh."*
 
-Deterministic, strongly-typed, rule-driven configuration layering that **complements** `Microsoft.Extensions.Configuration`.
+Cocoar.Configuration lets you:
+- Define a few ordered **rules** → get ready-to-inject **types**
+- Layer **file + env + http + static** sources deterministically (last-write-wins per key)
+- Get **push updates** automatically via `IReactiveConfig<T>` (no extra setup)
 
-### Design Goals at a Glance
-
-- **Explicit ordered layering**: Deterministic last-write-wins per key.
-- **Typed direct injection**: Inject config classes or mapped interfaces (no `IOptions<T>` ceremony).
-- **Atomic snapshot recompute**: Full ordered rebuild on change → consistent view for all consumers.
-- **Dynamic rule factories**: Later rules can read earlier in-progress snapshots to shape options/queries.
-- **Pluggable provider model**: File, environment, HTTP polling, Microsoft adapter, static & custom.
-- **DI lifetimes & keys**: Configure singleton (default), scoped, transient, keyed variants per type.
-- **Per-type diagnostics**: Inspect merged snapshots when troubleshooting.
-- **Interoperability**: Bring any existing `IConfigurationSource` via the Microsoft Adapter package.
+If you need more later (interface binding, DI lifetime control, custom providers) it’s all there—opt‑in, not in your face.
 
 ---
+## Quick Start (Minimal ASP.NET Core)
 
-## Installation
-
-Supported TFM: **net9.0** (multi-targeting planned).
-
-```xml
-<ItemGroup>
-        <PackageReference Include="Cocoar.Configuration" />
-        <!-- Optional extensions -->
-        <PackageReference Include="Cocoar.Configuration.DI" />
-        <PackageReference Include="Cocoar.Configuration.AspNetCore" />
-        <PackageReference Include="Cocoar.Configuration.HttpPolling" />
-        <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" />
-</ItemGroup>
+`appsettings.json`:
+```json
+{
+  "App": {
+    "FeatureFlag": true,
+    "Message": "Hello from config"
+  }
+}
 ```
 
-CLI:
-
-```sh
-dotnet add package Cocoar.Configuration
-dotnet add package Cocoar.Configuration.DI
-dotnet add package Cocoar.Configuration.AspNetCore
-dotnet add package Cocoar.Configuration.HttpPolling
-dotnet add package Cocoar.Configuration.MicrosoftAdapter
-```
-
----
-
-## Quick Start
-
-Minimal example (file + environment layering, strongly-typed access):
-
+`Program.cs`:
 ```csharp
-// ...
-builder
-    .AddCocoarConfiguration([
-        Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
-        Rule.From.Environment("APP_").For<AppSettings>()
-    ]);
-```
+var builder = WebApplication.CreateBuilder(args);
 
-Then inject your config type directly:
-
-```csharp
-var settings = app.Services.GetRequiredService<AppSettings>();
-Console.WriteLine($"FeatureX: {settings.EnableFeatureX}");
-```
-
-### Simple Setup (Auto-Registration)
-Add rules; everything (concrete types + manager) is available immediately.
-```csharp
-services.AddCocoarConfiguration([rules]);
-```
-➡ Full runnable: [Examples/BasicUsage](src/Examples/BasicUsage/Program.cs)
-
-### Interface Binding Setup
-Add interface mappings (optional, works with or without DI):
-```csharp
-services.AddCocoarConfiguration([rules], [
-    Bind.Type<DatabaseConfig>().To<IDatabaseConfig>()
+// Register layered configuration (file + environment overlay)
+builder.Services.AddCocoarConfiguration([
+    Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
+    Rule.From.Environment("APP_").For<AppSettings>()
 ]);
-```
-➡ Full runnable: [Examples/BindingExample](src/Examples/BindingExample/Program.cs)
 
-### Advanced Setup (Full Control)
-Override lifetimes, disable or extend auto-registration, add keyed services:
-```csharp
-services.AddCocoarConfiguration([rules], [bindings], opts => {
-    opts.DefaultRegistrationLifetime(ServiceLifetime.Singleton);
-    opts.Register.Add<IPaymentConfig>(ServiceLifetime.Scoped, "backup");
+var app = builder.Build();
+
+// Simple endpoint: inject concrete snapshot (Scoped)
+app.MapGet("/feature", (AppSettings cfg) => new {
+    snapshotFlag = cfg.FeatureFlag,  // Value at scope start (request)
+    message = cfg.Message
 });
-```
-➡ Full runnable: [Examples/ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)
 
-### Binding vs DI Registration
+// Reactive usage example (background logging)
+var reactive = app.Services.GetRequiredService<IReactiveConfig<AppSettings>>();
+var _ = reactive.Subscribe(c => Console.WriteLine($"[Config Updated] FeatureFlag={c.FeatureFlag}"));
 
-These two concerns are independent and intentionally separated:
+app.Run();
 
-| Concern | What You Define | Purpose | Where |
-|---------|------------------|---------|-------|
-| Binding | `Bind.Type<PaymentConfig>().To<IPaymentConfig>()` | Map concrete config types to one or more interfaces for clean consumption | Core (works without DI) |
-| DI Registration | `options.Register.Add<IPaymentConfig>(ServiceLifetime.Scoped, "backup")` | Control lifetimes, add/remove, keyed registrations in the host container | DI Package (`Cocoar.Configuration.DI`) |
-
-Key points:
-- You can use bindings without DI (access via `ConfigManager` interface lookups).
-- You can use DI auto-registration without any bindings (inject concrete types directly).
-- Combine them for the richest experience: bind interfaces, let DI auto-register both.
-- Disable auto-registration with `options.DefaultRegistrationLifetime(null)` and take full manual control via `options.Register`.
-
-Minimal patterns:
-```csharp
-services.AddCocoarConfiguration([rules]);                 // Concrete only
-services.AddCocoarConfiguration([rules], [bindings]);      // + Interfaces
-services.AddCocoarConfiguration([rules], [bindings], opts => { /* control */ });
+public sealed class AppSettings
+{
+    public bool FeatureFlag { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
 ```
 
-#### When to Add Bindings?
-- Start with concrete types only while exploring providers.
-- Add a binding when: multiple consumers need a narrowed contract, or you want to hide writeable/internal members.
-- Bind multiple interfaces to the same concrete when different views (read-only, subset) are needed.
-- Skip bindings entirely if you only inject config into a composition root or a small number of services.
-
-## Concepts
-
-* **Rule**: Source + optional query + target configuration type
-* **Binding**: Maps concrete configuration types to interfaces for clean DI
-* **Provider**: Pluggable source (file, env, HTTP, static, custom, adapter)
-* **Merge**: Ordered *last-write-wins* per flattened key
-* **Recompute**: Incremental – only recompute from earliest changed rule; atomic snapshot publish.
-* **Dynamic dependencies**: Rule factories (options/query) can read earlier in-progress rule outputs during a pass.
-* **Required vs Optional**: Optional failure skips the layer.
-* **DI Auto-Registration**: Auto-registers config types and bound interfaces - configurable and can be disabled.
-* **Service Control**: Fine-grained Add/Remove control over service lifetimes and keys
-
-👉 [Read more in the **Concepts Deep Dive**](docs/CONCEPTS.md)
+`appsettings.json` changed? — future requests see the updated snapshot; reactive stream subscribers get a push..
 
 ---
+## Reactive by Default
 
-## Providers
+Every configuration type you map gets a free reactive companion:
 
-Built-in and extension providers:
+| You Have | You Also Automatically Have |
+|----------|------------------------------|
+| `AppSettings` | `IReactiveConfig<AppSettings>` |
+
+`IReactiveConfig<T>` gives you:
+- `CurrentValue` – latest stable value
+- `Subscribe(...)` – push updates only when actual content changes
+- Safe & error-resilient stream: subscriber exceptions are logged, never terminate the pipeline
+
+**Guidance:**
+- In request/short-lived scopes: inject the concrete type (`AppSettings`) for a consistent snapshot
+- In background services / singletons: inject `IReactiveConfig<T>`
+- Need a frozen value inside a singleton? Capture `live.CurrentValue` once (rarely required)
+
+---
+## Rule Basics
+
+A **rule** = provider + (optional selection/query) + target config type.
+Order matters: later rules overwrite earlier values per flattened key (deterministic last-write-wins).
+
+```csharp
+var rules = new [] {
+    Rule.From.File("appsettings.json").For<AppSettings>(),
+    Rule.From.Environment("APP_").For<AppSettings>()
+};
+```
+
+Additional options (add only when needed):
+```csharp
+Rule.From.File("secrets.json")
+    .Select("Secrets:Db")        // select subtree
+    .Mount("Database")           // mount under a new path
+    .Required()                  // fail the rule if source missing
+    .For<DatabaseConfig>();
+```
+
+---
+## Interface Binding (Optional)
+
+Start without it. Add when you want to inject contracts instead of concretes.
+```csharp
+services.AddCocoarConfiguration(rules, [
+    Bind.Type<AppSettings>().To<IAppSettings>()
+]);
+
+public sealed class Handler(IAppSettings cfg, IReactiveConfig<IAppSettings> live)
+{ /* ... */ }
+```
+More patterns: [BINDING.md](docs/BINDING.md).
+
+---
+## DI Lifetimes & Defaults
+
+By default:
+- Concrete config types: **Scoped** (one snapshot per request/scope)
+- `IReactiveConfig<T>`: **Singleton** (continuous live updates)
+
+Change the default lifetime:
+```csharp
+services.AddCocoarConfiguration(rules, configureServices: o =>
+    o.DefaultRegistrationLifetime(ServiceLifetime.Singleton));
+```
+Disable auto reactive registration (rare):
+```csharp
+o.DisableAutoReactiveRegistration();
+```
+Manual overrides & keyed registrations: see [ADVANCED.md](docs/ADVANCED.md).
+
+**Choosing a Lifetime:**
+| Scenario | Lifetime |
+|----------|----------|
+| Typical web request consumption | Scoped |
+| High-read immutable small config | Singleton |
+| Background service (reactive) | Scoped + `IReactiveConfig<T>` (preferred) |
+| Large object, avoid mid-request drift | Scoped |
+
+---
+## Providers (Built-In & Extensions)
 
 | Provider          | Package   | Change Signal        | Notes                             |
 | ----------------- | --------- | -------------------- | --------------------------------- |
 | Static            | Core      | ❌                    | Seed defaults, compose values     |
-| File (JSON)       | Core      | ✅ Filesystem watcher | Deterministic layering            |
-| Environment       | Core      | ❌                    | Prefix filter; `__` & `:` nesting |
-| HTTP Polling      | Extension | ✅                    | Interval polling, payload diffing |
+| File (JSON)       | Core      | ✅ FS watcher         | Deterministic layering            |
+| Environment       | Core      | ❌                    | Prefix filter; `__` / `:` nesting |
+| HTTP Polling      | Extension | ✅ Interval polling   | Payload diffing (streaming hash)  |
 | Microsoft Adapter | Extension | Depends              | Any `IConfigurationSource`        |
 
-👉 See [Providers Overview](docs/PROVIDERS.md) for full details.
+Detailed provider docs: [PROVIDERS.md](docs/PROVIDERS.md).
 
 ---
+## Performance & Reliability (Short Version)
 
-## Advanced Features
+- Atomic recompute + full snapshot publish
+- Incremental: recompute only from earliest changed rule
+- Streaming JSON → MD5 hashing (no intermediate string allocations)
+- Hash-gated reactive emissions (no duplicate pushes)
+- Error-resilient reactive pipelines (no dead observables)
+- 80+ tests (stress, cancellation, differential correctness)
 
-* **Complete DI Integration**: Zero-config auto-registration with `Cocoar.Configuration.DI` package
-* **Interface Binding System**: Clean separation with `Bind.Type<T>().To<Interface>()` mappings
-* **Service Lifetime Control**: Configurable default lifetimes plus fine-grained Remove/Add methods  
-* **Keyed Services**: Multiple registrations per type with service keys
-* **Fail-Safe API**: Impossible to forget method calls - always works out of the box
-* **Generic Provider API**: `Rule.From.Provider<>()` for full control
-* **Microsoft Adapter**: wrap any `IConfigurationSource`
-* **HTTP Polling Provider**: auto-change detection
-
-👉 Details in [Advanced Features](docs/ADVANCED.md)
+Deep dive: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [CONCEPTS.md](docs/CONCEPTS.md).
 
 ---
+## When You Need More
 
-## Security
-
-* **Never commit secrets** to JSON files in your repository  
-* Use **environment variable overlays** or dedicated secret management systems  
-* For remote providers: Always use **TLS**, set reasonable **timeouts**, and include **auth headers** when needed  
-* Consider using Azure Key Vault, AWS Secrets Manager, or similar via the **Microsoft Adapter**
+| Need | Go To |
+|------|-------|
+| Interface patterns | [docs/BINDING.md](docs/BINDING.md) |
+| Advanced DI control | [docs/ADVANCED.md](docs/ADVANCED.md) |
+| Architecture & pipeline | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Providers overview | [docs/PROVIDERS.md](docs/PROVIDERS.md) |
+| Migration notes | [docs/MIGRATION.md](docs/MIGRATION.md) |
+| Build your own provider | [docs/PROVIDER_DEV.md](docs/PROVIDER_DEV.md) |
+| Deep scenarios (lifecycle, dynamic factories, tuning) | [docs/DEEP_DIVE.md](docs/DEEP_DIVE.md) |
 
 ---
+## Installation
 
+```xml
+<ItemGroup>
+  <PackageReference Include="Cocoar.Configuration" />
+  <PackageReference Include="Cocoar.Configuration.DI" />
+  <!-- Optional -->
+  <PackageReference Include="Cocoar.Configuration.HttpPolling" />
+  <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" />
+  <PackageReference Include="Cocoar.Configuration.AspNetCore" />
+</ItemGroup>
+```
+
+CLI:
+```bash
+dotnet add package Cocoar.Configuration
+dotnet add package Cocoar.Configuration.DI
+```
+(Add extensions only when needed.)
+
+---
 ## Examples
 
-Multi-project solution under [`src/Examples/`](src/Examples/) with runnable demos:
+Each example is a standalone runnable project under `src/Examples/`:
 
-**Core Examples:**
-- **[BasicUsage](src/Examples/BasicUsage/Program.cs)** – File + environment layering with interface binding
-- **[SimplifiedCoreExample](src/Examples/SimplifiedCoreExample/Program.cs)** – Pure core library usage (no DI)
-- **[BindingExample](src/Examples/BindingExample/Program.cs)** – Interface binding without DI frameworks
+| Project | Description |
+|---------|-------------|
+| [BasicUsage](src/Examples/BasicUsage) | Common ASP.NET Core pattern (file + env overlay) |
+| [FileLayering](src/Examples/FileLayering) | Multiple JSON layering (base + env + local) |
+| [DynamicDependencies](src/Examples/DynamicDependencies) | Later rules derive values from earlier configs |
+| [AspNetCoreExample](src/Examples/AspNetCoreExample) | Minimal API exposing config via endpoints |
+| [GenericProviderAPI](src/Examples/GenericProviderAPI) | Generic provider registration API usage |
+| [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling configuration pattern |
+| [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrating existing `IConfigurationSource` assets |
+| [ServiceLifetimes](src/Examples/ServiceLifetimes) | DI lifetime & keyed registration control |
+| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding + dependent recompute |
+| [DIExample](src/Examples/DIExample) | Comprehensive DI patterns & overrides |
+| [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) with `ConfigManager` |
+| [BindingExample](src/Examples/BindingExample) | Interface binding without DI |
 
-**DI Integration:**  
-- **[DIExample](src/Examples/DIExample/Program.cs)** – Comprehensive DI integration showcase with advanced patterns
-- **[ServiceLifetimes](src/Examples/ServiceLifetimes/Program.cs)** – Service lifetimes + keyed registrations with new API
-- **[AspNetCoreExample](src/Examples/AspNetCoreExample/Program.cs)** – Web application integration
-
-**Advanced Patterns:**
-- **[FileLayering](src/Examples/FileLayering/Program.cs)** – Multiple JSON layers (deterministic last-write-wins)
-- **[DynamicDependencies](src/Examples/DynamicDependencies/Program.cs)** – Rules reading other config mid-recompute
-- **[GenericProviderAPI](src/Examples/GenericProviderAPI/Program.cs)** – Full generic provider control
-- **[StaticProviderExample](src/Examples/StaticProviderExample/Program.cs)** – Seeding & composition with static rules
-
-**Provider Extensions:**
-- **[MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample/Program.cs)** – Integrate any `IConfigurationSource`
-- **[HttpPollingExample](src/Examples/HttpPollingExample/Program.cs)** – Remote polling with change detection
+More details: [Examples README](src/Examples/README.md).
 
 ---
+## Security Notes
 
-## Deep Dive Documentation
-
-For more in-depth documentation, see:
-
-* [Migration Guide](docs/MIGRATION.md) – migrate from legacy fluent `.As<T>()` API to Binding + DI options
-* [Architecture](docs/ARCHITECTURE.md) – execution & merge pipeline, binding system, DI integration architecture
-* [Binding System](docs/BINDING.md) – interface mapping, resolution, guidelines
-* [Advanced Features](docs/ADVANCED.md) – complete DI integration, service lifetime control, interface binding patterns
-* [Concepts](docs/CONCEPTS.md) – rules, merge semantics, binding system, auto-registration concepts  
-* [Providers](docs/PROVIDERS.md) – static, file, env, HTTP, Microsoft adapter
-* [Examples](src/Examples/README.md) – runnable samples
-* [Provider Development Guide](docs/PROVIDER_DEV.md) – build your own provider
+- Do not commit secrets to repo JSON
+- Overlay secrets via env/provider layers
+- Use TLS + auth for remote polling
+- Consider vault integration via Microsoft adapter
 
 ---
+## Contributing & Versioning
 
-## Thread Safety & Performance
-
-* Reading config is thread-safe (atomic snapshot swap)
-* Incremental recompute: only from earliest changed rule onward (prefix reused)
-* Selection-hash gating: unchanged selected subtree events skipped
-* Providers reused across recomputes when instance options stable
-* Static rule set: rules immutable after initialization (use `UseWhen` to toggle)
+- SemVer (additive MINOR, breaking MAJOR)
+- PRs & issues welcome
+- MIT licensed
 
 ---
-
-## Quality & Reliability
-
-This project invests heavily in **correctness-first incremental recompute**. Optimisations (prefix reuse, cancellation, selection‑hash gating, debounce) are all guarded by strong differential and stress tests so performance never compromises determinism.
-
-Core test suites (see `src/tests/`):
-
-| Suite | Focus | Guarantee
-|-------|-------|----------|
-| `DifferentialCorrectnessFuzzTests` | Random multi-provider mutation waves | Final published snapshot bit-for-bit equals a naive full merge |
-| `PartialRecomputeTests` | Prefix reuse / earliest-index accuracy | Unchanged prefix providers are never refetched |
-| `OverlappingRecomputeCorrectnessTests` | Cancellation under descending storms | No lost updates; latest versions survive heavy overlap |
-| `CancellationTests` | Mid-pass abort & restart | Earlier changes preempt wasted later work |
-| `SnapshotChangeDeletionTests` | Deletion propagation | Removed keys do not resurrect spuriously |
-| `RecomputeStressTests` | Burst & jitter durability | Bounded passes; stable end-state |
-| Provider suites (`Providers/*Tests`) | Integration of file/env/http/adapter | Source-specific semantics remain correct |
-
-**Why call this out?** Incremental configuration layering is deceptively complex once you introduce cancellation and reuse. Many libraries silently drop updates or leak stale keys; these suites explicitly prevent that class of regression.
-
-
----
-
-## Versioning & Stability
-
-- Stable releases follow **SemVer**; see GitHub Releases or NuGet version history for changes.
-- Breaking changes only in MAJOR versions; MINOR for additive features; PATCH for fixes.
-- Provider abstractions evolve conservatively.
-
-> Packages are published under the NuGet organization **cocoar**.
-
-## Contributing
-
-Issues and PRs are welcome 🎉
-Keep provider abstractions stable & deterministic.
-Examples and docs are validated in CI.
-
----
-
-*(This README reflects the current state – future optimizations & multi-targeting will be documented in `docs/`.)*

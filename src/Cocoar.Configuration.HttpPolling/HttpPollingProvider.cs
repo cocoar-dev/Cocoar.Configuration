@@ -128,10 +128,35 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
     private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>
     {
         public static readonly JsonElementEqualityComparer Instance = new();
+        
         public bool Equals(JsonElement x, JsonElement y)
         {
-            return JsonSerializer.Serialize(x) == JsonSerializer.Serialize(y);
+            // Use streaming hash comparison - much faster than string comparison
+            return ComputeJsonElementHash(x) == ComputeJsonElementHash(y);
         }
-        public int GetHashCode(JsonElement obj) => JsonSerializer.Serialize(obj).GetHashCode();
+        
+        public int GetHashCode(JsonElement obj) => ComputeJsonElementHash(obj);
+
+        private static int ComputeJsonElementHash(JsonElement element)
+        {
+            try
+            {
+                using var md5 = System.Security.Cryptography.MD5.Create();
+                using var stream = new System.Security.Cryptography.CryptoStream(System.IO.Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
+                using var writer = new System.Text.Json.Utf8JsonWriter(stream);
+                
+                element.WriteTo(writer);
+                writer.Flush();
+                stream.FlushFinalBlock();
+                
+                // Convert first 4 bytes of hash to int for GetHashCode
+                var hash = md5.Hash!;
+                return BitConverter.ToInt32(hash, 0);
+            }
+            catch
+            {
+                return element.GetRawText().GetHashCode();
+            }
+        }
     }
 }

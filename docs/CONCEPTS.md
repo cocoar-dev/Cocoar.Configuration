@@ -5,7 +5,8 @@
 * **Provider**: Pluggable source (file, environment, HTTP, adapter, static, custom).
 * **Merge**: Ordered last-write-wins per flattened key (`Section:Key`) then rebound to your target type.
 * **Arrays**: Replaced as whole values (no element-wise merge).
-* **Recompute**: Any emitting provider triggers full ordered recompute → atomic snapshot swap.
+* **Recompute**: Any emitting provider triggers a partial recompute from the earliest changed rule → atomic snapshot swap.
+* **Reactive Channel**: Every config type also exposed as `IReactiveConfig<T>` (hash-gated push updates, resilient stream).
 * **Dynamic dependencies**: Rule factories (options/query) can read in-progress snapshots produced earlier.
 * **Required vs Optional**: Required rule failure blocks that config type; optional failure skips the layer.
 * **Auto-Registration**: Automatic DI registration of all rule types and bound interfaces with configurable default lifetime.

@@ -17,6 +17,12 @@ DI-related features have been moved from the core library to a dedicated DI inte
 | Built-in DI registration | `Cocoar.Configuration.DI` package |
 | `.For<T>(ServiceLifetime)` overloads | DI package lifetime management |
 
+### Additional Changes (Non-Breaking but Notable)
+
+| Area | Change |
+|------|--------|
+| Reactive Config | Former separate resilient reactive implementation merged into a single `IReactiveConfig<T>` pipeline (hash-gated, error-resilient). No action required for consumers—existing reactive usage continues to work. |
+
 ### ⚠️ BREAKING: Manual DI Registration Required
 
 - **Old**: DI features were built into the core library

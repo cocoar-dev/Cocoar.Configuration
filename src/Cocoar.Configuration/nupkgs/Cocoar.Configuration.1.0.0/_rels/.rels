@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Type="http://schemas.microsoft.com/packaging/2010/07/manifest" Target="/Cocoar.Configuration.nuspec" Id="R86B6D5CE6C1E03EA" />
+  <Relationship Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="/package/services/metadata/core-properties/5dec14e9b07b4df9b7d428aae7e63387.psmdcp" Id="R19850C90ABCF74F2" />
+</Relationships>

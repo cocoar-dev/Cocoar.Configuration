@@ -44,7 +44,7 @@ Fetch → Select → Mount → Flatten → Merge → Materialize Snapshot → Pu
 
 ### Selection Hash Gating (No-Op Suppression)
 
-* After provider fetch + selection, a stable hash (e.g., FNV-1a of normalized JSON) is computed.
+* After provider fetch + selection, a stable streaming MD5 hash of normalized JSON is computed (allocation-light pipeline: serialize → CryptoStream → hash – no intermediate string building).
 * If unchanged from the previous hash for that rule, the rule is treated as unchanged for earliest-index purposes (unless no snapshot exists yet).
 * This prevents spurious recomputes when the unselected parts of the provider output change or a provider re-emits identical data.
 
@@ -89,6 +89,24 @@ Fetch → Select → Mount → Flatten → Merge → Materialize Snapshot → Pu
 * Minimal recompute scope: unchanged prefix never refetched or re-flattened.
 * No-op provider emissions suppressed by selection hash gating.
 * Deletions propagate correctly when selected subtree shrinks.
+
+---
+
+## Reactive Channel Layer
+
+Each published snapshot also updates per-config-type reactive channels exposed as `IReactiveConfig<T>`:
+
+* Backed by a singleton observable per type (even when concrete type is scoped).
+* Emissions are hash-gated: only publish when materialized object content changes.
+* Resilient: subscriber exceptions are logged; stream is never faulted/terminated.
+* Use cases: background services, long-running singletons, feature flag listeners.
+
+Integration semantics:
+1. Scoped concrete snapshot resolves once per scope (immutable for that scope).
+2. `IReactiveConfig<T>.CurrentValue` always reflects the latest atomically published snapshot.
+3. Reactive emission happens after full snapshot publish ensuring observers never see partial state.
+
+See also: `DEEP_DIVE.md` (sections 2–5) for consumption patterns and tuning guidance.
 
 ### Future / Deferred Enhancements
 
