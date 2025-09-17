@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Cocoar.Configuration;
 
 namespace Cocoar.Configuration.DI;
 
@@ -112,6 +113,56 @@ public static class CocoarConfigurationExtensions
             explicitServiceTypes.Add((reg.ServiceType, reg.ServiceKey));
         }
 
+        // Auto-register IReactiveConfig<T> for all configuration types as Singletons (unless disabled)
+        if (options.AutoRegisterReactiveConfigs)
+        {
+            // Register IReactiveConfig<T> for all rule types
+            foreach (var rule in configManager.Rules)
+            {
+                var concreteType = rule.ConcreteType;
+                var reactiveConfigType = typeof(IReactiveConfig<>).MakeGenericType(concreteType);
+                
+                if (!explicitServiceTypes.Contains((reactiveConfigType, null)) && !removedServiceTypes.Contains((reactiveConfigType, null)))
+                {
+                    // Use reflection to call the generic GetReactiveConfig method
+                    var descriptor = ServiceDescriptor.Singleton(
+                        reactiveConfigType,
+                        serviceProvider =>
+                        {
+                            var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+                            var method = configManager.GetType().GetMethod("GetReactiveConfig")!
+                                .MakeGenericMethod(concreteType);
+                            return method.Invoke(configManager, null)!;
+                        });
+                    services.Add(descriptor);
+                }
+            }
+
+            // Register IReactiveConfig<T> for all binding interfaces
+            foreach (var binding in configManager.Bindings)
+            {
+                foreach (var interfaceType in binding.BoundInterfaces)
+                {
+                    var reactiveConfigType = typeof(IReactiveConfig<>).MakeGenericType(interfaceType);
+                    
+                    if (!explicitServiceTypes.Contains((reactiveConfigType, null)) && !removedServiceTypes.Contains((reactiveConfigType, null)))
+                    {
+                        // Use reflection to call the generic GetReactiveConfig method
+                        var descriptor = ServiceDescriptor.Singleton(
+                            reactiveConfigType,
+                            serviceProvider =>
+                            {
+                                var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+                                var method = configManager.GetType().GetMethod("GetReactiveConfig")!
+                                    .MakeGenericMethod(interfaceType);
+                                return method.Invoke(configManager, null)!;
+                            });
+                        services.Add(descriptor);
+                    }
+                }
+            }
+        }
+
         // Auto-register rule types with default lifetime (if default lifetime is set and not explicitly removed)
         if (options.DefaultLifetime.HasValue)
         {
@@ -151,7 +202,10 @@ public static class CocoarConfigurationExtensions
         // Register explicit overrides (these take precedence over defaults)
         foreach (var registration in explicitRegistrations)
         {
-            var descriptor = registration.ServiceKey switch
+            ServiceDescriptor descriptor;
+            
+            // Regular config registrations
+            descriptor = registration.ServiceKey switch
             {
                 null => ServiceDescriptor.Describe(
                     registration.ServiceType,

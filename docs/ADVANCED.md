@@ -1,5 +1,7 @@
 # Advanced Features
 
+> For an overview of reactive vs scoped consumption patterns see the top-level README and `DEEP_DIVE.md` (Sections 2 & 3). In brief: inject concrete types inside scoped/request flows; use `IReactiveConfig<T>` in background services or singletons needing live updates.
+
 ## Complete DI Integration Package
 
 The `Cocoar.Configuration.DI` package provides zero-configuration dependency injection with progressive enhancement capabilities.

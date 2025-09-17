@@ -17,6 +17,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private readonly ConfigurationRepository _repository;
     private readonly ConfigurationOrchestrator _orchestrator;
     private readonly ChangeSubscriptionManager _subscriptionManager;
+    private readonly ReactiveConfigManager _reactiveConfigManager;
     private readonly List<RuleManager> _ruleManagers = new();
     private readonly ProviderRegistry _providerRegistry;
     private readonly BindingRegistry _bindingRegistry;
@@ -36,6 +37,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _orchestrator = new ConfigurationOrchestrator(_repository, _logger);
         _subscriptionManager = new ChangeSubscriptionManager(_logger);
         _bindingRegistry = new BindingRegistry(_bindings, _logger);
+        _reactiveConfigManager = new ReactiveConfigManager(_logger, _bindingRegistry);
         _debounceMs = debounceMilliseconds;
     }
 
@@ -169,11 +171,26 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         return _repository.GetConfigurationAsJson(type);
     }
 
+    // --- Reactive Configuration --------------------------------------
+
+    /// <summary>
+    /// Gets or creates a reactive configuration that provides both observable updates and current value access.
+    /// Perfect for dependency injection scenarios where you need both reactive updates and immediate value access.
+    /// The returned observable is error-resilient and will never terminate due to subscriber errors.
+    /// </summary>
+    /// <typeparam name="T">The configuration type to observe</typeparam>
+    /// <returns>A reactive configuration that emits configuration values and provides current value access</returns>
+    public IReactiveConfig<T> GetReactiveConfig<T>()
+    {
+        return _reactiveConfigManager.GetReactiveConfig(() => GetConfig<T>()!);
+    }
+
     // --- Lifecycle --------------------------------------------------
 
     public void Dispose()
     {
         _subscriptionManager.Dispose();
+        _reactiveConfigManager.Dispose();
         foreach (var rm in _ruleManagers.ToArray())
         {
             try
@@ -214,6 +231,9 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
                 try
                 {
                     _orchestrator.RecomputeAllConfigurationsSafe(_ruleManagers, this, startIndex, cts.Token);
+                    
+                    // Notify reactive config observers of the updated configurations
+                    _reactiveConfigManager.NotifyConfigurationObservers(type => GetConfig(type));
                 }
                 catch (OperationCanceledException)
                 {

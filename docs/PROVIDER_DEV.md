@@ -6,6 +6,7 @@ Guidance for building third‑party providers:
 * Add fluent API entry points (e.g. `Rule.From.MyProvider()`).
 * Manage provider lifecycle & change emission.
 * Provide tests for deterministic merge semantics.
+* Prefer emitting only when the effective selected data changes if inexpensive to detect (engine still performs selection-hash gating to suppress no-ops).
 
 ---
 
