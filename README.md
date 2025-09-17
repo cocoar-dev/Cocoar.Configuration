@@ -155,7 +155,7 @@ Manual overrides & keyed registrations: see [ADVANCED.md](docs/ADVANCED.md).
 
 | Provider          | Package   | Change Signal        | Notes                             |
 | ----------------- | --------- | -------------------- | --------------------------------- |
-| Static            | Core      | ❌                    | Seed defaults, compose values     |
+| Static            | Core      | ❌                    | JSON strings or factories         |
 | File (JSON)       | Core      | ✅ FS watcher         | Deterministic layering            |
 | Environment       | Core      | ❌                    | Prefix filter; `__` / `:` nesting |
 | HTTP Polling      | Extension | ✅ Interval polling   | Payload diffing (streaming hash)  |
@@ -224,7 +224,7 @@ Each example is a standalone runnable project under `src/Examples/`:
 | [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling configuration pattern |
 | [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrating existing `IConfigurationSource` assets |
 | [ServiceLifetimes](src/Examples/ServiceLifetimes) | DI lifetime & keyed registration control |
-| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding + dependent recompute |
+| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding with JSON strings and factory functions |
 | [DIExample](src/Examples/DIExample) | Comprehensive DI patterns & overrides |
 | [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) with `ConfigManager` |
 | [BindingExample](src/Examples/BindingExample) | Interface binding without DI |

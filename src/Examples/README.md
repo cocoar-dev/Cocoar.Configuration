@@ -12,7 +12,7 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **HttpPollingExample** – Demonstrates pattern for remote/polling configuration
 - **MicrosoftAdapterExample** – Integrating `IConfigurationSource` providers
 - **ServiceLifetimes** – Controlling DI lifetimes and keyed registrations
-- **StaticProviderExample** – Static seeding and dependent recompute
+- **StaticProviderExample** – Static seeding with JSON strings and factory functions
 - **DIExample** – Comprehensive DI integration patterns with advanced service registration
 - **SimplifiedCoreExample** – Pure core library usage without DI (ConfigManager only)
 - **BindingExample** – Interface binding without DI frameworks

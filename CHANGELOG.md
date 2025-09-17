@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+[0.14.0] - 2025-09-17
+
+### Added
+- StaticJsonProvider now supports JSON strings directly via `Rule.From.StaticJson(jsonString)`.
+
+### Changed
+- StaticJsonProvider instances are no longer shared between rules (null-key pattern) to prevent configuration data leakage between different rules.
+
 ## [0.13.0] - 2025-09-17
 
 ### Changed

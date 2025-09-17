@@ -36,19 +36,32 @@ internal sealed class ProviderRegistry
 
     public sealed class ProviderHandle : IDisposable
     {
-        private readonly ProviderRegistry _owner;
-        private readonly (Type type, string key) _id;
+        private readonly ProviderRegistry? _owner;
+        private readonly (Type type, string key)? _id;
         private Entry? _entry;
+        private readonly bool _isReusable;
 
         private ProviderHandle(ProviderRegistry owner, (Type type, string key) id, Entry entry)
         {
             _owner = owner;
             _id = id;
             _entry = entry;
+            _isReusable = true;
+        }
+        
+        private ProviderHandle(Entry entry)
+        {
+            _owner = null;
+            _id = null;
+            _entry = entry;
+            _isReusable = false;
         }
 
         internal static ProviderHandle Create(ProviderRegistry owner, (Type type, string key) id, Entry entry)
             => new ProviderHandle(owner, id, entry);
+            
+        internal static ProviderHandle CreateNonReusable(ProviderRegistry owner, Entry entry)
+            => new ProviderHandle(entry);
 
         public ConfigurationProvider Provider
             => _entry?.Provider ?? throw new ObjectDisposedException(nameof(ProviderHandle));
@@ -57,13 +70,44 @@ internal sealed class ProviderRegistry
         {
             var e = Interlocked.Exchange(ref _entry, null);
             if (e is null) return;
-            _owner.Release(_id, e);
+            
+            if (_isReusable && _owner is not null && _id.HasValue)
+            {
+                _owner.Release(_id.Value, e);
+            }
+            else
+            {
+                // Non-reusable provider - dispose directly
+                if (e.Provider is IDisposable disp)
+                {
+                    try { disp.Dispose(); } catch { /* ignore */ }
+                }
+            }
         }
     }
 
     public ProviderHandle Acquire(Type providerType, IProviderConfiguration options)
     {
         var key = options.GenerateProviderKey();
+        
+        // If key is null, create a new provider instance without registering (never reuse)
+        if (key is null)
+        {
+            var provider = CreateProvider(providerType, options);
+            if (_diagnosticsEnabled)
+                _logger.LogDebug("ProviderRegistry: created non-reusable {Provider} (null key)", providerType.Name);
+            
+            var nonReusableEntry = new Entry
+            {
+                Provider = provider,
+                RefCount = 1 // Start with ref count 1, will be decremented when disposed
+            };
+            
+            // Create a special handle that doesn't interact with the registry
+            return ProviderHandle.CreateNonReusable(this, nonReusableEntry);
+        }
+        
+        // Standard reusable provider logic
         var id = (providerType, key);
         var entry = _entries.GetOrAdd(id, _ =>
         {

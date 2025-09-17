@@ -7,6 +7,7 @@ public sealed class StaticJsonProviderOptions(JsonElement value) : IProviderConf
 {
     public JsonElement Value { get; } = value;
 
-    // Static value; reuse under a constant key to avoid unnecessary churn
-    public string GenerateProviderKey() => "Static";
+    // Return null to indicate this provider should never be reused
+    // Each static provider instance should have its own unique data
+    public string? GenerateProviderKey() => null;
 }
