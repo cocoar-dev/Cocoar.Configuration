@@ -7,7 +7,7 @@
 
 ![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)
 ![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 [![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 [![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 
@@ -244,6 +244,11 @@ More details: [Examples README](src/Examples/README.md).
 
 - SemVer (additive MINOR, breaking MAJOR)
 - PRs & issues welcome
-- MIT licensed
+- Licensed under Apache License 2.0 (explicit patent grant & attribution via NOTICE)
+
+### License & Trademark
+This project is licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
+
+"Cocoar" and related marks are trademarks of COCOAR e.U. Use of the name in forks or derivatives should preserve attribution and avoid implying official endorsement. See [TRADEMARKS](TRADEMARKS.md) for permitted and restricted uses.
 
 ---

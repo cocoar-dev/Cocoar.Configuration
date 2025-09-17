@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-09-17
+
+### Changed
+- License changed from MIT to Apache-2.0 to provide an explicit patent grant and consistent downstream attribution via `NOTICE`. Previous released versions remain under MIT.
+
 ## [0.12.0] - 2025-09-17
 
 ### Added
