@@ -73,7 +73,15 @@ public sealed class FileSourceProvider(FileSourceProviderOptions options)
             throw new FileNotFoundException($"Config file not found: {fullPath}", fullPath);
         }
 
-        var json = File.ReadAllText(fullPath);
+        // Use explicit FileShare.ReadWrite to avoid locking conflicts
+        // This allows other processes (including rapid test writes) to access the file
+        string json;
+        using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        using (var reader = new StreamReader(stream))
+        {
+            json = reader.ReadToEnd();
+        }
+        
         return JsonDocument.Parse(json).RootElement.Clone();
     }
 }
