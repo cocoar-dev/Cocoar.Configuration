@@ -199,6 +199,11 @@ public class ConfigChangeDetectionTests
             Assert.Equal(2, emissions.Count);
             Assert.Equal(new DateTime(2025, 1, 2, 0, 0, 0, DateTimeKind.Utc), emissions[1].Timestamp.ToUniversalTime());
 
+            // Cross-platform delay: FileSystemWatcher timing varies between Windows/Linux
+            // Windows ARM (local): Fast response, 100ms sufficient
+            // Ubuntu x64 (CI): Slower response, needs more time
+            await Task.Delay(300);
+
             // Act: Revert to original (should emit again)
             File.WriteAllText(tempPath, initialContent);
             
