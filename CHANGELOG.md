@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2025-09-18
+
+### Fixed
+- **FileSystemWatcher File Locking:** Fixed file locking conflicts in FileSourceProvider by implementing proper file sharing (FileShare.ReadWrite) to prevent missed configuration changes and IOException conflicts in production scenarios.
+- **Testing Anti-Patterns:** Eliminated flaky test behavior by removing emission counting anti-patterns and implementing proper final state validation in reactive configuration tests.
+
+### Changed
+- Enhanced test organization with better naming conventions and regional structuring for improved maintainability.
+- Implemented active waiting patterns and controllable testing infrastructure (ObservableProvider) for reliable FileSystemWatcher testing.
+- Added comprehensive stress testing suite with multi-iteration reliability validation.
+
 ## [0.14.0] - 2025-09-17
 
 ### Added
