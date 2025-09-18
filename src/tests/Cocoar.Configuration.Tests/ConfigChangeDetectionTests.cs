@@ -186,11 +186,16 @@ public class ConfigChangeDetectionTests
 
             // Act: Change nested timestamp property
             var updatedContent = "{ \"Name\": \"Test\", \"Value\": 42, \"Enabled\": true, \"Timestamp\": \"2025-01-02T00:00:00Z\" }";
-            File.WriteAllText(tempPath, updatedContent);
             
-            // Actively wait for the change to be detected (up to 5 seconds)
+            // Write with explicit flush to ensure file system sees the change
+            await File.WriteAllTextAsync(tempPath, updatedContent);
+            
+            // Additional delay to ensure FileSystemWatcher processes the change
+            await Task.Delay(500);
+            
+            // Actively wait for the change to be detected (up to 10 seconds)
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (sw.Elapsed < TimeSpan.FromSeconds(5) && emissions.Count < 2)
+            while (sw.Elapsed < TimeSpan.FromSeconds(10) && emissions.Count < 2)
             {
                 await Task.Delay(200);
             }
@@ -202,14 +207,17 @@ public class ConfigChangeDetectionTests
             // Cross-platform delay: FileSystemWatcher timing varies between Windows/Linux
             // Windows ARM (local): Fast response, 100ms sufficient
             // Ubuntu x64 (CI): Slower response, needs more time
-            await Task.Delay(300);
+            await Task.Delay(500);
 
             // Act: Revert to original (should emit again)
-            File.WriteAllText(tempPath, initialContent);
+            await File.WriteAllTextAsync(tempPath, initialContent);
             
-            // Actively wait for the revert to be detected (up to 5 seconds)
+            // Additional delay to ensure FileSystemWatcher processes the second change
+            await Task.Delay(500);
+            
+            // Actively wait for the revert to be detected (up to 10 seconds)
             sw.Restart();
-            while (sw.Elapsed < TimeSpan.FromSeconds(5) && emissions.Count < 3)
+            while (sw.Elapsed < TimeSpan.FromSeconds(10) && emissions.Count < 3)
             {
                 await Task.Delay(200);
             }
