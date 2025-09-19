@@ -1,10 +1,7 @@
-// Migrated from root Examples/AspNetCoreExample.cs
-
 using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Providers;
 
 public interface IAppSettings
 {
@@ -32,25 +29,24 @@ public static class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
         builder.AddCocoarConfiguration([
-            // Updated for selection API
-            Rule.From.File("config.json").Select("App")
-                .For<AppSettings>().Optional(),
-            Rule.From.Environment("APP_")
-                .For<AppSettings>(),
-            Rule.From.File("config.json").Select("Database")
-                .For<DatabaseSettings>().Optional(),
-            Rule.From.Environment("DB_")
-                .For<DatabaseSettings>()
+            Rule.From.File("config.json").Select("App").For<AppSettings>(),
+            Rule.From.Environment("APP_").For<AppSettings>(),
+            Rule.From.File("config.json").Select("Database").For<DatabaseSettings>(),
+            Rule.From.Environment("DB_").For<DatabaseSettings>()
         ], [
             Bind.Type<AppSettings>().To<IAppSettings>()
         ]);
+
         var app = builder.Build();
+
         app.MapGet("/config", (IAppSettings appSettings, DatabaseSettings? dbSettings) => new
         {
             Application = new { appSettings.ApplicationName, appSettings.Version, appSettings.IsProduction },
             Database = new { HasConnectionString = !string.IsNullOrEmpty(dbSettings?.ConnectionString), dbSettings?.CommandTimeout, dbSettings?.EnableRetryOnFailure }
         });
+
         app.MapGet("/health", (IAppSettings appSettings) => new
         {
             Status = "Healthy",
@@ -58,6 +54,7 @@ public static class Program
             Version = appSettings.Version,
             Environment = appSettings.IsProduction ? "Production" : "Development"
         });
+
         app.MapGet("/manager", (ConfigManager manager) =>
         {
             var appSettings = manager.GetRequiredConfig<IAppSettings>();
@@ -69,6 +66,7 @@ public static class Program
                 Database = new { HasConnectionString = !string.IsNullOrEmpty(dbSettings?.ConnectionString), dbSettings?.CommandTimeout, dbSettings?.EnableRetryOnFailure }
             };
         });
+
         app.Run();
     }
 }

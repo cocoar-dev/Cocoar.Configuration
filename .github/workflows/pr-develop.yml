@@ -25,6 +25,9 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Build Examples
+        run: dotnet build Examples/Examples.slnx --configuration Release --no-restore
+
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
 

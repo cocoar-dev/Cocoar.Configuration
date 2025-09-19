@@ -1,6 +1,6 @@
 using System.Reactive.Linq;
 
-namespace Cocoar.Configuration.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Providers;
 
 public sealed class FileSystemObservable : IObservable<FileSystemChange>
 {

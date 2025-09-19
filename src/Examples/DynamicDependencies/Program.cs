@@ -1,13 +1,9 @@
-// Migrated from root Examples/DynamicDependencies.cs
 
-using System.Data;
-using Cocoar.Configuration;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.StaticJsonProvider;
+using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
-using Rule = Cocoar.Configuration.Fluent.Rule;
+
 
 public class ApiSettings
 {
@@ -32,7 +28,7 @@ public class RegionSpecificConfig
 {
     public string DatabaseEndpoint { get; set; } = "";
     public string CdnUrl { get; set; } = "";
-    public string[] AvailableLanguages { get; set; } = Array.Empty<string>();
+    public string[] AvailableLanguages { get; set; } = [];
 }
 
 public static class Program
@@ -40,10 +36,13 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
+
         services.AddCocoarConfiguration([
+
             Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiSettings>()
                 .Required(),
+
             Rule.From.Static<FeatureFlags>(configManager =>
             {
                 var apiSettings = configManager.GetRequiredConfig<ApiSettings>();
@@ -53,9 +52,11 @@ public static class Program
                 }
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
             }).For<FeatureFlags>(),
+
             Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
                 .For<RegionSettings>()
                 .Required(),
+
             Rule.From.Static<RegionSpecificConfig>(configManager =>
             {
                 var regionSettings = configManager.GetRequiredConfig<RegionSettings>();
@@ -66,11 +67,15 @@ public static class Program
                     _ => new RegionSpecificConfig { DatabaseEndpoint = "db-global.example.com", CdnUrl = "https://cdn-global.example.com", AvailableLanguages = new[] { "en" } }
                 };
             }).For<RegionSpecificConfig>()
+
         ]);
+
         var serviceProvider = services.BuildServiceProvider();
+
         var apiSettings = serviceProvider.GetRequiredService<ApiSettings>();
         var featureFlags = serviceProvider.GetService<FeatureFlags>();
         var regionConfig = serviceProvider.GetService<RegionSpecificConfig>();
+
         Console.WriteLine($"API: {apiSettings.BaseUrl} Flags theme: {featureFlags?.Theme} Region DB: {regionConfig?.DatabaseEndpoint}");
     }
 }

@@ -1,9 +1,9 @@
-using Cocoar.Configuration.Fluent;
 using System.Text.Json;
+using Cocoar.Configuration.Fluent;
 
-namespace Cocoar.Configuration.Providers.StaticJsonProvider;
+namespace Cocoar.Configuration.Providers;
 
-public static class RulesExtensions
+public static class StaticRulesExtensions
 {
     /// <summary>
     /// Creates a static configuration rule using a factory function to generate instances.

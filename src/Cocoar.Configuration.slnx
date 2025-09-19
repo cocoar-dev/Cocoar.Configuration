@@ -4,7 +4,8 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Cocoar.Configuration.Tests/Cocoar.Configuration.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.Core.Tests/Cocoar.Configuration.Core.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
   </Folder>
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
   <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />

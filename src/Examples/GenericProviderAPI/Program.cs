@@ -1,9 +1,6 @@
-// Migrated from root Examples/GenericProviderAPI.cs
-
-using Cocoar.Configuration;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
 public class AppSettings
@@ -18,17 +15,18 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
+
         services.AddCocoarConfiguration([
-            Rule.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
-                    instanceOptions: _ => new FileSourceProviderOptions(directory: ".", debounceTime: TimeSpan.FromMilliseconds(100)),
-                    queryOptions: _ => new FileSourceProviderQueryOptions(Filename: "appsettings.json")
-                )
+            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json"))
                 .Select("App")
                 .For<AppSettings>()
                 .Required()
         ]);
+
         var serviceProvider = services.BuildServiceProvider();
+
         var config = serviceProvider.GetRequiredService<AppSettings>();
+
         Console.WriteLine($"App: {config.ApplicationName} FeatureA: {config.EnableFeatureA} Retries: {config.MaxRetries}");
     }
 }

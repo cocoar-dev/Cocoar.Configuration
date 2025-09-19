@@ -1,8 +1,7 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+using Cocoar.Configuration.Providers;
 
 public interface IStartupSettings
 {
@@ -30,22 +29,21 @@ public static class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
         builder.AddCocoarConfiguration([
-            // Updated: use File(path).Select(section) after removal of section param overload
-            Rule.From.File("config.json").Select("StartUp")
-                .For<StartUpConfiguration>().Optional(),
-            Rule.From.File("config.json").Select("Marten")
-                .For<MartenStartupSettings>().Optional(),
-            Rule.From.Environment() // all env vars (demo only; normally specify a prefix)
-                .For<StartUpConfiguration>(),
-            Rule.From.Environment("MARTEN_")
-                .For<MartenStartupSettings>()
+            Rule.From.File("config.json").Select("StartUp").For<StartUpConfiguration>(),
+            Rule.From.File("config.json").Select("Marten").For<MartenStartupSettings>(),
+            Rule.From.Environment().For<StartUpConfiguration>(),
+            Rule.From.Environment("MARTEN_").For<MartenStartupSettings>()
         ], [
             Bind.Type<StartUpConfiguration>().To<IStartupSettings>()
-            ]);
+        ]);
+
         var app = builder.Build();
+
         var startupConfig = app.Services.GetService<IStartupSettings>();
         var martenConfig = app.Services.GetService<MartenStartupSettings>();
+
         Console.WriteLine($"Startup: {startupConfig?.ConnectionString} Logging: {startupConfig?.EnableLogging} Timeout: {startupConfig?.TimeoutSeconds}");
         Console.WriteLine($"Marten: {martenConfig?.DatabaseConnection} Migrations: {martenConfig?.EnableMigrations} Schema: {martenConfig?.Schema}");
     }

@@ -1,9 +1,6 @@
-// Migrated from root Examples/FileLayering.cs
-
-using Cocoar.Configuration;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
 public class AppConfig
@@ -21,14 +18,16 @@ public static class Program
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
+
         services.AddCocoarConfiguration([
-            // Updated for new selection API
-            Rule.From.File("base.json").Select("App").For<AppConfig>().Optional(),
-            Rule.From.File("production.json").Select("App").For<AppConfig>().Optional(),
-            Rule.From.File("local.json").Select("App").For<AppConfig>().Optional()
+            Rule.From.File("base.json").Select("App").For<AppConfig>(),
+            Rule.From.File("production.json").Select("App").For<AppConfig>(),
+            Rule.From.File("local.json").Select("App").For<AppConfig>()
         ]);
+
         var serviceProvider = services.BuildServiceProvider();
         var config = serviceProvider.GetService<AppConfig>();
+
         Console.WriteLine($"App: {config?.ApplicationName} Version: {config?.Version} LogLevel: {config?.LogLevel}");
     }
 }

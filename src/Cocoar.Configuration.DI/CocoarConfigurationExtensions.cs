@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Cocoar.Configuration;
 
 namespace Cocoar.Configuration.DI;
 

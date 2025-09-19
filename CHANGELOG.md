@@ -2,6 +2,41 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2025-09-21
+
+### 🎉 First Stable Release
+
+This marks the first stable release of Cocoar.Configuration with production-ready features and comprehensive testing infrastructure.
+
+### Added
+- **Comprehensive Test Suite**: **204 automated tests** covering core functionality, providers, edge cases, and stress scenarios
+- **Health Monitoring System**: Complete health monitoring with `IConfigurationHealthService`, health snapshots, and experimental metrics export hooks
+- **Reactive Configuration**: Auto-registered `IReactiveConfig<T>` for every configuration type in dependency injection
+- **Enhanced Documentation**: 
+  - Streamlined README with practical examples and accurate feature descriptions
+  - Dedicated health monitoring guide (`docs/health-monitoring.md`)
+  - Reactive configuration guide (`docs/reactive-config.md`)
+
+### Testing Improvements
+- **Integration Tests**: Multi-provider composition, rule ordering, recompute pipeline validation
+- **Stress & Performance Tests**: High-frequency changes, large JSON handling, concurrent access scenarios
+- **Provider Battle Tests**: HTTP headers/caching, Microsoft adapter integration, environment variable edge cases
+- **Health Pipeline Tests**: Status derivation, recovery scenarios, observable health updates
+- **Fuzz Testing**: Random change sequences maintaining correctness and deterministic results
+- **File Provider Resilience**: FileSystemWatcher ↔ polling fallback and automatic recovery testing
+
+### Enhanced
+- **File Provider**: Improved resilience with automatic polling fallback when FileSystemWatcher fails
+- **Test Organization**: Restructured test projects with clear separation (Core.Tests, Providers.Tests)
+- **Example Projects**: Updated all 12 example projects with improved clarity and modern patterns
+- **Documentation Structure**: Consolidated scattered documentation into focused, practical guides
+
+### Quality & Reliability
+- **204 comprehensive tests** ensuring stability across all components and failure scenarios  
+- **Production-tested patterns** validated through extensive integration and stress testing
+- **Error-resilient implementations** with proper failure handling and recovery mechanisms
+- **Continuous integration** ensuring every change maintains stability and correctness
+
 ## [0.15.0] - 2025-09-18
 
 ### Fixed

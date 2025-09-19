@@ -18,6 +18,17 @@ internal sealed class RuleManager : IDisposable
     private string? _queryKey;
     private readonly Subject<bool> _changes = new();
 
+    internal enum RuleExecutionOutcome
+    {
+        Unknown = 0,
+        Up = 1,
+        Skipped = 2,
+        Failed = 3
+    }
+
+    internal RuleExecutionOutcome LastOutcome { get; private set; } = RuleExecutionOutcome.Unknown;
+    internal Exception? LastFailureException { get; private set; }
+
     public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
     {
         _rule = rule;
@@ -35,11 +46,13 @@ internal sealed class RuleManager : IDisposable
 
     public async Task<(bool include, JsonElement value)> ComputeAsync(ConfigManager accessor, CancellationToken ct)
     {
+        LastFailureException = null; // reset per attempt
         // Handle UseWhen predicate
         if (_rule.Options?.UseWhen != null && !_rule.Options.UseWhen.Invoke())
         {
             // Ensure unsubscribed if previously active
             Unsubscribe();
+            LastOutcome = RuleExecutionOutcome.Skipped;
             return (include: false, value: default);
         }
 
@@ -76,6 +89,7 @@ internal sealed class RuleManager : IDisposable
                     if (Required)
                         throw new InvalidOperationException($"Selection path '{selectPath}' failed for provider {_rule.ProviderType.Name}", ex);
                     _logger.LogWarning(ex, "Selection path '{SelectPath}' failed; skipping optional rule.", selectPath);
+                    LastOutcome = RuleExecutionOutcome.Skipped;
                     return (include: false, value: default);
                 }
             }
@@ -86,6 +100,7 @@ internal sealed class RuleManager : IDisposable
             {
                 value = Json.JsonPath.WrapIfNeeded(value, mountPath);
             }
+            LastOutcome = RuleExecutionOutcome.Up;
             return (include: true, value);
         }
         catch (Exception ex)
@@ -93,9 +108,13 @@ internal sealed class RuleManager : IDisposable
             if (Required)
             {
                 _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+                LastOutcome = RuleExecutionOutcome.Failed;
+                LastFailureException = ex;
                 throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConcreteType.Name}", ex);
             }
             _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+            LastOutcome = RuleExecutionOutcome.Failed; // distinguish from ordinary skip
+            LastFailureException = ex;
             return (include: false, value: default);
         }
     }

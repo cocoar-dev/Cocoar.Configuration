@@ -1,42 +1,88 @@
 # Cocoar.Configuration
 
 > Powerful layered configuration for .NET  
-> Simple • Strongly typed • Reactive
+> **Simple • Strongly typed • Reactive**  
+> Elevates configuration from hidden infrastructure to an observable, safety‑enforced subsystem you can trust under change and failure.
 
 ![Cocoar.Configuration](social-preview-small.png)
 
-![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)
-![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)
-![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
+[![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml)
+[![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 [![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 
 ---
-## Why?
 
-Most apps just need: *"Give me my configs, layered, strongly typed, and keep them fresh."*
+## 🌟 Features
 
-Cocoar.Configuration lets you:
-- Define a few ordered **rules** → get ready-to-inject **types**
-- Layer **file + env + http + static** sources deterministically (last-write-wins per key)
-- Get **push updates** automatically via `IReactiveConfig<T>` (no extra setup)
+### 🚀 Key Innovations
 
-If you need more later (interface binding, DI lifetime control, custom providers) it’s all there—opt‑in, not in your face.
+* **Auto-Registered Reactive Config** – Every config type gets [`IReactiveConfig<T>`](./docs/reactive-config.md) in DI automatically
+* [**Health Monitoring Service**](./docs/health-monitoring.md) – Real-time health snapshots, metrics export, and resilience tracking
+* **Streaming MD5 Change Detection** – High-performance hashing pipeline for file/HTTP providers
+
+### Core Principles
+
+* **Deterministic Layering** – Explicit ordered rules, last-write-wins, no hidden merge logic.
+* **Strongly Typed** – Direct POCO injection, no `IOptions<T>` or attributes.
+* **Atomic Snapshots** – Always consistent view; no half-applied updates.
+* **Reactive & Dynamic Reload** – Config updates automatically propagate.
+
+### Rule System
+
+* **Unified Fluent API** – Same syntax across all providers.
+* **Composable Rules** – `Fetch → Select → Mount → Merge` pipeline.
+* **Dynamic Rule Factories** – Generate rules based on earlier snapshots.
+* **Advanced Binding** – Classes, interfaces, or factory functions.
+* **Partial Recomputation** – Only the earliest changed rule restarts, minimizing churn.
+* **Required / Optional rules** – control startup failure vs runtime degradation (`.Required(true/false)`).
+* **Conditional execution** – enable rules only when needed (`.When(() => condition)`).
+
+### Providers
+
+* **Static / Observable** – Core built-ins.
+* **File** – resilient: falls back to polling when watching fails, then auto-recovers.
+* **Environment** – flexible mapping: `__` and `:` delimiters build JSON hierarchy.
+* **HTTP** – custom headers, caching, and change-only emissions.
+* **Microsoft Adapter Provider** *(extension)* – Bridge existing `IConfiguration`.
+
+### Health Monitoring & Reliability
+
+* **Integrated Health Service** – `IConfigurationHealthService` for all providers.
+* [**Health Snapshots**](./docs/health-monitoring.md) – Capture and stream provider health in real time.
+* **Metrics Export Hooks** *(experimental)* – Integrate with Prometheus / OpenTelemetry.
+* **Cancellation-Aware Reporting** – Accurate health checks under shutdown/load.
+* **Error-Resilient Observables** – Streams stay alive even if subscribers throw exceptions.
+* **Two-Phase Error Handling** – Fail-fast on init, graceful degradation at runtime.
+* **Fail-Safe Defaults** – Config remains valid even on failures.
+* **Change Propagation System** – Coalesced updates, consistent application.
+
+### Developer Experience
+
+* **Minimal Boilerplate** – Define a class, add a rule, done.
+* **Auto-Registered Reactive Config** – [`IReactiveConfig<T>`](./docs/reactive-config.md) registered automatically in DI.
+* **Interface binding** – map POCOs to read-only interfaces (`Bind.Type<T>().To<IMyConfig>()`) for clean contracts.
+* **Service Lifetime Control** – Scoped, Singleton, Transient, and Keyed registrations supported.
+* **Test-Friendly** – Static/observable providers make testing easy.
+* **ASP.NET Core Integration** – Drop-in extensions for DI.
+* **Migration Path** – Adapter for Microsoft.Extensions.Configuration.
+
 
 ---
-## Quick Start (Minimal ASP.NET Core)
 
-`appsettings.json`:
-```json
-{
-  "App": {
-    "FeatureFlag": true,
-    "Message": "Hello from config"
-  }
-}
+## Install
+
+```bash
+dotnet add package Cocoar.Configuration
+# For ASP.NET Core integration:
+dotnet add package Cocoar.Configuration.AspNetCore
 ```
 
-`Program.cs`:
+---
+
+## Quickstart
+
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,163 +99,8 @@ app.MapGet("/feature", (AppSettings cfg) => new {
     snapshotFlag = cfg.FeatureFlag,  // Value at scope start (request)
     message = cfg.Message
 });
-
-// Reactive usage example (background logging)
-var reactive = app.Services.GetRequiredService<IReactiveConfig<AppSettings>>();
-var _ = reactive.Subscribe(c => Console.WriteLine($"[Config Updated] FeatureFlag={c.FeatureFlag}"));
-
-app.Run();
-
-public sealed class AppSettings
-{
-    public bool FeatureFlag { get; set; }
-    public string Message { get; set; } = string.Empty;
-}
 ```
 
-`appsettings.json` changed? — future requests see the updated snapshot; reactive stream subscribers get a push..
-
----
-## Reactive by Default
-
-Every configuration type you map gets a free reactive companion:
-
-| You Have | You Also Automatically Have |
-|----------|------------------------------|
-| `AppSettings` | `IReactiveConfig<AppSettings>` |
-
-`IReactiveConfig<T>` gives you:
-- `CurrentValue` – latest stable value
-- `Subscribe(...)` – push updates only when actual content changes
-- Safe & error-resilient stream: subscriber exceptions are logged, never terminate the pipeline
-
-**Guidance:**
-- In request/short-lived scopes: inject the concrete type (`AppSettings`) for a consistent snapshot
-- In background services / singletons: inject `IReactiveConfig<T>`
-- Need a frozen value inside a singleton? Capture `live.CurrentValue` once (rarely required)
-
----
-## Rule Basics
-
-A **rule** = provider + (optional selection/query) + target config type.
-Order matters: later rules overwrite earlier values per flattened key (deterministic last-write-wins).
-
-```csharp
-var rules = new [] {
-    Rule.From.File("appsettings.json").For<AppSettings>(),
-    Rule.From.Environment("APP_").For<AppSettings>()
-};
-```
-
-Additional options (add only when needed):
-```csharp
-Rule.From.File("secrets.json")
-    .Select("Secrets:Db")        // select subtree
-    .Mount("Database")           // mount under a new path
-    .Required()                  // fail the rule if source missing
-    .For<DatabaseConfig>();
-```
-
----
-## Interface Binding (Optional)
-
-Start without it. Add when you want to inject contracts instead of concretes.
-```csharp
-services.AddCocoarConfiguration(rules, [
-    Bind.Type<AppSettings>().To<IAppSettings>()
-]);
-
-public sealed class Handler(IAppSettings cfg, IReactiveConfig<IAppSettings> live)
-{ /* ... */ }
-```
-More patterns: [BINDING.md](docs/BINDING.md).
-
----
-## DI Lifetimes & Defaults
-
-By default:
-- Concrete config types: **Scoped** (one snapshot per request/scope)
-- `IReactiveConfig<T>`: **Singleton** (continuous live updates)
-
-Change the default lifetime:
-```csharp
-services.AddCocoarConfiguration(rules, configureServices: o =>
-    o.DefaultRegistrationLifetime(ServiceLifetime.Singleton));
-```
-Disable auto reactive registration (rare):
-```csharp
-o.DisableAutoReactiveRegistration();
-```
-Manual overrides & keyed registrations: see [ADVANCED.md](docs/ADVANCED.md).
-
-**Choosing a Lifetime:**
-| Scenario | Lifetime |
-|----------|----------|
-| Typical web request consumption | Scoped |
-| High-read immutable small config | Singleton |
-| Background service (reactive) | Scoped + `IReactiveConfig<T>` (preferred) |
-| Large object, avoid mid-request drift | Scoped |
-
----
-## Providers (Built-In & Extensions)
-
-| Provider          | Package   | Change Signal        | Notes                             |
-| ----------------- | --------- | -------------------- | --------------------------------- |
-| Static            | Core      | ❌                    | JSON strings or factories         |
-| File (JSON)       | Core      | ✅ FS watcher         | Deterministic layering            |
-| Environment       | Core      | ❌                    | Prefix filter; `__` / `:` nesting |
-| HTTP Polling      | Extension | ✅ Interval polling   | Payload diffing (streaming hash)  |
-| Microsoft Adapter | Extension | Depends              | Any `IConfigurationSource`        |
-
-Detailed provider docs: [PROVIDERS.md](docs/PROVIDERS.md).
-
----
-## Performance & Reliability (Short Version)
-
-- Atomic recompute + full snapshot publish
-- Incremental: recompute only from earliest changed rule
-- Streaming JSON → MD5 hashing (no intermediate string allocations)
-- Hash-gated reactive emissions (no duplicate pushes)
-- Error-resilient reactive pipelines (no dead observables)
-- 80+ tests (stress, cancellation, differential correctness)
-
-Deep dive: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [CONCEPTS.md](docs/CONCEPTS.md).
-
----
-## When You Need More
-
-| Need | Go To |
-|------|-------|
-| Interface patterns | [docs/BINDING.md](docs/BINDING.md) |
-| Advanced DI control | [docs/ADVANCED.md](docs/ADVANCED.md) |
-| Architecture & pipeline | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Providers overview | [docs/PROVIDERS.md](docs/PROVIDERS.md) |
-| Migration notes | [docs/MIGRATION.md](docs/MIGRATION.md) |
-| Build your own provider | [docs/PROVIDER_DEV.md](docs/PROVIDER_DEV.md) |
-| Deep scenarios (lifecycle, dynamic factories, tuning) | [docs/DEEP_DIVE.md](docs/DEEP_DIVE.md) |
-
----
-## Installation
-
-```xml
-<ItemGroup>
-  <PackageReference Include="Cocoar.Configuration" />
-  <PackageReference Include="Cocoar.Configuration.DI" />
-  <!-- Optional -->
-  <PackageReference Include="Cocoar.Configuration.HttpPolling" />
-  <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" />
-  <PackageReference Include="Cocoar.Configuration.AspNetCore" />
-</ItemGroup>
-```
-
-CLI:
-```bash
-dotnet add package Cocoar.Configuration
-dotnet add package Cocoar.Configuration.DI
-```
-(Add extensions only when needed.)
-
----
 ## Examples
 
 Each example is a standalone runnable project under `src/Examples/`:
@@ -230,6 +121,31 @@ Each example is a standalone runnable project under `src/Examples/`:
 | [BindingExample](src/Examples/BindingExample) | Interface binding without DI |
 
 More details: [Examples README](src/Examples/README.md).
+
+---
+## Quality & Reliability
+
+Cocoar.Configuration is backed by an extensive test suite:
+
+* **204 automated tests** across core, providers, and edge cases (v1.0.0).
+* Continuous integration (GitHub Actions) validates every PR and commit.
+* High coverage of provider behavior, failure handling, and the recompute pipeline.
+
+<details>
+<summary><strong>What’s covered beyond unit tests</strong></summary>
+
+* **Integration:** multi‑provider composition, rule ordering, recompute pipeline, snapshot stability.
+* **Concurrency & Cancellation:** debounce/coalescing under rapid change storms; overlapping recomputes; cancellation correctness.
+* **Stress & Performance:** large/megabyte JSONs; high‑frequency writes; multi‑provider concurrency; emission minimality (fewer emissions than changes).
+* **File Provider Resilience:** FileSystemWatcher ⇄ polling fallback; directory deletion/recreation recovery.
+* **HTTP Provider “battle tests”:** headers, caching, non‑200 handling, base address vs absolute URIs.
+* **Environment & Microsoft Adapter:** delimiter/underscore edge cases; in‑memory config integration.
+* **Fuzz/Differential tests:** random change sequences maintain correctness and stable merges.
+* **Health pipeline:** status derivation, recovery, version preservation on failure, observable health updates.
+
+</details>
+
+See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for patterns and trait filters.
 
 ---
 ## Security Notes
