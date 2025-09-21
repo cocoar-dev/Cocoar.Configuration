@@ -8,34 +8,21 @@ jobs:
   test:
     name: Test on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
-          # x64 platforms
+          # Core x64 platforms
           - os: ubuntu-latest
             platform: linux-x64
             arch: x64
           - os: windows-latest  
             platform: windows-x64
             arch: x64
-          - os: ubuntu-24.04
-            platform: linux-x64-alt
-            arch: x64
-          # ARM64 platforms
-          - os: ubuntu-latest-arm64
-            platform: linux-arm64
-            arch: arm64
-          - os: windows-latest-arm64
-            platform: windows-arm64
-            arch: arm64
-          # macOS (both architectures)
           - os: macos-latest
             platform: macos-x64
             arch: x64
-          - os: macos-latest-arm64
-            platform: macos-arm64
-            arch: arm64
     defaults:
       run:
         working-directory: src

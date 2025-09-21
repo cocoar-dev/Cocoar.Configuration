@@ -14,12 +14,21 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
 
     private static HttpClient CreateClient(HttpPollingProviderOptions opts)
     {
-        if (opts.Handler is not null) return new HttpClient(opts.Handler, disposeHandler: false)
+        HttpClient client;
+        if (opts.Handler is not null)
         {
-            BaseAddress = string.IsNullOrWhiteSpace(opts.BaseAddress) ? null : new Uri(opts.BaseAddress)
-        };
-        var client = new HttpClient();
-        if (!string.IsNullOrWhiteSpace(opts.BaseAddress)) client.BaseAddress = new Uri(opts.BaseAddress);
+            client = new HttpClient(opts.Handler, disposeHandler: false);
+        }
+        else
+        {
+            client = new HttpClient();
+        }
+        
+        if (!string.IsNullOrWhiteSpace(opts.BaseAddress))
+        {
+            client.BaseAddress = new Uri(opts.BaseAddress);
+        }
+        
         return client;
     }
 
