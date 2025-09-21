@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Providers;
 
 public enum FileSystemChangeType
 {

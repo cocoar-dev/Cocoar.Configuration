@@ -1,7 +1,7 @@
 using System;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers;
 
 namespace BindingExample;
 
@@ -69,7 +69,6 @@ public static class Program
 
         try
         {           
-            // 3. Initialize ConfigManager with rules and exposures
             var manager = new ConfigManager([
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/payment.json")).For<PaymentConfig>(),
                 Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/features.json")).For<FeatureToggleConfig>(),
@@ -84,7 +83,6 @@ public static class Program
             Console.WriteLine("📋 ConfigManager initialized successfully!");
             Console.WriteLine();
 
-            // 4. Test concrete type access (existing functionality)
             Console.WriteLine("🔧 Testing concrete type access:");
             
             var paymentConcrete = manager.GetConfig<PaymentConfig>();
@@ -95,7 +93,6 @@ public static class Program
             Console.WriteLine($"   FeatureToggleConfig.CacheEnabled: {featureConcrete?.CacheEnabled}");
             Console.WriteLine();
 
-            // 5. Test interface access through bindings (NEW functionality)
             Console.WriteLine("🎭 Testing interface access through bindings:");
             
             var paymentInterface = manager.GetConfig<IPaymentConfig>();

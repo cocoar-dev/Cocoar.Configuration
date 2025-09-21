@@ -1,9 +1,6 @@
-// Migrated from root Examples/StaticProviderExample.cs
-// Demonstrates both JSON string and factory-based static configuration
-
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.StaticJsonProvider;
+using Cocoar.Configuration.Providers;
 
 public sealed class CoreDefaults
 {
@@ -30,8 +27,7 @@ public static class Program
     {
         Console.WriteLine("=== StaticJsonProvider Demo: JSON Strings + Factory Functions ===\n");
 
-        var rules = new []
-        {
+        var manager = new ConfigManager([
             // 1. JSON string approach - great for configuration templates, testing, defaults
             Rule.From.StaticJson("""
             {
@@ -61,9 +57,7 @@ public static class Program
                     }
                 };
             }).For<Wrapper>()
-        };
-
-        var manager = new ConfigManager(rules).Initialize();
+        ]).Initialize();
 
         // Retrieve and display configurations
         var coreDefaults = manager.GetRequiredConfig<CoreDefaults>();

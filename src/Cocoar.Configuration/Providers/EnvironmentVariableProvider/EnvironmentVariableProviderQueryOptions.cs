@@ -1,6 +1,6 @@
 using Cocoar.Configuration.Providers.Abstractions;
 
-namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+namespace Cocoar.Configuration.Providers;
 
 public sealed class EnvironmentVariableProviderQueryOptions(string? environmentPrefix = null)
     : IProviderQuery

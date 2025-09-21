@@ -1,7 +1,6 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
-using Cocoar.Configuration.Providers.StaticJsonProvider;
+using Cocoar.Configuration.Providers;
 
 namespace SimplifiedCoreExample;
 

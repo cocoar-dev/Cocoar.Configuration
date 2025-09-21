@@ -1,0 +1,729 @@
+using System.Text.Json;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
+using Cocoar.Configuration.Providers;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Cocoar.Configuration.Core.Tests.Managers;
+
+/// <summary>
+/// Bulletproof isolation tests for ConfigManager.
+/// Tests the core orchestration, debounce logic, and recompute mechanisms using our proven bulletproof providers.
+/// These tests validate that ConfigManager can reliably handle complex scenarios with multiple rapid changes.
+/// </summary>
+[Trait("Provider", "ConfigManager")]
+public class ConfigManagerIsolationTests : IDisposable
+{
+    private readonly List<IDisposable> _disposables = new();
+
+    public void Dispose()
+    {
+        foreach (var disposable in _disposables)
+        {
+            try
+            {
+                disposable.Dispose();
+            }
+            catch
+            {
+                // Ignore disposal errors in tests
+            }
+        }
+        _disposables.Clear();
+    }
+
+    private void TrackForDisposal(IDisposable disposable)
+    {
+        _disposables.Add(disposable);
+    }
+
+    // Test configuration classes
+    public class DatabaseConfig
+    {
+        public string ConnectionString { get; set; } = "";
+        public int Timeout { get; set; }
+        public bool EnableRetry { get; set; }
+    }
+
+    public class ApiConfig
+    {
+        public string BaseUrl { get; set; } = "";
+        public string ApiKey { get; set; } = "";
+        public int MaxRetries { get; set; }
+    }
+
+    #region Basic Functionality Tests
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void ConfigManager_Initialize_ShouldSetInitializedFlag()
+    {
+        // Arrange
+        var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+
+        // Act
+        var result = configManager.Initialize();
+
+        // Assert
+        Assert.Same(configManager, result); // Should return self for fluent interface
+        
+        // Verify initialization by checking if configs are accessible
+        var config = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(config);
+        Assert.Equal("test", config.ConnectionString);
+        Assert.Equal(30, config.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void ConfigManager_Initialize_ShouldBeIdempotent()
+    {
+        // Arrange
+        var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+
+        // Act
+        var result1 = configManager.Initialize();
+        var result2 = configManager.Initialize(); // Second call should be safe
+
+        // Assert
+        Assert.Same(configManager, result1);
+        Assert.Same(configManager, result2);
+        
+        // Verify configuration is still accessible
+        var config = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(config);
+        Assert.Equal("test", config.ConnectionString);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void GetConfig_WithValidConfiguration_ShouldReturnTypedObject()
+    {
+        // Arrange
+        var expectedConfig = new DatabaseConfig 
+        { 
+            ConnectionString = "Server=test;Database=app", 
+            Timeout = 60,
+            EnableRetry = true
+        };
+
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var result = configManager.GetConfig<DatabaseConfig>();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
+        Assert.Equal(expectedConfig.Timeout, result.Timeout);
+        Assert.Equal(expectedConfig.EnableRetry, result.EnableRetry);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void GetConfig_WithNonExistentType_ShouldReturnDefault()
+    {
+        // Arrange
+        var testConfig = new DatabaseConfig { ConnectionString = "test" };
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var result = configManager.GetConfig<ApiConfig>(); // Different type not configured
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void TryGetConfig_WithValidConfiguration_ShouldReturnTrueAndValue()
+    {
+        // Arrange
+        var expectedConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 45 };
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var success = configManager.TryGetConfig<DatabaseConfig>(out var result);
+
+        // Assert
+        Assert.True(success);
+        Assert.NotNull(result);
+        Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
+        Assert.Equal(expectedConfig.Timeout, result.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void TryGetConfig_WithNonExistentType_ShouldReturnFalseAndNull()
+    {
+        // Arrange
+        var testConfig = new DatabaseConfig();
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var success = configManager.TryGetConfig<ApiConfig>(out var result);
+
+        // Assert
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void GetRequiredConfig_WithValidConfiguration_ShouldReturnValue()
+    {
+        // Arrange
+        var expectedConfig = new DatabaseConfig { ConnectionString = "required-test", Timeout = 90 };
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var result = configManager.GetRequiredConfig<DatabaseConfig>();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
+        Assert.Equal(expectedConfig.Timeout, result.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void GetRequiredConfig_WithNonExistentType_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var testConfig = new DatabaseConfig();
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => 
+            configManager.GetRequiredConfig<ApiConfig>());
+        
+        Assert.Contains("ApiConfig", exception.Message);
+        Assert.Contains("not found", exception.Message);
+    }
+
+    #endregion
+
+    #region Multiple Rules and Priority Tests
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void ConfigManager_WithMultipleRules_ShouldRespectRuleOrder()
+    {
+        // Arrange - Later rules should override earlier ones
+        var rules = new List<ConfigRule>
+        {
+            // First rule - lower priority
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(new DatabaseConfig 
+            { 
+                ConnectionString = "first-rule", 
+                Timeout = 30 
+            })),
+            // Second rule - higher priority (should win)
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(new DatabaseConfig 
+            { 
+                ConnectionString = "second-rule", 
+                Timeout = 60 
+            }))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var config = configManager.GetConfig<DatabaseConfig>();
+
+        // Assert
+        Assert.NotNull(config);
+        Assert.Equal("second-rule", config.ConnectionString); // Second rule should win
+        Assert.Equal(60, config.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public void ConfigManager_WithMultipleConfigTypes_ShouldHandleBothCorrectly()
+    {
+        // Arrange
+        var dbConfig = new DatabaseConfig { ConnectionString = "db-connection", Timeout = 45 };
+        var apiConfig = new ApiConfig { BaseUrl = "https://api.test", ApiKey = "secret", MaxRetries = 3 };
+
+        var rules = new List<ConfigRule>
+        {
+            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(dbConfig)),
+            StaticJsonProvider.CreateRule<ApiConfig>(JsonSerializer.Serialize(apiConfig))
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act
+        var dbResult = configManager.GetConfig<DatabaseConfig>();
+        var apiResult = configManager.GetConfig<ApiConfig>();
+
+        // Assert
+        Assert.NotNull(dbResult);
+        Assert.Equal(dbConfig.ConnectionString, dbResult.ConnectionString);
+        Assert.Equal(dbConfig.Timeout, dbResult.Timeout);
+
+        Assert.NotNull(apiResult);
+        Assert.Equal(apiConfig.BaseUrl, apiResult.BaseUrl);
+        Assert.Equal(apiConfig.ApiKey, apiResult.ApiKey);
+        Assert.Equal(apiConfig.MaxRetries, apiResult.MaxRetries);
+    }
+
+    #endregion
+
+    #region Debounce and Recompute Logic Tests
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public async Task ConfigManager_WithObservableProvider_ShouldHandleRecomputation()
+    {
+        // Arrange - Using our bulletproof ObservableProvider with actual config objects
+        var initialConfig = new DatabaseConfig { ConnectionString = "initial", Timeout = 30 };
+        var updatedConfig = new DatabaseConfig { ConnectionString = "updated", Timeout = 60 };
+
+        var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(initialConfig);
+        var rules = new List<ConfigRule>
+        {
+            // Create rule using ObservableProvider with the actual config type
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable);
+        configManager.Initialize();
+
+        // Verify initial state
+        var initialResult = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(initialResult);
+        Assert.Equal("initial", initialResult.ConnectionString);
+
+        // Act - Trigger a change that should cause recomputation
+        observable.OnNext(updatedConfig);
+
+        // Wait for debounce and recomputation using active wait pattern
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == "updated";
+            },
+            timeout: TimeSpan.FromSeconds(2));
+
+        // Assert - Configuration should be updated
+        var finalResult = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(finalResult);
+        Assert.Equal("updated", finalResult.ConnectionString);
+        Assert.Equal(60, finalResult.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Performance")]
+    public async Task ConfigManager_DebounceLogic_ShouldCoalesceRapidChanges()
+    {
+        // Arrange - Create observable provider with rapid changes
+        var configs = new[]
+        {
+            new DatabaseConfig { ConnectionString = "change1", Timeout = 10 },
+            new DatabaseConfig { ConnectionString = "change2", Timeout = 20 },
+            new DatabaseConfig { ConnectionString = "change3", Timeout = 30 },
+            new DatabaseConfig { ConnectionString = "final", Timeout = 40 }
+        };
+
+        var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(configs[0]);
+        var rules = new List<ConfigRule>
+        {
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        // Use longer debounce to test coalescing
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 100);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable);
+        configManager.Initialize();
+
+        // Act - Fire rapid changes (should be debounced/coalesced)
+        for (int i = 1; i < configs.Length; i++)
+        {
+            observable.OnNext(configs[i]);
+            await Task.Delay(10); // Small delay but less than debounce period
+        }
+
+        // Wait for final recomputation using active wait
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == "final";
+            },
+            timeout: TimeSpan.FromSeconds(2));
+
+        // Assert - Should have final configuration (debouncing worked)
+        var result = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(result);
+        Assert.Equal("final", result.ConnectionString);
+        Assert.Equal(40, result.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public async Task ConfigManager_CancellationLogic_ShouldCancelPreviousRecompute()
+    {
+        // Arrange - This test validates the cancellation token mechanism
+        var initialConfig = new DatabaseConfig { ConnectionString = "initial", Timeout = 10 };
+        var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(initialConfig);
+
+        var rules = new List<ConfigRule>
+        {
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 200);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable);
+        configManager.Initialize();
+
+        // Act - Trigger first recompute, then immediately trigger second (should cancel first)
+        observable.OnNext(new DatabaseConfig { ConnectionString = "change1", Timeout = 20 });
+        
+        // Immediately trigger another change (should cancel the first recompute)
+        observable.OnNext(new DatabaseConfig { ConnectionString = "change2", Timeout = 30 });
+
+        // Wait for final result using active wait
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == "change2";
+            },
+            timeout: TimeSpan.FromSeconds(2));
+        
+        // Assert - Final configuration should reflect the last change
+        var result = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(result);
+        Assert.Equal("change2", result.ConnectionString);
+        Assert.Equal(30, result.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    public async Task ConfigManager_MultipleRulesRecompute_ShouldRespectRuleOrder()
+    {
+        // Arrange - Multiple rules where later ones should override
+        var rule1Config = new DatabaseConfig { ConnectionString = "rule1-initial", Timeout = 10 };
+        var rule2Config = new DatabaseConfig { ConnectionString = "rule2-initial", Timeout = 20 };
+        
+        var observable1 = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(rule1Config);
+        var observable2 = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(rule2Config);
+
+        var rules = new List<ConfigRule>
+        {
+            // First rule - lower priority
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable1),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions()),
+            // Second rule - higher priority (should win)
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable2),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable1);
+        TrackForDisposal(observable2);
+        configManager.Initialize();
+
+        // Initial state - rule2 should win (based on "last wins" rule order)
+        var initialResult = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(initialResult);
+        Assert.Equal("rule2-initial", initialResult.ConnectionString);
+
+        // Act - Update rule1 (should still be overridden by rule2)
+        observable1.OnNext(new DatabaseConfig { ConnectionString = "rule1-updated", Timeout = 15 });
+        
+        // Wait a bit for any recomputation
+        await Task.Delay(100);
+
+        // Assert - rule2 should still win after rule1 update
+        var afterRule1Update = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(afterRule1Update);
+        Assert.Equal("rule2-initial", afterRule1Update.ConnectionString); // rule2 still wins
+
+        // Act - Update rule2 (should now see the change)
+        observable2.OnNext(new DatabaseConfig { ConnectionString = "rule2-updated", Timeout = 25 });
+        
+        // Wait for rule2 update to complete
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == "rule2-updated";
+            },
+            timeout: TimeSpan.FromSeconds(2));
+
+        // Assert - rule2 update should be visible
+        var finalResult = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(finalResult);
+        Assert.Equal("rule2-updated", finalResult.ConnectionString);
+        Assert.Equal(25, finalResult.Timeout);
+    }
+
+    #endregion
+
+    #region Stress Tests for Debounce/Cancel Logic
+
+    [Fact]
+    [Trait("Type", "Stress")]
+    public async Task ConfigManager_MassiveConcurrentRecomputes_ShouldHandleDebounceCorrectly()
+    {
+        // Arrange - Create single observable that will fire rapidly (simpler approach)
+        var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(
+            new DatabaseConfig { ConnectionString = "initial", Timeout = 0 });
+        
+        var rules = new List<ConfigRule>
+        {
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        // Short debounce to test rapid cancellation
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 30);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable);
+        
+        configManager.Initialize();
+
+        // Act - Fire massive rapid changes
+        const int totalChanges = 100; // 100 rapid changes to stress-test debounce/cancel
+        var changeTask = Task.Run(async () =>
+        {
+            for (int i = 1; i <= totalChanges; i++)
+            {
+                observable.OnNext(new DatabaseConfig 
+                { 
+                    ConnectionString = $"change-{i}", 
+                    Timeout = i 
+                });
+                await Task.Delay(2); // Very rapid - 2ms between changes
+            }
+        });
+
+        await changeTask;
+
+        // Wait for debouncing to complete
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == $"change-{totalChanges}";
+            },
+            timeout: TimeSpan.FromSeconds(3));
+
+        // Assert - Should have final configuration despite massive recompute load
+        var finalConfig = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(finalConfig);
+        Assert.Equal($"change-{totalChanges}", finalConfig.ConnectionString);
+        Assert.Equal(totalChanges, finalConfig.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Stress")]
+    public async Task ConfigManager_RapidDebounceStorm_ShouldCoalesceCorrectly()
+    {
+        // Arrange - Single provider with extremely rapid changes
+        var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(
+            new DatabaseConfig { ConnectionString = "initial", Timeout = 0 });
+        
+        var rules = new List<ConfigRule>
+        {
+            ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions())
+        };
+
+        // Longer debounce to test massive coalescing
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 200);
+        TrackForDisposal(configManager);
+        TrackForDisposal(observable);
+        configManager.Initialize();
+
+        // Act - Fire 200 rapid changes within debounce window
+        const int totalChanges = 200;
+        var fireTask = Task.Run(async () =>
+        {
+            for (int i = 1; i <= totalChanges; i++)
+            {
+                observable.OnNext(new DatabaseConfig 
+                { 
+                    ConnectionString = $"change-{i}", 
+                    Timeout = i 
+                });
+                await Task.Delay(1); // 1ms between changes = 200ms total (within debounce window)
+            }
+        });
+
+        await fireTask;
+
+        // Wait for final debounced result
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString == $"change-{totalChanges}";
+            },
+            timeout: TimeSpan.FromSeconds(3));
+
+        // Assert - Should have final change despite 200 rapid updates
+        var result = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(result);
+        Assert.Equal($"change-{totalChanges}", result.ConnectionString);
+        Assert.Equal(totalChanges, result.Timeout);
+    }
+
+    [Fact]
+    [Trait("Type", "Stress")]
+    public async Task ConfigManager_ConcurrentMultipleRules_ShouldMaintainRuleOrder()
+    {
+        // Arrange - Multiple rules with concurrent updates to test rule precedence under stress
+        var observables = new List<System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>>();
+        var rules = new List<ConfigRule>();
+        
+        const int numRules = 20; // 20 competing rules
+        
+        for (int i = 0; i < numRules; i++)
+        {
+            var initialConfig = new DatabaseConfig 
+            { 
+                ConnectionString = $"rule-{i}-initial", 
+                Timeout = i 
+            };
+            var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(initialConfig);
+            observables.Add(observable);
+            
+            rules.Add(ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
+                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => ObservableProviderQuery.Default,
+                typeof(DatabaseConfig),
+                new ConfigRuleOptions()));
+        }
+
+        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        TrackForDisposal(configManager);
+        foreach (var obs in observables) TrackForDisposal(obs);
+        
+        configManager.Initialize();
+
+        // Initial state - last rule should win
+        var initialResult = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(initialResult);
+        Assert.Equal($"rule-{numRules - 1}-initial", initialResult.ConnectionString);
+
+        // Act - Fire concurrent updates to ALL rules
+        var updateTasks = observables.Select((obs, index) =>
+            Task.Run(async () =>
+            {
+                for (int change = 1; change <= 10; change++)
+                {
+                    obs.OnNext(new DatabaseConfig 
+                    { 
+                        ConnectionString = $"rule-{index}-change-{change}", 
+                        Timeout = index * 100 + change 
+                    });
+                    await Task.Delay(10); // Concurrent but spaced updates
+                }
+            })
+        ).ToArray();
+
+        await Task.WhenAll(updateTasks);
+
+        // Wait for stabilization - last rule should still win
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<DatabaseConfig>();
+                return config?.ConnectionString?.StartsWith($"rule-{numRules - 1}-change-") == true;
+            },
+            timeout: TimeSpan.FromSeconds(5));
+
+        // Assert - Last rule should still have precedence
+        var finalConfig = configManager.GetConfig<DatabaseConfig>();
+        Assert.NotNull(finalConfig);
+        Assert.StartsWith($"rule-{numRules - 1}-change-", finalConfig.ConnectionString);
+        Assert.True(finalConfig.Timeout >= (numRules - 1) * 100, $"Expected timeout >= {(numRules - 1) * 100}, got {finalConfig.Timeout}");
+    }
+
+    #endregion
+}

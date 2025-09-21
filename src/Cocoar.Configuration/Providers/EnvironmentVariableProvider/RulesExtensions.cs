@@ -1,8 +1,8 @@
 using Cocoar.Configuration.Fluent;
 
-namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+namespace Cocoar.Configuration.Providers;
 
-public static class RulesExtensions
+public static class EnvironmentVariableRulesExtensions
 {
     public static
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,

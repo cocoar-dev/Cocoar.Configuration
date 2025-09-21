@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
 
-namespace Cocoar.Configuration.Providers.EnvironmentVariableProvider;
+namespace Cocoar.Configuration.Providers;
 
 public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptions options)
     : ConfigurationProvider<EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(options)

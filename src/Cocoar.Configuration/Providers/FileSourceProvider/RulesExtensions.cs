@@ -1,8 +1,8 @@
 using Cocoar.Configuration.Fluent;
 
-namespace Cocoar.Configuration.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Providers;
 
-public static class RulesExtensions
+public static class FileSourceRulesExtensions
 {
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
         File(this Rule.Dsl _, Func<ConfigManager, FileSourceRuleOptions> optionsFactory)

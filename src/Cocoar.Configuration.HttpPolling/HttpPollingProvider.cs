@@ -14,12 +14,21 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
 
     private static HttpClient CreateClient(HttpPollingProviderOptions opts)
     {
-        if (opts.Handler is not null) return new HttpClient(opts.Handler, disposeHandler: false)
+        HttpClient client;
+        if (opts.Handler is not null)
         {
-            BaseAddress = string.IsNullOrWhiteSpace(opts.BaseAddress) ? null : new Uri(opts.BaseAddress)
-        };
-        var client = new HttpClient();
-        if (!string.IsNullOrWhiteSpace(opts.BaseAddress)) client.BaseAddress = new Uri(opts.BaseAddress);
+            client = new HttpClient(opts.Handler, disposeHandler: false);
+        }
+        else
+        {
+            client = new HttpClient();
+        }
+        
+        if (!string.IsNullOrWhiteSpace(opts.BaseAddress))
+        {
+            client.BaseAddress = new Uri(opts.BaseAddress);
+        }
+        
         return client;
     }
 
@@ -111,11 +120,23 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
     }
 
     private static string BuildUrl(HttpClient client, string pathOrAbsolute)
-        => Uri.TryCreate(pathOrAbsolute, UriKind.Absolute, out var abs)
-            ? abs.ToString()
-            : client.BaseAddress is not null
-                ? new Uri(client.BaseAddress, pathOrAbsolute).ToString()
-                : pathOrAbsolute;
+    {
+        // If it's a complete URL with scheme, use it as-is
+        if (Uri.TryCreate(pathOrAbsolute, UriKind.Absolute, out var absoluteUri) && 
+            (absoluteUri.Scheme == Uri.UriSchemeHttp || absoluteUri.Scheme == Uri.UriSchemeHttps))
+        {
+            return absoluteUri.ToString();
+        }
+        
+        // If we have a base address, combine it with the path
+        if (client.BaseAddress is not null)
+        {
+            return new Uri(client.BaseAddress, pathOrAbsolute).ToString();
+        }
+        
+        // Otherwise, return the path as-is
+        return pathOrAbsolute;
+    }
 
     private static string MakeKey(HttpPollingProviderQueryOptions query)
     {

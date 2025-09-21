@@ -1,7 +1,7 @@
-using System.Reactive.Linq;
 using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 
-namespace Cocoar.Configuration.Providers.FileSourceProvider;
+namespace Cocoar.Configuration.Providers;
 
 public static class FileSystemWatcherObservableExtensions
 {

@@ -1,11 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Providers.FileSourceProvider;
+using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.DI;
 
 namespace DIExample;

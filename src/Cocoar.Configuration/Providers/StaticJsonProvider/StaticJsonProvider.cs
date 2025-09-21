@@ -2,7 +2,7 @@ using System.Reactive.Linq;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
 
-namespace Cocoar.Configuration.Providers.StaticJsonProvider;
+namespace Cocoar.Configuration.Providers;
 
 /// <summary>
 /// A configuration provider that serves static configuration data.
