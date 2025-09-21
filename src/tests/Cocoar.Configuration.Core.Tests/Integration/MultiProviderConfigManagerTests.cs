@@ -1348,7 +1348,7 @@ public class MultiProviderConfigManagerTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
-    public void ObservableProvider_MultipleRules_SameSource_NoCrossRuleBleed()
+    public async Task ObservableProvider_MultipleRules_SameSource_NoCrossRuleBleed()
     {
         // Arrange - Create single observable source for two rules
         var initialJson = @"{
@@ -1389,8 +1389,9 @@ public class MultiProviderConfigManagerTests
         var appSubscription = appConfig.Subscribe(config => appEmissions.Add(config));
         var dbSubscription = databaseConfig.Subscribe(config => dbEmissions.Add(config));
 
-        // Wait for initial configurations
-        Thread.Sleep(200);
+        // Wait for initial configurations to arrive
+        await ActiveWaitHelpers.WaitUntilAsync(() => appEmissions.Count >= 1 && dbEmissions.Count >= 1, 
+            description: "initial configurations");
 
         // Verify initial state
         var initialApp = appEmissions.Last();
@@ -1415,8 +1416,9 @@ public class MultiProviderConfigManagerTests
 
         subject.OnNext(updatedJson);
 
-        // Wait for propagation
-        Thread.Sleep(300);
+        // Wait for updated configurations to arrive - count initial + updated emissions
+        await ActiveWaitHelpers.WaitUntilAsync(() => appEmissions.Count >= 2 && dbEmissions.Count >= 2, 
+            description: "updated configurations after observable change");
 
         // Assert - Both configurations should be updated independently
         var updatedApp = appEmissions.Last();
