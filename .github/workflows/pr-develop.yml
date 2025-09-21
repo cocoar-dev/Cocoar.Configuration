@@ -9,6 +9,7 @@ jobs:
     name: Test on ${{ matrix.os }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           # x64 platforms
