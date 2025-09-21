@@ -5,8 +5,36 @@ on:
     branches: [ develop ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    name: Test on ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # x64 platforms
+          - os: ubuntu-latest
+            platform: linux-x64
+            arch: x64
+          - os: windows-latest  
+            platform: windows-x64
+            arch: x64
+          - os: ubuntu-24.04
+            platform: linux-x64-alt
+            arch: x64
+          # ARM64 platforms
+          - os: ubuntu-latest-arm64
+            platform: linux-arm64
+            arch: arm64
+          - os: windows-latest-arm64
+            platform: windows-arm64
+            arch: arm64
+          # macOS (both architectures)
+          - os: macos-latest
+            platform: macos-x64
+            arch: x64
+          - os: macos-latest-arm64
+            platform: macos-arm64
+            arch: arm64
     defaults:
       run:
         working-directory: src
@@ -33,4 +61,13 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
+        env:
+          PLATFORM_INFO: "${{ matrix.platform }} on ${{ runner.os }} (${{ runner.arch }})"
+
+      - name: Platform test results
+        if: always()
+        run: |
+          echo "Platform: ${{ matrix.platform }}"
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Runner Arch: ${{ runner.arch }}"
 
