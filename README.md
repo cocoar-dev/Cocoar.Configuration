@@ -1,10 +1,8 @@
-# Cocoar.Configuration
+# Reactive, strongly-typed configuration layering for .NET  
 
-> Powerful layered configuration for .NET  
-> **Simple • Strongly typed • Reactive**  
-> Elevates configuration from hidden infrastructure to an observable, safety‑enforced subsystem you can trust under change and failure.
 
 ![Cocoar.Configuration](social-preview-small.png)
+> Elevates configuration from hidden infrastructure to an observable, safety‑enforced subsystem you can trust under change and failure.
 
 [![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml)
 [![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml)
