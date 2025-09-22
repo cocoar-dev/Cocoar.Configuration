@@ -22,19 +22,19 @@
         <RepositoryType>git</RepositoryType>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
         <!-- Package Description & Discovery -->
-    <PackageDescription>Powerful layered configuration for .NET—simple, strongly typed, reactive. Compose ordered rules (file, environment, HTTP polling, static, Microsoft IConfiguration) with deterministic last-write-wins merging, partial atomic recompute, and hash-gated reactive streams.</PackageDescription>
-        <PackageTags>configuration;config;settings;json;reactive;csharp;dotnet;aspnetcore;dependency-injection;merge;variables;recompute</PackageTags>
+        <PackageDescription>Reactive, strongly-typed configuration layering for .NET</PackageDescription>
+        <PackageTags>reactive;csharp;dotnet;aspnetcore;dependency-injection;configuration;resilience;layered-configuration</PackageTags>
         <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
+        <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
         <PackageIcon>package-icon.png</PackageIcon>
 
-    <Authors>Bernhard Windisch</Authors>
-    <Company>COCOAR e.U.</Company>
+        <Authors>Bernhard Windisch</Authors>
+        <Company>COCOAR e.U.</Company>
     </PropertyGroup>
 
     <!-- SourceLink: publish repo URL and embed source link info -->
@@ -46,7 +46,6 @@
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="README.md" />
         <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="package-icon.png" />
-        <None Include="$(MSBuildThisFileDirectory)\..\social-preview-small.png" Pack="true"
-              PackagePath="social-preview-small.png" />
+        <None Include="$(MSBuildThisFileDirectory)\..\social-preview-small.png" Pack="true" PackagePath="social-preview-small.png" />
     </ItemGroup>
 </Project>
