@@ -26,8 +26,8 @@
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
         <!-- Package Description & Discovery -->
-        <PackageDescription>Reactive, strongly-typed configuration layering for .NET</PackageDescription>
-        <PackageTags>reactive;csharp;dotnet;aspnetcore;dependency-injection;configuration;resilience;layered-configuration</PackageTags>
+        <PackageDescription>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates</PackageDescription>
+        <PackageTags>configuration;reactive;dotnet;csharp;aspnetcore;dependency-injection;resilience;health-monitoring;strongly-typed</PackageTags>
         <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
