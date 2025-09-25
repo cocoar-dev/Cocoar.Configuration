@@ -17,6 +17,7 @@
 ### 🚀 Key Innovations
 
 * **Auto-Registered Reactive Config** – Every config type gets [`IReactiveConfig<T>`](./docs/reactive-config.md) in DI automatically
+* **Atomic Tuple Reactive Configs** – Use `IReactiveConfig<(T1,T2,...,TN)>` for aligned, change-filtered multi-config snapshots (any arity) with strict element validation
 * [**Health Monitoring Service**](./docs/health-monitoring.md) – Real-time health snapshots, metrics export, and resilience tracking
 * **Streaming MD5 Change Detection** – High-performance hashing pipeline for file/HTTP providers
 
@@ -60,6 +61,7 @@
 
 * **Minimal Boilerplate** – Define a class, add a rule, done.
 * **Auto-Registered Reactive Config** – [`IReactiveConfig<T>`](./docs/reactive-config.md) registered automatically in DI.
+* **Tuple Multi-Config** – Inject `IReactiveConfig<(A,B,C)>` (any tuple size) for atomic multi-config snapshots (only configured types or bound interfaces allowed).
 * **Interface binding** – map POCOs to read-only interfaces (`Bind.Type<T>().To<IMyConfig>()`) for clean contracts.
 * **Service Lifetime Control** – Scoped, Singleton, Transient, and Keyed registrations supported.
 * **Test-Friendly** – Static/observable providers make testing easy.
@@ -97,6 +99,20 @@ app.MapGet("/feature", (AppSettings cfg) => new {
     snapshotFlag = cfg.FeatureFlag,  // Value at scope start (request)
     message = cfg.Message
 });
+
+// Tuple reactive usage example (arbitrary arity)
+app.MapGet("/composite", (IReactiveConfig<(AppSettings App, FeatureFlags Flags, LoggingConfig Log)> composite) =>
+{
+    var (appCfg, flags, log) = composite.CurrentValue;
+    return new {
+        feature = flags.Enabled.Contains("NewX"),
+        level = log.Level,
+        appCfg.Version
+    };
+});
+
+// Guard: invalid tuple (e.g. unbound interface) throws immediately
+// var bad = manager.GetReactiveConfig<(UnconfiguredType, IUnboundInterface)>(); // -> InvalidOperationException
 ```
 
 ## Examples
@@ -117,6 +133,7 @@ Each example is a standalone runnable project under `src/Examples/`:
 | [DIExample](src/Examples/DIExample) | Comprehensive DI patterns & overrides |
 | [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) with `ConfigManager` |
 | [BindingExample](src/Examples/BindingExample) | Interface binding without DI |
+| [TupleReactiveExample](src/Examples/TupleReactiveExample) | Tuple-based reactive multi-config snapshot with dynamic updates |
 
 More details: [Examples README](src/Examples/README.md).
 

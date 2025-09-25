@@ -222,6 +222,12 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     /// <returns>A reactive configuration that emits configuration values and provides current value access</returns>
     public IReactiveConfig<T> GetReactiveConfig<T>()
     {
+        var t = typeof(T);
+        if (IsValueTupleType(t))
+        {
+            // Build tuple reactive config dynamically
+            return (IReactiveConfig<T>)CreateTupleReactiveConfig(t);
+        }
         return _reactiveConfigManager.GetReactiveConfig(() => GetConfig<T>()!);
     }
 
@@ -406,4 +412,60 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     /// Gets the current health information.
     /// </summary>
     public IConfigurationHealthService GetHealthService() => _healthService;
+
+    private static bool IsValueTupleType(Type t) => t.IsValueType && t.FullName != null && t.FullName.StartsWith("System.ValueTuple");
+
+    private object CreateTupleReactiveConfig(Type tupleType)
+    {
+        // Determine element types (flattened) and validate each is a configured concrete type or bound interface
+        var elementTypes = FlattenTuple(tupleType).ToArray();
+        if (elementTypes.Length == 0)
+            throw new InvalidOperationException($"Type {tupleType.Name} is not a non-empty ValueTuple");
+
+        var allowedConcrete = new HashSet<Type>(_rules.Select(r => r.ConcreteType));
+        var allowedInterfaces = new HashSet<Type>(_bindings.SelectMany(b => b.BoundInterfaces));
+        var invalid = new List<string>();
+        foreach (var et in elementTypes)
+        {
+            if (et.IsInterface)
+            {
+                if (!allowedInterfaces.Contains(et)) invalid.Add(et.Name + " (interface not bound)");
+            }
+            else
+            {
+                if (!allowedConcrete.Contains(et)) invalid.Add(et.Name + " (not a configured type)");
+            }
+        }
+        if (invalid.Count > 0)
+            throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/bound: {string.Join(", ", invalid)}");
+
+        // Prime all element types so ReactiveConfigManager tracks them and emits per-pass events
+        foreach (var et in elementTypes.Distinct())
+        {
+            try
+            {
+                var m = GetType().GetMethod("GetReactiveConfig")!.MakeGenericMethod(et);
+                _ = m.Invoke(this, null);
+            }
+            catch { /* non-fatal */ }
+        }
+        var generic = typeof(ReactiveTupleConfig<>).MakeGenericType(tupleType);
+        // constructor: (ConfigManager, ReactiveConfigManager, ILogger)
+        var instance = Activator.CreateInstance(generic, this, _reactiveConfigManager, _logger)!;
+        return instance;
+    }
+
+    private static IEnumerable<Type> FlattenTuple(Type t)
+    {
+        if (!(t.IsValueType && t.FullName != null && t.FullName.StartsWith("System.ValueTuple"))) yield break;
+        var fields = t.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        foreach (var f in fields)
+        {
+            if (f.Name == "Rest" && f.FieldType.FullName != null && f.FieldType.FullName.StartsWith("System.ValueTuple"))
+            {
+                foreach (var inner in FlattenTuple(f.FieldType)) yield return inner;
+            }
+            else yield return f.FieldType;
+        }
+    }
 }

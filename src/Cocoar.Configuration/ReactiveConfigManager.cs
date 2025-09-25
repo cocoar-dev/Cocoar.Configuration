@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reactive.Subjects;
+using System.Reactive.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -18,6 +19,10 @@ internal sealed class ReactiveConfigManager : IDisposable
     private readonly ConcurrentDictionary<Type, object> _configObservables = new();
     private readonly ConcurrentDictionary<Type, string> _previousConfigHashes = new();
     private readonly object _observableLock = new();
+
+    // Per-pass subjects emit once per recompute pass (even if value unchanged)
+    private readonly ConcurrentDictionary<Type, object> _perPassSubjects = new();
+    private long _passId; // monotonically increasing recompute pass id
 
     /// <summary>
     /// Optimized JSON serialization options for hashing performance.
@@ -67,7 +72,39 @@ internal sealed class ReactiveConfigManager : IDisposable
             });
 
         // Return error-resilient reactive config wrapper
+        // Ensure per-pass subject exists for this type (lazy creation)
+        _perPassSubjects.GetOrAdd(type, _ => new Subject<PassEvent<T>>());
+
         return new ReactiveConfig<T>(subject, _logger);
+    }
+
+    /// <summary>
+    /// Internal per-pass event used to align multi-arity reactive configs on recompute boundaries.
+    /// Always emitted once per pass for each observed type, regardless of whether the value changed.
+    /// </summary>
+    internal readonly struct PassEvent<T>
+    {
+        public PassEvent(T value, bool changed, long passId)
+        {
+            Value = value;
+            Changed = changed;
+            PassId = passId;
+        }
+        public T Value { get; }
+        public bool Changed { get; }
+        public long PassId { get; }
+    }
+
+    /// <summary>
+    /// Gets the per-pass observable for a type. Always emits once per recompute pass with PassEvent metadata.
+    /// </summary>
+    internal IObservable<PassEvent<T>> ObservePerPass<T>()
+    {
+        if (_perPassSubjects.TryGetValue(typeof(T), out var existing) && existing is Subject<PassEvent<T>> subject)
+            return subject.AsObservable();
+
+        var created = (Subject<PassEvent<T>>)_perPassSubjects.GetOrAdd(typeof(T), _ => new Subject<PassEvent<T>>());
+        return created.AsObservable();
     }
 
     /// <summary>
@@ -102,69 +139,77 @@ internal sealed class ReactiveConfigManager : IDisposable
     /// <param name="configAccessor">Function to get current configuration values by type</param>
     public void NotifyConfigurationObservers(Func<Type, object?> configAccessor)
     {
-        foreach (var kvp in _configObservables.ToArray()) // ToArray to avoid collection modification issues
+        var passId = Interlocked.Increment(ref _passId);
+
+        foreach (var kvp in _configObservables.ToArray()) // snapshot to avoid enumeration issues
         {
+            var type = kvp.Key;
+            var subject = kvp.Value;
+            object? currentConfig;
+            bool changed = false;
             try
             {
-                var type = kvp.Key;
-                var subject = kvp.Value;
-                
-                // Safely get the current configuration value for this type
-                object? currentConfig;
-                try
-                {
-                    currentConfig = configAccessor(type);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to get current config for type {Type} during notification, skipping update", type);
-                    continue; // Skip this observer but continue with others
-                }
-                
-                // Check if the config value has actually changed using hash comparison
+                currentConfig = configAccessor(type);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get current config for type {Type} during notification, skipping update", type);
+                continue;
+            }
+
+            try
+            {
+                // Change detection against previous hash (as before)
                 var currentHash = ComputeConfigHash(currentConfig);
                 var previousHash = _previousConfigHashes.GetValueOrDefault(type, string.Empty);
-                
-                if (currentHash == previousHash && !string.IsNullOrEmpty(previousHash))
+                changed = currentHash != previousHash || string.IsNullOrEmpty(previousHash);
+                if (changed)
                 {
-                    // No change detected, skip emission
-                    continue;
-                }
-                
-                // Store the new hash for next comparison
-                _previousConfigHashes[type] = currentHash;
-                
-                // Emit the current value to the subject
-                if (subject is ISubject<object?> objectSubject)
-                {
-                    objectSubject.OnNext(currentConfig);
-                }
-                else
-                {
-                    // For generic subjects, we need to call OnNext with the proper type
-                    var onNextMethod = subject.GetType().GetMethod("OnNext");
-                    if (onNextMethod != null)
+                    _previousConfigHashes[type] = currentHash;
+                    // Emit to behavior subject only when changed (preserve existing semantics)
+                    if (subject is ISubject<object?> objectSubject)
                     {
-                        // Convert to the specific generic type if needed
-                        var convertedValue = currentConfig;
-                        if (currentConfig != null && !type.IsAssignableFrom(currentConfig.GetType()))
+                        objectSubject.OnNext(currentConfig);
+                    }
+                    else
+                    {
+                        var onNextMethod = subject.GetType().GetMethod("OnNext");
+                        if (onNextMethod != null)
                         {
-                            // Try to handle interface bindings
-                            if (_bindingRegistry.TryGetConcreteType(type, out var concreteType) &&
-                                concreteType.IsAssignableFrom(currentConfig.GetType()))
+                            var convertedValue = currentConfig;
+                            if (currentConfig != null && !type.IsAssignableFrom(currentConfig.GetType()))
                             {
-                                convertedValue = currentConfig;
+                                if (_bindingRegistry.TryGetConcreteType(type, out var concreteType) &&
+                                    concreteType.IsAssignableFrom(currentConfig.GetType()))
+                                {
+                                    convertedValue = currentConfig;
+                                }
                             }
+                            onNextMethod.Invoke(subject, new[] { convertedValue });
                         }
-                        
-                        onNextMethod.Invoke(subject, new[] { convertedValue });
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to notify configuration observer for type {Type}", kvp.Key);
-                // Continue with other observers even if this one fails
+                _logger.LogWarning(ex, "Failed change emission for type {Type}", type);
+            }
+
+            // Always emit per-pass event (even if not changed)
+            try
+            {
+                if (_perPassSubjects.TryGetValue(type, out var perPassObj))
+                {
+                    var passEventType = typeof(PassEvent<>).MakeGenericType(type);
+                    // Activator.CreateInstance arguments must match ctor: (value, changed, passId)
+                    var evt = Activator.CreateInstance(passEventType, new[] { currentConfig!, changed, passId })!;
+                    var onNextMethod = perPassObj.GetType().GetMethod("OnNext");
+                    onNextMethod?.Invoke(perPassObj, new[] { evt });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed per-pass emission for type {Type}", type);
             }
         }
     }
@@ -221,5 +266,10 @@ internal sealed class ReactiveConfigManager : IDisposable
         
         _configObservables.Clear();
         _previousConfigHashes.Clear();
+        foreach (var perPass in _perPassSubjects.Values.ToArray())
+        {
+            try { (perPass as IDisposable)?.Dispose(); } catch { /* ignore */ }
+        }
+        _perPassSubjects.Clear();
     }
 }

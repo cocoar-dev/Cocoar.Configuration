@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.DI;
@@ -160,6 +161,9 @@ public static class CocoarConfigurationExtensions
                     }
                 }
             }
+
+            // Multi-arity cohort interfaces removed in favor of tuple-based IReactiveConfig<(T1,...,Tn)>.
+            // No open generic registrations needed; tuple reactive configs are created on demand via ConfigManager.
         }
 
         // Auto-register rule types with default lifetime (if default lifetime is set and not explicitly removed)
