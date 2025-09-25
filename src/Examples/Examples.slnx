@@ -16,4 +16,5 @@
   <Project Path="ServiceLifetimes/ServiceLifetimes.csproj" />
   <Project Path="SimplifiedCoreExample/SimplifiedCoreExample.csproj" />
   <Project Path="StaticProviderExample/StaticProviderExample.csproj" />
+  <Project Path="TupleReactiveExample/TupleReactiveExample.csproj" />
 </Solution>

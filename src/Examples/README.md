@@ -16,6 +16,7 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **DIExample** – Comprehensive DI integration patterns with advanced service registration
 - **SimplifiedCoreExample** – Pure core library usage without DI (ConfigManager only)
 - **BindingExample** – Interface binding without DI frameworks
+ - **TupleReactiveExample** – Tuple-based reactive multi-config snapshot & aligned emission demo
 
 ## Running an Example
 ```pwsh
