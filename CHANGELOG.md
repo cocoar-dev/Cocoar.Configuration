@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2025-09-25
+
+`IReactiveConfig<T>` now supports tuples as the generic type, e.g.
+`IReactiveConfig<(AppSettings, DbSettings)>`.
+When used with a tuple, all element types are recomputed and emitted atomically in the same pass.
+This guarantees you never see a mix of old and new values across different configs.
 
 ## [1.0.0] - 2025-09-21
 
