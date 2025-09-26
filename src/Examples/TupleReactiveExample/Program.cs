@@ -1,7 +1,8 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.DI; // AddCocoarConfiguration IServiceCollection extension
-using Cocoar.Configuration.Providers; // StaticJson / Observable provider DSL extensions
+using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Reactive; // StaticJson / Observable provider DSL extensions
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
