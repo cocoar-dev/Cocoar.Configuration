@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Cocoar.Configuration;
+using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -18,7 +14,11 @@ public sealed class ConfigManagerHealthRecoveryTests
         public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(DummyProviderQuery query, System.Threading.CancellationToken ct = default)
         {
             _calls++;
-            if (_calls == 1) throw new InvalidOperationException("Boom once");
+            if (_calls == 1)
+            {
+                throw new InvalidOperationException("Boom once");
+            }
+
             var json = """{"Name":"Ok","Value":42}""";
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             return Task.FromResult(doc.RootElement.Clone());
@@ -43,7 +43,7 @@ public sealed class ConfigManagerHealthRecoveryTests
     {
         var rules = new []
         {
-            new ConfigRule(typeof(FlakyStaticProvider), new DummyProviderOptions(), new DummyProviderQuery(), typeof(RecoveryConfig), new ConfigRuleOptions(Required: false))
+            new ConfigRule(typeof(FlakyStaticProvider), new DummyProviderOptions(), new DummyProviderQuery(), typeof(RecoveryConfig), new(Required: false))
         };
 
         var manager = new ConfigManager(rules, null, NullLogger.Instance, (t, _) => (ConfigurationProvider)Activator.CreateInstance(t, new DummyProviderOptions())!);

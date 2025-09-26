@@ -1,9 +1,7 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Memory;
-using Microsoft.Extensions.Primitives;
 using Xunit;
-using Cocoar.Configuration;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
 
@@ -53,7 +51,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_ReadsFromInMemoryConfig()
     {
-        // arrange: Microsoft configuration with nested structure
+
         var data = new Dictionary<string, string?>
         {
             ["App:Name"] = "TestApp",
@@ -64,14 +62,14 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
         // Note: MicrosoftConfigurationSourceProvider doesn't implement IDisposable
 
-        // act: fetch configuration without prefix
-        var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions());
 
-        // assert: JSON structure created correctly
+        var result = await provider.FetchConfigurationAsync(
+            new());
+
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         
         var app = result.GetProperty("App");
@@ -88,7 +86,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_FiltersWithPrefix()
     {
-        // arrange: configuration with multiple sections
+
         var data = new Dictionary<string, string?>
         {
             ["App:Name"] = "TestApp",
@@ -99,20 +97,20 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
 
-        // act: fetch only Logging section
+
         var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions("Logging"));
+            new("Logging"));
 
-        // assert: only Logging section present, with relative keys
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         Assert.Equal("Debug", result.GetProperty("Level").GetString());
         
         var providers = result.GetProperty("Providers");
         Assert.Equal("true", providers.GetProperty("Console").GetString());
         
-        // assert: other sections not present
+
         Assert.False(result.TryGetProperty("App", out _));
         Assert.False(result.TryGetProperty("Database", out _));
     }
@@ -122,17 +120,17 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_HandlesEmptyConfiguration()
     {
-        // arrange: empty configuration
+
         var configSource = new MemoryConfigurationSource { InitialData = new Dictionary<string, string?>() };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
 
-        // act
+
         var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions());
+            new());
 
-        // assert: empty JSON object
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         Assert.Equal("{}", result.GetRawText());
     }
@@ -142,7 +140,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_HandlesNonExistentPrefix()
     {
-        // arrange: configuration without the requested prefix
+
         var data = new Dictionary<string, string?>
         {
             ["App:Name"] = "TestApp"
@@ -150,13 +148,13 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
 
-        // act: request non-existent section
+
         var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions("NonExistent"));
+            new("NonExistent"));
 
-        // assert: empty JSON object
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         Assert.Equal("{}", result.GetRawText());
     }
@@ -166,7 +164,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_HandlesComplexNesting()
     {
-        // arrange: deeply nested configuration
+
         var data = new Dictionary<string, string?>
         {
             ["Services:Database:Primary:Host"] = "db1.example.com",
@@ -178,13 +176,13 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
 
-        // act
+
         var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions());
+            new());
 
-        // assert: complex nested structure preserved
+
         var services = result.GetProperty("Services");
         
         var primaryDb = services.GetProperty("Database").GetProperty("Primary");
@@ -204,7 +202,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task ConfigManager_IntegratesWithMicrosoftConfig()
     {
-        // arrange: Microsoft configuration for Cocoar rule
+
         var data = new Dictionary<string, string?>
         {
             ["App:Name"] = "IntegrationTest",
@@ -214,7 +212,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
 
         var rule = Rule.From
-            .MicrosoftSource(_ => new MicrosoftConfigurationSourceRuleOptions(
+            .MicrosoftSource(_ => new(
                 configSource,
                 configurationPrefix: "App"))
             .For<AppConfig>()
@@ -222,17 +220,17 @@ public class MicrosoftAdapterBattleTests : IDisposable
 
         using var manager = new ConfigManager(new[] { rule }).Initialize();
 
-        // act
+
         var config = manager.GetConfig<AppConfig>();
 
-        // assert: Microsoft configuration properly bound
+
         Assert.NotNull(config);
         Assert.Equal("IntegrationTest", config.Name);
         Assert.NotNull(config.Features);
         Assert.True(config.Features.EnableCache);
         Assert.Equal(100, config.Features.MaxConnections);
 
-        // assert: health status good
+
         var health = manager.GetHealthService().Snapshot;
         Assert.Equal(Cocoar.Configuration.Health.HealthStatus.Healthy, health.OverallStatus);
     }
@@ -242,7 +240,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Trait("Provider", "MicrosoftAdapter")]
     public async Task FetchConfigurationAsync_HandlesCaseInsensitiveKeys()
     {
-        // arrange: configuration with mixed case keys
+
         var data = new Dictionary<string, string?>
         {
             ["app:name"] = "LowerCase",
@@ -252,13 +250,13 @@ public class MicrosoftAdapterBattleTests : IDisposable
         var configSource = new MemoryConfigurationSource { InitialData = data };
         
         var provider = new MicrosoftConfigurationSourceProvider(
-            new MicrosoftConfigurationSourceProviderOptions(configSource));
+            new(configSource));
 
-        // act
+
         var result = await provider.FetchConfigurationAsync(
-            new MicrosoftConfigurationSourceProviderQueryOptions());
+            new());
 
-        // assert: all values accessible (Microsoft configuration is case-insensitive)
+
         // Let's first check what the actual structure looks like
         var jsonString = result.GetRawText();
         Assert.NotEmpty(jsonString);

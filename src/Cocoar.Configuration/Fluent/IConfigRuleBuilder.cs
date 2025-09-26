@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Rules;
+
 namespace Cocoar.Configuration.Fluent;
 
 /// <summary>
@@ -6,9 +8,4 @@ namespace Cocoar.Configuration.Fluent;
 public interface IConfigRuleBuilder
 {
     ConfigRule Build();
-
-    /// <summary>
-    /// Builds the rule sequence (currently always a single rule; retained for API stability).
-    /// </summary>
-    IEnumerable<ConfigRule> BuildRules();
 }

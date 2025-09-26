@@ -13,7 +13,10 @@ public sealed class MicrosoftConfigurationSourceProvider(
     {
         var builder = new ConfigurationBuilder();
         if (!string.IsNullOrWhiteSpace(ProviderOptions.BasePath))
+        {
             builder.SetBasePath(ProviderOptions.BasePath);
+        }
+
         builder.Add(ProviderOptions.Source);
         return builder.Build().Providers.Last();
     }
@@ -53,16 +56,27 @@ public sealed class MicrosoftConfigurationSourceProvider(
         var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in root.AsEnumerable(makePathsRelative: false))
         {
-            if (kv.Value is null || string.IsNullOrWhiteSpace(kv.Key)) continue;
+            if (kv.Value is null || string.IsNullOrWhiteSpace(kv.Key))
+            {
+                continue;
+            }
+
             if (!string.IsNullOrWhiteSpace(ConfigurationPrefix))
             {
                 if (!kv.Key.StartsWith(ConfigurationPrefix + ":", StringComparison.OrdinalIgnoreCase)
                     && !kv.Key.Equals(ConfigurationPrefix, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
+
                 var rel = kv.Key.Equals(ConfigurationPrefix, StringComparison.OrdinalIgnoreCase)
                     ? string.Empty
                     : kv.Key.Substring(ConfigurationPrefix.Length + 1);
-                if (rel.Length == 0) continue;
+                if (rel.Length == 0)
+                {
+                    continue;
+                }
+
                 dict[rel] = kv.Value;
             }
             else
@@ -81,11 +95,11 @@ public sealed class MicrosoftConfigurationSourceProvider(
         {
             var parts = k.Split(':');
             var cur = root;
-            for (int i = 0; i < parts.Length - 1; i++)
+            for (var i = 0; i < parts.Length - 1; i++)
             {
                 if (!cur.TryGetValue(parts[i], out var next) || next is not Dictionary<string, object?> nextDict)
                 {
-                    nextDict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                    nextDict = new(StringComparer.OrdinalIgnoreCase);
                     cur[parts[i]] = nextDict;
                 }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unrelease
+
+- Code gets refactored and simplified where possible
+
+
 ## [1.1.0] - 2025-09-25
 
 `IReactiveConfig<T>` now supports tuples as the generic type, e.g.

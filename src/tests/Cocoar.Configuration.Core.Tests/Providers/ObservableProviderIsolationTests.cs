@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Collections.Concurrent;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Providers;
 
@@ -35,7 +36,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_WithBehaviorSubject_ReturnsCurrentValue()
     {
-        // Arrange
+
         var testData = new TestConfig("ObservableTest", 123, true);
         var subject = new BehaviorSubject<TestConfig>(testData);
         
@@ -43,10 +44,10 @@ public class ObservableProviderIsolationTests
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal("ObservableTest", result.GetProperty("Name").GetString());
         Assert.Equal(123, result.GetProperty("Value").GetInt32());
         Assert.True(result.GetProperty("Enabled").GetBoolean());
@@ -63,21 +64,21 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_WithComplexObject_SerializesCorrectly()
     {
-        // Arrange
+
         var testData = new ComplexConfig(
             "Complex Test Configuration",
-            new List<string> { "tag1", "tag2", "production" },
-            new DateTime(2025, 1, 15, 10, 30, 0, DateTimeKind.Utc));
+            new() { "tag1", "tag2", "production" },
+            new(2025, 1, 15, 10, 30, 0, DateTimeKind.Utc));
         
         var subject = new BehaviorSubject<ComplexConfig>(testData);
         var options = new ObservableProviderOptions<ComplexConfig>(subject);
         var provider = new ObservableProvider<ComplexConfig>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal("Complex Test Configuration", result.GetProperty("Title").GetString());
         
         var tags = result.GetProperty("Tags");
@@ -104,7 +105,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_WithEmptyConfig_HandlesCorrectly()
     {
-        // Arrange
+
         var testData = new EmptyConfig();
         var subject = new BehaviorSubject<EmptyConfig>(testData);
         
@@ -112,10 +113,10 @@ public class ObservableProviderIsolationTests
         var provider = new ObservableProvider<EmptyConfig>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         // EmptyConfig should serialize to empty JSON object
         
@@ -135,7 +136,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WhenSubjectEmits_PropagatesChanges()
     {
-        // Arrange
+
         var initialData = new TestConfig("Initial", 1, false);
         var subject = new BehaviorSubject<TestConfig>(initialData);
         
@@ -146,7 +147,7 @@ public class ObservableProviderIsolationTests
         var emissions = new List<JsonElement>();
         var subscription = provider.Changes(query).Subscribe(emissions.Add);
 
-        // Act - Emit changes through the subject
+
         var updatedData1 = new TestConfig("Updated1", 2, true);
         var updatedData2 = new TestConfig("Updated2", 3, false);
         
@@ -159,7 +160,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "observable change emissions");
 
-        // Assert
+
         Assert.True(emissions.Count >= 3);
         
         // Verify initial emission (BehaviorSubject emits current value on subscription)
@@ -190,8 +191,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WithRapidEmissions_HandlesAllChanges()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -199,9 +200,9 @@ public class ObservableProviderIsolationTests
         var emissions = new List<JsonElement>();
         var subscription = provider.Changes(query).Subscribe(emissions.Add);
 
-        // Act - Emit rapid sequence of changes
+
         const int changeCount = 50;
-        for (int i = 1; i <= changeCount; i++)
+        for (var i = 1; i <= changeCount; i++)
         {
             var data = new TestConfig($"Change{i}", i, i % 2 == 0);
             subject.OnNext(data);
@@ -213,7 +214,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(10),
             description: "all rapid emissions");
 
-        // Assert - All changes should be captured (initial + changeCount)
+
         Assert.Equal(changeCount + 1, emissions.Count);
         
         // Verify initial emission
@@ -243,8 +244,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_MultipleSubscriptions_AllReceiveEmissions()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -254,17 +255,17 @@ public class ObservableProviderIsolationTests
         var subscriptions = new IDisposable[subscriberCount];
 
         // Create multiple subscriptions
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
-            allEmissions[i] = new List<JsonElement>();
+            allEmissions[i] = new();
             var emissions = allEmissions[i]; // Capture for closure
             subscriptions[i] = provider.Changes(query).Subscribe(emissions.Add);
         }
 
-        // Act - Emit some changes
-        subject.OnNext(new TestConfig("First", 1, true));
-        subject.OnNext(new TestConfig("Second", 2, false));
-        subject.OnNext(new TestConfig("Third", 3, true));
+
+        subject.OnNext(new("First", 1, true));
+        subject.OnNext(new("Second", 2, false));
+        subject.OnNext(new("Third", 3, true));
 
         // Wait for all subscriptions to receive emissions
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -272,8 +273,8 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(10),
             description: "all subscribers to receive emissions");
 
-        // Assert - All subscriptions should have received the same emissions
-        for (int i = 0; i < subscriberCount; i++)
+
+        for (var i = 0; i < subscriberCount; i++)
         {
             Assert.Equal(4, allEmissions[i].Count); // Initial + 3 updates
             
@@ -297,7 +298,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WhenSourceCompletes_CompletesCorrectly()
     {
-        // Arrange
+
         var subject = new Subject<TestConfig>();
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
@@ -310,9 +311,9 @@ public class ObservableProviderIsolationTests
             _ => { }, // OnError
             () => completed = true); // OnCompleted
 
-        // Act - Emit some data then complete
-        subject.OnNext(new TestConfig("Test", 1, true));
-        subject.OnNext(new TestConfig("Final", 2, false));
+
+        subject.OnNext(new("Test", 1, true));
+        subject.OnNext(new("Final", 2, false));
         subject.OnCompleted();
 
         // Wait for completion
@@ -321,7 +322,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "Changes observable completion");
 
-        // Assert
+
         Assert.Equal(2, emissions.Count);
         Assert.True(completed);
         
@@ -342,7 +343,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WhenSourceErrors_PropagatesError()
     {
-        // Arrange
+
         var subject = new Subject<TestConfig>();
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
@@ -355,8 +356,8 @@ public class ObservableProviderIsolationTests
             ex => caughtException = ex,
             () => { });
 
-        // Act - Emit data then error
-        subject.OnNext(new TestConfig("BeforeError", 1, true));
+
+        subject.OnNext(new("BeforeError", 1, true));
         var testException = new InvalidOperationException("Test error from source");
         subject.OnError(testException);
 
@@ -366,7 +367,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "error propagation");
 
-        // Assert
+
         Assert.Equal(1, emissions.Count);
         Assert.NotNull(caughtException);
         Assert.Equal("Test error from source", caughtException.Message);
@@ -387,7 +388,7 @@ public class ObservableProviderIsolationTests
         // Note: In practice, most objects can be serialized to JSON by System.Text.Json
         // This test validates the behavior with objects that might cause serialization issues
         
-        // Arrange
+
         var circularRef = new CircularReferenceTest();
         circularRef.Self = circularRef; // This can cause serialization issues
         
@@ -400,7 +401,7 @@ public class ObservableProviderIsolationTests
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act & Assert - Should not throw
+
         var result = await provider.FetchConfigurationAsync(query);
         Assert.NotEqual(default, result);
         
@@ -416,7 +417,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WithNullEmission_HandlesGracefully()
     {
-        // Arrange
+
         var subject = new Subject<TestConfig?>();
         var options = new ObservableProviderOptions<TestConfig?>(subject);
         var provider = new ObservableProvider<TestConfig?>(options);
@@ -428,10 +429,10 @@ public class ObservableProviderIsolationTests
             emissions.Add,
             ex => error = ex);
 
-        // Act - Emit valid data, then null, then valid again
-        subject.OnNext(new TestConfig("Valid", 1, true));
+
+        subject.OnNext(new("Valid", 1, true));
         subject.OnNext(null);
-        subject.OnNext(new TestConfig("ValidAgain", 2, false));
+        subject.OnNext(new("ValidAgain", 2, false));
 
         // Wait for all emissions
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -439,7 +440,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "emissions including null");
 
-        // Assert - Should handle null gracefully
+
         Assert.Null(error);
         Assert.Equal(3, emissions.Count);
         
@@ -469,7 +470,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_SingleRead_PerformanceUnder10ms()
     {
-        // Arrange
+
         var testData = new TestConfig("Performance", 12345, true);
         var subject = new BehaviorSubject<TestConfig>(testData);
         var options = new ObservableProviderOptions<TestConfig>(subject);
@@ -479,12 +480,12 @@ public class ObservableProviderIsolationTests
         // Warm up
         await provider.FetchConfigurationAsync(query);
 
-        // Act - Measure performance
+
         var stopwatch = Stopwatch.StartNew();
         var result = await provider.FetchConfigurationAsync(query);
         stopwatch.Stop();
 
-        // Assert
+
         Assert.NotEqual(default, result);
         Assert.True(stopwatch.ElapsedMilliseconds < 10, 
             $"ObservableProvider read took {stopwatch.ElapsedMilliseconds}ms, expected < 10ms");
@@ -501,8 +502,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_EmissionLatency_Under50ms()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -515,9 +516,9 @@ public class ObservableProviderIsolationTests
             emissionTimes.Add(stopwatch.Elapsed);
         });
 
-        // Act - Emit changes and measure timing
+
         var emissionStart = stopwatch.Elapsed;
-        subject.OnNext(new TestConfig("Timed", 1, true));
+        subject.OnNext(new("Timed", 1, true));
 
         // Wait for emission
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -525,7 +526,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "timed emission");
 
-        // Assert - Should be very fast
+
         var latency = emissionTimes[0] - emissionStart;
         Assert.True(latency.TotalMilliseconds < 50, 
             $"Emission latency was {latency.TotalMilliseconds}ms, expected < 50ms");
@@ -547,8 +548,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_DisposedSubscription_StopsReceivingEmissions()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -556,8 +557,8 @@ public class ObservableProviderIsolationTests
         var emissions = new List<JsonElement>();
         var subscription = provider.Changes(query).Subscribe(emissions.Add);
 
-        // Act - Emit, dispose, then emit more
-        subject.OnNext(new TestConfig("BeforeDispose", 1, true));
+
+        subject.OnNext(new("BeforeDispose", 1, true));
         
         await ActiveWaitHelpers.WaitUntilAsync(
             () => emissions.Count >= 2, // Initial + BeforeDispose
@@ -567,13 +568,13 @@ public class ObservableProviderIsolationTests
         subscription.Dispose();
         var emissionsAfterDispose = emissions.Count;
         
-        subject.OnNext(new TestConfig("AfterDispose", 2, false));
-        subject.OnNext(new TestConfig("StillAfterDispose", 3, true));
+        subject.OnNext(new("AfterDispose", 2, false));
+        subject.OnNext(new("StillAfterDispose", 3, true));
         
         // Give time for potential emissions (should not happen)
         await Task.Delay(200);
 
-        // Assert - No new emissions after disposal
+
         Assert.Equal(emissionsAfterDispose, emissions.Count);
         Assert.Equal("Initial", emissions[0].GetProperty("Name").GetString()); // First emission is initial value
         Assert.Equal("BeforeDispose", emissions[1].GetProperty("Name").GetString()); // Second emission is BeforeDispose
@@ -590,19 +591,19 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_MultipleSubscribeDisposeCycles_HandlesCorrectly()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act & Assert - Multiple cycles
-        for (int cycle = 1; cycle <= 5; cycle++)
+
+        for (var cycle = 1; cycle <= 5; cycle++)
         {
             var emissions = new List<JsonElement>();
             var subscription = provider.Changes(query).Subscribe(emissions.Add);
 
-            subject.OnNext(new TestConfig($"Cycle{cycle}", cycle, cycle % 2 == 0));
+            subject.OnNext(new($"Cycle{cycle}", cycle, cycle % 2 == 0));
             
             await ActiveWaitHelpers.WaitUntilAsync(
                 () => emissions.Count >= 2, // Current value + new emission
@@ -635,8 +636,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_ConcurrentAccess_NoRaceConditions()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Concurrent", 777, true));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Concurrent", 777, true));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -646,13 +647,13 @@ public class ObservableProviderIsolationTests
         var exceptions = new List<Exception>();
         var allResults = new List<JsonElement>[threadCount];
 
-        // Act - Concurrent fetch operations
+
         var tasks = Enumerable.Range(0, threadCount).Select(async threadId =>
         {
-            allResults[threadId] = new List<JsonElement>();
+            allResults[threadId] = new();
             try
             {
-                for (int i = 0; i < operationsPerThread; i++)
+                for (var i = 0; i < operationsPerThread; i++)
                 {
                     var result = await provider.FetchConfigurationAsync(query);
                     allResults[threadId].Add(result);
@@ -669,10 +670,10 @@ public class ObservableProviderIsolationTests
 
         await Task.WhenAll(tasks);
 
-        // Assert - No exceptions and consistent results
+
         Assert.Empty(exceptions);
         
-        for (int i = 0; i < threadCount; i++)
+        for (var i = 0; i < threadCount; i++)
         {
             Assert.Equal(operationsPerThread, allResults[i].Count);
             foreach (var result in allResults[i])
@@ -695,8 +696,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_ConcurrentSubscriptions_HandlesSafely()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -706,12 +707,12 @@ public class ObservableProviderIsolationTests
         var subscriptions = new IDisposable[subscriberCount];
         var exceptions = new List<Exception>();
 
-        // Act - Create subscriptions concurrently
+
         var subscriptionTasks = Enumerable.Range(0, subscriberCount).Select(async subscriberId =>
         {
             try
             {
-                allEmissions[subscriberId] = new List<JsonElement>();
+                allEmissions[subscriberId] = new();
                 var emissions = allEmissions[subscriberId];
                 subscriptions[subscriberId] = provider.Changes(query).Subscribe(emissions.Add);
                 
@@ -730,8 +731,8 @@ public class ObservableProviderIsolationTests
         await Task.WhenAll(subscriptionTasks);
 
         // Emit some data
-        subject.OnNext(new TestConfig("Concurrent1", 1, true));
-        subject.OnNext(new TestConfig("Concurrent2", 2, false));
+        subject.OnNext(new("Concurrent1", 1, true));
+        subject.OnNext(new("Concurrent2", 2, false));
 
         // Wait for all subscriptions to receive emissions
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -739,10 +740,10 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(10),
             description: "all concurrent subscriptions");
 
-        // Assert
+
         Assert.Empty(exceptions);
         
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             Assert.NotNull(allEmissions[i]);
             Assert.True(allEmissions[i].Count >= 3); // Initial + 2 updates
@@ -769,8 +770,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_MassiveConcurrentSubscriptions_NoRaceConditions()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -780,7 +781,7 @@ public class ObservableProviderIsolationTests
         var subscriptions = new ConcurrentBag<IDisposable>();
         var exceptions = new ConcurrentBag<Exception>();
 
-        // Act - Create massive concurrent subscriptions
+
         var subscriptionTasks = Enumerable.Range(0, subscriberCount).Select(async subscriberId =>
         {
             try
@@ -801,8 +802,8 @@ public class ObservableProviderIsolationTests
         await Task.WhenAll(subscriptionTasks);
         
         // Emit data after all subscriptions are established
-        subject.OnNext(new TestConfig("StressTest1", 1, true));
-        subject.OnNext(new TestConfig("StressTest2", 2, false));
+        subject.OnNext(new("StressTest1", 1, true));
+        subject.OnNext(new("StressTest2", 2, false));
 
         // Wait for all emissions to propagate
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -810,7 +811,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(10),
             description: "all massive concurrent subscriptions");
 
-        // Assert
+
         Assert.Empty(exceptions);
         Assert.Equal(subscriberCount, allEmissions.Count);
         
@@ -840,8 +841,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_MixedConcurrentOperations_ThreadSafe()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -850,7 +851,7 @@ public class ObservableProviderIsolationTests
         var activeSubscriptions = new ConcurrentBag<IDisposable>();
         var exceptions = new ConcurrentBag<Exception>();
 
-        // Act - Start concurrent operations
+
         var tasks = new List<Task>();
 
         // Task 1: Continuous subscription creation and disposal
@@ -858,7 +859,7 @@ public class ObservableProviderIsolationTests
         {
             try
             {
-                for (int i = 0; i < 50; i++)
+                for (var i = 0; i < 50; i++)
                 {
                     var emissions = new List<JsonElement>();
                     var subscription = provider.Changes(query).Subscribe(emissions.Add);
@@ -878,10 +879,13 @@ public class ObservableProviderIsolationTests
         {
             try
             {
-                for (int i = 1; i <= 100; i++)
+                for (var i = 1; i <= 100; i++)
                 {
-                    subject.OnNext(new TestConfig($"Emission{i}", i, i % 2 == 0));
-                    if (i % 10 == 0) await Task.Delay(1); // Occasional tiny pause
+                    subject.OnNext(new($"Emission{i}", i, i % 2 == 0));
+                    if (i % 10 == 0)
+                    {
+                        await Task.Delay(1); // Occasional tiny pause
+                    }
                 }
             }
             catch (Exception ex) { exceptions.Add(ex); }
@@ -892,7 +896,7 @@ public class ObservableProviderIsolationTests
         {
             try
             {
-                for (int i = 0; i < 20; i++)
+                for (var i = 0; i < 20; i++)
                 {
                     var emissions = new List<JsonElement>();
                     var subscription = provider.Changes(query).Subscribe(emissions.Add);
@@ -910,7 +914,7 @@ public class ObservableProviderIsolationTests
         // Give time for final emissions to propagate
         await Task.Delay(100);
 
-        // Assert - No exceptions should have occurred
+
         Assert.Empty(exceptions);
         Assert.True(allEmissions.Count > 0);
         
@@ -935,8 +939,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_HeavyLoadScenario_RemainsStable()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -949,12 +953,12 @@ public class ObservableProviderIsolationTests
         var exceptions = new ConcurrentBag<Exception>();
 
         // Create long-lived subscribers
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             var subscriberId = i;
             try
             {
-                allEmissions[subscriberId] = new List<JsonElement>();
+                allEmissions[subscriberId] = new();
                 subscriptions[subscriberId] = provider.Changes(query).Subscribe(
                     emission => allEmissions[subscriberId].Add(emission),
                     ex => exceptions.Add(ex));
@@ -965,12 +969,12 @@ public class ObservableProviderIsolationTests
             }
         }
 
-        // Act - Heavy emission load
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
-        for (int i = 1; i <= emissionCount; i++)
+        for (var i = 1; i <= emissionCount; i++)
         {
-            subject.OnNext(new TestConfig($"Load{i}", i, i % 2 == 0));
+            subject.OnNext(new($"Load{i}", i, i % 2 == 0));
             
             // Occasional micro-pause to allow processing
             if (i % 100 == 0)
@@ -987,11 +991,11 @@ public class ObservableProviderIsolationTests
 
         stopwatch.Stop();
 
-        // Assert
+
         Assert.Empty(exceptions);
         
         // Verify all subscribers received all data
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             Assert.NotNull(allEmissions[i]);
             Assert.Equal(emissionCount + 1, allEmissions[i].Count); // +1 for initial emission
@@ -1006,7 +1010,7 @@ public class ObservableProviderIsolationTests
             $"Heavy load processing took {stopwatch.Elapsed.TotalSeconds:F2} seconds, expected < 10 seconds");
         
         // Cleanup
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             subscriptions[i]?.Dispose();
         }
@@ -1022,8 +1026,8 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_RapidSubscribeUnsubscribeCycles_NoMemoryLeaks()
     {
-        // Arrange
-        var subject = new BehaviorSubject<TestConfig>(new TestConfig("Initial", 0, false));
+
+        var subject = new BehaviorSubject<TestConfig>(new("Initial", 0, false));
         var options = new ObservableProviderOptions<TestConfig>(subject);
         var provider = new ObservableProvider<TestConfig>(options);
         var query = ObservableProviderQuery.Default;
@@ -1032,8 +1036,8 @@ public class ObservableProviderIsolationTests
         var exceptions = new ConcurrentBag<Exception>();
         var totalEmissionsReceived = 0;
 
-        // Act - Rapid subscription churn
-        for (int cycle = 1; cycle <= cycleCount; cycle++)
+
+        for (var cycle = 1; cycle <= cycleCount; cycle++)
         {
             try
             {
@@ -1041,7 +1045,7 @@ public class ObservableProviderIsolationTests
                 var subscription = provider.Changes(query).Subscribe(emissions.Add);
 
                 // Emit one piece of data
-                subject.OnNext(new TestConfig($"Cycle{cycle}", cycle, cycle % 2 == 0));
+                subject.OnNext(new($"Cycle{cycle}", cycle, cycle % 2 == 0));
                 
                 // Brief wait for emission
                 await ActiveWaitHelpers.WaitUntilAsync(
@@ -1068,7 +1072,7 @@ public class ObservableProviderIsolationTests
             }
         }
 
-        // Assert
+
         Assert.Empty(exceptions);
         Assert.True(totalEmissionsReceived > 0, "Should have received some emissions during the test");
         
@@ -1092,17 +1096,17 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task FetchConfigurationAsync_WithJsonStringOverload_WorksCorrectly()
     {
-        // Arrange
+
         var jsonString = """{"Name":"TestApp","Version":"1.0.0","EnableLogging":true}""";
         
         var options = new ObservableProviderOptions<string>(new BehaviorSubject<string>(jsonString));
         var provider = new ObservableProvider<string>(options);
         var query = ObservableProviderQuery.Default;
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.True(result.TryGetProperty("Name", out var nameProperty));
         Assert.Equal("TestApp", nameProperty.GetString());
         Assert.True(result.TryGetProperty("Version", out var versionProperty));
@@ -1119,7 +1123,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Changes_WithJsonStringObservable_PropagatesUpdates()
     {
-        // Arrange
+
         var initialJson = """{"Name":"InitialApp","Version":"1.0.0"}""";
         var updatedJson = """{"Name":"UpdatedApp","Version":"2.0.0"}""";
         
@@ -1131,12 +1135,12 @@ public class ObservableProviderIsolationTests
         var changes = new List<JsonElement>();
         var subscription = provider.Changes(query).Subscribe(changes.Add);
 
-        // Act
+
         await Task.Delay(10); // Let initial value emit
         subject.OnNext(updatedJson);
         await Task.Delay(10); // Let update emit
 
-        // Assert
+
         Assert.Equal(2, changes.Count);
         
         // Initial value
@@ -1160,7 +1164,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public void FluentAPI_Observable_SimplifiesTestWriting()
     {
-        // Arrange - Look how simple this is now!
+
         var jsonString = """{"Name":"TestApp","Value":42,"Enabled":true}""";
         
         var rules = new List<ConfigRule>
@@ -1170,10 +1174,10 @@ public class ObservableProviderIsolationTests
 
         var configManager = new ConfigManager(rules).Initialize();
 
-        // Act
+
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert
+
         Assert.NotNull(config);
         Assert.Equal("TestApp", config.Name);
         Assert.Equal(42, config.Value);  
@@ -1193,7 +1197,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Reactive_Subscription_Exception_DoesNotTerminateOtherSubscribers()
     {
-        // Arrange
+
         var testData1 = new TestConfig("Initial", 1, true);
         var testData2 = new TestConfig("Updated", 2, false);
         var subject = new BehaviorSubject<TestConfig>(testData1);
@@ -1237,7 +1241,7 @@ public class ObservableProviderIsolationTests
         var initialCount1 = goodSubscriber1Values.Count;
         var initialCount2 = goodSubscriber2Values.Count;
 
-        // Act - Emit new value that will cause exception in bad subscriber
+
         subject.OnNext(testData2);
 
         // Wait for propagation
@@ -1246,7 +1250,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(2),
             description: "updated emissions to good subscribers despite bad subscriber exception");
 
-        // Assert - Good subscribers should continue to receive updates despite bad subscriber exception
+
         Assert.True(goodSubscriber1Values.Count > initialCount1, "Good subscriber 1 should receive new value");
         Assert.True(goodSubscriber2Values.Count > initialCount2, "Good subscriber 2 should receive new value");
 
@@ -1274,7 +1278,7 @@ public class ObservableProviderIsolationTests
     [Trait("Provider", "ObservableProvider")]
     public async Task Reactive_OneSubscriberDispose_DoesNotAffectOthers()
     {
-        // Arrange
+
         var testData1 = new TestConfig("Initial", 1, true);
         var testData2 = new TestConfig("Updated", 2, false);
         var testData3 = new TestConfig("Final", 3, true);
@@ -1306,7 +1310,7 @@ public class ObservableProviderIsolationTests
         Assert.True(subscriber2Values.Count > 0, "Subscriber 2 should have initial value");
         Assert.True(subscriber3Values.Count > 0, "Subscriber 3 should have initial value");
 
-        // Act 1 - Emit second value
+
         subject.OnNext(testData2);
         
         // Wait for second emission
@@ -1319,10 +1323,10 @@ public class ObservableProviderIsolationTests
         var count2BeforeDispose = subscriber2Values.Count;
         var count3BeforeDispose = subscriber3Values.Count;
 
-        // Act 2 - Dispose middle subscriber
+
         subscription2.Dispose();
 
-        // Act 3 - Emit third value after disposing subscriber 2
+
         subject.OnNext(testData3);
         
         // Wait for third emission
@@ -1331,7 +1335,7 @@ public class ObservableProviderIsolationTests
             timeout: TimeSpan.FromSeconds(2),
             description: "third emissions to remaining subscribers");
 
-        // Assert - Subscribers 1 and 3 should continue receiving updates
+
         Assert.True(subscriber1Values.Count > count1BeforeDispose, 
             "Subscriber 1 should continue receiving updates after subscriber 2 disposal");
         Assert.True(subscriber3Values.Count > count3BeforeDispose, 

@@ -1,9 +1,6 @@
-using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Cocoar.Configuration;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Fluent;
-using Xunit;
 
 namespace Cocoar.Configuration.Core.Tests.Core;
 
@@ -46,7 +43,6 @@ public class ConfigManagerOrchestrationTests
     [Trait("Component", "ConfigManager")]
     public async Task Initialize_Does_Not_Recompute_From_Subscription_And_Recomputes_On_Change()
     {
-        // Arrange: Use BehaviorSubject to test initialization vs change behavior
         var initialJson = """{"Ok": true, "Count": 1}""";
         var changedJson = """{"Ok": true, "Count": 2}""";
         
@@ -58,7 +54,6 @@ public class ConfigManagerOrchestrationTests
             .For<TestConfig>()
             .Build();
 
-        // Act: Initialize and get initial config
         using var manager = new ConfigManager(new[] { rule });
         manager.Initialize();
         
@@ -66,11 +61,9 @@ public class ConfigManagerOrchestrationTests
         Assert.NotNull(initialConfig);
         Assert.Equal(1, initialConfig!.Count);
 
-        // Act: Emit a change and wait for debounce
         behaviorSubject.OnNext(changedJson);
         await Task.Delay(400);
 
-        // Assert: Config should update
         var updatedConfig = manager.GetConfig<TestConfig>();
         Assert.NotNull(updatedConfig);
         Assert.Equal(2, updatedConfig!.Count);
@@ -84,19 +77,16 @@ public class ConfigManagerOrchestrationTests
     [Trait("Component", "ConfigManager")]
     public void StaticProvider_Configuration_LoadsCorrectly()
     {
-        // Arrange: Use StaticJson provider with correct property casing
         var rule = Rule.From
             .StaticJson("""{"Enabled": true, "Value": 42}""")
             .Required()
             .For<TestConfig>()
             .Build();
 
-        // Act
         using var manager = new ConfigManager(new[] { rule });
         manager.Initialize();
         var config = manager.GetConfig<TestConfig>();
 
-        // Assert
         Assert.NotNull(config);
         Assert.True(config!.Enabled);
         Assert.Equal(42, config.Value);
@@ -107,7 +97,6 @@ public class ConfigManagerOrchestrationTests
     [Trait("Component", "ConfigManager")]
     public void MultipleStaticRules_MergeCorrectly()
     {
-        // Arrange: Multiple static rules to test rule processing
         var rule1 = Rule.From
             .StaticJson("""{"base": "config1", "shared": "from-first"}""")
             .Required()
@@ -120,12 +109,10 @@ public class ConfigManagerOrchestrationTests
             .For<Dictionary<string, object>>()
             .Build();
 
-        // Act
         using var manager = new ConfigManager(new[] { rule1, rule2 });
         manager.Initialize();
         var config = manager.GetConfig<Dictionary<string, object>>();
 
-        // Assert: Later rules override earlier ones
         Assert.NotNull(config);
         Assert.True(config!.ContainsKey("base"));
         Assert.True(config.ContainsKey("additional"));

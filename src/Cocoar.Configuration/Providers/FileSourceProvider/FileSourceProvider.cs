@@ -22,7 +22,7 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     public FileSourceProvider(FileSourceProviderOptions options) : base(options)
     {
         // Initialize polling timer (initially disabled)
-        _pollingTimer = new Timer(PollingCallback, null, Timeout.Infinite, Timeout.Infinite);
+        _pollingTimer = new(PollingCallback, null, Timeout.Infinite, Timeout.Infinite);
         
         // Start appropriate monitoring mode
         StartMonitoring();
@@ -79,7 +79,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             if (Directory.Exists(ProviderOptions.Directory))
             {
@@ -100,11 +103,14 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed || _fileSystemWatcher != null) return;
+            if (_disposed || _fileSystemWatcher != null)
+            {
+                return;
+            }
 
             try
             {
-                _fileSystemWatcher = new FileSystemWatcher(ProviderOptions.Directory, "*")
+                _fileSystemWatcher = new(ProviderOptions.Directory, "*")
                 {
                     IncludeSubdirectories = false,
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
@@ -141,7 +147,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             StopFileSystemWatcher();
             _isPolling = true;
@@ -158,7 +167,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed || !_isPolling) return;
+            if (_disposed || !_isPolling)
+            {
+                return;
+            }
 
             if (Directory.Exists(ProviderOptions.Directory))
             {
@@ -176,7 +188,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
 
             // Log the error for diagnostics
             // Console.WriteLine($"FileSystemWatcher error: {e.GetException()}");
@@ -191,7 +206,7 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     /// </summary>
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
-        _changeSubject.OnNext(new FileSystemChange(
+        _changeSubject.OnNext(new(
             e.ChangeType switch
             {
                 WatcherChangeTypes.Created => FileSystemChangeType.Created,
@@ -208,7 +223,7 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     /// </summary>
     private void OnFileSystemRenamed(object sender, RenamedEventArgs e)
     {
-        _changeSubject.OnNext(new FileSystemChange(
+        _changeSubject.OnNext(new(
             FileSystemChangeType.Renamed,
             e.FullPath,
             e.OldFullPath
@@ -264,7 +279,11 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     {
         lock (_lockObj)
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
+
             _disposed = true;
 
             StopFileSystemWatcher();

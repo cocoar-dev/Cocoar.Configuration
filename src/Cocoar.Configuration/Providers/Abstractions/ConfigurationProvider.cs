@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Cocoar.Configuration.Json;
+using Cocoar.Configuration.Helper;
 
 namespace Cocoar.Configuration.Providers.Abstractions;
 
@@ -13,6 +13,6 @@ public abstract class ConfigurationProvider
     /// </summary>
     protected static JsonElement SelectByPath(JsonElement element, string path)
     {
-        return JsonPath.SelectByPathOrEmpty(element, path);
+        return JsonHelper.SelectByPathOrEmpty(element, path);
     }
 }

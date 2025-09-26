@@ -120,7 +120,9 @@ public static class ObservableTestHelpers
         timeout = timeout == default ? TimeSpan.FromSeconds(15) : timeout;
         
         if (expectedSequence.Length == 0)
+        {
             throw new ArgumentException("Expected sequence cannot be empty", nameof(expectedSequence));
+        }
 
         var emissions = new List<T>();
         var completionSource = new TaskCompletionSource<bool>();
@@ -133,7 +135,7 @@ public static class ObservableTestHelpers
             if (emissions.Count >= expectedSequence.Length)
             {
                 var matches = true;
-                for (int i = 0; i < expectedSequence.Length; i++)
+                for (var i = 0; i < expectedSequence.Length; i++)
                 {
                     if (!EqualityComparer<T>.Default.Equals(emissions[i], expectedSequence[i]))
                     {
@@ -278,6 +280,6 @@ public static class ObservableTestHelpers
     /// <returns>Subject for test control</returns>
     public static Subject<T> CreateEmptyObservableSubject<T>()
     {
-        return new Subject<T>();
+        return new();
     }
 }

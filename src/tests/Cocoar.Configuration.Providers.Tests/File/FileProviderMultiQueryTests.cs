@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Cocoar.Configuration.Providers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -49,7 +48,7 @@ public class FileProviderMultiQueryTests
         {
             // Rapid changes to all 3 files simultaneously
             var changeCount = 10;
-            for (int i = 1; i <= changeCount; i++)
+            for (var i = 1; i <= changeCount; i++)
             {
                 // Change all files at nearly the same time
                 file1.WriteJson(new { file = 1, value = i });
@@ -117,7 +116,7 @@ public class FileProviderMultiQueryTests
         try
         {
             // Make changes to the shared file
-            for (int i = 1; i <= 5; i++)
+            for (var i = 1; i <= 5; i++)
             {
                 file.WriteJson(new { shared = true, value = i });
                 await Task.Delay(50);
@@ -169,7 +168,7 @@ public class FileProviderMultiQueryTests
         try
         {
             // Rapid changes
-            for (int i = 1; i <= 10; i++)
+            for (var i = 1; i <= 10; i++)
             {
                 file.WriteJson(new { value = i });
                 await Task.Delay(10); // Faster than both debounce windows

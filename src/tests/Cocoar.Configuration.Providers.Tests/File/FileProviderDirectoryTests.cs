@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Cocoar.Configuration.Providers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -34,7 +33,7 @@ public class FileProviderDirectoryTests
 
         try
         {
-            provider = new FileSourceProvider(options);
+            provider = new(options);
             _output.WriteLine("Provider created successfully for non-existent directory");
         }
         catch (Exception ex)
@@ -83,7 +82,7 @@ public class FileProviderDirectoryTests
         try
         {
             var options = new FileSourceProviderOptions(nestedPath);
-            provider = new FileSourceProvider(options);
+            provider = new(options);
         }
         catch (Exception ex)
         {

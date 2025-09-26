@@ -1,8 +1,7 @@
-using System.Reactive.Subjects;
 using System.Text.Json;
-using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
 
@@ -29,7 +28,7 @@ public class ConfigMergingDebugTest
     [Trait("Provider", "ConfigManager")]
     public void Debug_HowConfigMergingWorks()
     {
-        // Arrange: Static base + Observable partial
+
         var staticBase = """
         {
             "Name": "Static",
@@ -57,7 +56,6 @@ public class ConfigMergingDebugTest
             Rule.From.StaticJson(observablePartialJson).For<TestConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<TestConfig>();
 

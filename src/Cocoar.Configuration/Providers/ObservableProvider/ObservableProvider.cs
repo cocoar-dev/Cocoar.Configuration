@@ -7,10 +7,6 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers;
 
-/// <summary>
-/// A configuration provider that directly accepts an IObservable for complete control.
-/// Perfect for testing - just pass in a BehaviorSubject and emit values as needed!
-/// </summary>
 public sealed class ObservableProvider<T> : ConfigurationProvider<ObservableProviderOptions<T>, ObservableProviderQuery>
 {
     public ObservableProvider(ObservableProviderOptions<T> options) : base(options)
@@ -19,17 +15,14 @@ public sealed class ObservableProvider<T> : ConfigurationProvider<ObservableProv
 
     public override Task<JsonElement> FetchConfigurationAsync(ObservableProviderQuery query, CancellationToken ct = default)
     {
-        // For observable provider, we need to get the current value
         var observable = ProviderOptions.Observable.Select(value => 
         {
-            // If T is string, assume it's already JSON and parse directly
             if (typeof(T) == typeof(string) && value is string jsonString)
             {
                 using var document = JsonDocument.Parse(jsonString);
                 return document.RootElement.Clone();
             }
                 
-            // Otherwise, serialize the object to JSON first, then parse
             var json = JsonSerializer.Serialize(value);
             using var doc = JsonDocument.Parse(json);
             return doc.RootElement.Clone();
@@ -42,14 +35,12 @@ public sealed class ObservableProvider<T> : ConfigurationProvider<ObservableProv
     {
         return ProviderOptions.Observable.Select(value => 
         {
-            // If T is string, assume it's already JSON and parse directly
             if (typeof(T) == typeof(string) && value is string jsonString)
             {
                 using var document = JsonDocument.Parse(jsonString);
                 return document.RootElement.Clone();
             }
                 
-            // Otherwise, serialize the object to JSON first, then parse
             var json = JsonSerializer.Serialize(value);
             using var doc = JsonDocument.Parse(json);
             return doc.RootElement.Clone();
@@ -70,8 +61,6 @@ public class ObservableProviderOptions<T> : IProviderConfiguration
         Observable = observable;
     }
 
-    // Return null to indicate this provider should never be reused
-    // Each observable provider instance should have its own unique observable data
     public string? GenerateProviderKey() => null;
 }
 
@@ -102,7 +91,7 @@ public static class ObservableRulesExtensions
         Observable<T>(this Rule.Dsl dsl, IObservable<T> observable)
     {
         return Rule.FromProvider<ObservableProvider<T>, ObservableProviderOptions<T>, ObservableProviderQuery>(
-            _ => new ObservableProviderOptions<T>(observable),
+            _ => new(observable),
             _ => ObservableProviderQuery.Default
         );
     }
@@ -119,7 +108,7 @@ public static class ObservableRulesExtensions
         Observable(this Rule.Dsl dsl, IObservable<string> jsonObservable)
     {
         return Rule.FromProvider<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>(
-            _ => new ObservableProviderOptions<string>(jsonObservable),
+            _ => new(jsonObservable),
             _ => ObservableProviderQuery.Default
         );
     }
@@ -143,7 +132,7 @@ public static class ObservableRulesExtensions
         var subject = new BehaviorSubject<string>(initialJsonString);
             
         return Rule.FromProvider<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>(
-            _ => new ObservableProviderOptions<string>(subject),
+            _ => new(subject),
             _ => ObservableProviderQuery.Default
         );
     }

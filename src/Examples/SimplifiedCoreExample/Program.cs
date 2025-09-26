@@ -1,6 +1,8 @@
 using Cocoar.Configuration;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
 
 namespace SimplifiedCoreExample;
 

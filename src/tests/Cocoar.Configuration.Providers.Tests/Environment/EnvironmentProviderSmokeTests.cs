@@ -1,6 +1,5 @@
-using System;
 using Xunit;
-using Cocoar.Configuration;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.Providers.Tests.Environment;

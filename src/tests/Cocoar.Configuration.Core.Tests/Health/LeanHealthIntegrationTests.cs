@@ -1,13 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Cocoar.Configuration;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -93,7 +88,7 @@ public class LeanHealthIntegrationTests
             skipOptions,
             skipQuery,
             typeof(object),
-            new ConfigRuleOptions(Required: true, UseWhen: () => false) // logically required but inactive
+            new(Required: true, UseWhen: () => false) // logically required but inactive
         );
         using var mgr = new ConfigManager(new[]{requiredRule, skippedRule}, logger: NullLogger.Instance);
         mgr.Initialize();
@@ -109,14 +104,14 @@ public class LeanHealthIntegrationTests
     {
         var providerOptions = new SimpleStaticProviderOptions("{\"Value\":1}");
         var query = new SimpleStaticProviderQuery();
-        return new ConfigRule(typeof(SimpleStaticProvider), providerOptions, query, typeof(object), new ConfigRuleOptions(Required: required));
+        return new(typeof(SimpleStaticProvider), providerOptions, query, typeof(object), new(Required: required));
     }
 
     private static ConfigRule BuildFailingRule(bool required, Exception ex)
     {
         var providerOptions = new FailingProviderOptions(ex);
         var query = new FailingProviderQuery();
-        return new ConfigRule(typeof(FailingProvider), providerOptions, query, typeof(object), new ConfigRuleOptions(Required: required));
+        return new(typeof(FailingProvider), providerOptions, query, typeof(object), new(Required: required));
     }
 }
 

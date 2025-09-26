@@ -1,5 +1,6 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 

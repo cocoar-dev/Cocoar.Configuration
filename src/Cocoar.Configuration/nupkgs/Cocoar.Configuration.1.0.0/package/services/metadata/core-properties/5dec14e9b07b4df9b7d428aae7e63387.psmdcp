@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<coreProperties xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.openxmlformats.org/package/2006/metadata/core-properties">
-  <dc:creator>Bernhard Windisch</dc:creator>
-  <dc:description>Lightweight, strongly-typed, deterministic multi-source configuration layering for .NET. Compose config from files, environment variables, HTTP endpoints and Microsoft IConfiguration sources with predictable last-write-wins merge semantics and atomic live recompute on changes.</dc:description>
-  <dc:identifier>Cocoar.Configuration</dc:identifier>
-  <version>1.0.0</version>
-  <keywords>configuration config settings json reactive csharp dotnet aspnetcore dependency-injection merge variables recompute</keywords>
-  <lastModifiedBy>NuGet.Packaging, Version=7.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35;.NET 8.0</lastModifiedBy>
-</coreProperties>

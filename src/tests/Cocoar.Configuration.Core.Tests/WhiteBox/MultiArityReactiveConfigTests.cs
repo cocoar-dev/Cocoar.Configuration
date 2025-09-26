@@ -1,9 +1,9 @@
 using System.Reactive.Subjects;
-using Cocoar.Configuration;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
+using Cocoar.Configuration.Reactive;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -21,8 +21,8 @@ public class MultiArityReactiveConfigTests
     [Fact]
     public async Task TwoArity_EmitsOnce_When_OneMemberChanges()
     {
-        var subjA = new BehaviorSubject<A>(new A{Value=1});
-        var subjB = new BehaviorSubject<B>(new B{Name="x"});
+        var subjA = new BehaviorSubject<A>(new() {Value=1});
+        var subjB = new BehaviorSubject<B>(new() {Name="x"});
         var rules = new [] { RuleFromSubject(subjA), RuleFromSubject(subjB) };
         using var manager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50).Initialize();
 
@@ -34,7 +34,7 @@ public class MultiArityReactiveConfigTests
         using var sub = cohort.Subscribe(t => emissions.Add(t));
 
         // change only A
-        subjA.OnNext(new A{Value=2});
+        subjA.OnNext(new() {Value=2});
         await Task.Delay(120); // allow debounce + recompute
 
         Assert.Single(emissions); // only one pass emitted
@@ -45,9 +45,9 @@ public class MultiArityReactiveConfigTests
     [Fact]
     public async Task ThreeArity_SinglePass_MultipleChanges_StillOneEmission()
     {
-        var subjA = new BehaviorSubject<A>(new A{Value=1});
-        var subjB = new BehaviorSubject<B>(new B{Name="x"});
-        var subjC = new BehaviorSubject<C>(new C{Flag=false});
+        var subjA = new BehaviorSubject<A>(new() {Value=1});
+        var subjB = new BehaviorSubject<B>(new() {Name="x"});
+        var subjC = new BehaviorSubject<C>(new() {Flag=false});
         var rules = new [] { RuleFromSubject(subjA), RuleFromSubject(subjB), RuleFromSubject(subjC) };
         using var manager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50).Initialize();
 
@@ -59,9 +59,9 @@ public class MultiArityReactiveConfigTests
         using var sub = cohort.Subscribe(t => emissions.Add(t));
 
         // change all three nearly together (within debounce window)
-        subjA.OnNext(new A{Value=10});
-        subjB.OnNext(new B{Name="y"});
-        subjC.OnNext(new C{Flag=true});
+        subjA.OnNext(new() {Value=10});
+        subjB.OnNext(new() {Name="y"});
+        subjC.OnNext(new() {Flag=true});
         await Task.Delay(120);
 
         Assert.Single(emissions);
@@ -74,8 +74,8 @@ public class MultiArityReactiveConfigTests
     [Fact]
     public async Task Cohort_DoesNotEmit_When_NoMembersChange()
     {
-        var subjA = new BehaviorSubject<A>(new A{Value=1});
-        var subjB = new BehaviorSubject<B>(new B{Name="x"});
+        var subjA = new BehaviorSubject<A>(new() {Value=1});
+        var subjB = new BehaviorSubject<B>(new() {Name="x"});
         var rules = new [] { RuleFromSubject(subjA), RuleFromSubject(subjB) };
         using var manager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50).Initialize();
 
@@ -86,8 +86,8 @@ public class MultiArityReactiveConfigTests
         using var sub = cohort.Subscribe(t => emissions.Add(t));
 
         // Trigger recompute by re-emitting identical objects (no change detection => no emission)
-        subjA.OnNext(new A{Value=1});
-        subjB.OnNext(new B{Name="x"});
+        subjA.OnNext(new() {Value=1});
+        subjB.OnNext(new() {Name="x"});
         await Task.Delay(120);
 
         Assert.Empty(emissions);
@@ -96,10 +96,10 @@ public class MultiArityReactiveConfigTests
     [Fact]
     public async Task FourArity_EmitsOnce_When_AnyChanges()
     {
-        var sa = new BehaviorSubject<A>(new A{Value=1});
-        var sb = new BehaviorSubject<B>(new B{Name="b1"});
-        var sc = new BehaviorSubject<C>(new C{Flag=false});
-        var sd = new BehaviorSubject<D>(new D{Rate=1.0});
+        var sa = new BehaviorSubject<A>(new() {Value=1});
+        var sb = new BehaviorSubject<B>(new() {Name="b1"});
+        var sc = new BehaviorSubject<C>(new() {Flag=false});
+        var sd = new BehaviorSubject<D>(new() {Rate=1.0});
         var rules = new [] { RuleFromSubject(sa), RuleFromSubject(sb), RuleFromSubject(sc), RuleFromSubject(sd) };
         using var manager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50).Initialize();
         manager.GetReactiveConfig<A>(); manager.GetReactiveConfig<B>(); manager.GetReactiveConfig<C>(); manager.GetReactiveConfig<D>();
@@ -107,7 +107,7 @@ public class MultiArityReactiveConfigTests
         var emissions = new List<(A,B,C,D)>();
         using var sub = cohort.Subscribe(x => emissions.Add(x));
         // change one
-        sd.OnNext(new D{Rate=2.5});
+        sd.OnNext(new() {Rate=2.5});
         await Task.Delay(120);
         Assert.Single(emissions);
         Assert.Equal(2.5, emissions[0].Item4.Rate);
@@ -116,11 +116,11 @@ public class MultiArityReactiveConfigTests
     [Fact]
     public async Task FiveArity_SingleEmission_ForMultipleChangesSamePass()
     {
-        var sa = new BehaviorSubject<A>(new A{Value=1});
-        var sb = new BehaviorSubject<B>(new B{Name="b1"});
-        var sc = new BehaviorSubject<C>(new C{Flag=false});
-        var sd = new BehaviorSubject<D>(new D{Rate=1.0});
-        var se = new BehaviorSubject<E>(new E{Mode="m1"});
+        var sa = new BehaviorSubject<A>(new() {Value=1});
+        var sb = new BehaviorSubject<B>(new() {Name="b1"});
+        var sc = new BehaviorSubject<C>(new() {Flag=false});
+        var sd = new BehaviorSubject<D>(new() {Rate=1.0});
+        var se = new BehaviorSubject<E>(new() {Mode="m1"});
         var rules = new [] { RuleFromSubject(sa), RuleFromSubject(sb), RuleFromSubject(sc), RuleFromSubject(sd), RuleFromSubject(se) };
         using var manager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50).Initialize();
         manager.GetReactiveConfig<A>(); manager.GetReactiveConfig<B>(); manager.GetReactiveConfig<C>(); manager.GetReactiveConfig<D>(); manager.GetReactiveConfig<E>();
@@ -128,9 +128,9 @@ public class MultiArityReactiveConfigTests
         var emissions = new List<(A,B,C,D,E)>();
         using var sub = cohort.Subscribe(x => emissions.Add(x));
         // multiple changes within debounce window
-        sa.OnNext(new A{Value=9});
-        sd.OnNext(new D{Rate=3.14});
-        se.OnNext(new E{Mode="m2"});
+        sa.OnNext(new() {Value=9});
+        sd.OnNext(new() {Rate=3.14});
+        se.OnNext(new() {Mode="m2"});
         await Task.Delay(140);
         Assert.Single(emissions);
         var last = emissions[0];

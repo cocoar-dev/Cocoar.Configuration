@@ -1,5 +1,3 @@
-using System;
-
 namespace Cocoar.Configuration.Providers.Tests;
 
 /// <summary>
@@ -19,9 +17,13 @@ public sealed class EnvScope : IDisposable
     _original = System.Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
         _existed = _original != null;
         if (set)
+        {
             System.Environment.SetEnvironmentVariable(name, newValue, EnvironmentVariableTarget.Process);
+        }
         else
+        {
             System.Environment.SetEnvironmentVariable(name, null, EnvironmentVariableTarget.Process);
+        }
     }
 
     public static EnvScope Set(string name, string value) => new(name, value, set: true);
@@ -30,8 +32,12 @@ public sealed class EnvScope : IDisposable
     public void Dispose()
     {
         if (_existed)
+        {
             System.Environment.SetEnvironmentVariable(_name, _original, EnvironmentVariableTarget.Process);
+        }
         else
+        {
             System.Environment.SetEnvironmentVariable(_name, null, EnvironmentVariableTarget.Process);
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Providers;
 
@@ -53,8 +54,8 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     {
         var opts = new ConfigRuleOptions(Required: required, UseWhen: useWhen);
         return ConfigRule.Create<StaticJsonProvider, StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(
-            _ => new StaticJsonProviderOptions(value),
-            _ => new StaticJsonProviderQueryOptions(),
+            _ => new(value),
+            _ => new(),
             typeof(TConfigType),
             opts);
     }

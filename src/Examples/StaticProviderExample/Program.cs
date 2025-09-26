@@ -1,4 +1,5 @@
 using Cocoar.Configuration;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 

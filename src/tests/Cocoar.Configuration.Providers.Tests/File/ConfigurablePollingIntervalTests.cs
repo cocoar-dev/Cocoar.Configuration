@@ -1,5 +1,3 @@
-using System.Text.Json;
-using Cocoar.Configuration.Providers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -24,17 +22,17 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public void FileSourceProviderOptions_CustomPollingInterval_ConfiguresCorrectly()
     {
-        // Arrange
+
         var testInterval = TimeSpan.FromMilliseconds(500);
         
-        // Act
+
         var options = new FileSourceProviderOptions(
             directory: "test-dir",
             debounceTime: TimeSpan.FromMilliseconds(100),
             pollingInterval: testInterval
         );
 
-        // Assert
+
         Assert.Equal(testInterval, options.PollingInterval);
         _output.WriteLine($"Configured polling interval: {options.PollingInterval.TotalMilliseconds}ms");
     }
@@ -45,10 +43,10 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public void FileSourceProviderOptions_DefaultPollingInterval_IsTenSeconds()
     {
-        // Arrange & Act
+
         var options = new FileSourceProviderOptions(directory: "test-dir");
 
-        // Assert
+
         Assert.Equal(TimeSpan.FromSeconds(10), options.PollingInterval);
         _output.WriteLine($"Default polling interval: {options.PollingInterval.TotalSeconds} seconds");
     }
@@ -59,7 +57,7 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public void FileSourceProviderOptions_DifferentPollingIntervals_GenerateDifferentProviderKeys()
     {
-        // Arrange
+
         var options1 = new FileSourceProviderOptions(
             directory: "test-dir",
             pollingInterval: TimeSpan.FromSeconds(1)
@@ -73,12 +71,12 @@ public class ConfigurablePollingIntervalTests
             pollingInterval: TimeSpan.FromSeconds(1)  // Same as options1
         );
 
-        // Act
+
         var key1 = options1.GenerateProviderKey();
         var key2 = options2.GenerateProviderKey();
         var key3 = options3.GenerateProviderKey();
 
-        // Assert
+
         Assert.NotEqual(key1, key2);  // Different intervals should create different keys
         Assert.Equal(key1, key3);     // Same intervals should create same keys
         
@@ -97,10 +95,10 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public void FileSourceRuleOptions_CustomPollingInterval_PassedToProviderOptions()
     {
-        // Arrange
+
         var testInterval = TimeSpan.FromMilliseconds(200);
         
-        // Act
+
         var ruleOptions = new FileSourceRuleOptions(
             directory: "configs",
             filename: "app.json",
@@ -110,7 +108,7 @@ public class ConfigurablePollingIntervalTests
         
         var providerOptions = ruleOptions.ToProviderOptions();
 
-        // Assert
+
         Assert.Equal(testInterval, providerOptions.PollingInterval);
         _output.WriteLine($"Rule options polling interval: {ruleOptions.PollingInterval?.TotalMilliseconds}ms");
         _output.WriteLine($"Provider options polling interval: {providerOptions.PollingInterval.TotalMilliseconds}ms");
@@ -122,10 +120,10 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public void FileSourceRuleOptions_FromFilePath_CustomPollingInterval_ConfiguresCorrectly()
     {
-        // Arrange
+
         var testInterval = TimeSpan.FromMilliseconds(750);
         
-        // Act
+
         var ruleOptions = FileSourceRuleOptions.FromFilePath(
             filePath: "configs/app.json",
             debounceTime: TimeSpan.FromMilliseconds(100),
@@ -134,7 +132,7 @@ public class ConfigurablePollingIntervalTests
         
         var providerOptions = ruleOptions.ToProviderOptions();
 
-        // Assert
+
         Assert.Equal("configs", ruleOptions.Directory);
         Assert.Equal("app.json", ruleOptions.Filename);
         Assert.Equal(testInterval, ruleOptions.PollingInterval);
@@ -152,7 +150,7 @@ public class ConfigurablePollingIntervalTests
     [Trait("Category", "PollingConfiguration")]
     public async Task FastPollingInterval_EnablesQuickTesting()
     {
-        // Arrange
+
         using var tempDir = TempDirectoryHelper.Create();
         var configFile = Path.Combine(tempDir.Path, "test.json");
         

@@ -32,17 +32,17 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithSimpleJson_ReturnsCorrectData()
     {
-        // Arrange
+
         const string json = """{"Name": "TestApp", "Value": 42, "Enabled": true}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal("TestApp", result.GetProperty("Name").GetString());
         Assert.Equal(42, result.GetProperty("Value").GetInt32());
         Assert.True(result.GetProperty("Enabled").GetBoolean());
@@ -57,7 +57,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithComplexJson_ReturnsNestedData()
     {
-        // Arrange
+
         const string json = """
         {
             "Title": "Complex Configuration",
@@ -73,10 +73,10 @@ public class StaticJsonProviderIsolationTests
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal("Complex Configuration", result.GetProperty("Title").GetString());
         Assert.Equal(10, result.GetProperty("Settings").GetProperty("Priority").GetInt32());
         
@@ -96,17 +96,17 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithEmptyJson_ReturnsEmptyObject()
     {
-        // Arrange
+
         const string json = "{}";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         Assert.Empty(result.EnumerateObject());
     }
@@ -120,19 +120,19 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_MultipleCalls_ReturnsIdenticalData()
     {
-        // Arrange
+
         const string json = """{"Name": "Consistent", "Value": 100}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result1 = await provider.FetchConfigurationAsync(query);
         var result2 = await provider.FetchConfigurationAsync(query);
         var result3 = await provider.FetchConfigurationAsync(query);
 
-        // Assert - All results should be identical
+
         Assert.Equal(result1.GetProperty("Name").GetString(), result2.GetProperty("Name").GetString());
         Assert.Equal(result1.GetProperty("Name").GetString(), result3.GetProperty("Name").GetString());
         Assert.Equal(result1.GetProperty("Value").GetInt32(), result2.GetProperty("Value").GetInt32());
@@ -152,7 +152,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void Constructor_WithMalformedJson_ThrowsJsonException()
     {
-        // Arrange & Act & Assert
+
         // JsonReaderException is a subclass of JsonException, so use ThrowsAny
         Assert.ThrowsAny<JsonException>(() =>
         {
@@ -170,17 +170,17 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithNullValues_HandlesGracefully()
     {
-        // Arrange
+
         const string json = """{"Name": null, "Value": 42, "OptionalField": null}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal(JsonValueKind.Null, result.GetProperty("Name").ValueKind);
         Assert.Equal(42, result.GetProperty("Value").GetInt32());
         Assert.Equal(JsonValueKind.Null, result.GetProperty("OptionalField").ValueKind);
@@ -195,7 +195,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithVariousDataTypes_HandlesCorrectly()
     {
-        // Arrange
+
         const string json = """
         {
             "stringValue": "hello",
@@ -212,10 +212,10 @@ public class StaticJsonProviderIsolationTests
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert
+
         Assert.Equal("hello", result.GetProperty("stringValue").GetString());
         Assert.Equal(42, result.GetProperty("intValue").GetInt32());
         Assert.Equal(3.14, result.GetProperty("floatValue").GetDouble(), 2);
@@ -238,7 +238,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task Changes_Always_ReturnsEmptyObservable()
     {
-        // Arrange
+
         const string json = """{"Name": "Static", "Value": 1}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
@@ -248,7 +248,7 @@ public class StaticJsonProviderIsolationTests
         var emissions = new List<JsonElement>();
         var completed = false;
 
-        // Act
+
         var subscription = provider.Changes(query).Subscribe(
             emissions.Add,
             _ => { }, // OnError
@@ -260,7 +260,7 @@ public class StaticJsonProviderIsolationTests
             timeout: TimeSpan.FromSeconds(5),
             description: "Changes observable completion");
 
-        // Assert
+
         Assert.Empty(emissions);
         Assert.True(completed);
         
@@ -276,14 +276,14 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task Changes_Observable_CompletesImmediately()
     {
-        // Arrange
+
         const string json = """{"Test": "Value"}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act & Assert
+
         await ObservableTestHelpers.WaitForCompletionAsync(
             provider.Changes(query),
             timeout: TimeSpan.FromSeconds(1),
@@ -303,7 +303,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_SingleRead_PerformanceUnder1ms()
     {
-        // Arrange
+
         const string json = """{"Name": "Performance", "Value": 123, "Enabled": true}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
@@ -313,12 +313,12 @@ public class StaticJsonProviderIsolationTests
         // Warm up
         await provider.FetchConfigurationAsync(query);
 
-        // Act - Measure performance
+
         var stopwatch = Stopwatch.StartNew();
         var result = await provider.FetchConfigurationAsync(query);
         stopwatch.Stop();
 
-        // Assert
+
         Assert.NotEqual(default, result);
         Assert.True(stopwatch.ElapsedMilliseconds < 1, 
             $"StaticJsonProvider read took {stopwatch.ElapsedMilliseconds}ms, expected < 1ms");
@@ -333,23 +333,23 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_1000Reads_PerformanceUnder100ms()
     {
-        // Arrange
+
         const string json = """{"Name": "Stress", "Value": 999, "Tags": ["perf", "test"]}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act - Measure 1000 reads
+
         var stopwatch = Stopwatch.StartNew();
-        for (int i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
             var result = await provider.FetchConfigurationAsync(query);
             Assert.NotEqual(default, result); // Minimal validation to ensure work is done
         }
         stopwatch.Stop();
 
-        // Assert
+
         Assert.True(stopwatch.ElapsedMilliseconds < 100, 
             $"1000 StaticJsonProvider reads took {stopwatch.ElapsedMilliseconds}ms, expected < 100ms");
     }
@@ -367,7 +367,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_ConcurrentAccess_NoRaceConditions()
     {
-        // Arrange
+
         const string json = """{"ThreadSafe": true, "Value": 42}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
@@ -379,13 +379,13 @@ public class StaticJsonProviderIsolationTests
         var results = new List<JsonElement>[threadCount];
         var exceptions = new List<Exception>();
 
-        // Act - Run concurrent operations
+
         var tasks = Enumerable.Range(0, threadCount).Select(async threadId =>
         {
-            results[threadId] = new List<JsonElement>();
+            results[threadId] = new();
             try
             {
-                for (int i = 0; i < operationsPerThread; i++)
+                for (var i = 0; i < operationsPerThread; i++)
                 {
                     var result = await provider.FetchConfigurationAsync(query);
                     results[threadId].Add(result);
@@ -402,15 +402,15 @@ public class StaticJsonProviderIsolationTests
 
         await Task.WhenAll(tasks);
 
-        // Assert - No exceptions occurred
+
         Assert.Empty(exceptions);
         
-        // Assert - All threads got the expected number of results
-        for (int i = 0; i < threadCount; i++)
+
+        for (var i = 0; i < threadCount; i++)
         {
             Assert.Equal(operationsPerThread, results[i].Count);
             
-            // Assert - All results are identical (verify thread safety)
+
             foreach (var result in results[i])
             {
                 Assert.True(result.GetProperty("ThreadSafe").GetBoolean());
@@ -428,7 +428,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void Changes_ConcurrentSubscriptions_ConsistentBehavior()
     {
-        // Arrange
+
         const string json = """{"Concurrent": "Test"}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
@@ -440,10 +440,10 @@ public class StaticJsonProviderIsolationTests
         var emissionCounts = new int[subscriberCount];
         var subscriptions = new IDisposable[subscriberCount];
 
-        // Act - Create concurrent subscriptions
+
         var completedCountdown = new CountdownEvent(subscriberCount);
         
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             var subscriberId = i; // Capture for closure
             subscriptions[i] = provider.Changes(query).Subscribe(
@@ -460,9 +460,9 @@ public class StaticJsonProviderIsolationTests
         var completed = completedCountdown.Wait(TimeSpan.FromSeconds(5));
         Assert.True(completed, "Not all Changes observables completed within timeout");
 
-        // Assert - All subscriptions completed with no emissions
+
         Assert.Equal(subscriberCount, completedCount);
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             Assert.Equal(0, emissionCounts[i]);
             subscriptions[i].Dispose();
@@ -484,15 +484,15 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void CreateRule_WithJsonElement_CreatesValidRule()
     {
-        // Arrange
+
         const string json = """{"Factory": "Test", "Value": 789}""";
         using var document = JsonDocument.Parse(json);
         var jsonElement = document.RootElement.Clone();
 
-        // Act
+
         var rule = StaticJsonProvider.CreateRule<TestConfig>(jsonElement);
 
-        // Assert
+
         Assert.NotNull(rule);
         Assert.Equal(typeof(StaticJsonProvider), rule.ProviderType);
         Assert.Equal(typeof(TestConfig), rule.ConcreteType);
@@ -508,13 +508,13 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void CreateRule_WithJsonString_CreatesValidRule()
     {
-        // Arrange
+
         const string json = """{"StringFactory": "Works", "Number": 456}""";
 
-        // Act
+
         var rule = StaticJsonProvider.CreateRule<TestConfig>(json);
 
-        // Assert
+
         Assert.NotNull(rule);
         Assert.Equal(typeof(StaticJsonProvider), rule.ProviderType);
         Assert.Equal(typeof(TestConfig), rule.ConcreteType);
@@ -529,13 +529,13 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void CreateRule_WithRequiredFlag_SetsRequiredCorrectly()
     {
-        // Arrange
+
         const string json = """{"Required": true}""";
 
-        // Act
+
         var rule = StaticJsonProvider.CreateRule<TestConfig>(json, required: true);
 
-        // Assert
+
         Assert.NotNull(rule);
         Assert.True(rule.Options?.Required ?? false);
     }
@@ -549,14 +549,14 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public void CreateRule_WithUseWhen_SetsConditionCorrectly()
     {
-        // Arrange
+
         const string json = """{"Conditional": true}""";
         var useWhen = () => Environment.GetEnvironmentVariable("TEST_ENV") == "true";
 
-        // Act
+
         var rule = StaticJsonProvider.CreateRule<TestConfig>(json, useWhen: useWhen);
 
-        // Assert
+
         Assert.NotNull(rule);
         Assert.NotNull(rule.Options?.UseWhen);
     }
@@ -574,9 +574,9 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_LargeJson_HandlesEfficiently()
     {
-        // Arrange - Create large JSON with many properties
+
         var largeData = new Dictionary<string, object>();
-        for (int i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
             largeData[$"Property{i}"] = $"Value{i}";
             largeData[$"Number{i}"] = i;
@@ -589,12 +589,12 @@ public class StaticJsonProviderIsolationTests
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act - Measure performance with large data
+
         var stopwatch = Stopwatch.StartNew();
         var result = await provider.FetchConfigurationAsync(query);
         stopwatch.Stop();
 
-        // Assert
+
         Assert.NotEqual(default, result);
         Assert.True(result.EnumerateObject().Count() >= 1000);
         Assert.True(stopwatch.ElapsedMilliseconds < 10, 
@@ -610,7 +610,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_DeeplyNested_ParsesCorrectly()
     {
-        // Arrange - Create deeply nested JSON (10 levels)
+
         const string json = """
         {
             "Level1": {
@@ -643,10 +643,10 @@ public class StaticJsonProviderIsolationTests
         var provider = new StaticJsonProvider(options);
         var query = new StaticJsonProviderQueryOptions();
 
-        // Act
+
         var result = await provider.FetchConfigurationAsync(query);
 
-        // Assert - Navigate to deeply nested value
+
         var deepValue = result.GetProperty("Level1")
             .GetProperty("Level2")
             .GetProperty("Level3")
@@ -671,7 +671,7 @@ public class StaticJsonProviderIsolationTests
     [Trait("Provider", "StaticJsonProvider")]
     public async Task FetchConfigurationAsync_WithCancellation_HandlesGracefully()
     {
-        // Arrange
+
         const string json = """{"Cancellable": true}""";
         using var document = JsonDocument.Parse(json);
         var options = new StaticJsonProviderOptions(document.RootElement.Clone());
@@ -680,17 +680,17 @@ public class StaticJsonProviderIsolationTests
 
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        // Act - Normal operation should succeed
+
         var result = await provider.FetchConfigurationAsync(query, cancellationTokenSource.Token);
 
-        // Assert
+
         Assert.True(result.GetProperty("Cancellable").GetBoolean());
 
-        // Act - Pre-cancelled token should still work for synchronous operation
+
         cancellationTokenSource.Cancel();
         var result2 = await provider.FetchConfigurationAsync(query, cancellationTokenSource.Token);
         
-        // Assert - StaticJsonProvider is synchronous, so cancellation doesn't affect it
+
         Assert.True(result2.GetProperty("Cancellable").GetBoolean());
     }
 

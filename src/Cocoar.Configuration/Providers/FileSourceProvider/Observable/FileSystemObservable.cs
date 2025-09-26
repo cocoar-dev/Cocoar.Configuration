@@ -11,7 +11,9 @@ public sealed class FileSystemObservable : IObservable<FileSystemChange>
         FileSystemObservableOptions? options = null)
     {
         if (string.IsNullOrWhiteSpace(directory))
+        {
             throw new ArgumentException("Directory must be non-empty.", nameof(directory));
+        }
 
         options ??= new();
 

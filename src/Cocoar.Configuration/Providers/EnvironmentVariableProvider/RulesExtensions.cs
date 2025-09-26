@@ -7,7 +7,7 @@ public static class EnvironmentVariableRulesExtensions
     public static
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
             EnvironmentVariableProviderQueryOptions> Environment(this Rule.Dsl _,
-            Func<ConfigManager, EnvironmentVariableRuleOptions> optionsFactory)
+            Func<IConfigurationAccessor, EnvironmentVariableRuleOptions> optionsFactory)
         => Rule
             .FromProvider<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
                 EnvironmentVariableProviderQueryOptions>(

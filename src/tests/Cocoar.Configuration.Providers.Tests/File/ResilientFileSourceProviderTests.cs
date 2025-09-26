@@ -1,4 +1,3 @@
-using Cocoar.Configuration.Providers;
 using System.Text.Json;
 using Xunit;
 using Xunit.Abstractions;
@@ -156,8 +155,8 @@ public class ResilientFileSourceProviderTests
         _output.WriteLine($"Final emissions: {finalEmissions}");
         _output.WriteLine($"Total errors: {errors.Count}");
         
-        bool hasInitialDetection = emissionsAfterModify > 0;
-        bool hasRecoveryDetection = finalEmissions > emissionsAfterModify;
+        var hasInitialDetection = emissionsAfterModify > 0;
+        var hasRecoveryDetection = finalEmissions > emissionsAfterModify;
         
         if (hasInitialDetection && hasRecoveryDetection)
         {

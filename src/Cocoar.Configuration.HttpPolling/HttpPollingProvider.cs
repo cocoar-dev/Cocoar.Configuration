@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reactive.Linq;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Utilities;
 
 namespace Cocoar.Configuration.HttpPolling;
 
@@ -17,16 +18,16 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         HttpClient client;
         if (opts.Handler is not null)
         {
-            client = new HttpClient(opts.Handler, disposeHandler: false);
+            client = new(opts.Handler, disposeHandler: false);
         }
         else
         {
-            client = new HttpClient();
+            client = new();
         }
         
         if (!string.IsNullOrWhiteSpace(opts.BaseAddress))
         {
-            client.BaseAddress = new Uri(opts.BaseAddress);
+            client.BaseAddress = new(opts.BaseAddress);
         }
         
         return client;
@@ -113,10 +114,14 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
-        try { _client.Dispose(); } catch { /* ignore */ }
-    // no finalizer; nothing to suppress
+        Safety.DisposeQuietly(_client);
+        // no finalizer; nothing to suppress
     }
 
     private static string BuildUrl(HttpClient client, string pathOrAbsolute)
