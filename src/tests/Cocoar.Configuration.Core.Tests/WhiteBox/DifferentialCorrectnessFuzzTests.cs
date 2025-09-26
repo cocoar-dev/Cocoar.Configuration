@@ -1,9 +1,8 @@
 using System.Text.Json;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.Logging.Abstractions;
-using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Utilities;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -58,11 +57,11 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
         const int waveCount = 5;
         const int changesPerWave = 8;
 
-        // Arrange: Create multiple providers with controllable state
+
         var providers = new List<BehaviorSubject<FuzzConfig>>();
         var rules = new List<ConfigRule>();
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var initialData = new Dictionary<string, object>
             {
@@ -71,15 +70,15 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
                 ["shared_key"] = $"from_provider_{i}" // Last writer wins
             };
 
-            var subject = new BehaviorSubject<FuzzConfig>(new FuzzConfig(initialData));
+            var subject = new BehaviorSubject<FuzzConfig>(new(initialData));
             providers.Add(subject);
             TrackForDisposal(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<FuzzConfig>, ObservableProviderOptions<FuzzConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<FuzzConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(FuzzConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -90,10 +89,10 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
 
         var random = new Random(42); // Deterministic seed for reproducible tests
 
-        // Act: Apply random change waves
-        for (int wave = 0; wave < waveCount; wave++)
+
+        for (var wave = 0; wave < waveCount; wave++)
         {
-            for (int change = 0; change < changesPerWave; change++)
+            for (var change = 0; change < changesPerWave; change++)
             {
                 var providerIndex = random.Next(providerCount);
                 var operation = random.Next(3); // 0=update, 1=add, 2=delete
@@ -128,7 +127,7 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
                 // Always update shared_key to test last-writer-wins
                 currentData["shared_key"] = $"from_provider_{providerIndex}_wave{wave}";
 
-                currentProvider.OnNext(new FuzzConfig(currentData));
+                currentProvider.OnNext(new(currentData));
                 
                 // Small random delay to create timing variations
                 await Task.Delay(random.Next(1, 10));
@@ -141,7 +140,7 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
         // Wait for final settling
         await Task.Delay(300);
 
-        // Assert: Compare incremental result with naive full recompute
+
         var incrementalConfig = configManager.GetConfig<FuzzConfig>();
         var naiveResult = ComputeNaiveFullMerge(providers.Select(p => p.Value).ToList());
 
@@ -157,11 +156,11 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
     {
         const int providerCount = 4;
         
-        // Arrange: Setup providers
+
         var providers = new List<BehaviorSubject<FuzzConfig>>();
         var rules = new List<ConfigRule>();
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var initialData = new Dictionary<string, object>
             {
@@ -169,15 +168,15 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
                 [$"provider_id"] = i
             };
 
-            var subject = new BehaviorSubject<FuzzConfig>(new FuzzConfig(initialData));
+            var subject = new BehaviorSubject<FuzzConfig>(new(initialData));
             providers.Add(subject);
             TrackForDisposal(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<FuzzConfig>, ObservableProviderOptions<FuzzConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<FuzzConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(FuzzConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -186,11 +185,11 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act: Generate rapid bursts
-        for (int burst = 0; burst < 3; burst++)
+
+        for (var burst = 0; burst < 3; burst++)
         {
             // Rapid fire changes within debounce window
-            for (int rapid = 0; rapid < 20; rapid++)
+            for (var rapid = 0; rapid < 20; rapid++)
             {
                 var providerIndex = rapid % providerCount;
                 var data = new Dictionary<string, object>
@@ -200,7 +199,7 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
                     ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                 };
 
-                providers[providerIndex].OnNext(new FuzzConfig(data));
+                providers[providerIndex].OnNext(new(data));
                 await Task.Delay(1); // Very rapid changes
             }
 
@@ -211,7 +210,7 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
         // Final wait for complete processing
         await Task.Delay(300);
 
-        // Assert: Compare with naive computation
+
         var incrementalConfig = configManager.GetConfig<FuzzConfig>();
         var naiveResult = ComputeNaiveFullMerge(providers.Select(p => p.Value).ToList());
 
@@ -255,7 +254,7 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
         // Convert incremental result to flat dictionary
         var incrementalFlat = new Dictionary<string, object>(incrementalConfig.Data);
 
-        // Assert exact match
+
         Assert.Equal(naiveResult.Count, incrementalFlat.Count);
 
         foreach (var kvp in naiveResult)

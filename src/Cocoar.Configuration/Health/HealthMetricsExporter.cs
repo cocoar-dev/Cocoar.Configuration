@@ -1,7 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Cocoar.Configuration.Health;
 
 /// <summary>
@@ -25,9 +21,13 @@ public sealed class HealthMetricsExporter : IDisposable
     private void OnSnapshot(ConfigHealthSnapshot snapshot)
     {
         // Avoid duplicate work if the stream implementation ever emits same Id twice
-        if (snapshot.Id == _lastSnapshotId) return;
+        if (snapshot.Id == _lastSnapshotId)
+        {
+            return;
+        }
+
         _lastSnapshotId = snapshot.Id;
-        _sink.Report(new HealthMetrics(
+        _sink.Report(new(
             snapshot.Id,
             snapshot.TimestampUtc,
             snapshot.ConfigVersion,

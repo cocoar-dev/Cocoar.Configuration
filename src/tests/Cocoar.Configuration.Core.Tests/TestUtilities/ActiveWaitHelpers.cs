@@ -32,8 +32,10 @@ public static class ActiveWaitHelpers
         while (stopwatch.Elapsed < timeout)
         {
             if (condition())
+            {
                 return;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -64,8 +66,10 @@ public static class ActiveWaitHelpers
         while (stopwatch.Elapsed < timeout)
         {
             if (await condition())
+            {
                 return;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -100,8 +104,10 @@ public static class ActiveWaitHelpers
         {
             var currentValue = valueSource();
             if (EqualityComparer<T>.Default.Equals(currentValue, expectedValue))
+            {
                 return;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -139,8 +145,10 @@ public static class ActiveWaitHelpers
         {
             var currentValue = await valueSource();
             if (EqualityComparer<T>.Default.Equals(currentValue, expectedValue))
+            {
                 return;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -178,8 +186,10 @@ public static class ActiveWaitHelpers
         {
             var currentValue = valueSource();
             if (predicate(currentValue))
+            {
                 return currentValue;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -215,8 +225,10 @@ public static class ActiveWaitHelpers
         {
             var currentValue = await valueSource();
             if (predicate(currentValue))
+            {
                 return currentValue;
-            
+            }
+
             await Task.Delay(pollInterval);
         }
         
@@ -263,7 +275,9 @@ public static class ActiveWaitHelpers
             {
                 // Value is the same, check if we've been stable long enough
                 if (stabilityStopwatch.Elapsed >= stabilityPeriod)
+                {
                     return currentValue;
+                }
             }
             else
             {

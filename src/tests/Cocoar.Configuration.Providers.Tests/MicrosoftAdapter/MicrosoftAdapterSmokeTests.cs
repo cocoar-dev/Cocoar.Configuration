@@ -1,8 +1,6 @@
 #define INCLUDE_MICROSOFT_ADAPTER_TESTS
-using System;
-using Microsoft.Extensions.Configuration;
 using Xunit;
-using Cocoar.Configuration;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
 
@@ -47,7 +45,7 @@ public class MicrosoftAdapterSmokeTests
         };
         var configSource = new Microsoft.Extensions.Configuration.Memory.MemoryConfigurationSource { InitialData = dict };
 
-        var rule = Rule.From.MicrosoftSource(_ => new MicrosoftConfigurationSourceRuleOptions(configSource)).Select("App").For<AppConfig>().Build();
+        var rule = Rule.From.MicrosoftSource(_ => new(configSource)).Select("App").For<AppConfig>().Build();
         using var manager = new ConfigManager(new[]{rule}).Initialize();
         var config = manager.GetConfig<AppConfig>();
         Assert.Equal("42", config!.Value);

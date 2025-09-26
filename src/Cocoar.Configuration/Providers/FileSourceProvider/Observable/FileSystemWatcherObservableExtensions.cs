@@ -20,8 +20,15 @@ public static class FileSystemWatcherObservableExtensions
         Func<FileSystemChange, string> keySelector,
         IScheduler scheduler)
     {
-        if (quietTime <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(quietTime));
-        if (scheduler is null) throw new ArgumentNullException(nameof(scheduler));
+        if (quietTime <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quietTime));
+        }
+
+        if (scheduler is null)
+        {
+            throw new ArgumentNullException(nameof(scheduler));
+        }
 
         return source.Publish(shared =>
             shared

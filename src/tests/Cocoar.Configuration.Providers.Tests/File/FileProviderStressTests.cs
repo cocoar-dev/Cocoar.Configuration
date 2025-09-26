@@ -1,13 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Reactive.Linq;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
-using Cocoar.Configuration.Providers;
 
 namespace Cocoar.Configuration.Providers.Tests.File;
 
@@ -43,7 +36,7 @@ public class FileProviderStressTests
         {
             // Rapid-fire 20 changes in quick succession
             var changeCount = 20;
-            for (int i = 1; i <= changeCount; i++)
+            for (var i = 1; i <= changeCount; i++)
             {
                 file.WriteJson(new { value = i });
                 await Task.Delay(10); // Faster than debounce window
@@ -103,7 +96,7 @@ public class FileProviderStressTests
             var writeCount = 50;
             var writeTasks = new List<Task>();
             
-            for (int i = 0; i < writeCount; i++)
+            for (var i = 0; i < writeCount; i++)
             {
                 var value = i;
                 writeTasks.Add(Task.Run(async () =>
@@ -157,7 +150,7 @@ public class FileProviderStressTests
         
         try
         {
-            for (int i = 0; i < providerCount; i++)
+            for (var i = 0; i < providerCount; i++)
             {
                 var provider = new FileSourceProvider(options);
                 providers.Add(provider);
@@ -171,7 +164,7 @@ public class FileProviderStressTests
             
             // Make several changes while all providers are watching
             var changes = 10;
-            for (int i = 1; i <= changes; i++)
+            for (var i = 1; i <= changes; i++)
             {
                 file.WriteJson(new { shared = true, iteration = i, timestamp = DateTime.UtcNow.Ticks });
                 await Task.Delay(50);
@@ -181,7 +174,7 @@ public class FileProviderStressTests
             
             _output.WriteLine($"Made {changes} changes across {providerCount} concurrent providers");
             
-            for (int i = 0; i < providerCount; i++)
+            for (var i = 0; i < providerCount; i++)
             {
                 var emissions = allEmissions[i];
                 _output.WriteLine($"Provider {i}: {emissions.Count} emissions");

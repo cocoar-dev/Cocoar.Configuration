@@ -20,7 +20,10 @@ public sealed class HttpPollingRuleOptions
         IReadOnlyDictionary<string, string>? headers = null)
     {
         if (string.IsNullOrWhiteSpace(urlPathOrAbsolute))
+        {
             throw new ArgumentException("urlPathOrAbsolute is required", nameof(urlPathOrAbsolute));
+        }
+
         UrlPathOrAbsolute = urlPathOrAbsolute;
         BaseAddress = baseAddress;
         PollInterval = pollInterval;

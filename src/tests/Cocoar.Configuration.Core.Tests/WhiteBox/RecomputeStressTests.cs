@@ -1,9 +1,8 @@
 using System.Text.Json;
 using System.Reactive.Subjects;
 using Microsoft.Extensions.Logging.Abstractions;
-using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Utilities;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -58,12 +57,12 @@ public class RecomputeStressTests : IDisposable
         const int changesPerProvider = 200;
         const int changeIntervalMs = 5;
 
-        // Arrange: Setup multiple high-frequency providers
+
         var providers = new List<BehaviorSubject<StressConfig>>();
         var rules = new List<ConfigRule>();
         var changeCounters = new int[providerCount];
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var initialData = new Dictionary<string, object>
             {
@@ -72,15 +71,15 @@ public class RecomputeStressTests : IDisposable
                 ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
 
-            var subject = new BehaviorSubject<StressConfig>(new StressConfig(initialData));
+            var subject = new BehaviorSubject<StressConfig>(new(initialData));
             providers.Add(subject);
             TrackForDisposal(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<StressConfig>, ObservableProviderOptions<StressConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<StressConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(StressConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -91,10 +90,10 @@ public class RecomputeStressTests : IDisposable
 
         var initialMemory = GC.GetTotalMemory(true);
 
-        // Act: Generate sustained rapid changes
+
         var changeTasks = providers.Select(async (provider, providerIndex) =>
         {
-            for (int change = 0; change < changesPerProvider; change++)
+            for (var change = 0; change < changesPerProvider; change++)
             {
                 var data = new Dictionary<string, object>
                 {
@@ -105,7 +104,7 @@ public class RecomputeStressTests : IDisposable
                     ["shared_key"] = $"from_provider_{providerIndex}_change_{change}" // Last writer wins
                 };
 
-                provider.OnNext(new StressConfig(data));
+                provider.OnNext(new(data));
                 changeCounters[providerIndex] = change;
 
                 await Task.Delay(changeIntervalMs);
@@ -117,7 +116,7 @@ public class RecomputeStressTests : IDisposable
         // Wait for all changes to settle
         await Task.Delay(300);
 
-        // Assert: Validate final state and resource usage
+
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);
 
@@ -144,11 +143,11 @@ public class RecomputeStressTests : IDisposable
         const int burstCount = 10;
         const int changesPerBurst = 15;
 
-        // Arrange: Setup providers with longer debounce to force overlapping
+
         var providers = new List<BehaviorSubject<StressConfig>>();
         var rules = new List<ConfigRule>();
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var initialData = new Dictionary<string, object>
             {
@@ -156,15 +155,15 @@ public class RecomputeStressTests : IDisposable
                 [$"burst_counter"] = 0
             };
 
-            var subject = new BehaviorSubject<StressConfig>(new StressConfig(initialData));
+            var subject = new BehaviorSubject<StressConfig>(new(initialData));
             providers.Add(subject);
             TrackForDisposal(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<StressConfig>, ObservableProviderOptions<StressConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<StressConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(StressConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -177,13 +176,13 @@ public class RecomputeStressTests : IDisposable
         var reactive = configManager.GetReactiveConfig<StressConfig>();
         using var subscription = reactive.Subscribe(_ => Interlocked.Increment(ref publicationCount));
 
-        // Act: Generate overlapping bursts
-        for (int burst = 0; burst < burstCount; burst++)
+
+        for (var burst = 0; burst < burstCount; burst++)
         {
             // Start overlapping bursts on all providers
             var burstTasks = providers.Select(async (provider, providerIndex) =>
             {
-                for (int change = 0; change < changesPerBurst; change++)
+                for (var change = 0; change < changesPerBurst; change++)
                 {
                     var data = new Dictionary<string, object>
                     {
@@ -194,7 +193,7 @@ public class RecomputeStressTests : IDisposable
                         ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     };
 
-                    provider.OnNext(new StressConfig(data));
+                    provider.OnNext(new(data));
                     await Task.Delay(2); // Much faster than debounce window
                 }
             });
@@ -206,7 +205,7 @@ public class RecomputeStressTests : IDisposable
         // Wait for final debounce
         await Task.Delay(300);
 
-        // Assert: Validate coalescing worked properly
+
         var finalConfig = configManager.GetConfig<StressConfig>();
         
         Assert.NotNull(finalConfig);
@@ -231,28 +230,28 @@ public class RecomputeStressTests : IDisposable
         const int providerCount = 5;
         const int largeDataSize = 1000; // Keys per configuration
 
-        // Arrange: Setup providers with large configuration data
+
         var providers = new List<BehaviorSubject<StressConfig>>();
         var rules = new List<ConfigRule>();
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var largeData = new Dictionary<string, object>();
-            for (int j = 0; j < largeDataSize; j++)
+            for (var j = 0; j < largeDataSize; j++)
             {
                 largeData[$"large_key_{i}_{j}"] = $"large_value_{i}_{j}_{Guid.NewGuid()}";
             }
             largeData["provider_id"] = i;
 
-            var subject = new BehaviorSubject<StressConfig>(new StressConfig(largeData));
+            var subject = new BehaviorSubject<StressConfig>(new(largeData));
             providers.Add(subject);
             TrackForDisposal(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<StressConfig>, ObservableProviderOptions<StressConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<StressConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(StressConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -265,20 +264,20 @@ public class RecomputeStressTests : IDisposable
         configManager.Initialize();
         await Task.Delay(200); // Allow initial configuration to settle
 
-        // Act: Perform rapid updates to large configurations
-        for (int update = 0; update < 20; update++)
+
+        for (var update = 0; update < 20; update++)
         {
             foreach (var (provider, index) in providers.Select((p, i) => (p, i)))
             {
                 var updatedData = new Dictionary<string, object>();
-                for (int j = 0; j < largeDataSize; j++)
+                for (var j = 0; j < largeDataSize; j++)
                 {
                     updatedData[$"large_key_{index}_{j}"] = $"updated_value_{index}_{j}_{update}_{Guid.NewGuid()}";
                 }
                 updatedData["provider_id"] = index;
                 updatedData["update_count"] = update;
 
-                provider.OnNext(new StressConfig(updatedData));
+                provider.OnNext(new(updatedData));
             }
 
             await Task.Delay(25); // Rapid updates
@@ -287,7 +286,7 @@ public class RecomputeStressTests : IDisposable
         // Wait for processing
         await Task.Delay(300);
 
-        // Assert: Validate system stability and memory management
+
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);
 
@@ -315,11 +314,11 @@ public class RecomputeStressTests : IDisposable
     {
         const int providerCount = 6;
 
-        // Arrange: Setup short-lived ConfigManager under stress
+
         var providers = new List<BehaviorSubject<StressConfig>>();
         var rules = new List<ConfigRule>();
 
-        for (int i = 0; i < providerCount; i++)
+        for (var i = 0; i < providerCount; i++)
         {
             var initialData = new Dictionary<string, object>
             {
@@ -327,14 +326,14 @@ public class RecomputeStressTests : IDisposable
                 ["value"] = i * 100
             };
 
-            var subject = new BehaviorSubject<StressConfig>(new StressConfig(initialData));
+            var subject = new BehaviorSubject<StressConfig>(new(initialData));
             providers.Add(subject);
 
             var rule = ConfigRule.Create<ObservableProvider<StressConfig>, ObservableProviderOptions<StressConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<StressConfig>(subject),
+                _ => new(subject),
                 _ => ObservableProviderQuery.Default,
                 typeof(StressConfig),
-                new ConfigRuleOptions());
+                new());
 
             rules.Add(rule);
         }
@@ -342,10 +341,10 @@ public class RecomputeStressTests : IDisposable
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 30);
         configManager.Initialize();
 
-        // Act: Start rapid changes then dispose while changes are in flight
+
         var changeTask = Task.Run(async () =>
         {
-            for (int change = 0; change < 100; change++)
+            for (var change = 0; change < 100; change++)
             {
                 foreach (var (provider, index) in providers.Select((p, i) => (p, i)))
                 {
@@ -358,7 +357,7 @@ public class RecomputeStressTests : IDisposable
 
                     try
                     {
-                        provider.OnNext(new StressConfig(data));
+                        provider.OnNext(new(data));
                     }
                     catch (ObjectDisposedException)
                     {
@@ -393,7 +392,7 @@ public class RecomputeStressTests : IDisposable
             // Expected - disposal should stop processing
         }
 
-        // Assert: No exceptions during disposal and cleanup completed
+
         // (The test passes if no exceptions were thrown during disposal)
         Assert.True(true, "Disposal under stress completed without exceptions");
     }

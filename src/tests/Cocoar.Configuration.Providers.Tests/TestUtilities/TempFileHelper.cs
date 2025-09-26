@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Text;
 
 namespace Cocoar.Configuration.Providers.Tests;
@@ -31,7 +29,7 @@ public sealed class TempFileHelper : IDisposable
     {
         var fileName = "cocoar_test_" + Guid.NewGuid().ToString("N") + extension;
         var tempDir = Path.GetTempPath();
-        return new TempFileHelper(tempDir, fileName, initialContent);
+        return new(tempDir, fileName, initialContent);
     }
 
     /// <summary>
@@ -40,7 +38,7 @@ public sealed class TempFileHelper : IDisposable
     public static TempFileHelper CreateInDirectory(string directory, string fileName, string? initialContent = null)
     {
         System.IO.Directory.CreateDirectory(directory);
-        return new TempFileHelper(directory, fileName, initialContent);
+        return new(directory, fileName, initialContent);
     }
 
     /// <summary>

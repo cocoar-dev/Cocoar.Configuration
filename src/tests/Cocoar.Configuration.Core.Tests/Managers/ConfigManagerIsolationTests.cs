@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
@@ -57,7 +58,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void ConfigManager_Initialize_ShouldSetInitializedFlag()
     {
-        // Arrange
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
         {
@@ -67,10 +67,8 @@ public class ConfigManagerIsolationTests : IDisposable
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act
         var result = configManager.Initialize();
 
-        // Assert
         Assert.Same(configManager, result); // Should return self for fluent interface
         
         // Verify initialization by checking if configs are accessible
@@ -84,7 +82,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void ConfigManager_Initialize_ShouldBeIdempotent()
     {
-        // Arrange
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
         {
@@ -94,11 +91,9 @@ public class ConfigManagerIsolationTests : IDisposable
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act
         var result1 = configManager.Initialize();
         var result2 = configManager.Initialize(); // Second call should be safe
 
-        // Assert
         Assert.Same(configManager, result1);
         Assert.Same(configManager, result2);
         
@@ -112,7 +107,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void GetConfig_WithValidConfiguration_ShouldReturnTypedObject()
     {
-        // Arrange
         var expectedConfig = new DatabaseConfig 
         { 
             ConnectionString = "Server=test;Database=app", 
@@ -129,10 +123,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var result = configManager.GetConfig<DatabaseConfig>();
 
-        // Assert
         Assert.NotNull(result);
         Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
         Assert.Equal(expectedConfig.Timeout, result.Timeout);
@@ -143,7 +135,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void GetConfig_WithNonExistentType_ShouldReturnDefault()
     {
-        // Arrange
         var testConfig = new DatabaseConfig { ConnectionString = "test" };
         var rules = new List<ConfigRule>
         {
@@ -154,10 +145,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var result = configManager.GetConfig<ApiConfig>(); // Different type not configured
 
-        // Assert
         Assert.Null(result);
     }
 
@@ -165,7 +154,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void TryGetConfig_WithValidConfiguration_ShouldReturnTrueAndValue()
     {
-        // Arrange
         var expectedConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 45 };
         var rules = new List<ConfigRule>
         {
@@ -176,10 +164,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var success = configManager.TryGetConfig<DatabaseConfig>(out var result);
 
-        // Assert
         Assert.True(success);
         Assert.NotNull(result);
         Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
@@ -190,7 +176,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void TryGetConfig_WithNonExistentType_ShouldReturnFalseAndNull()
     {
-        // Arrange
         var testConfig = new DatabaseConfig();
         var rules = new List<ConfigRule>
         {
@@ -201,10 +186,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var success = configManager.TryGetConfig<ApiConfig>(out var result);
 
-        // Assert
         Assert.False(success);
         Assert.Null(result);
     }
@@ -213,7 +196,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void GetRequiredConfig_WithValidConfiguration_ShouldReturnValue()
     {
-        // Arrange
         var expectedConfig = new DatabaseConfig { ConnectionString = "required-test", Timeout = 90 };
         var rules = new List<ConfigRule>
         {
@@ -224,10 +206,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var result = configManager.GetRequiredConfig<DatabaseConfig>();
 
-        // Assert
         Assert.NotNull(result);
         Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
         Assert.Equal(expectedConfig.Timeout, result.Timeout);
@@ -237,7 +217,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void GetRequiredConfig_WithNonExistentType_ShouldThrowInvalidOperationException()
     {
-        // Arrange
         var testConfig = new DatabaseConfig();
         var rules = new List<ConfigRule>
         {
@@ -248,7 +227,6 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => 
             configManager.GetRequiredConfig<ApiConfig>());
         
@@ -264,7 +242,7 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void ConfigManager_WithMultipleRules_ShouldRespectRuleOrder()
     {
-        // Arrange - Later rules should override earlier ones
+
         var rules = new List<ConfigRule>
         {
             // First rule - lower priority
@@ -285,10 +263,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var config = configManager.GetConfig<DatabaseConfig>();
 
-        // Assert
         Assert.NotNull(config);
         Assert.Equal("second-rule", config.ConnectionString); // Second rule should win
         Assert.Equal(60, config.Timeout);
@@ -298,7 +274,6 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void ConfigManager_WithMultipleConfigTypes_ShouldHandleBothCorrectly()
     {
-        // Arrange
         var dbConfig = new DatabaseConfig { ConnectionString = "db-connection", Timeout = 45 };
         var apiConfig = new ApiConfig { BaseUrl = "https://api.test", ApiKey = "secret", MaxRetries = 3 };
 
@@ -312,11 +287,9 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Act
         var dbResult = configManager.GetConfig<DatabaseConfig>();
         var apiResult = configManager.GetConfig<ApiConfig>();
 
-        // Assert
         Assert.NotNull(dbResult);
         Assert.Equal(dbConfig.ConnectionString, dbResult.ConnectionString);
         Assert.Equal(dbConfig.Timeout, dbResult.Timeout);
@@ -335,7 +308,7 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public async Task ConfigManager_WithObservableProvider_ShouldHandleRecomputation()
     {
-        // Arrange - Using our bulletproof ObservableProvider with actual config objects
+
         var initialConfig = new DatabaseConfig { ConnectionString = "initial", Timeout = 30 };
         var updatedConfig = new DatabaseConfig { ConnectionString = "updated", Timeout = 60 };
 
@@ -344,10 +317,10 @@ public class ConfigManagerIsolationTests : IDisposable
         {
             // Create rule using ObservableProvider with the actual config type
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
@@ -360,7 +333,7 @@ public class ConfigManagerIsolationTests : IDisposable
         Assert.NotNull(initialResult);
         Assert.Equal("initial", initialResult.ConnectionString);
 
-        // Act - Trigger a change that should cause recomputation
+
         observable.OnNext(updatedConfig);
 
         // Wait for debounce and recomputation using active wait pattern
@@ -371,7 +344,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(2));
 
-        // Assert - Configuration should be updated
+
         var finalResult = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(finalResult);
         Assert.Equal("updated", finalResult.ConnectionString);
@@ -382,7 +355,7 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Performance")]
     public async Task ConfigManager_DebounceLogic_ShouldCoalesceRapidChanges()
     {
-        // Arrange - Create observable provider with rapid changes
+
         var configs = new[]
         {
             new DatabaseConfig { ConnectionString = "change1", Timeout = 10 },
@@ -395,10 +368,10 @@ public class ConfigManagerIsolationTests : IDisposable
         var rules = new List<ConfigRule>
         {
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         // Use longer debounce to test coalescing
@@ -407,8 +380,8 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(observable);
         configManager.Initialize();
 
-        // Act - Fire rapid changes (should be debounced/coalesced)
-        for (int i = 1; i < configs.Length; i++)
+
+        for (var i = 1; i < configs.Length; i++)
         {
             observable.OnNext(configs[i]);
             await Task.Delay(10); // Small delay but less than debounce period
@@ -422,7 +395,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(2));
 
-        // Assert - Should have final configuration (debouncing worked)
+
         var result = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(result);
         Assert.Equal("final", result.ConnectionString);
@@ -433,17 +406,17 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public async Task ConfigManager_CancellationLogic_ShouldCancelPreviousRecompute()
     {
-        // Arrange - This test validates the cancellation token mechanism
+
         var initialConfig = new DatabaseConfig { ConnectionString = "initial", Timeout = 10 };
         var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(initialConfig);
 
         var rules = new List<ConfigRule>
         {
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 200);
@@ -451,11 +424,11 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(observable);
         configManager.Initialize();
 
-        // Act - Trigger first recompute, then immediately trigger second (should cancel first)
-        observable.OnNext(new DatabaseConfig { ConnectionString = "change1", Timeout = 20 });
+
+        observable.OnNext(new() { ConnectionString = "change1", Timeout = 20 });
         
         // Immediately trigger another change (should cancel the first recompute)
-        observable.OnNext(new DatabaseConfig { ConnectionString = "change2", Timeout = 30 });
+        observable.OnNext(new() { ConnectionString = "change2", Timeout = 30 });
 
         // Wait for final result using active wait
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -465,7 +438,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(2));
         
-        // Assert - Final configuration should reflect the last change
+
         var result = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(result);
         Assert.Equal("change2", result.ConnectionString);
@@ -476,7 +449,7 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public async Task ConfigManager_MultipleRulesRecompute_ShouldRespectRuleOrder()
     {
-        // Arrange - Multiple rules where later ones should override
+
         var rule1Config = new DatabaseConfig { ConnectionString = "rule1-initial", Timeout = 10 };
         var rule2Config = new DatabaseConfig { ConnectionString = "rule2-initial", Timeout = 20 };
         
@@ -487,16 +460,16 @@ public class ConfigManagerIsolationTests : IDisposable
         {
             // First rule - lower priority
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable1),
+                _ => new(observable1),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions()),
+                new()),
             // Second rule - higher priority (should win)
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable2),
+                _ => new(observable2),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
@@ -510,19 +483,19 @@ public class ConfigManagerIsolationTests : IDisposable
         Assert.NotNull(initialResult);
         Assert.Equal("rule2-initial", initialResult.ConnectionString);
 
-        // Act - Update rule1 (should still be overridden by rule2)
-        observable1.OnNext(new DatabaseConfig { ConnectionString = "rule1-updated", Timeout = 15 });
+
+        observable1.OnNext(new() { ConnectionString = "rule1-updated", Timeout = 15 });
         
         // Wait a bit for any recomputation
         await Task.Delay(100);
 
-        // Assert - rule2 should still win after rule1 update
+
         var afterRule1Update = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(afterRule1Update);
         Assert.Equal("rule2-initial", afterRule1Update.ConnectionString); // rule2 still wins
 
-        // Act - Update rule2 (should now see the change)
-        observable2.OnNext(new DatabaseConfig { ConnectionString = "rule2-updated", Timeout = 25 });
+
+        observable2.OnNext(new() { ConnectionString = "rule2-updated", Timeout = 25 });
         
         // Wait for rule2 update to complete
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -532,7 +505,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(2));
 
-        // Assert - rule2 update should be visible
+
         var finalResult = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(finalResult);
         Assert.Equal("rule2-updated", finalResult.ConnectionString);
@@ -547,17 +520,17 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Stress")]
     public async Task ConfigManager_MassiveConcurrentRecomputes_ShouldHandleDebounceCorrectly()
     {
-        // Arrange - Create single observable that will fire rapidly (simpler approach)
+
         var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(
-            new DatabaseConfig { ConnectionString = "initial", Timeout = 0 });
+            new() { ConnectionString = "initial", Timeout = 0 });
         
         var rules = new List<ConfigRule>
         {
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         // Short debounce to test rapid cancellation
@@ -567,13 +540,13 @@ public class ConfigManagerIsolationTests : IDisposable
         
         configManager.Initialize();
 
-        // Act - Fire massive rapid changes
+
         const int totalChanges = 100; // 100 rapid changes to stress-test debounce/cancel
         var changeTask = Task.Run(async () =>
         {
-            for (int i = 1; i <= totalChanges; i++)
+            for (var i = 1; i <= totalChanges; i++)
             {
-                observable.OnNext(new DatabaseConfig 
+                observable.OnNext(new()
                 { 
                     ConnectionString = $"change-{i}", 
                     Timeout = i 
@@ -592,7 +565,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(3));
 
-        // Assert - Should have final configuration despite massive recompute load
+
         var finalConfig = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(finalConfig);
         Assert.Equal($"change-{totalChanges}", finalConfig.ConnectionString);
@@ -603,17 +576,17 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Stress")]
     public async Task ConfigManager_RapidDebounceStorm_ShouldCoalesceCorrectly()
     {
-        // Arrange - Single provider with extremely rapid changes
+
         var observable = new System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>(
-            new DatabaseConfig { ConnectionString = "initial", Timeout = 0 });
+            new() { ConnectionString = "initial", Timeout = 0 });
         
         var rules = new List<ConfigRule>
         {
             ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions())
+                new())
         };
 
         // Longer debounce to test massive coalescing
@@ -622,13 +595,13 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(observable);
         configManager.Initialize();
 
-        // Act - Fire 200 rapid changes within debounce window
+
         const int totalChanges = 200;
         var fireTask = Task.Run(async () =>
         {
-            for (int i = 1; i <= totalChanges; i++)
+            for (var i = 1; i <= totalChanges; i++)
             {
-                observable.OnNext(new DatabaseConfig 
+                observable.OnNext(new()
                 { 
                     ConnectionString = $"change-{i}", 
                     Timeout = i 
@@ -647,7 +620,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(3));
 
-        // Assert - Should have final change despite 200 rapid updates
+
         var result = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(result);
         Assert.Equal($"change-{totalChanges}", result.ConnectionString);
@@ -658,13 +631,13 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Stress")]
     public async Task ConfigManager_ConcurrentMultipleRules_ShouldMaintainRuleOrder()
     {
-        // Arrange - Multiple rules with concurrent updates to test rule precedence under stress
+
         var observables = new List<System.Reactive.Subjects.BehaviorSubject<DatabaseConfig>>();
         var rules = new List<ConfigRule>();
         
         const int numRules = 20; // 20 competing rules
         
-        for (int i = 0; i < numRules; i++)
+        for (var i = 0; i < numRules; i++)
         {
             var initialConfig = new DatabaseConfig 
             { 
@@ -675,16 +648,19 @@ public class ConfigManagerIsolationTests : IDisposable
             observables.Add(observable);
             
             rules.Add(ConfigRule.Create<ObservableProvider<DatabaseConfig>, ObservableProviderOptions<DatabaseConfig>, ObservableProviderQuery>(
-                _ => new ObservableProviderOptions<DatabaseConfig>(observable),
+                _ => new(observable),
                 _ => ObservableProviderQuery.Default,
                 typeof(DatabaseConfig),
-                new ConfigRuleOptions()));
+                new()));
         }
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
         TrackForDisposal(configManager);
-        foreach (var obs in observables) TrackForDisposal(obs);
-        
+        foreach (var obs in observables)
+        {
+            TrackForDisposal(obs);
+        }
+
         configManager.Initialize();
 
         // Initial state - last rule should win
@@ -692,13 +668,13 @@ public class ConfigManagerIsolationTests : IDisposable
         Assert.NotNull(initialResult);
         Assert.Equal($"rule-{numRules - 1}-initial", initialResult.ConnectionString);
 
-        // Act - Fire concurrent updates to ALL rules
+
         var updateTasks = observables.Select((obs, index) =>
             Task.Run(async () =>
             {
-                for (int change = 1; change <= 10; change++)
+                for (var change = 1; change <= 10; change++)
                 {
-                    obs.OnNext(new DatabaseConfig 
+                    obs.OnNext(new()
                     { 
                         ConnectionString = $"rule-{index}-change-{change}", 
                         Timeout = index * 100 + change 
@@ -718,7 +694,7 @@ public class ConfigManagerIsolationTests : IDisposable
             },
             timeout: TimeSpan.FromSeconds(5));
 
-        // Assert - Last rule should still have precedence
+
         var finalConfig = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(finalConfig);
         Assert.StartsWith($"rule-{numRules - 1}-change-", finalConfig.ConnectionString);

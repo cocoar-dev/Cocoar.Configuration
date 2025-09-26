@@ -20,7 +20,10 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             if (!string.IsNullOrEmpty(prefix))
             {
                 if (!key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
+
                 AddToNestedDict(dict, key.Substring(prefix.Length), variables[keyObj]);
             }
             else
@@ -39,17 +42,21 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)
     {
         if (string.IsNullOrWhiteSpace(key))
+        {
             return;
+        }
 
         // Trim a single leading separator (for prefix cases like "MYAPP" + "_FOO")
         key = TrimSingleLeadingSeparator(key);
 
         var parts = SplitEnvKey(key).ToArray();
         if (parts.Length == 0)
+        {
             return;
+        }
 
         var current = dict;
-        for (int i = 0; i < parts.Length - 1; i++)
+        for (var i = 0; i < parts.Length - 1; i++)
         {
             var seg = parts[i];
             if (!current.TryGetValue(seg, out var next) || next is not IDictionary<string, object?> nextDict)
@@ -69,9 +76,9 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     private static IEnumerable<string> SplitEnvKey(string key)
     {
         var sb = new StringBuilder();
-        for (int i = 0; i < key.Length;)
+        for (var i = 0; i < key.Length;)
         {
-            char c = key[i];
+            var c = key[i];
 
             // Colon is a nesting separator (Microsoft convention)
             if (c == ':')
@@ -90,7 +97,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             if (c == '_' && i + 1 < key.Length && key[i + 1] == '_')
             {
                 // Consume the entire run of underscores
-                int j = i;
+                var j = i;
                 while (j < key.Length && key[j] == '_') j++;
                 if (j - i >= 2)
                 {
@@ -111,18 +118,30 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         }
 
         if (sb.Length > 0)
+        {
             yield return sb.ToString();
+        }
     }
 
     private static string TrimSingleLeadingSeparator(string s)
     {
-        if (string.IsNullOrEmpty(s)) return s;
+        if (string.IsNullOrEmpty(s))
+        {
+            return s;
+        }
+
         // If starts with double underscore, treat as delimiter and remove it.
         if (s.Length >= 2 && s[0] == '_' && s[1] == '_')
+        {
             return s[2..];
+        }
+
         // Otherwise, trim a single leading ':' or '_' if present
         if (s[0] == ':' || s[0] == '_')
+        {
             return s[1..];
+        }
+
         return s;
     }
 

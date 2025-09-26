@@ -2,10 +2,10 @@ using System.Reactive.Subjects;
 using System.Reactive.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
-using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
@@ -57,7 +57,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_StaticPlusObservable_LastRuleWins()
     {
-        // Arrange: Base config from Static, overrides from Observable
+
         var baseConfig = """
         {
             "Name": "BaseApp",
@@ -96,11 +96,10 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(overrideConfigJson).For<AppConfig>()  // Rule 1 (wins)
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
-        // Assert: Flattened key-based merging - later rule wins on conflicts, earlier fills gaps
+
         Assert.Equal("OverriddenApp", config!.Name);           // From Rule 1 (override)
     Assert.Equal(2, config.Version);                     // From Rule 1 (override)
     Assert.Equal("server=override;", config.Database.ConnectionString); // From Rule 1 (override)
@@ -120,7 +119,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_ObservablePlusStatic_StaticWins()
     {
-        // Arrange: Same configs as above but REVERSED ORDER
+
         var baseConfig = """
         {
             "Name": "StaticApp",
@@ -136,7 +135,7 @@ public class MultiProviderConfigManagerTests
         {
             Name = "ObservableApp",
             Version = 1,
-            Features = new FeatureFlags
+            Features = new()
             {
                 EnableNewUI = true,
                 LogLevel = "Debug"
@@ -151,11 +150,10 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(baseConfig).For<AppConfig>()        // Rule 1 (wins!)
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
-        // Assert: Static values should win (rule 1 > rule 0)
+
         Assert.Equal("StaticApp", config!.Name);      // From Static (wins)
     Assert.Equal(99, config.Version);           // From Static (wins)  
         Assert.False(config.Features.EnableNewUI);  // From Static (wins)
@@ -176,7 +174,6 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_ObservableChanges_UpdatesReactiveConfig()
     {
-        // Arrange
         var staticBase = """{"Name": "Static", "Version": 1, "Database": {"Timeout": 30}}""";
         var initialObservableJson = """{"Name": "Observable", "Version": 10}""";
         var behaviorSubject = new BehaviorSubject<string>(initialObservableJson);
@@ -197,22 +194,22 @@ public class MultiProviderConfigManagerTests
         Thread.Sleep(200);
 
         // Verify initial state has proper flattened merging
-    var initialConfig = emissions.Last();
-    Assert.NotNull(initialConfig);
+        var initialConfig = emissions.Last();
+        Assert.NotNull(initialConfig);
         Assert.Equal("Observable", initialConfig.Name);  // From Observable
         Assert.Equal(10, initialConfig.Version);        // From Observable  
         Assert.Equal(30, initialConfig.Database.Timeout); // From Static (not overridden)
 
-        // Act: Change Observable with partial update
+
         var updatedObservableJson = """{"Name": "UpdatedObservable", "Version": 20}""";
         behaviorSubject.OnNext(updatedObservableJson);
 
         // Wait for change to propagate and debouncing to settle
         Thread.Sleep(300);
 
-        // Assert: Verify final state correctness (debouncing means we focus on correctness, not emission counts)
-    var latestConfig = emissions.Last();
-    Assert.NotNull(latestConfig);
+
+        var latestConfig = emissions.Last();
+        Assert.NotNull(latestConfig);
         Assert.Equal("UpdatedObservable", latestConfig.Name);  // Observable won
         Assert.Equal(20, latestConfig.Version);               // Observable won
         Assert.Equal(30, latestConfig.Database.Timeout);      // Static preserved
@@ -238,7 +235,6 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_RapidObservableChanges_DebouncesCorrectly()
     {
-        // Arrange
         var staticBase = """
         {
             "Name": "StaticBase",
@@ -276,8 +272,8 @@ public class MultiProviderConfigManagerTests
         Thread.Sleep(100); // Wait for initial
         var initialCount = emissions.Count;
 
-        // Act: Rapid changes (partial updates to test flattened merging)
-        for (int i = 1; i <= 20; i++)
+
+        for (var i = 1; i <= 20; i++)
         {
             var updateJson = $$"""
             {
@@ -294,10 +290,10 @@ public class MultiProviderConfigManagerTests
         // Wait for debouncing to settle
         Thread.Sleep(300);
 
-        // Assert: Final state correctness with proper merging
+
         var finalEmissionCount = emissions.Count;
-    var finalConfig = emissions.Last();
-    Assert.NotNull(finalConfig);
+        var finalConfig = emissions.Last();
+        Assert.NotNull(finalConfig);
 
         Assert.Equal("Change20", finalConfig.Name);                    // Final Observable value
         Assert.Equal(20, finalConfig.Version);                       // Final Observable value
@@ -326,7 +322,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_NestedObjectMerging_MergesCorrectly()
     {
-        // Arrange: Static provides full Database config, Observable provides partial Database + Features
+
         var staticConfig = """
         {
             "Name": "StaticApp",
@@ -364,12 +360,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(observablePartialJson).For<AppConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
-        // Assert: Perfect flattened key-based merge
+
         Assert.Equal("StaticApp", config.Name);                           // From Static (not overridden)
         Assert.Equal(1, config.Version);                                 // From Static (not overridden)
         Assert.Equal("server=prod;database=main;", config.Database.ConnectionString); // From Rule 1
@@ -389,7 +384,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_ThreeProviders_LayersCorrectly()
     {
-        // Arrange: Base -> Override -> Final
+
         var baseConfig = """{"Name": "Base", "Version": 1, "Features": {"LogLevel": "Info"}}""";
         var finalConfig = """{"Version": 999, "Features": {"LogLevel": "Error", "EnableNewUI": true}}""";
 
@@ -408,12 +403,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(finalConfig).For<AppConfig>()        // Rule 2: Final (wins!)
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
-        // Assert: Final rule should win on conflicts, earlier rules fill gaps
+
         Assert.Equal("Observable", config.Name);                // From Observable (rule 1, no conflict with rule 2)
         Assert.Equal(999, config.Version);                     // From Final (rule 2, wins over all)
         Assert.Equal("Error", config.Features.LogLevel);       // From Final (rule 2, wins over all)
@@ -433,7 +427,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_EmptyProvider_HandlesGracefully()
     {
-        // Arrange: Static with data + Observable with empty object
+
         var staticConfig = """{"Name": "OnlyStatic", "Version": 42}""";
         var emptyObservable = new { }; // Empty object
 
@@ -445,16 +439,15 @@ public class MultiProviderConfigManagerTests
             Rule.From.Observable(behaviorSubject).For<AppConfig>()
         };
 
-        // Act
-    var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<AppConfig>();
-    Assert.NotNull(config);
+        var configManager = new ConfigManager(rules).Initialize();
+        var config = configManager.GetConfig<AppConfig>();
+        Assert.NotNull(config);
 
-    // Assert: Static values should be preserved, defaults for missing values
-    Assert.Equal("OnlyStatic", config!.Name);
-    Assert.Equal(42, config.Version);
-    Assert.NotNull(config.Database);        // Should be default instance
-    Assert.NotNull(config.Features);       // Should be default instance
+
+        Assert.Equal("OnlyStatic", config!.Name);
+        Assert.Equal(42, config.Version);
+        Assert.NotNull(config.Database);        // Should be default instance
+        Assert.NotNull(config.Features);       // Should be default instance
 
         behaviorSubject.Dispose();
     }
@@ -468,7 +461,6 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_MultiProvider_PerformanceUnder50ms()
     {
-        // Arrange
         var staticConfig = """
         {
             "Name": "PerfTest",
@@ -492,24 +484,24 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(observableConfigJson).For<AppConfig>()
         };
 
-        // Act & Assert
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
         var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<AppConfig>();
+        var config = configManager.GetConfig<AppConfig>();
 
-    stopwatch.Stop();
+        stopwatch.Stop();
 
-    // Assert: Performance + Correctness with proper flattened merging
-    Assert.True(stopwatch.ElapsedMilliseconds < 50, $"Multi-provider config resolution took {stopwatch.ElapsedMilliseconds}ms, expected < 50ms");
-    Assert.NotNull(config);
+
+        Assert.True(stopwatch.ElapsedMilliseconds < 50, $"Multi-provider config resolution took {stopwatch.ElapsedMilliseconds}ms, expected < 50ms");
+        Assert.NotNull(config);
         
-    Assert.Equal("PerfTest", config!.Name);          // From Static (not overridden)
-    Assert.Equal(100, config.Version);             // From Rule 1 
-    Assert.Equal("server=perf;", config.Database.ConnectionString); // From Static (not overridden)
-    Assert.Equal(30, config.Database.Timeout);     // From Static (not overridden)
-    Assert.True(config.Features.EnableNewUI);      // From Rule 1
-    Assert.True(config.Features.EnableLogging);    // From Static (not overridden)
+        Assert.Equal("PerfTest", config!.Name);          // From Static (not overridden)
+        Assert.Equal(100, config.Version);             // From Rule 1 
+        Assert.Equal("server=perf;", config.Database.ConnectionString); // From Static (not overridden)
+        Assert.Equal(30, config.Database.Timeout);     // From Static (not overridden)
+        Assert.True(config.Features.EnableNewUI);      // From Rule 1
+        Assert.True(config.Features.EnableLogging);    // From Static (not overridden)
     }
 
     /// <summary>
@@ -523,14 +515,14 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_ObservableProviderChange_DoesNotRefetchStaticProvider()
     {
-        // Arrange - Create a trackable StaticJsonProvider and ObservableProvider
+
         var fetchCount = 0;
         var trackableStaticProvider = new TrackableStaticJsonProvider(
             """{"Name": "StaticBase", "Priority": 100, "Settings": {"ReadOnly": true}}""",
             () => fetchCount++);
 
         var subject = new BehaviorSubject<string>("""{"Name": "InitialObservable", "Priority": 200, "Settings": {"Dynamic": true}}""");
-        var observableProvider = new ObservableProvider<string>(new ObservableProviderOptions<string>(subject));
+        var observableProvider = new ObservableProvider<string>(new(subject));
 
         // Setup factory pattern like PartialRecomputeTests
         var providers = new Queue<ConfigurationProvider>(new ConfigurationProvider[] { trackableStaticProvider, observableProvider });
@@ -561,13 +553,13 @@ public class MultiProviderConfigManagerTests
         Assert.True(initialConfig.Settings.ReadOnly); // From Static
         Assert.True(initialConfig.Settings.Dynamic); // From Observable
 
-        // Act - Change the ObservableProvider (later in rule order)
+
         subject.OnNext("""{"Name": "UpdatedObservable", "Priority": 300, "Settings": {"Dynamic": false, "NewField": "Added"}}""");
 
         // Wait for debounce + recompute to complete
         await Task.Delay(200);
 
-        // Assert - Verify StaticJsonProvider was NOT refetched (performance optimization)
+
         Assert.Equal(initialFetchCount, fetchCount);
 
         // Verify the final configuration is correct despite not refetching StaticJsonProvider
@@ -590,7 +582,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_RapidMultiProviderChanges_ProperDebouncing()
     {
-        // Arrange - Create multiple observable sources
+
     var staticRecomputeCount = 0;
 
         var trackableStaticProvider = new TrackableStaticJsonProvider(
@@ -600,8 +592,8 @@ public class MultiProviderConfigManagerTests
         var subject1 = new BehaviorSubject<string>("""{"Name": "Observable1", "Priority": 100, "Settings": {"Feature1": true}}""");
         var subject2 = new BehaviorSubject<string>("""{"Name": "Observable2", "Priority": 200, "Settings": {"Feature2": true}}""");
 
-        var observable1Provider = new ObservableProvider<string>(new ObservableProviderOptions<string>(subject1));
-        var observable2Provider = new ObservableProvider<string>(new ObservableProviderOptions<string>(subject2));
+        var observable1Provider = new ObservableProvider<string>(new(subject1));
+        var observable2Provider = new ObservableProvider<string>(new(subject2));
 
         // Setup factory pattern with 3 providers
         var providers = new Queue<ConfigurationProvider>(new ConfigurationProvider[] 
@@ -640,7 +632,7 @@ public class MultiProviderConfigManagerTests
         Assert.True(initialConfig.Settings.Feature1); // From Observable1
         Assert.True(initialConfig.Settings.Feature2); // From Observable2
 
-        // Act - Rapid changes across multiple providers (faster than debounce period)
+
         var changeStartTime = DateTimeOffset.UtcNow;
         
         // Rapid fire changes within 50ms window
@@ -658,7 +650,7 @@ public class MultiProviderConfigManagerTests
         // Wait for debounce period to pass + some processing time
         await Task.Delay(250);
         
-        // Assert - Debouncing behavior
+
     var finalConfig = manager.GetConfig<TestConfig>();
     Assert.NotNull(finalConfig);
         
@@ -689,7 +681,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ObservableProvider")]
     public async Task ObservableProvider_ErrorHandling_GracefulDegradation()
     {
-        // Arrange - Setup providers with error-prone observable
+
         var staticProvider = new TrackableStaticJsonProvider(
             """{"Name": "SafeStatic", "BackupValue": "Available", "Settings": {"Reliable": true}}""",
             () => { });
@@ -699,7 +691,7 @@ public class MultiProviderConfigManagerTests
         var providers = new Queue<ConfigurationProvider>(new ConfigurationProvider[] 
         { 
             staticProvider,
-            new ObservableProvider<string>(new ObservableProviderOptions<string>(errorSubject))
+            new ObservableProvider<string>(new(errorSubject))
         });
         ConfigurationProvider Factory(Type t, IProviderConfiguration _) => providers.Dequeue();
 
@@ -723,7 +715,7 @@ public class MultiProviderConfigManagerTests
         Assert.Equal("Available", initialConfig.BackupValue); // From StaticProvider
         Assert.True(initialConfig.Settings.Reliable); // From StaticProvider
 
-        // Act 1: Test error emission from BehaviorSubject
+
     Exception? errorCaught = null;
         try
         {
@@ -743,23 +735,23 @@ public class MultiProviderConfigManagerTests
         // The system should handle errors gracefully without crashing
         // Note: Specific error behavior depends on implementation - this tests that it doesn't crash
         
-        // Act 2: Test disposal scenario with new subject
+
         var disposableSubject = new BehaviorSubject<string>("""{"Name": "DisposableTest", "TempValue": "BeforeDispose"}""");
         
-        var disposableProvider = new ObservableProvider<string>(new ObservableProviderOptions<string>(disposableSubject));
+        var disposableProvider = new ObservableProvider<string>(new(disposableSubject));
         
         // Test that we can fetch configuration before disposal
-        var preDisposeResult = await disposableProvider.FetchConfigurationAsync(new ObservableProviderQuery());
+        var preDisposeResult = await disposableProvider.FetchConfigurationAsync(new());
         Assert.Equal("DisposableTest", preDisposeResult.GetProperty("Name").GetString());
         
         // Dispose the subject
         disposableSubject.Dispose();
         
         // Test behavior after disposal - should handle gracefully
-    Exception? disposeErrorCaught = null;
+        Exception? disposeErrorCaught = null;
         try
         {
-            var postDisposeResult = await disposableProvider.FetchConfigurationAsync(new ObservableProviderQuery());
+            var postDisposeResult = await disposableProvider.FetchConfigurationAsync(new());
             // If we get here, the provider handled disposal gracefully
             Assert.NotNull(postDisposeResult);
         }
@@ -782,23 +774,22 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ObservableProvider")]
     public async Task ObservableProvider_CompletionHandling_GracefulBehavior()
     {
-        // Arrange
         var completableSubject = new BehaviorSubject<string>("""{"Name": "CompletableTest", "Status": "Active"}""");
-        var provider = new ObservableProvider<string>(new ObservableProviderOptions<string>(completableSubject));
+        var provider = new ObservableProvider<string>(new(completableSubject));
         var query = new ObservableProviderQuery();
         
         // Verify initial state
-    var initialResult = await provider.FetchConfigurationAsync(query);
-    Assert.NotNull(initialResult);
-    Assert.Equal("CompletableTest", initialResult.GetProperty("Name").GetString());
+        var initialResult = await provider.FetchConfigurationAsync(query);
+        Assert.NotNull(initialResult);
+        Assert.Equal("CompletableTest", initialResult.GetProperty("Name").GetString());
         Assert.Equal("Active", initialResult.GetProperty("Status").GetString());
         
-        // Act - Complete the observable
+
         completableSubject.OnNext("""{"Name": "FinalValue", "Status": "Completing"}""");
         completableSubject.OnCompleted();
         
-        // Assert - Test behavior after completion
-    Exception? completionErrorCaught = null;
+
+        Exception? completionErrorCaught = null;
         try
         {
             var postCompletionResult = await provider.FetchConfigurationAsync(query);
@@ -827,7 +818,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_SelectAndMount_CorrectFlattendMerging()
     {
-        // Arrange - Complex multi-source configuration with selection and mounting
+
         var baseConfig = """
         {
             "App": {
@@ -883,30 +874,29 @@ public class MultiProviderConfigManagerTests
 
         var configManager = new ConfigManager(rules).Initialize();
 
-    // Act
-    var config = configManager.GetConfig<ComplexConfig>();
-    Assert.NotNull(config);
+        var config = configManager.GetConfig<ComplexConfig>();
+        Assert.NotNull(config);
 
-        // Assert - Verify complete pipeline: Fetch → Select → Mount → Merge
+
         
         // App section (from base, unchanged)
-    Assert.Equal("TestApp", config!.App.Name);
+        Assert.Equal("TestApp", config!.App.Name);
         Assert.Equal("1.0.0", config.App.Version);
         
         // Database section (completely replaced by Rule 1)
-    Assert.Equal("server=override;database=prod;", config.Database.ConnectionString); // From override
+        Assert.Equal("server=override;database=prod;", config.Database.ConnectionString); // From override
         Assert.Equal(60, config.Database.Timeout); // From override
         Assert.Equal(5, config.Database.Pool.MinSize); // From base (not overridden, key not present in override)
         Assert.Equal(200, config.Database.Pool.MaxSize); // From override (nested merge)
         Assert.Equal(300, config.Database.Pool.IdleTimeout); // From override (new field)
         
         // Features section (Rule 2: NewFeatures selected and mounted as Features, overriding base Features)
-    Assert.True(config.Features.EnableCaching); // From Rule 2 (NewFeatures→Features)
+        Assert.True(config.Features.EnableCaching); // From Rule 2 (NewFeatures→Features)
         Assert.True(config.Features.EnableRetry); // From Rule 2 (NewFeatures→Features)
         // Base Features properties should be gone due to flattened key overriding
         
         // LegacySettings section (Rule 3: Legacy selected and mounted under LegacySettings)
-    Assert.False(config.LegacySettings.EnableOldUI); // From Rule 3 (Legacy→LegacySettings)
+        Assert.False(config.LegacySettings.EnableOldUI); // From Rule 3 (Legacy→LegacySettings)
         
         // Verify no unexpected data bleeding between selections
         Assert.NotNull(config.App);
@@ -925,7 +915,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_DynamicSelectAndMount_ComplexNesting()
     {
-        // Arrange - Base static config
+
         var baseConfig = """
         {
             "Root": {
@@ -979,14 +969,14 @@ public class MultiProviderConfigManagerTests
     var initialConfig = configManager.GetConfig<NestedConfig>();
     Assert.NotNull(initialConfig);
         
-        // Assert initial state - verify deep path selection and mounting
+
         Assert.Equal("BaseStatic", initialConfig.Root.Static.Value); // From base
         Assert.Equal("localhost", initialConfig.Services.Database.Host); // From base
         Assert.Equal("InitialDynamic", initialConfig.Root.Dynamic.Value); // From dynamic: DynamicSection:Deep:Nested→Root:Dynamic
         Assert.Equal("A", initialConfig.Root.Dynamic.Config.Setting1); // From dynamic, nested
         Assert.Equal(42, initialConfig.Root.Dynamic.Config.Setting2); // From dynamic, nested
 
-        // Act - Change the dynamic source
+
         dynamicSubject.OnNext("""
         {
             "DynamicSection": {
@@ -1009,7 +999,7 @@ public class MultiProviderConfigManagerTests
 
         await Task.Delay(350);
 
-        // Assert final state - verify dynamic updates with correct mounting
+
     var finalConfig = configManager.GetConfig<NestedConfig>();
     Assert.NotNull(finalConfig);
         
@@ -1181,7 +1171,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_Observable_NoEmission_WhenOnlyPropertyOrderDiffers()
     {
-        // Arrange - Create observable subject for testing
+
         var initialJson = @"{
             ""Name"": ""TestApp"",
             ""Version"": 1,
@@ -1208,7 +1198,7 @@ public class MultiProviderConfigManagerTests
         Thread.Sleep(200);
         var initialEmissionCount = emissions.Count;
 
-        // Act - Send same configuration with different property order
+
         var reorderedJson = @"{
             ""Database"": {
                 ""Timeout"": 30,
@@ -1223,7 +1213,7 @@ public class MultiProviderConfigManagerTests
         // Wait to ensure any potential emissions have time to occur
         Thread.Sleep(300);
 
-        // Assert - No new emissions should occur (hash-gated)
+
         Assert.Equal(initialEmissionCount, emissions.Count);
         
         var currentConfig = reactiveConfig.CurrentValue;
@@ -1242,7 +1232,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_Observable_NoEmission_WhenWhitespaceChanges()
     {
-        // Arrange - Create observable subject with compact JSON
+
         var compactJson = @"{""Name"":""TestApp"",""Version"":2}";
 
         using var subject = new BehaviorSubject<string>(compactJson);
@@ -1262,7 +1252,7 @@ public class MultiProviderConfigManagerTests
         Thread.Sleep(200);
         var initialEmissionCount = emissions.Count;
 
-        // Act - Send same configuration with extensive whitespace and formatting
+
         var formattedJson = @"{
             ""Name""   :   ""TestApp""  ,
             ""Version""    :    2
@@ -1273,7 +1263,7 @@ public class MultiProviderConfigManagerTests
         // Wait to ensure any potential emissions have time to occur
         Thread.Sleep(300);
 
-        // Assert - No new emissions should occur (hash-gated)
+
         Assert.Equal(initialEmissionCount, emissions.Count);
         
         var currentConfig = reactiveConfig.CurrentValue;
@@ -1291,7 +1281,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public void ConfigManager_Observable_EmissionWhen_ArrayOrderChanges_OrderSensitive()
     {
-        // Arrange - Create observable subject with array configuration
+
         var initialJson = @"{
             ""Name"": ""TestApp"",
             ""Environments"": [""dev"", ""prod"", ""test""]
@@ -1314,7 +1304,7 @@ public class MultiProviderConfigManagerTests
         Thread.Sleep(200);
         var initialEmissionCount = emissions.Count;
 
-        // Act - Send same configuration with different array order
+
         var reorderedJson = @"{
             ""Name"": ""TestApp"",
             ""Environments"": [""prod"", ""dev"", ""test""]
@@ -1325,7 +1315,7 @@ public class MultiProviderConfigManagerTests
         // Wait for potential emission
         Thread.Sleep(300);
 
-        // Assert - Should emit because array order matters (arrays are order-sensitive)
+
         Assert.True(emissions.Count > initialEmissionCount, 
             "Expected emission when array order changes because arrays are order-sensitive");
         
@@ -1350,7 +1340,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ObservableProvider_MultipleRules_SameSource_NoCrossRuleBleed()
     {
-        // Arrange - Create single observable source for two rules
+
         var initialJson = @"{
             ""AppSettings"": {
                 ""Name"": ""TestApp"",
@@ -1402,7 +1392,7 @@ public class MultiProviderConfigManagerTests
         Assert.Equal("server=test", initialDb.ConnectionString);
         Assert.Equal(30, initialDb.Timeout);
 
-        // Act - Update both sections in the shared observable source
+
         var updatedJson = @"{
             ""AppSettings"": {
                 ""Name"": ""UpdatedApp"",
@@ -1420,7 +1410,7 @@ public class MultiProviderConfigManagerTests
         await ActiveWaitHelpers.WaitUntilAsync(() => appEmissions.Count >= 2 && dbEmissions.Count >= 2, 
             description: "updated configurations after observable change");
 
-        // Assert - Both configurations should be updated independently
+
         var updatedApp = appEmissions.Last();
         var updatedDb = dbEmissions.Last();
 
@@ -1456,7 +1446,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_MultiWavePartialRecompute_CorrectlyReusesPrefixes()
     {
-        // Arrange - Setup 3 observable providers for multi-wave testing
+
         var subject1 = new BehaviorSubject<string>("""{"Rule1Value": 1}""");
         var subject2 = new BehaviorSubject<string>("""{"Rule2Value": 10}""");
         var subject3 = new BehaviorSubject<string>("""{"Rule3Value": 100}""");
@@ -1497,7 +1487,7 @@ public class MultiProviderConfigManagerTests
 
         var baselineEmissions = emissions.Count;
 
-        // Act - Multi-wave burst: consecutive waves targeting different rule indices
+
         // Wave 1: Change Rule 3 (index 2) - should only refetch Rule 3, prefix 0-1 reused
         subject3.OnNext("""{"Rule3Value": 101}""");
         await Task.Delay(10);
@@ -1521,7 +1511,7 @@ public class MultiProviderConfigManagerTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "multi-wave burst completion");
 
-        // Assert - Final configuration contains updates (debouncing may coalesce some waves)
+
         var finalConfig = emissions.Last();
         
         // Verify final values reflect the last committed changes
@@ -1570,7 +1560,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_EmissionMinimalityProof_FewerEmissionsThanChanges()
     {
-        // Arrange - Setup provider to track raw changes vs emissions
+
         var rawChangeCount = 0;
         var subject = new BehaviorSubject<string>("""{"Value": 0, "Timestamp": "initial"}""");
         
@@ -1599,10 +1589,10 @@ public class MultiProviderConfigManagerTests
         var baselineRawChanges = rawChangeCount;
         var baselineEmissions = emissions.Count;
 
-        // Act - Create rapid burst of changes within debounce window
+
         const int TOTAL_CHANGES = 10;
         
-        for (int i = 1; i <= TOTAL_CHANGES; i++)
+        for (var i = 1; i <= TOTAL_CHANGES; i++)
         {
             subject.OnNext($$$"""{"Value": {{{i}}}, "Timestamp": "change_{{{i}}}"}""");
             await Task.Delay(2); // 2ms between changes = 20ms total (less than 50ms debounce)
@@ -1619,7 +1609,7 @@ public class MultiProviderConfigManagerTests
         var actualRawChanges = rawChangeCount - baselineRawChanges;
         var actualEmissions = emissions.Count - baselineEmissions;
 
-        // Assert - CORE MINIMALITY PROOF: Fewer emissions than raw changes
+
         Assert.Equal(TOTAL_CHANGES, actualRawChanges);
         Assert.True(actualEmissions < actualRawChanges, 
             $"EMISSION MINIMALITY FAILED: Expected emissions ({actualEmissions}) to be less than raw changes ({actualRawChanges})");
@@ -1654,7 +1644,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public void Merge_ObjectVsScalar_LastRuleWins_ObjectReplacedEntirely()
     {
-        // Arrange: Object first, then scalar replacement
+
         var objectBase = """
         {
             "Database": {
@@ -1677,12 +1667,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(scalarOverride).For<ScalarMergeConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<ScalarMergeConfig>();
-    Assert.NotNull(config);
+        var config = configManager.GetConfig<ScalarMergeConfig>();
+        Assert.NotNull(config);
 
-        // Assert: Object is completely replaced by scalar - no partial merge attempt
+
         Assert.Equal("simple-connection-string", config.Database);
     }
 
@@ -1696,7 +1685,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public void Merge_ArrayVsObject_LastRuleWins_ArrayReplacedEntirely()
     {
-        // Arrange: Array first, then object replacement
+
         var arrayBase = """
         {
             "Settings": ["setting1", "setting2", "setting3"]
@@ -1718,12 +1707,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(objectOverride).For<ArrayMergeConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<ArrayMergeConfig>();
-    Assert.NotNull(config);
+        var config = configManager.GetConfig<ArrayMergeConfig>();
+        Assert.NotNull(config);
 
-        // Assert: Array is completely replaced by object - no merging of incompatible types
+
         Assert.NotNull(config.Settings);
         Assert.Equal("newValue", config.Settings.Primary);
         Assert.Equal("anotherValue", config.Settings.Secondary);
@@ -1739,7 +1727,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public void Merge_NullVsValue_NullUsesDefault_LastRuleWins()
     {
-        // Arrange: Values first, then null overrides
+
         var valuesBase = """
         {
             "Name": "Original",
@@ -1763,12 +1751,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(nullOverride).For<NullMergeConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<NullMergeConfig>();
-    Assert.NotNull(config);
+        var config = configManager.GetConfig<NullMergeConfig>();
+        Assert.NotNull(config);
 
-        // Assert: Test actual System.Text.Json null handling behavior
+
         // Note: In .NET 9.0 with nullable reference types, even "non-nullable" strings can be null
         // when deserialized from JSON null values. This is the actual behavior we're testing.
         Assert.Null(config.Name);                   // string: JSON null → C# null (actual behavior)
@@ -1787,7 +1774,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public async Task ConfigManager_SnapshotStable_DuringLiveUpdates()
     {
-        // Arrange: Observable provider that we can update
+
         var initialConfig = """{"Name": "Initial", "Value": 100}""";
         var observable = new BehaviorSubject<string>(initialConfig);
 
@@ -1798,13 +1785,13 @@ public class MultiProviderConfigManagerTests
 
         var configManager = new ConfigManager(rules).Initialize();
 
-        // Act 1: Get initial snapshot
+
     var snapshot1 = configManager.GetConfig<SnapshotConfig>();
     Assert.NotNull(snapshot1);
     Assert.Equal("Initial", snapshot1!.Name);
     Assert.Equal(100, snapshot1.Value);
 
-        // Act 2: Fire rapid updates to the observable
+
         observable.OnNext("""{"Name": "Update1", "Value": 200}""");
     var snapshot2 = configManager.GetConfig<SnapshotConfig>(); // Should still be stable during debounce
     Assert.NotNull(snapshot2);
@@ -1813,7 +1800,7 @@ public class MultiProviderConfigManagerTests
     var snapshot3 = configManager.GetConfig<SnapshotConfig>(); // Should still be stable during debounce
     Assert.NotNull(snapshot3);
 
-        // Assert: Snapshots are stable during rapid changes (debouncing period)
+
         // Note: We can't predict exact snapshot values during debouncing, but they should be consistent
         // The key test is that GetConfig() doesn't throw or return inconsistent state
         Assert.NotNull(snapshot2);
@@ -1821,14 +1808,14 @@ public class MultiProviderConfigManagerTests
         Assert.False(string.IsNullOrEmpty(snapshot2.Name));
         Assert.False(string.IsNullOrEmpty(snapshot3.Name));
 
-        // Act 3: Wait for debouncing to complete
+
         await ActiveWaitHelpers.WaitUntilAsync(() =>
         {
             var currentSnapshot = configManager.GetConfig<SnapshotConfig>();
             return currentSnapshot != null && currentSnapshot.Name == "Update2" && currentSnapshot.Value == 300;
         }, TimeSpan.FromSeconds(2));
 
-        // Assert: Final snapshot reflects the latest change after debouncing
+
     var finalSnapshot = configManager.GetConfig<SnapshotConfig>();
     Assert.NotNull(finalSnapshot);
     Assert.Equal("Update2", finalSnapshot!.Name);
@@ -1848,7 +1835,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public void Rule_SelectEmptyPath_DoesNotContributeToFinalConfig()
     {
-        // Arrange: JSON without the selected path
+
         var jsonWithoutPath = """
         {
             "ExistingSection": {
@@ -1868,12 +1855,11 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson("""{"DefaultValue": "present"}""").For<SelectMountConfig>()
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
-    var config = configManager.GetConfig<SelectMountConfig>();
-    Assert.NotNull(config);
+        var config = configManager.GetConfig<SelectMountConfig>();
+        Assert.NotNull(config);
 
-        // Assert: Empty selection should contribute nothing to the final config
+
         Assert.Equal("present", config.DefaultValue);
         Assert.Null(config.MountedSection); // Should be null since non-existent path was selected
     }
@@ -1888,7 +1874,7 @@ public class MultiProviderConfigManagerTests
     [Trait("Priority", "Medium")]
     public void Merging_FlattenedKeyOrder_Irrelevant_FinalJsonStructuralEquality()
     {
-        // Arrange: Same logical content, different property orders
+
         var config1 = """
         {
             "Database": {
@@ -1917,7 +1903,7 @@ public class MultiProviderConfigManagerTests
         }
         """;
 
-        // Act: Create two identical ConfigManagers with different property orders
+
         var configManager1 = new ConfigManager([Rule.From.StaticJson(config1).For<AppConfig>()]).Initialize();
         var configManager2 = new ConfigManager([Rule.From.StaticJson(config2).For<AppConfig>()]).Initialize();
 
@@ -1926,7 +1912,7 @@ public class MultiProviderConfigManagerTests
     Assert.NotNull(result1);
     Assert.NotNull(result2);
 
-        // Assert: Structural equality despite different source property orders
+
         Assert.Equal(result1.Database.ConnectionString, result2.Database.ConnectionString);
         Assert.Equal(result1.Database.Timeout, result2.Database.Timeout);
         Assert.Equal(result1.Database.EnableRetry, result2.Database.EnableRetry);
@@ -1998,7 +1984,9 @@ public class MultiProviderConfigManagerTests
     private static bool JsonElementsEqual(JsonElement element1, JsonElement element2)
     {
         if (element1.ValueKind != element2.ValueKind)
+        {
             return false;
+        }
 
         return element1.ValueKind switch
         {
@@ -2018,12 +2006,16 @@ public class MultiProviderConfigManagerTests
         var props2 = obj2.EnumerateObject().ToDictionary(p => p.Name, p => p.Value);
 
         if (props1.Count != props2.Count)
+        {
             return false;
+        }
 
         foreach (var kvp in props1)
         {
             if (!props2.TryGetValue(kvp.Key, out var value2) || !JsonElementsEqual(kvp.Value, value2))
+            {
                 return false;
+            }
         }
 
         return true;
@@ -2035,12 +2027,16 @@ public class MultiProviderConfigManagerTests
         var items2 = arr2.EnumerateArray().ToArray();
 
         if (items1.Length != items2.Length)
+        {
             return false;
+        }
 
-        for (int i = 0; i < items1.Length; i++)
+        for (var i = 0; i < items1.Length; i++)
         {
             if (!JsonElementsEqual(items1[i], items2[i]))
+            {
                 return false;
+            }
         }
 
         return true;
@@ -2057,7 +2053,7 @@ public class MultiProviderConfigManagerTests
         // JSON numbers are parsed based on context - integers become integers, 
         // decimals become decimals, maintaining precision
         
-        // Arrange - Create overlapping numeric data with different precisions
+
         var intJson = """{"number": 42}""";        // integer
         var decimalJson = """{"number": 42.5}""";  // decimal
 
@@ -2067,11 +2063,10 @@ public class MultiProviderConfigManagerTests
             Rule.From.StaticJson(decimalJson).For<JsonElement>()   // Last wins: decimal
         };
 
-        // Act
         var configManager = new ConfigManager(rules).Initialize();
         var result = configManager.GetConfig<JsonElement>();
 
-        // Assert - Last rule wins with precise decimal value
+
         Assert.Equal(JsonValueKind.Number, result.GetProperty("number").ValueKind);
         Assert.Equal(42.5, result.GetProperty("number").GetDouble());
         

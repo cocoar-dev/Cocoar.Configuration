@@ -1,15 +1,7 @@
-using System;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Cocoar.Configuration;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Health;
-using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Abstractions;
-using Xunit;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -43,14 +35,14 @@ public sealed class ConfigManagerHealthRuntimeRecoveryTests
     {
         var options = new WorkingProviderOptions("""{"Name": "Working"}""");
         var query = new WorkingProviderQuery();
-        return new ConfigRule(typeof(WorkingProvider), options, query, typeof(SmallConfig), new ConfigRuleOptions(Required: required));
+        return new(typeof(WorkingProvider), options, query, typeof(SmallConfig), new(Required: required));
     }
     
     private static ConfigRule BuildAlwaysFailingRule(bool required, Exception ex)
     {
         var providerOptions = new AlwaysFailingProviderOptions(ex);
         var query = new AlwaysFailingProviderQuery();
-        return new ConfigRule(typeof(AlwaysFailingProvider), providerOptions, query, typeof(SmallConfig), new ConfigRuleOptions(Required: required));
+        return new(typeof(AlwaysFailingProvider), providerOptions, query, typeof(SmallConfig), new(Required: required));
     }
 }
 

@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-
 namespace Cocoar.Configuration.Providers.Tests;
 
 /// <summary>
@@ -25,7 +22,7 @@ public sealed class TempDirectoryHelper : IDisposable
             "cocoar_test_dir_" + Guid.NewGuid().ToString("N"));
         
         Directory.CreateDirectory(tempPath);
-        return new TempDirectoryHelper(tempPath);
+        return new(tempPath);
     }
 
     /// <summary>
@@ -35,7 +32,7 @@ public sealed class TempDirectoryHelper : IDisposable
     {
         var subPath = System.IO.Path.Combine(Path, name);
         Directory.CreateDirectory(subPath);
-        return new TempDirectoryHelper(subPath);
+        return new(subPath);
     }
 
     /// <summary>

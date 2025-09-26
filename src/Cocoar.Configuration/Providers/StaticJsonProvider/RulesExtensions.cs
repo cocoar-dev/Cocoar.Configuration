@@ -17,11 +17,11 @@ public static class StaticRulesExtensions
         StaticJsonProvider,
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
-    > Static<T>(this Rule.Dsl dsl, Func<ConfigManager, T> factory)
+    > Static<T>(this Rule.Dsl dsl, Func<IConfigurationAccessor, T> factory)
     {
         return new(
-            cm => new StaticJsonProviderOptions(JsonSerializer.SerializeToElement(factory(cm)!)),
-            _ => new StaticJsonProviderQueryOptions()
+            cm => new(JsonSerializer.SerializeToElement(factory(cm)!)),
+            _ => new()
         );
     }
 
@@ -43,8 +43,8 @@ public static class StaticRulesExtensions
         var jsonElement = document.RootElement.Clone();
         
         return new(
-            _ => new StaticJsonProviderOptions(jsonElement),
-            _ => new StaticJsonProviderQueryOptions()
+            _ => new(jsonElement),
+            _ => new()
         );
     }
 }

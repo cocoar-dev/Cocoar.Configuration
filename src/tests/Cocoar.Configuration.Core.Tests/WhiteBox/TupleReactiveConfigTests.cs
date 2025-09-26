@@ -1,8 +1,5 @@
-using System.Reactive.Linq;
-using Cocoar.Configuration.Core.Tests.TestUtilities;
-using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -28,10 +25,10 @@ public class TupleReactiveConfigTests
     {
         var subject = new System.Reactive.Subjects.BehaviorSubject<T>(value);
         var rule = ConfigRule.Create<global::Cocoar.Configuration.Providers.ObservableProvider<T>, global::Cocoar.Configuration.Providers.ObservableProviderOptions<T>, global::Cocoar.Configuration.Providers.ObservableProviderQuery>(
-            _ => new global::Cocoar.Configuration.Providers.ObservableProviderOptions<T>(subject),
+            _ => new(subject),
             _ => global::Cocoar.Configuration.Providers.ObservableProviderQuery.Default,
             typeof(T),
-            new ConfigRuleOptions { Required = true });
+            new() { Required = true });
         return (rule, subject);
     }
 
@@ -44,7 +41,7 @@ public class TupleReactiveConfigTests
         var reactive = mgr.GetReactiveConfig<(A,B)>();
         var emitted = new List<(A,B)>();
         using var sub = reactive.Subscribe(v => emitted.Add(v));
-        subjA.OnNext(new A(2));
+        subjA.OnNext(new(2));
         await Task.Delay(180); // debounce + recompute
         Assert.Contains(emitted, t => t.Item1.V == 2 && t.Item2.S == "x");
     }
@@ -62,9 +59,9 @@ public class TupleReactiveConfigTests
         var reactive = mgr.GetReactiveConfig<(A,B,C,D,E)>();
         var list = new List<(A,B,C,D,E)>();
         using var sub = reactive.Subscribe(v => list.Add(v));
-        s1.OnNext(new A(9));
-        s3.OnNext(new C(false));
-        s5.OnNext(new E(42));
+        s1.OnNext(new(9));
+        s3.OnNext(new(false));
+        s5.OnNext(new(42));
         await Task.Delay(220);
         var matching = list.Where(v => v.Item1.V==9 && v.Item3.Flag==false && v.Item5.Z==42).ToList();
         Assert.Equal(1, matching.Count);
@@ -86,7 +83,7 @@ public class TupleReactiveConfigTests
         var reactive = mgr.GetReactiveConfig<(A,B,C,D,E,F,G,H)>();
         var emissions = new List<(A,B,C,D,E,F,G,H)>();
         using var sub = reactive.Subscribe(e => emissions.Add(e));
-        s8.OnNext(new H(9999));
+        s8.OnNext(new(9999));
         await Task.Delay(180);
         Assert.Contains(emissions, t => t.Item8.L == 9999);
     }

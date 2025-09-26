@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Reactive.Linq;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
@@ -105,7 +106,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_RequiredRuleWithCorruptJson_ThrowsJsonException()
     {
-        // Arrange: Provider that will return corrupted JSON
+
         var corruptJsonString = """{"Name": "Test", "Value": invalid_number}"""; // Invalid JSON
         var options = new JsonCorruptionProviderOptions(
             validJson: """{"Name": "Good", "Value": 100}""",
@@ -115,15 +116,15 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
         {
             ConfigRule.Create<JsonCorruptionProvider, JsonCorruptionProviderOptions, JsonCorruptionProviderQuery>(
                 options,
-                new JsonCorruptionProviderQuery(returnCorruptJson: true), // Will try to parse corrupt JSON
+                new(returnCorruptJson: true), // Will try to parse corrupt JSON
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true))
+                new(Required: true))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act & Assert: Should throw JsonException (not InvalidOperationException)
+
         var exception = Assert.Throws<InvalidOperationException>(() => configManager.Initialize());
         
         // The inner exception should be a JSON-related exception from the malformed JSON
@@ -145,7 +146,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_OptionalRuleWithCorruptJson_SkipsCorruptRuleAndContinues()
     {
-        // Arrange: One corrupt optional rule + one valid rule
+
         var corruptJsonString = """{"Name": "Test", "broken": }"""; // Invalid JSON syntax
         var validJsonString = """{"Name": "ValidRule", "Value": 200}""";
 
@@ -153,27 +154,27 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
         {
             // First rule: Optional with corrupt JSON - should be skipped
             ConfigRule.Create<JsonCorruptionProvider, JsonCorruptionProviderOptions, JsonCorruptionProviderQuery>(
-                new JsonCorruptionProviderOptions(validJsonString, corruptJsonString),
+                new(validJsonString, corruptJsonString),
                 new JsonCorruptionProviderQuery(returnCorruptJson: true),
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)), // Optional
+                new(Required: false)), // Optional
 
             // Second rule: Valid JSON - should be used
             ConfigRule.Create<JsonCorruptionProvider, JsonCorruptionProviderOptions, JsonCorruptionProviderQuery>(
-                new JsonCorruptionProviderOptions(validJsonString, corruptJsonString),
+                new(validJsonString, corruptJsonString),
                 new JsonCorruptionProviderQuery(returnCorruptJson: false), // Good JSON
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false))
+                new(Required: false))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act: Should succeed despite the corrupt JSON in the first rule
+
         configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert: Should get configuration from the valid rule
+
         Assert.NotNull(config);
         Assert.Equal("ValidRule", config.Name);
         Assert.Equal(200, config.Value);
@@ -190,7 +191,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
     [Trait("Priority", "Medium")]
     public void ConfigManager_ProviderFailureVsJsonCorruption_BothHandledSimilarly()
     {
-        // Arrange: Two optional rules - one fails at provider level, one fails at JSON level
+
         var rules = new List<ConfigRule>
         {
             // Rule 1: Provider-level failure (using FailableProvider)
@@ -198,33 +199,33 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 FailableProviderOptions.AlwaysFail("""{"Name": "WontWork", "Value": 1}"""),
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)),
+                new(Required: false)),
 
             // Rule 2: JSON-level failure (using JsonCorruptionProvider)
             ConfigRule.Create<JsonCorruptionProvider, JsonCorruptionProviderOptions, JsonCorruptionProviderQuery>(
-                new JsonCorruptionProviderOptions(
+                new(
                     validJson: """{"Name": "Good", "Value": 2}""",
                     corruptJson: """{"Name": "Bad", "Value": corrupt}"""),
                 new JsonCorruptionProviderQuery(returnCorruptJson: true),
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)),
+                new(Required: false)),
 
             // Rule 3: Working rule
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.AlwaysSucceed("""{"Name": "Success", "Value": 999}"""),
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false))
+                new(Required: false))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act: Should succeed by using the third rule
+
         configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert: Should get configuration from the working rule
+
         Assert.NotNull(config);
         Assert.Equal("Success", config.Name);
         Assert.Equal(999, config.Value);

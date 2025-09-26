@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Cocoar.Configuration.Providers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -79,7 +78,7 @@ public class FileProviderEdgeCaseTests
         };
 
         // Add many properties to make it large
-        for (int i = 0; i < 10000; i++)
+        for (var i = 0; i < 10000; i++)
         {
             largeData[$"property_{i:D5}"] = new 
             {

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
@@ -51,20 +51,20 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_RequiredRuleFails_ThrowsInvalidOperationException()
     {
-        // Arrange: A required rule that will fail
+
         var rules = new List<ConfigRule>
         {
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled("""{"Name": "Test"}"""),
                 FailableProviderQuery.Failure, // This will cause the provider to fail
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true))
+                new(Required: true))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act & Assert: Initialize should throw when required rule fails
+
         var exception = Assert.Throws<InvalidOperationException>(() => configManager.Initialize());
         
         // Verify exception message contains provider information
@@ -83,7 +83,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_OptionalRuleFails_ContinuesProcessing()
     {
-        // Arrange: One failing optional rule + one successful rule
+
         var successData = """{"Name": "Success", "Value": 42}""";
         
         var rules = new List<ConfigRule>
@@ -93,24 +93,24 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 FailableProviderOptions.QueryControlled("""{"Name": "Fail"}"""),
                 FailableProviderQuery.Failure,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)), // Optional rule
+                new(Required: false)), // Optional rule
             
             // Second rule: Will succeed - should be used
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled(successData),
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false))
+                new(Required: false))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act: Initialize should succeed despite the first rule failing
+
         configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert: Should get configuration from the successful rule
+
         Assert.NotNull(config);
         Assert.Equal("Success", config.Name);
         Assert.Equal(42, config.Value);
@@ -127,7 +127,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     [Trait("Priority", "Medium")]
     public void ConfigManager_RequiredSucceedsOptionalFails_UsesRequiredRule()
     {
-        // Arrange: One successful required rule + one failing optional rule
+
         var requiredData = """{"Name": "Required", "Value": 100}""";
         
         var rules = new List<ConfigRule>
@@ -137,24 +137,24 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 FailableProviderOptions.QueryControlled(requiredData),
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true)), // Required rule
+                new(Required: true)), // Required rule
             
             // Second rule: Optional and will fail - should be skipped
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled("""{"Name": "OptionalFail"}"""),
                 FailableProviderQuery.Failure,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)) // Optional rule
+                new(Required: false)) // Optional rule
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act: Initialize should succeed with required rule data
+
         configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert: Should get configuration from the required rule only
+
         Assert.NotNull(config);
         Assert.Equal("Required", config.Name);
         Assert.Equal(100, config.Value);
@@ -171,7 +171,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     [Trait("Priority", "Medium")]
     public void ConfigManager_MultipleOptionalRulesFail_SkipsAllAndContinues()
     {
-        // Arrange: Multiple failing optional rules + one successful rule
+
         var successData = """{"Name": "OnlySuccess", "Value": 999}""";
         
         var rules = new List<ConfigRule>
@@ -179,32 +179,32 @@ public class ConfigManagerErrorHandlingTests : IDisposable
             // Multiple optional rules that will fail
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled("""{"Name": "Fail1"}"""),
-                new FailableProviderQuery(true, "First failure"),
+                new(true, "First failure"),
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)),
+                new(Required: false)),
             
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled("""{"Name": "Fail2"}"""),
-                new FailableProviderQuery(true, "Second failure"),
+                new(true, "Second failure"),
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false)),
+                new(Required: false)),
             
             // One successful rule at the end
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled(successData),
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: false))
+                new(Required: false))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act: Initialize should succeed despite multiple failures
+
         configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Assert: Should get configuration from the only successful rule
+
         Assert.NotNull(config);
         Assert.Equal("OnlySuccess", config.Name);
         Assert.Equal(999, config.Value);

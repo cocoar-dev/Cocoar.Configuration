@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
@@ -46,14 +47,14 @@ public class HttpProviderSmokeTests
     [Trait("Provider", "HttpPollingProvider")]
     public async Task FetchConfigurationAsync_ReadsJson_FromHandler()
     {
-        var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        var handler = new FakeHandler(new(HttpStatusCode.OK)
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
         var provider =
-            new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromMilliseconds(50),
+            new HttpPollingProvider(new("https://example.com", TimeSpan.FromMilliseconds(50),
                 handler));
-        var result = await provider.FetchConfigurationAsync(new HttpPollingProviderQueryOptions("/api/config"));
+        var result = await provider.FetchConfigurationAsync(new("/api/config"));
         Assert.Equal(JsonValueKind.Object, result.ValueKind);
         Assert.True(result.TryGetProperty("Value", out var v));
         Assert.Equal(1, v.GetInt32());
@@ -78,7 +79,7 @@ public class HttpProviderSmokeTests
         services.AddCocoarConfiguration([
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
             Rule.From
-                .MicrosoftSource(cm => new MicrosoftConfigurationSourceRuleOptions(
+                .MicrosoftSource(cm => new(
                     new ConfigurationBuilder()
                         .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "/api/config" })
                         .Sources[0],
@@ -86,7 +87,7 @@ public class HttpProviderSmokeTests
                 ))
                 .For<MyHttpPollingSettings>(),
             Rule.From
-                .HttpPolling(configManager => new HttpPollingRuleOptions(
+                .HttpPolling(configManager => new(
                     urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
                     baseAddress: "https://example.com",
                     // Give CI plenty of time; we will actively wait for the change
@@ -100,14 +101,17 @@ public class HttpProviderSmokeTests
         var manager = sp.GetRequiredService<ConfigManager>();
         var first = manager.GetConfig<MyCfg>();
         Assert.Equal(1, first!.Value);
-        // Actively wait (up to 3s) for value to become 2 to avoid timing flakiness
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
         MyCfg? second = null;
         while (sw.Elapsed < TimeSpan.FromSeconds(3))
         {
             await Task.Delay(40);
             second = manager.GetConfig<MyCfg>();
-            if (second?.Value == 2) break;
+            if (second?.Value == 2)
+            {
+                break;
+            }
         }
 
         Assert.Equal(2, second?.Value);
@@ -118,22 +122,22 @@ public class HttpProviderSmokeTests
     [Trait("Provider", "HttpPollingProvider")]
     public async Task Changes_DoesNotEmit_OnSubscribe()
     {
-        // arrange: handler returns a valid body, but we only test the Changes() initial behavior
-        var handler = new FakeHandler(new HttpResponseMessage(HttpStatusCode.OK)
+
+        var handler = new FakeHandler(new(HttpStatusCode.OK)
         {
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
         // Use a large interval so even on slow CI a short wait won't reach first tick
         var provider =
-            new HttpPollingProvider(new HttpPollingProviderOptions("https://example.com", TimeSpan.FromSeconds(2),
+            new HttpPollingProvider(new("https://example.com", TimeSpan.FromSeconds(2),
                 handler));
 
         var emitted = false;
         using var sub = provider
-            .Changes(new HttpPollingProviderQueryOptions("/api/config"))
+            .Changes(new("/api/config"))
             .Subscribe(_ => emitted = true);
 
-        // assert: no initial emission before first interval elapses
+
         await Task.Delay(150); // still far below 2s interval
         Assert.False(emitted);
     }

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
@@ -50,7 +50,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_RequiredRuleAlwaysFails_ThrowsDuringInitialization()
     {
-        // Arrange: Provider configured to always fail
+
         var options = FailableProviderOptions.AlwaysFail(
             json: """{"Name": "WontWork", "Value": 999}""");
 
@@ -60,10 +60,10 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
                 options,
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true)) // Required rule
+                new(Required: true)) // Required rule
         };
 
-        // Act & Assert: Should throw during initialization
+
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
             var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -88,7 +88,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
     [Trait("Priority", "High")]
     public void ConfigManager_RuntimeFailureSimulation_InitialSuccessThenFailure()
     {
-        // Arrange Part 1: Provider that succeeds initially
+
         var successOptions = FailableProviderOptions.AlwaysSucceed(
             json: """{"Name": "InitialGood", "Value": 100}""");
 
@@ -98,22 +98,22 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
                 successOptions,
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true))
+                new(Required: true))
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
         TrackForDisposal(configManager);
 
-        // Act Part 1: Initialize successfully
+
         configManager.Initialize();
         var initialConfig = configManager.GetConfig<TestConfig>();
 
-        // Assert Part 1: Should work fine initially
+
         Assert.NotNull(initialConfig);
         Assert.Equal("InitialGood", initialConfig.Name);
         Assert.Equal(100, initialConfig.Value);
 
-        // Arrange Part 2: Simulate what would happen if the same provider started failing
+
         // (In real scenarios, this would happen during recompute due to file corruption)
         var failingOptions = FailableProviderOptions.AlwaysFail(
             json: """{"Name": "WontWork", "Value": 999}""");
@@ -124,17 +124,17 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
                 failingOptions,
                 FailableProviderQuery.Success,
                 typeof(TestConfig),
-                new ConfigRuleOptions(Required: true))
+                new(Required: true))
         };
 
-        // Act Part 2: Try to create a new ConfigManager with the failing provider
+
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
             var failingConfigManager = new ConfigManager(failingRules, logger: NullLogger.Instance);
             failingConfigManager.Initialize();
         });
 
-        // Assert Part 2: Should fail with expected error
+
         Assert.Contains("Required rule failed for FailableProvider", exception.Message);
         Assert.NotNull(exception.InnerException);
         Assert.Contains("FailableProvider configured to fail", exception.InnerException.Message);
@@ -155,7 +155,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
     [Trait("Priority", "Medium")]
     public async Task ConfigManager_FailAfterNCalls_BehavesAsExpected()
     {
-        // Arrange: Provider that fails after 1 successful call
+
         var options = FailableProviderOptions.FailAfterNCalls(
             json: """{"Name": "ProgressiveFailure", "Value": 200}""",
             callsBeforeFailure: 1);
@@ -164,12 +164,12 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
         var provider = new FailableProvider(options);
         var query = FailableProviderQuery.Success;
 
-        // Act & Assert: First call should succeed
+
         var firstResult = await provider.FetchConfigurationAsync(query);
         Assert.Equal("ProgressiveFailure", firstResult.GetProperty("Name").GetString());
         Assert.Equal(200, firstResult.GetProperty("Value").GetInt32());
 
-        // Act & Assert: Second call should fail
+
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await provider.FetchConfigurationAsync(query));
         

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Subjects;
 
 namespace Cocoar.Configuration.Health;
@@ -21,102 +18,115 @@ public enum RuleResultStatus
     Skipped = 3
 }
 
-public sealed class RuleHealthEntry
+public sealed class RuleHealthEntry(
+    int index,
+    string? name,
+    bool required,
+    RuleResultStatus status,
+    DateTime? lastSuccessUtc,
+    DateTime? lastFailureUtc,
+    int failureCount,
+    string? errorCode,
+    string? errorMessage)
 {
-    public int Index { get; }
-    public string? Name { get; }
-    public bool Required { get; }
-    public RuleResultStatus Status { get; }
-    public DateTime? LastSuccessUtc { get; }
-    public DateTime? LastFailureUtc { get; }
-    public int FailureCount { get; }
-    public string? ErrorCode { get; }
-    public string? ErrorMessage { get; }
-
-    public RuleHealthEntry(int index, string? name, bool required, RuleResultStatus status,
-        DateTime? lastSuccessUtc, DateTime? lastFailureUtc, int failureCount, string? errorCode, string? errorMessage)
-    {
-        Index = index;
-        Name = name;
-        Required = required;
-        Status = status;
-        LastSuccessUtc = lastSuccessUtc;
-        LastFailureUtc = lastFailureUtc;
-        FailureCount = failureCount;
-        ErrorCode = errorCode;
-        ErrorMessage = errorMessage;
-    }
+    public int Index { get; } = index;
+    public string? Name { get; } = name;
+    public bool Required { get; } = required;
+    public RuleResultStatus Status { get; } = status;
+    public DateTime? LastSuccessUtc { get; } = lastSuccessUtc;
+    public DateTime? LastFailureUtc { get; } = lastFailureUtc;
+    public int FailureCount { get; } = failureCount;
+    public string? ErrorCode { get; } = errorCode;
+    public string? ErrorMessage { get; } = errorMessage;
 
     public RuleHealthEntry WithStatus(RuleResultStatus status, DateTime utcNow, string? errorCode = null, string? errorMessage = null)
     {
         var lastSuccess = status == RuleResultStatus.Up ? utcNow : LastSuccessUtc;
         var lastFailure = status == RuleResultStatus.Down ? utcNow : LastFailureUtc;
         var failureCount = status == RuleResultStatus.Down ? FailureCount + 1 : (status == RuleResultStatus.Up ? 0 : FailureCount);
-        return new RuleHealthEntry(Index, Name, Required, status, lastSuccess, lastFailure, failureCount, errorCode, errorMessage);
+        return new(Index, Name, Required, status, lastSuccess, lastFailure, failureCount, errorCode, errorMessage);
     }
 }
 
-public sealed class ConfigHealthSnapshot
+public sealed class ConfigHealthSnapshot(
+    long id,
+    DateTime timestampUtc,
+    long configVersion,
+    IReadOnlyList<RuleHealthEntry> rules)
 {
-    public long Id { get; }
-    public DateTime TimestampUtc { get; }
-    public long ConfigVersion { get; }
-    public HealthStatus OverallStatus { get; }
-    public IReadOnlyList<RuleHealthEntry> Rules { get; }
-    public SummaryInfo Summary { get; }
+    public long Id { get; } = id;
+    public DateTime TimestampUtc { get; } = timestampUtc;
+    public long ConfigVersion { get; } = configVersion;
+    public HealthStatus OverallStatus { get; } = DeriveStatus(rules);
+    public IReadOnlyList<RuleHealthEntry> Rules { get; } = rules;
+    public SummaryInfo Summary { get; } = BuildSummary(rules);
 
-    public sealed class SummaryInfo
+    public sealed class SummaryInfo(int total, int requiredFailed, int optionalFailed, int skipped)
     {
-        public int Total { get; }
-        public int RequiredFailed { get; }
-        public int OptionalFailed { get; }
-        public int Skipped { get; }
-        public SummaryInfo(int total, int requiredFailed, int optionalFailed, int skipped)
-        { Total = total; RequiredFailed = requiredFailed; OptionalFailed = optionalFailed; Skipped = skipped; }
-    }
-
-    public ConfigHealthSnapshot(long id, DateTime timestampUtc, long configVersion, IReadOnlyList<RuleHealthEntry> rules)
-    {
-        Id = id;
-        TimestampUtc = timestampUtc;
-        ConfigVersion = configVersion;
-        Rules = rules;
-        Summary = BuildSummary(rules);
-        OverallStatus = DeriveStatus(rules);
+        public int Total { get; } = total;
+        public int RequiredFailed { get; } = requiredFailed;
+        public int OptionalFailed { get; } = optionalFailed;
+        public int Skipped { get; } = skipped;
     }
 
     private static SummaryInfo BuildSummary(IReadOnlyList<RuleHealthEntry> rules)
     {
-        int total = rules.Count;
-        int requiredFailed = rules.Count(r => r.Required && r.Status == RuleResultStatus.Down);
-        int optionalFailed = rules.Count(r => !r.Required && r.Status == RuleResultStatus.Down);
-        int skipped = rules.Count(r => r.Status == RuleResultStatus.Skipped);
-        return new SummaryInfo(total, requiredFailed, optionalFailed, skipped);
+        var total = rules.Count;
+        var requiredFailed = rules.Count(r => r is { Required: true, Status: RuleResultStatus.Down });
+        var optionalFailed = rules.Count(r => r is { Required: false, Status: RuleResultStatus.Down });
+        var skipped = rules.Count(r => r.Status == RuleResultStatus.Skipped);
+        return new(total, requiredFailed, optionalFailed, skipped);
     }
 
     private static HealthStatus DeriveStatus(IReadOnlyList<RuleHealthEntry> rules)
     {
-        if (rules.Count == 0) return HealthStatus.Unknown;
-        bool anyRequiredDown = false;
-        bool anyOptionalDown = false;
-        bool anyUnknown = false;
-        for (int i = 0; i < rules.Count; i++)
+        if (rules.Count == 0)
         {
-            var r = rules[i];
+            return HealthStatus.Unknown;
+        }
+
+        var anyRequiredDown = false;
+        var anyOptionalDown = false;
+        var anyUnknown = false;
+        foreach (var r in rules)
+        {
             switch (r.Status)
             {
                 case RuleResultStatus.Down:
-                    if (r.Required) anyRequiredDown = true; else anyOptionalDown = true;
+                    if (r.Required)
+                    {
+                        anyRequiredDown = true;
+                    }
+                    else
+                    {
+                        anyOptionalDown = true;
+                    }
+
                     break;
                 case RuleResultStatus.Unknown:
                     anyUnknown = true;
                     break;
             }
-            if (anyRequiredDown) break; // highest precedence
+            if (anyRequiredDown)
+            {
+                break; // highest precedence
+            }
         }
-        if (anyRequiredDown) return HealthStatus.Unhealthy;
-        if (anyOptionalDown) return HealthStatus.Degraded;
-        if (anyUnknown) return HealthStatus.Unknown;
+        if (anyRequiredDown)
+        {
+            return HealthStatus.Unhealthy;
+        }
+
+        if (anyOptionalDown)
+        {
+            return HealthStatus.Degraded;
+        }
+
+        if (anyUnknown)
+        {
+            return HealthStatus.Unknown;
+        }
+
         return HealthStatus.Healthy;
     }
 }
@@ -130,15 +140,11 @@ public interface IConfigurationHealthService
     bool IsHealthy { get; }
 }
 
-internal sealed class ConfigurationHealthService : IConfigurationHealthService, IDisposable
+internal sealed class ConfigurationHealthService(ConfigHealthSnapshot initial)
+    : IConfigurationHealthService, IDisposable
 {
-    private readonly BehaviorSubject<ConfigHealthSnapshot> _subject;
-    private readonly BehaviorSubject<HealthStatus> _statusSubject;
-    public ConfigurationHealthService(ConfigHealthSnapshot initial)
-    {
-        _subject = new BehaviorSubject<ConfigHealthSnapshot>(initial);
-        _statusSubject = new BehaviorSubject<HealthStatus>(initial.OverallStatus);
-    }
+    private readonly BehaviorSubject<ConfigHealthSnapshot> _subject = new(initial);
+    private readonly BehaviorSubject<HealthStatus> _statusSubject = new(initial.OverallStatus);
 
     public HealthStatus Status => _statusSubject.Value;
     public ConfigHealthSnapshot Snapshot => _subject.Value;
@@ -152,10 +158,10 @@ internal sealed class ConfigurationHealthService : IConfigurationHealthService, 
         // Suppress identical snapshots (same overall + rule statuses + config version)
         if (current.OverallStatus == snapshot.OverallStatus && current.ConfigVersion == snapshot.ConfigVersion)
         {
-            bool same = current.Rules.Count == snapshot.Rules.Count;
+            var same = current.Rules.Count == snapshot.Rules.Count;
             if (same)
             {
-                for (int i = 0; i < current.Rules.Count; i++)
+                for (var i = 0; i < current.Rules.Count; i++)
                 {
                     var a = current.Rules[i];
                     var b = snapshot.Rules[i];
@@ -163,11 +169,16 @@ internal sealed class ConfigurationHealthService : IConfigurationHealthService, 
                     { same = false; break; }
                 }
             }
-            if (same) return;
+            if (same)
+            {
+                return;
+            }
         }
         _subject.OnNext(snapshot);
         if (_statusSubject.Value != snapshot.OverallStatus)
+        {
             _statusSubject.OnNext(snapshot.OverallStatus);
+        }
     }
 
     public void Dispose()
@@ -179,11 +190,6 @@ internal sealed class ConfigurationHealthService : IConfigurationHealthService, 
     }
 }
 
-public sealed class DuplicateRuleNameException : Exception
-{
-    public DuplicateRuleNameException(string name)
-        : base($"Duplicate rule name detected: '{name}'. Rule names must be unique (case-insensitive).") { }
-}
 
 internal static class HealthErrorCodes
 {
