@@ -1,4 +1,5 @@
-using System.Reactive.Subjects;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.TestUtilities;
 
@@ -265,12 +266,10 @@ public static class ObservableTestHelpers
     /// <typeparam name="T">The type of values to emit</typeparam>
     /// <param name="initialValue">Initial value (optional)</param>
     /// <returns>BehaviorSubject for test control</returns>
-    public static BehaviorSubject<T> CreateObservableSubject<T>(T? initialValue = default)
-    {
-        return initialValue is not null 
+    public static BehaviorSubject<T> CreateObservableSubject<T>(T? initialValue = default) =>
+        initialValue is not null 
             ? new BehaviorSubject<T>(initialValue) 
             : throw new ArgumentException("BehaviorSubject requires an initial value. Use CreateEmptyObservableSubject<T>() if no initial value is desired.");
-    }
 
     /// <summary>
     /// Create an observable test helper that starts without an initial value.
@@ -278,8 +277,5 @@ public static class ObservableTestHelpers
     /// </summary>
     /// <typeparam name="T">The type of values to emit</typeparam>
     /// <returns>Subject for test control</returns>
-    public static Subject<T> CreateEmptyObservableSubject<T>()
-    {
-        return new();
-    }
+    public static Subject<T> CreateEmptyObservableSubject<T>() => new();
 }

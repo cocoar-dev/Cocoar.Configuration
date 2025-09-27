@@ -23,13 +23,13 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration([
+        services.AddCocoarConfiguration(rule => [
 
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiConfiguration>()
                 .Required(),
 
-            Rule.From.Static<RemoteFeatureFlags>(_ => new RemoteFeatureFlags
+            rule.Static<RemoteFeatureFlags>(_ => new RemoteFeatureFlags
             {
                 EnableNewDashboard = true,
                 EnableBetaFeatures = false,

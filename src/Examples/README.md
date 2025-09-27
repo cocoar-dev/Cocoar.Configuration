@@ -11,12 +11,10 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **GenericProviderAPI** – Using the generic provider registration API
 - **HttpPollingExample** – Demonstrates pattern for remote/polling configuration
 - **MicrosoftAdapterExample** – Integrating `IConfigurationSource` providers
-- **ServiceLifetimes** – Controlling DI lifetimes and keyed registrations
 - **StaticProviderExample** – Static seeding with JSON strings and factory functions
-- **DIExample** – Comprehensive DI integration patterns with advanced service registration
 - **SimplifiedCoreExample** – Pure core library usage without DI (ConfigManager only)
-- **BindingExample** – Interface binding without DI frameworks
- - **TupleReactiveExample** – Tuple-based reactive multi-config snapshot & aligned emission demo
+- **ExposeExample** – Interface exposure without DI frameworks
+- **TupleReactiveExample** – Tuple-based reactive multi-config snapshot & aligned emission demo
 
 ## Running an Example
 ```pwsh

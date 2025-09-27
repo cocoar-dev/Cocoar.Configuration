@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Providers.Abstractions;
 using Microsoft.Extensions.Configuration;
 
@@ -112,5 +113,22 @@ public sealed class MicrosoftConfigurationSourceProvider(
         var json = JsonSerializer.Serialize(root);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// Helper method to create a Microsoft configuration source rule for testing purposes.
+    /// </summary>
+    public static Cocoar.Configuration.Rules.ConfigRule CreateRule<T>(
+        Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory, 
+        bool required = false)
+    {
+        return Cocoar.Configuration.Rules.ConfigRule.Create<MicrosoftConfigurationSourceProvider, 
+            MicrosoftConfigurationSourceProviderOptions, 
+            MicrosoftConfigurationSourceProviderQueryOptions>(
+            cm => optionsFactory(cm).ToProviderOptions(),
+            cm => optionsFactory(cm).ToQueryOptions(),
+            typeof(T),
+            new Cocoar.Configuration.Rules.ConfigRuleOptions(Required: required, UseWhen: null)
+        );
     }
 }

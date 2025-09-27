@@ -1,35 +1,11 @@
 using System.Text.Json;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Health;
-using Cocoar.Configuration.Providers;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
-/// <summary>
-/// ConfigManagerHealthIntegrationTests
-/// -----------------------------------
-/// PURPOSE
-///   Integration tests for ConfigManager health monitoring system validating
-///   health status aggregation across multiple providers and health report
-///   generation under various operational scenarios.
-/// 
-/// SCOPE
-///   - Health status aggregation (Healthy/Degraded/Unhealthy)
-///   - Health check integration with ConfigManager lifecycle
-///   - Multi-provider health scenario testing
-///   - Health report generation and structure validation
-/// 
-/// COVERAGE
-///   - Static provider health integration
-///   - Observable provider health monitoring
-///   - Health status transitions and reporting
-///   - Health check timing and lifecycle coordination
-/// 
-/// CONSTRAINTS
-///   - Uses ONLY StaticJsonProvider and ObservableProvider (Core.Tests architecture)
-///   - Focuses on health system integration, not provider-specific health logic
-///   - Validates health aggregation behavior across provider combinations
-/// </summary>
 public class ConfigManagerHealthIntegrationTests
 {
     private class SimpleConfig
@@ -49,7 +25,7 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager([rule]);
+        using var configManager = new ConfigManager(new[] {rule});
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.NotNull(health);
@@ -70,7 +46,7 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager([rule]);
+        using var configManager = new ConfigManager(new[] {rule});
         var healthUpdates = new List<ConfigHealthSnapshot>();
 
         using var subscription = configManager.GetHealthService().SnapshotStream
@@ -102,7 +78,7 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager([rule]);
+        using var configManager = new ConfigManager(new[] {rule});
         configManager.Initialize();
         var health = configManager.GetHealthService().Snapshot;
 
@@ -128,7 +104,7 @@ public class ConfigManagerHealthIntegrationTests
         var optionalRule = new ConfigRule(typeof(StaticJsonProvider), optionalProviderOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager([requiredRule, optionalRule]);
+        using var configManager = new ConfigManager(new[] {requiredRule, optionalRule});
         configManager.Initialize();
         var health = configManager.GetHealthService().Snapshot;
 

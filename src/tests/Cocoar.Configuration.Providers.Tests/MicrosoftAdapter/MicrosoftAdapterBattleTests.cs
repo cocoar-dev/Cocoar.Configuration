@@ -7,33 +7,6 @@ using Cocoar.Configuration.MicrosoftAdapter;
 
 namespace Cocoar.Configuration.Providers.Tests.MicrosoftAdapter;
 
-/// <summary>
-/// MicrosoftAdapterBattleTests
-/// ---------------------------
-/// PURPOSE
-///   Comprehensive tests for MicrosoftConfigurationSourceProvider covering
-///   integration scenarios with various Microsoft configuration sources,
-///   prefix filtering, change notifications, and JSON conversion edge cases.
-/// 
-/// SCOPE
-///   - Microsoft.Extensions.Configuration integration (InMemory, JSON file-like)
-///   - Configuration prefix filtering and section isolation
-///   - Hierarchical configuration flattening and JSON conversion
-///   - Change notification integration via IChangeToken
-///   - Edge cases: empty configs, null values, complex nesting
-/// 
-/// COVERAGE
-///   - InMemoryConfigurationProvider integration
-///   - Configuration prefix handling (with/without prefixes)
-///   - Nested configuration structures and JSON conversion
-///   - Change detection through Microsoft's reload tokens
-///   - ConfigManager integration with Microsoft sources
-/// 
-/// CONSTRAINTS
-///   - Tests Microsoft configuration integration, not Cocoar core functionality
-///   - Uses InMemory provider for deterministic testing
-///   - Focuses on adapter behavior and Microsoft interoperability
-/// </summary>
 public class MicrosoftAdapterBattleTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = new();
@@ -211,12 +184,9 @@ public class MicrosoftAdapterBattleTests : IDisposable
         };
         var configSource = new MemoryConfigurationSource { InitialData = data };
 
-        var rule = Rule.From
-            .MicrosoftSource(_ => new(
+        var rule = MicrosoftConfigurationSourceProvider.CreateRule<AppConfig>(_ => new(
                 configSource,
-                configurationPrefix: "App"))
-            .For<AppConfig>()
-            .Build();
+                configurationPrefix: "App"));
 
         using var manager = new ConfigManager(new[] { rule }).Initialize();
 
@@ -232,7 +202,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
 
 
         var health = manager.GetHealthService().Snapshot;
-        Assert.Equal(Cocoar.Configuration.Health.HealthStatus.Healthy, health.OverallStatus);
+        Assert.Equal(Health.HealthStatus.Healthy, health.OverallStatus);
     }
 
     [Fact]

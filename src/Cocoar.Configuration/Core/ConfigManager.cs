@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Cocoar.Capabilities;
+using Cocoar.Configuration.Configure;
+using Cocoar.Configuration.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Providers.Abstractions;
@@ -13,7 +16,7 @@ namespace Cocoar.Configuration.Core;
 public class ConfigManager : IConfigurationAccessor, IDisposable
 {
     private readonly List<ConfigRule> _rules;
-    private readonly List<BindingSpec> _bindings;
+    private readonly List<SetupDefinition> _setupDefinitions;
     private readonly List<RuleManager> _ruleManagers = new();
 
     private readonly ConfigurationAccessor _accessor;
@@ -22,23 +25,57 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private readonly ConfigurationInitializer _initializer;
     private readonly ConfigurationRecomputeCoordinator _recomputeCoordinator;
     private readonly ReactiveConfigManager _reactiveConfigManager;
+    private readonly CapabilityScope _capabilityScope = new();
 
     private volatile bool _initialized;
 
-    public ConfigManager(IEnumerable<ConfigRule> rules, IEnumerable<BindingSpec>? bindings = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    /// <summary>
+    /// Creates a new ConfigManager with a function-based rules builder.
+    /// </summary>
+    public ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
-        _rules = rules.ToList();
-        _bindings = bindings?.ToList() ?? new List<BindingSpec>();
+        var rulesBuilder = new RulesBuilder();
+        _rules = rules(rulesBuilder).ToList();
+        _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
         
         var repository = new ConfigurationRepository();
         var providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
-        var bindingRegistry = new BindingRegistry(_bindings, logger);
+        var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
         
         _accessor = new(repository, bindingRegistry);
         _healthTracker = new(_ruleManagers, _rules);
         _reactiveConfigManager = new(logger, bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, _bindings, logger, this);
+    _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
+        
+        var orchestrator = new ConfigurationOrchestrator(repository, logger);
+        var subscriptionManager = new ChangeSubscriptionManager(logger);
+        
+        _recomputeCoordinator = new(
+            _ruleManagers, orchestrator, _reactiveConfigManager, _healthTracker, logger);
+        
+        _initializer = new(
+            _rules, _ruleManagers, providerRegistry, orchestrator, 
+            subscriptionManager, _healthTracker, logger, debounceMilliseconds);
+    }
+
+    /// <summary>
+    /// Creates a new ConfigManager with a pre-built list of rules.
+    /// </summary>
+    public ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    {
+        _rules = rules.ToList();
+        _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
+        logger ??= NullLogger.Instance;
+        
+        var repository = new ConfigurationRepository();
+        var providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
+        var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
+        
+        _accessor = new(repository, bindingRegistry);
+        _healthTracker = new(_ruleManagers, _rules);
+        _reactiveConfigManager = new(logger, bindingRegistry);
+    _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
         
         var orchestrator = new ConfigurationOrchestrator(repository, logger);
         var subscriptionManager = new ChangeSubscriptionManager(logger);
@@ -52,7 +89,10 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     }
 
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
-    public IReadOnlyList<BindingSpec> Bindings => _bindings.AsReadOnly();
+    internal IReadOnlyList<SetupDefinition> SetupDefinitions => _setupDefinitions.AsReadOnly();
+    
+    public CapabilityScope CapabilityScope => _capabilityScope;
+
 
     public ConfigManager Initialize()
     {

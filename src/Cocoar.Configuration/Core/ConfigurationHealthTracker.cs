@@ -128,25 +128,36 @@ internal class ConfigurationHealthTracker
         return list;
     }
 
-    private static string MapException(Exception ex)
+    private static string? MapException(Exception ex)
     {
-        var msg = ex.Message.ToLowerInvariant();
-        if (msg.Contains("timeout"))
+        static bool TryGetCodeFromData(Exception e, out string? code)
         {
-            return HealthErrorCodes.HttpTimeout;
+            code = null;
+            if (e.Data is { Count: > 0 })
+            {
+                if (e.Data.Contains("HealthErrorCode") && e.Data["HealthErrorCode"] is string c1 && !string.IsNullOrWhiteSpace(c1))
+                {
+                    code = c1; return true;
+                }
+                if (e.Data.Contains("ErrorCode") && e.Data["ErrorCode"] is string c2 && !string.IsNullOrWhiteSpace(c2))
+                {
+                    code = c2; return true;
+                }
+            }
+            return false;
         }
 
-        if (msg.Contains("404") || msg.Contains("not found"))
+        if (TryGetCodeFromData(ex, out var codeFromEx))
         {
-            return HealthErrorCodes.FileNotFound;
+            return codeFromEx;
         }
 
-        if (msg.Contains("json"))
+        if (ex is AggregateException { InnerException: { } inner } && TryGetCodeFromData(inner, out var codeFromInner))
         {
-            return HealthErrorCodes.JsonParse;
+            return codeFromInner;
         }
 
-        return HealthErrorCodes.HttpErrorStatus;
+        return null;
     }
 
     private static string ShortMessage(Exception ex) => ex.Message.Length > 200 ? ex.Message.Substring(0, 200) : ex.Message;

@@ -5,10 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Infrastructure;
 
-/// <summary>
-/// Registry for sharing provider instances across rules, keyed by ProviderType + InstanceOptions.GenerateProviderKey().
-/// Manages reference counts and disposes providers when the last lease is released.
-/// </summary>
 internal sealed class ProviderRegistry(
     ILogger? logger = null,
     bool enableDiagnostics = false,
@@ -17,17 +13,15 @@ internal sealed class ProviderRegistry(
     private readonly ConcurrentDictionary<(Type type, string key), Entry> _entries = new();
     private readonly ILogger _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
 
-    // Entry is internal to avoid inconsistent accessibility while keeping it scoped to the registry.
     internal sealed class Entry
     {
         public required ConfigurationProvider Provider { get; init; }
         public int RefCount;
     }
 
-    // Diagnostics (internal): used by tests to assert pooling behavior.
-    internal int EntryCount => _entries.Count;
-    internal int GetRefCountFor(Type providerType, string key)
-        => _entries.TryGetValue((providerType, key), out var e) ? e.RefCount : 0;
+    //internal int EntryCount => _entries.Count;
+    //internal int GetRefCountFor(Type providerType, string key)
+    //    => _entries.TryGetValue((providerType, key), out var e) ? e.RefCount : 0;
 
     public sealed class ProviderHandle : IDisposable
     {
@@ -74,7 +68,6 @@ internal sealed class ProviderRegistry(
             }
             else
             {
-                // Non-reusable provider - dispose directly
                 if (e.Provider is IDisposable disp)
                 {
                     Safety.DisposeQuietly(disp);
@@ -87,7 +80,6 @@ internal sealed class ProviderRegistry(
     {
         var key = options.GenerateProviderKey();
         
-        // If key is null, create a new provider instance without registering (never reuse)
         if (key is null)
         {
             var provider = CreateProvider(providerType, options);
@@ -99,14 +91,12 @@ internal sealed class ProviderRegistry(
             var nonReusableEntry = new Entry
             {
                 Provider = provider,
-                RefCount = 1 // Start with ref count 1, will be decremented when disposed
+                RefCount = 1
             };
             
-            // Create a special handle that doesn't interact with the registry
             return ProviderHandle.CreateNonReusable(this, nonReusableEntry);
         }
         
-        // Standard reusable provider logic
         var id = (providerType, key);
         var entry = _entries.GetOrAdd(id, _ =>
         {
@@ -144,7 +134,6 @@ internal sealed class ProviderRegistry(
             return;
         }
 
-        // Remove only if our entry is still current
         if (!_entries.TryRemove(id, out var removed) || !ReferenceEquals(removed, entry))
         {
             return;

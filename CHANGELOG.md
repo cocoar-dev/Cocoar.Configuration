@@ -1,9 +1,35 @@
 # Changelog
 
-## Unrelease
+## [2.0.0]
 
-- Code gets refactored and simplified where possible
+### Changed
+- **Builder API Modernization**: Replaced static `Rule.From.*` API with function-based `RulesBuilder` pattern (`rule => rule.File(...)`) for more intuitive configuration.
+- **Setup API Modernization**: Replaced `Bind.Type<T>().To<I>()` API with function-based `SetupBuilder` pattern (`setup => setup.ConcreteType<T>().ExposeAs<I>()`) with clearer naming.
+- Renamed "binding" terminology to "exposure" throughout the API and documentation for clarity.
 
+### Breaking
+- `Rule.From.File()`, `Rule.From.Environment()`, etc. replaced with `RulesBuilder` lambda parameter: `builder.AddCocoarConfiguration(rule => [rule.File(...), rule.Environment(...)])`
+- `Bind.Type<T>().To<I>()` replaced with `SetupBuilder` lambda parameter: `setup => setup.ConcreteType<T>().ExposeAs<I>()`
+- `ServiceRegistrationOptions` and `Register.Add<T>()` replaced with direct lifetime configuration on `ConcreteTypeSetup`
+
+### Migration
+```csharp
+// Old API
+builder.AddCocoarConfiguration([
+    Rule.From.File("config.json").Select("App").For<AppSettings>(),
+    Rule.From.Environment("APP_").For<AppSettings>()
+], [
+    Bind.Type<AppSettings>().To<IAppSettings>()
+]);
+
+// New API
+builder.AddCocoarConfiguration(rule => [
+    rule.File("config.json").Select("App").For<AppSettings>(),
+    rule.Environment("APP_").For<AppSettings>()
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
+]);
+```
 
 ## [1.1.0] - 2025-09-25
 
@@ -173,4 +199,5 @@ Initial release 🎉
 - Dynamic rule factories & atomic snapshot recompute
 - DI lifetimes & keyed registrations
 - Examples included under `src/Examples/`
+
 

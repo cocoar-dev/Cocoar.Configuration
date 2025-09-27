@@ -5,7 +5,8 @@ using System.Diagnostics;
 using System.Collections.Concurrent;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Rules;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Providers;
 
@@ -970,7 +971,7 @@ public class ObservableProviderIsolationTests
         }
 
 
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var stopwatch = Stopwatch.StartNew();
         
         for (var i = 1; i <= emissionCount; i++)
         {
@@ -1089,7 +1090,7 @@ public class ObservableProviderIsolationTests
 
     /// <summary>
     /// Validates ObservableProvider with JSON string overload - perfect for test writing!
-    /// Rule.From.Observable(jsonString).For&lt;TestConfig&gt;()
+    /// TestRules.Observable(jsonString).For&lt;TestConfig&gt;()
     /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
@@ -1156,7 +1157,7 @@ public class ObservableProviderIsolationTests
     }
 
     /// <summary>
-    /// Demonstrates the new fluent API: Rule.From.Observable(jsonString).For&lt;T&gt;()
+    /// Demonstrates the new fluent API: TestRules.Observable(jsonString).For&lt;T&gt;()
     /// This makes test writing much simpler!
     /// </summary>
     [Fact]
@@ -1169,7 +1170,7 @@ public class ObservableProviderIsolationTests
         
         var rules = new List<ConfigRule>
         {
-            Rule.From.Observable(jsonString).For<TestConfig>()
+            TestRules.ObservableString<TestConfig>(System.Reactive.Linq.Observable.Return(jsonString))
         };
 
         var configManager = new ConfigManager(rules).Initialize();

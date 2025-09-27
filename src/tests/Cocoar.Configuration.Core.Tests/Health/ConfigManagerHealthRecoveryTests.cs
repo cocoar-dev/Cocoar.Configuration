@@ -1,7 +1,8 @@
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -11,7 +12,7 @@ public sealed class ConfigManagerHealthRecoveryTests
     {
         private static int _calls;
         public FlakyStaticProvider(DummyProviderOptions options) : base(options) { }
-        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(DummyProviderQuery query, System.Threading.CancellationToken ct = default)
+        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(DummyProviderQuery query, CancellationToken ct = default)
         {
             _calls++;
             if (_calls == 1)

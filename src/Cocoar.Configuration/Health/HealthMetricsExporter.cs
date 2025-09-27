@@ -1,9 +1,5 @@
 namespace Cocoar.Configuration.Health;
 
-/// <summary>
-/// Consumes health snapshots and forwards aggregated counters to an ISimpleHealthMetricsSink.
-/// Lightweight adapter so users can plug in Prometheus, OpenTelemetry, etc. without taking dependencies here.
-/// </summary>
 public sealed class HealthMetricsExporter : IDisposable
 {
     private readonly IConfigurationHealthService _health;
@@ -20,7 +16,7 @@ public sealed class HealthMetricsExporter : IDisposable
 
     private void OnSnapshot(ConfigHealthSnapshot snapshot)
     {
-        // Avoid duplicate work if the stream implementation ever emits same Id twice
+        
         if (snapshot.Id == _lastSnapshotId)
         {
             return;
@@ -40,9 +36,6 @@ public sealed class HealthMetricsExporter : IDisposable
     public void Dispose() => _subscription.Dispose();
 }
 
-/// <summary>
-/// Simple immutable payload sent to metrics sinks; intentionally minimal.
-/// </summary>
 public readonly record struct HealthMetrics(
     long SnapshotId,
     DateTime TimestampUtc,
@@ -52,17 +45,12 @@ public readonly record struct HealthMetrics(
     int OptionalFailed,
     int Skipped);
 
-/// <summary>
-/// User implements to push metrics to their system of choice.
-/// </summary>
 public interface ISimpleHealthMetricsSink
 {
     void Report(HealthMetrics metrics);
 }
 
-/// <summary>
-/// Helper factory for on-demand exporter creation.
-/// </summary>
+
 public static class HealthMetricsExporterExtensions
 {
     public static HealthMetricsExporter StartHealthMetricsExporter(this IConfigurationHealthService health, ISimpleHealthMetricsSink sink)

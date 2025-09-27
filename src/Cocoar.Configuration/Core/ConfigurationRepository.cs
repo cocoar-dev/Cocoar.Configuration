@@ -19,7 +19,8 @@ internal class ConfigurationRepository
     {
         get
         {
-            // Capture volatile field once to avoid race condition
+            // Capture volatile field once to avoid torn reads - if _pendingConfigurations changes
+            // between the null check and return, we'd return inconsistent state
             var pending = _pendingConfigurations;
             return pending ?? _configs;
         }
@@ -63,10 +64,7 @@ internal class ConfigurationRepository
         return currentConfigs.ContainsKey(type) ? type : null;
     }
 
-    public bool TryGetConfiguration<T>(out JsonElement value)
-    {
-        return TryGetConfiguration(typeof(T), out value);
-    }
+    public bool TryGetConfiguration<T>(out JsonElement value) => TryGetConfiguration(typeof(T), out value);
 
     /// <summary>
     /// Tries to get a configuration value by type.

@@ -5,7 +5,21 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cocoar.Configuration.Core.Tests/Cocoar.Configuration.Core.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.DI.Tests/Cocoar.Configuration.DI.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />
+    <Project Path="Examples/BasicUsage/BasicUsage.csproj" />
+    <Project Path="Examples/ExposeExample/ExposeExample.csproj" />
+    <Project Path="Examples/DynamicDependencies/DynamicDependencies.csproj" />
+    <Project Path="Examples/FileLayering/FileLayering.csproj" />
+    <Project Path="Examples/GenericProviderAPI/GenericProviderAPI.csproj" />
+    <Project Path="Examples/HttpPollingExample/HttpPollingExample.csproj" />
+    <Project Path="Examples/MicrosoftAdapterExample/MicrosoftAdapterExample.csproj" />
+    <Project Path="Examples/SimplifiedCoreExample/SimplifiedCoreExample.csproj" />
+    <Project Path="Examples/StaticProviderExample/StaticProviderExample.csproj" />
+    <Project Path="Examples/TupleReactiveExample/TupleReactiveExample.csproj" />
   </Folder>
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
   <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />

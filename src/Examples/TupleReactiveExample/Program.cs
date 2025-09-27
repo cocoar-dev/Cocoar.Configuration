@@ -1,4 +1,5 @@
 using Cocoar.Configuration;
+using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.DI; // AddCocoarConfiguration IServiceCollection extension
 using Cocoar.Configuration.Providers;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 // Example: Demonstrates tuple-based reactive configuration snapshots with arbitrary arity
-// and interface binding eligibility guard.
+// and interface exposure eligibility guard.
 //
 // Run:
 //   dotnet run
@@ -27,14 +28,13 @@ var appSubject = new System.Reactive.Subjects.BehaviorSubject<AppSettings>(new A
 var flagsSubject = new System.Reactive.Subjects.BehaviorSubject<FeatureFlags>(new FeatureFlags { Flags = new [] { "Alpha", "Beta" } });
 
 // Define configuration rules using observable providers for dynamic types and static JSON for logging
-builder.Services.AddCocoarConfiguration([
-    Rule.From.Observable(appSubject).For<AppSettings>(),
-    Rule.From.Observable(flagsSubject).For<FeatureFlags>(),
-    Rule.From.StaticJson("{ \"Level\": \"Info\" }").For<LoggingConfig>()
-]);
-
-// Bind interface to concrete (eligible for tuple usage)
-Bind.Type<AppSettings>().To<IAppSettings>();
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.Observable(appSubject).For<AppSettings>(),
+    rule.Observable(flagsSubject).For<FeatureFlags>(),
+    rule.StaticJson("{ \"Level\": \"Info\" }").For<LoggingConfig>()
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
+    ]);
 
 var app = builder.Build();
 
@@ -82,7 +82,7 @@ app.MapPost("/update", () =>
     appSubject.OnNext(new AppSettings { Message = current.Message, Counter = current.Counter + 1 });
 
     var currentFlags = flagsReactive.CurrentValue;
-    if (!System.Linq.Enumerable.Contains(currentFlags.Flags, "Gamma"))
+    if (!Enumerable.Contains(currentFlags.Flags, "Gamma"))
     {
         flagsSubject.OnNext(new FeatureFlags { Flags = currentFlags.Flags.Concat(["Gamma"]).ToArray() });
     }
@@ -90,7 +90,7 @@ app.MapPost("/update", () =>
 });
 
 // Demonstrate guard (uncomment to see exception at runtime during resolution)
-// var bad = app.Services.GetRequiredService<IReactiveConfig<(AppSettings, IUnbound, LoggingConfig)>>();
+// var bad = app.Services.GetRequiredService<IReactiveConfig<(AppSettings, IUnexposed, LoggingConfig)>>();
 
 app.Run();
 
@@ -107,10 +107,10 @@ public interface IAppSettings
 }
 public sealed class FeatureFlags
 {
-    public string[] Flags { get; set; } = System.Array.Empty<string>();
+    public string[] Flags { get; set; } = Array.Empty<string>();
 }
 public sealed class LoggingConfig
 {
     public string Level { get; set; } = "Info";
 }
-// public interface IUnbound { } // Example of an unbound interface that would fail eligibility
+// public interface IUnexposed { } // Example of an unexposed interface that would fail eligibility

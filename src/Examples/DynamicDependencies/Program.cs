@@ -37,13 +37,13 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration([
+        services.AddCocoarConfiguration(rule => [
 
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .For<ApiSettings>()
                 .Required(),
 
-            Rule.From.Static<FeatureFlags>(configManager =>
+            rule.Static<FeatureFlags>(configManager =>
             {
                 var apiSettings = configManager.GetRequiredConfig<ApiSettings>();
                 if (apiSettings.BaseUrl.Contains("staging"))
@@ -53,11 +53,11 @@ public static class Program
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
             }).For<FeatureFlags>(),
 
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
                 .For<RegionSettings>()
                 .Required(),
 
-            Rule.From.Static<RegionSpecificConfig>(configManager =>
+            rule.Static<RegionSpecificConfig>(configManager =>
             {
                 var regionSettings = configManager.GetRequiredConfig<RegionSettings>();
                 return regionSettings.Region switch

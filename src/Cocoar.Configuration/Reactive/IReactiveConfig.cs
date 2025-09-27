@@ -4,8 +4,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Reactive;
 
+/// <summary>
+/// Provides reactive access to configuration snapshots.
+/// Emits new values whenever the underlying configuration changes, after debouncing and validation.
+/// </summary>
 public interface IReactiveConfig<out T> : IObservable<T>
 {
+    /// <summary>
+    /// Gets the most recent configuration snapshot.
+    /// Safe to call at any time - will not throw if configuration is temporarily unavailable.
+    /// </summary>
     T CurrentValue { get; }
 }
 
@@ -21,6 +29,8 @@ internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
         _subject = subject;
         _logger = logger;
         
+        // Build error-resilient observable upfront rather than wrapping Subscribe() to avoid
+        // per-subscription overhead and ensure consistent error handling across all subscribers
         _errorResilientObservable = _subject
             .AsObservable()
             .Catch<T, Exception>(ex =>

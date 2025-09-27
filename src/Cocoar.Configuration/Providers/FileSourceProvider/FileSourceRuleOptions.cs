@@ -1,6 +1,5 @@
 namespace Cocoar.Configuration.Providers;
 
-// Combined options used by the fluent API to capture both instance and query options in one place.
 public sealed class FileSourceRuleOptions
 {
     public string Directory { get; }
@@ -47,7 +46,6 @@ public sealed class FileSourceRuleOptions
         return new(directory, filename, debounceTime, pollingInterval);
     }
 
-    // Helpers to convert to existing provider/query options
     public FileSourceProviderOptions ToProviderOptions() => new(Directory, DebounceTime, PollingInterval);
     public FileSourceProviderQueryOptions ToQueryOptions() => new(Filename);
 }

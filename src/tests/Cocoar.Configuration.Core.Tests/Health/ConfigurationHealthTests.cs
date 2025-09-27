@@ -1,4 +1,5 @@
-using Cocoar.Configuration.Health;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 

@@ -35,7 +35,7 @@ internal static class JsonHelper
             current = JsonSerializer.SerializeToElement(obj);
         }
 
-        return current; // detached & safe
+        return current;
     }
 
     public static bool TrySelectByPath(JsonElement root, string path, out JsonElement result)

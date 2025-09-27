@@ -53,7 +53,8 @@ public abstract class RuleBuilderBase<TBuilder>
     {
         if (ConcreteType is null)
         {
-            throw new InvalidOperationException("Concrete type must be specified via For<TConcrete>().");
+            throw new InvalidOperationException(
+                "Missing .For<YourConfigType>() call. Every rule needs to know which config class to populate.");
         }
 
         return ConcreteType;

@@ -155,12 +155,10 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
     {
         public static readonly JsonElementEqualityComparer Instance = new();
         
-        public bool Equals(JsonElement x, JsonElement y)
-        {
+        public bool Equals(JsonElement x, JsonElement y) =>
             // Use streaming hash comparison - much faster than string comparison
-            return ComputeJsonElementHash(x) == ComputeJsonElementHash(y);
-        }
-        
+            ComputeJsonElementHash(x) == ComputeJsonElementHash(y);
+
         public int GetHashCode(JsonElement obj) => ComputeJsonElementHash(obj);
 
         private static int ComputeJsonElementHash(JsonElement element)
@@ -168,8 +166,8 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
             try
             {
                 using var md5 = System.Security.Cryptography.MD5.Create();
-                using var stream = new System.Security.Cryptography.CryptoStream(System.IO.Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
-                using var writer = new System.Text.Json.Utf8JsonWriter(stream);
+                using var stream = new System.Security.Cryptography.CryptoStream(Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
+                using var writer = new Utf8JsonWriter(stream);
                 
                 element.WriteTo(writer);
                 writer.Flush();

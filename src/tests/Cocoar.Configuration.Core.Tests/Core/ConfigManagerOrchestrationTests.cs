@@ -1,36 +1,10 @@
 using System.Reactive.Subjects;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Fluent;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Core;
 
-/// <summary>
-/// ConfigManagerOrchestrationTests
-/// --------------------------------
-/// PURPOSE
-///   Core ConfigManager orchestration tests validating initialization, subscription behavior, 
-///   and change recomputation logic. Tests the fundamental engine coordination without 
-///   provider-specific implementations.
-/// 
-/// SCOPE
-///   - ConfigManager initialization and startup behavior
-///   - Static provider configuration loading and binding
-///   - Observable provider change detection and debouncing
-///   - Multiple rule merging with precedence handling
-///   - Reactive recomputation timing and coordination
-/// 
-/// CONSTRAINTS
-///   Uses ONLY Static and Observable providers as per Core.Tests architectural requirements.
-///   No File, HTTP, Environment, or custom provider implementations allowed.
-/// 
-/// COVERAGE
-///   - Configuration loading correctness
-///   - Change detection and recomputation cycles  
-///   - Rule precedence and merging behavior
-///   - Observable subscription lifecycle management
-/// </summary>
-// Core ConfigManager orchestration tests (initialization, subscription behavior, change recomputation)
-// Uses ONLY Static and Observable providers as per Core.Tests constraints
 public class ConfigManagerOrchestrationTests
 {
     private readonly struct Unit
@@ -48,11 +22,7 @@ public class ConfigManagerOrchestrationTests
         
         var behaviorSubject = new BehaviorSubject<string>(initialJson);
         
-        var rule = Rule.From
-            .Observable(behaviorSubject)
-            .Required()
-            .For<TestConfig>()
-            .Build();
+        var rule = TestRules.ObservableString<TestConfig>(behaviorSubject, required: true);
 
         using var manager = new ConfigManager(new[] { rule });
         manager.Initialize();
@@ -77,11 +47,7 @@ public class ConfigManagerOrchestrationTests
     [Trait("Component", "ConfigManager")]
     public void StaticProvider_Configuration_LoadsCorrectly()
     {
-        var rule = Rule.From
-            .StaticJson("""{"Enabled": true, "Value": 42}""")
-            .Required()
-            .For<TestConfig>()
-            .Build();
+        var rule = TestRules.StaticJson<TestConfig>("""{"Enabled": true, "Value": 42}""", required: true);
 
         using var manager = new ConfigManager(new[] { rule });
         manager.Initialize();
@@ -97,17 +63,13 @@ public class ConfigManagerOrchestrationTests
     [Trait("Component", "ConfigManager")]
     public void MultipleStaticRules_MergeCorrectly()
     {
-        var rule1 = Rule.From
-            .StaticJson("""{"base": "config1", "shared": "from-first"}""")
-            .Required()
-            .For<Dictionary<string, object>>()
-            .Build();
+        var rule1 = TestRules.StaticJson<Dictionary<string, object>>(
+            """{"base": "config1", "shared": "from-first"}""",
+            required: true);
 
-        var rule2 = Rule.From
-            .StaticJson("""{"additional": "config2", "shared": "from-second"}""")
-            .Required()
-            .For<Dictionary<string, object>>()
-            .Build();
+        var rule2 = TestRules.StaticJson<Dictionary<string, object>>(
+            """{"additional": "config2", "shared": "from-second"}""",
+            required: true);
 
         using var manager = new ConfigManager(new[] { rule1, rule2 });
         manager.Initialize();

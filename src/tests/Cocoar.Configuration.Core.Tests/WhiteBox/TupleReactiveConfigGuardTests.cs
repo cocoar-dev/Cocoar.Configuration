@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Rules;
+using Cocoar.Configuration;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -23,10 +26,9 @@ public class TupleReactiveConfigGuardTests
     }
 
     [Fact]
-    public void Tuple_With_Bound_Interface_Succeeds()
+    public void Tuple_With_Exposed_Interface_Succeeds()
     {
-    var binding = Bind.Type<App>().To<IApp>();
-    var mgr = new ConfigManager(new[]{ Rule(new App(2)) }, new[]{ (BindingSpec)binding }, NullLogger.Instance).Initialize();
+        var mgr = new ConfigManager(new[]{ Rule(new App(2)) }, c => [c.ConcreteType<App>().ExposeAs<IApp>()], NullLogger.Instance).Initialize();
         var cfg = mgr.GetReactiveConfig<(IApp,App)>();
         var snapshot = cfg.CurrentValue;
         Assert.Equal(2, snapshot.Item1.V);
@@ -34,7 +36,7 @@ public class TupleReactiveConfigGuardTests
     }
 
     [Fact]
-    public void Tuple_With_Unbound_Interface_Fails()
+    public void Tuple_With_Unexposed_Interface_Fails()
     {
         var mgr = new ConfigManager(new[]{ Rule(new App(3)) }, logger: NullLogger.Instance).Initialize();
         Assert.Throws<InvalidOperationException>(() => mgr.GetReactiveConfig<(IApp,App)>());

@@ -4,7 +4,8 @@ using System.Text.Json;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Rules;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -25,7 +26,7 @@ public class ConfigManagerHealthCancellationTests
             options: new(Required: true)
         );
 
-        using var configManager = new ConfigManager([rule], logger: NullLogger.Instance);
+        using var configManager = new ConfigManager(new[] {rule}, logger: NullLogger.Instance);
         configManager.Initialize();
 
         var healthService = configManager.GetHealthService();
@@ -76,11 +77,9 @@ internal sealed class SlowCancellableProvider : ConfigurationProvider<SlowCancel
         return JsonDocument.Parse("{\"Result\":\"OK\"}").RootElement.Clone();
     }
 
-    public override IObservable<JsonElement> Changes(SlowCancellableProviderQueryOptions query)
-    {
+    public override IObservable<JsonElement> Changes(SlowCancellableProviderQueryOptions query) =>
         // Project raw change payloads into dummy JsonElements (changes themselves are irrelevant; just triggers recompute)
-        return _rawChanges.AsObservable();
-    }
+        _rawChanges.AsObservable();
 
     public void TriggerChange(object payload)
     {

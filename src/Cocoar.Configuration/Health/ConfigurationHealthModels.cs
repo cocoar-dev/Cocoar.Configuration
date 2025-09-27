@@ -109,7 +109,7 @@ public sealed class ConfigHealthSnapshot(
             }
             if (anyRequiredDown)
             {
-                break; // highest precedence
+                break;
             }
         }
         if (anyRequiredDown)
@@ -155,7 +155,7 @@ internal sealed class ConfigurationHealthService(ConfigHealthSnapshot initial)
     public void Publish(ConfigHealthSnapshot snapshot)
     {
         var current = _subject.Value;
-        // Suppress identical snapshots (same overall + rule statuses + config version)
+        
         if (current.OverallStatus == snapshot.OverallStatus && current.ConfigVersion == snapshot.ConfigVersion)
         {
             var same = current.Rules.Count == snapshot.Rules.Count;
@@ -190,13 +190,3 @@ internal sealed class ConfigurationHealthService(ConfigHealthSnapshot initial)
     }
 }
 
-
-internal static class HealthErrorCodes
-{
-    public const string FileNotFound = "FILE_NOT_FOUND";
-    public const string FileIoError = "FILE_IO_ERROR";
-    public const string JsonParse = "JSON_PARSE";
-    public const string HttpTimeout = "HTTP_TIMEOUT";
-    public const string HttpErrorStatus = "HTTP_ERROR_STATUS";
-    public const string ProviderCanceled = "PROVIDER_CANCELED";
-}

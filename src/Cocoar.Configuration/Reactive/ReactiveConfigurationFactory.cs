@@ -1,15 +1,19 @@
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Core;
+// using Cocoar.Configuration.Configure; // no longer needed
+// using Cocoar.Capabilities; // no longer needed
+// using Cocoar.Capabilities.Extensions; // no longer needed
+using Cocoar.Configuration.Infrastructure;
 
 namespace Cocoar.Configuration.Reactive;
 
 internal class ReactiveConfigurationFactory(
     ReactiveConfigManager reactiveConfigManager,
     List<ConfigRule> rules,
-    List<BindingSpec> bindings,
     ILogger logger,
-    ConfigManager configManager)
+    ConfigManager configManager,
+    ExposureRegistry bindingRegistry)
 {
     public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> configAccessor)
     {
@@ -33,16 +37,16 @@ internal class ReactiveConfigurationFactory(
         }
 
         var allowedConcrete = new HashSet<Type>(rules.Select(r => r.ConcreteType));
-        var allowedInterfaces = new HashSet<Type>(bindings.SelectMany(b => b.BoundInterfaces));
+
         var invalid = new List<string>();
 
         foreach (var et in elementTypes)
         {
             if (et.IsInterface)
             {
-                if (!allowedInterfaces.Contains(et))
+                if (!bindingRegistry.TryGetConcreteType(et, out _))
                 {
-                    invalid.Add(et.Name + " (interface not bound)");
+                    invalid.Add(et.Name + " (interface not exposed)");
                 }
             }
             else
@@ -56,7 +60,7 @@ internal class ReactiveConfigurationFactory(
 
         if (invalid.Count > 0)
         {
-            throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/bound: {string.Join(", ", invalid)}");
+            throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/exposed: {string.Join(", ", invalid)}");
         }
 
         foreach (var et in elementTypes.Distinct())

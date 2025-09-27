@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
-using Cocoar.Configuration.Rules;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 

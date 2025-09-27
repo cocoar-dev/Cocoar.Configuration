@@ -1,7 +1,12 @@
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Rules;
 
+/// <summary>
+/// Represents a single configuration rule that fetches data from a provider and binds it to a concrete type.
+/// Rules are executed in order, with later rules overwriting earlier ones (last-write-wins).
+/// </summary>
 public class ConfigRule(
     Type providerType,
     Func<IConfigurationAccessor, IProviderConfiguration> providerOptionsFactory,
@@ -45,9 +50,15 @@ public class ConfigRule(
         }
     }
 
+    /// <summary>
+    /// Resolves provider options, potentially using earlier configuration state for dynamic rules.
+    /// </summary>
     public IProviderConfiguration ResolveProviderOptions(IConfigurationAccessor manager)
         => _providerOptionsFactory(manager);
 
+    /// <summary>
+    /// Resolves query options, potentially using earlier configuration state for dynamic rules.
+    /// </summary>
     public IProviderQuery ResolveQueryOptions(IConfigurationAccessor manager)
         => _queryOptionsFactory(manager);
 

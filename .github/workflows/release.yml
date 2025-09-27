@@ -45,12 +45,6 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Restore Examples
-        run: dotnet restore Examples/Examples.slnx
-
-      - name: Build Examples
-        run: dotnet build Examples/Examples.slnx --configuration Release --no-restore
-
       - name: Test
         run: dotnet test --configuration Release --no-build --no-restore --logger "console;verbosity=detailed"
         env:
@@ -102,14 +96,6 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore /p:Version=${{ steps.gv.outputs.SemVer }}
 
-      - name: Restore Examples
-        run: dotnet restore Examples/Examples.slnx
-
-      - name: Build Examples
-        run: dotnet build Examples/Examples.slnx --configuration Release --no-restore
-
-      - name: Build Examples
-        run: dotnet build Examples/Examples.slnx --configuration Release --no-restore
 
       - name: Add GitHub NuGet source
         run: dotnet nuget add source --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"

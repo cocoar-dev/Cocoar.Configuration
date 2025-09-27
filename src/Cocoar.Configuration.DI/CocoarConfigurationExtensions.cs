@@ -1,8 +1,13 @@
+using System.Collections;
+using Cocoar.Configuration.Configure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Rules;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Capabilities;
 using Cocoar.Configuration.Reactive;
+using Cocoar.Configuration.DI.Capabilities;
 
 namespace Cocoar.Configuration.DI;
 
@@ -12,50 +17,170 @@ public static class CocoarConfigurationExtensions
 
     public static IServiceCollection AddCocoarConfiguration(
         this IServiceCollection services,
-        ConfigManager configManager,
-        Action<ServiceRegistrationOptions>? configureServices = null)
+        ConfigManager configManager)
     {
-
         services.ThrowIfAlreadyRegistered();
         services.AddSingleton(configManager);
+        services.AddSingleton<IConfigurationAccessor>(sp => sp.GetRequiredService<ConfigManager>());
 
-        services.AddSingleton<IConfigurationAccessor>(serviceProvider => 
-            serviceProvider.GetRequiredService<ConfigManager>());
+        // Use the existing SetupDefinition instances from the ConfigManager
+        var configSpecs = configManager.SetupDefinitions;
+        
+        if (configSpecs.Count > 0)
+        {
+            var serviceRegistrationInfos = new Dictionary<Type, ServiceRegistrationInfo>();
+            foreach (var spec in configSpecs)
+            {
+                // Get the capability bag from the registry using the ConfigureSpec as key
+                if (!configManager.CapabilityScope.Compositions.TryGet(spec, out var bag))
+                {
+                    continue;
+                }
 
-        var options = new ServiceRegistrationOptions();
-        configureServices?.Invoke(options);
-        RegisterConfigurationServices(services, configManager, options);
+                if (bag.TryGetPrimaryAs<ConcreteTypePrimary<SetupDefinition>>(out var typeCapability))
+                {
+                    ProcessConcreteType(serviceRegistrationInfos, typeCapability!, bag);
+                }
+
+                if (bag.TryGetPrimaryAs<ExposedTypePrimary<SetupDefinition>>(out var exposedCapability))
+                {
+                    ProcessExposedType(serviceRegistrationInfos, exposedCapability!, bag);
+                }
+
+            }
+
+            ProcessServiceRegistration(services, serviceRegistrationInfos);
+        }
 
         return services;
     }
 
+    /// <summary>
+    /// Adds Cocoar configuration to the service collection using a function-based rule API.
+    /// </summary>
     public static IServiceCollection AddCocoarConfiguration(
         this IServiceCollection services,
-        IEnumerable<ConfigRule> rules,
-        IEnumerable<BindingSpec>? bindings = null,
-        Action<ServiceRegistrationOptions>? configureServices = null,
+        Func<RulesBuilder, ConfigRule[]> rule,
+        Func<SetupBuilder, SetupDefinition[]>? configure = null,
         ILogger? logger = null,
         int debounceMilliseconds = 300)
     {
-
         services.ThrowIfAlreadyRegistered();
 
-        var ruleList = rules.ToList();
-        var bindingList = bindings?.ToList() ?? new List<BindingSpec>();
+        var rulesBuilder = new RulesBuilder();
+        var ruleList = rule(rulesBuilder);
 
-        var configManager = new ConfigManager(ruleList, bindingList, logger, debounceMilliseconds: debounceMilliseconds);
+        var configManager = new ConfigManager(ruleList, configure, logger, debounceMilliseconds: debounceMilliseconds);
         configManager.Initialize();
-        services.AddSingleton(configManager);
 
-        services.AddSingleton<IConfigurationAccessor>(serviceProvider => 
-            serviceProvider.GetRequiredService<ConfigManager>());
-
-        var options = new ServiceRegistrationOptions();
-        configureServices?.Invoke(options);
-        RegisterConfigurationServices(services, configManager, options);
-
+        services.AddCocoarConfiguration(configManager);
         return services;
     }
+
+
+    private static void ProcessConcreteType(Dictionary<Type, ServiceRegistrationInfo> serviceRegistrationInfos,
+        ConcreteTypePrimary<SetupDefinition> primaryCapability, IComposition bag)
+    {
+
+        if (!serviceRegistrationInfos.TryGetValue(primaryCapability.SelectedType, out var serviceRegistrationInfo))
+        {
+            serviceRegistrationInfo = new ServiceRegistrationInfo
+            {
+                Type = primaryCapability.SelectedType,
+            };
+        }
+
+        if (bag.Has<DisableAutoRegistrationCapability<SetupDefinition>>())
+        {
+            serviceRegistrationInfo.DisableDefault = true;
+        }
+
+        var lifetimeCapabilities = bag.GetAll<ServiceLifetimeCapability<SetupDefinition>>();
+        var keyedLifetimeMap = ResolveLifetimeSelections(lifetimeCapabilities);
+        foreach (var (key, value) in keyedLifetimeMap)
+        {
+            serviceRegistrationInfo.ServiceLifetimes[key] = value;
+        }
+
+        serviceRegistrationInfos[primaryCapability.SelectedType] = serviceRegistrationInfo;
+
+        var exposeAsCapabilities = bag.GetAll<ExposeAsCapability<SetupDefinition>>();
+        var exposedInterfaces = exposeAsCapabilities.Select(x => x.ContractType).Distinct().ToList();
+
+        foreach (var it in exposedInterfaces)
+        {
+            if (!serviceRegistrationInfos.ContainsKey(it))
+            {
+                serviceRegistrationInfos[it] = new ServiceRegistrationInfo
+                {
+                    Type = it,
+                };
+            }
+        }
+
+    }
+
+    private static void ProcessExposedType(Dictionary<Type, ServiceRegistrationInfo> serviceRegistrationInfos,
+        ExposedTypePrimary<SetupDefinition> primaryCapability, IComposition bag)
+    {
+
+        if (!serviceRegistrationInfos.TryGetValue(primaryCapability.SelectedType, out var serviceRegistrationInfo))
+        {
+            serviceRegistrationInfo = new ServiceRegistrationInfo
+            {
+                Type = primaryCapability.SelectedType,
+            };
+        }
+
+        if (bag.Has<DisableAutoRegistrationCapability<SetupDefinition>>())
+        {
+            serviceRegistrationInfo.DisableDefault = true;
+        }
+
+        var lifetimeCapabilities = bag.GetAll<ServiceLifetimeCapability<SetupDefinition>>();
+        var keyedLifetimeMap = ResolveLifetimeSelections(lifetimeCapabilities);
+        foreach (var (key, value) in keyedLifetimeMap)
+        {
+            serviceRegistrationInfo.ServiceLifetimes[key] = value;
+        }
+
+        serviceRegistrationInfos[primaryCapability.SelectedType] = serviceRegistrationInfo;
+
+    }
+
+    private static void ProcessServiceRegistration(IServiceCollection services, Dictionary<Type, ServiceRegistrationInfo> serviceRegistrationInfos)
+    {
+
+        foreach (var (serviceType, value) in serviceRegistrationInfos)
+        {
+            if (value is { DisableDefault: false, OverwriteDefault: false })
+            {
+                services.Add(new(serviceType, sp => sp.GetRequiredService<ConfigManager>().GetConfig(serviceType)!, ServiceLifetime.Scoped));
+            }
+
+            foreach (var (serviceKey, serviceLifetime) in value.ServiceLifetimes)
+            {
+                if (serviceKey is "")
+                {
+                    services.Add(new(serviceType, (sp) => sp.GetRequiredService<ConfigManager>().GetConfig(serviceType)!, serviceLifetime));
+                } else
+                {
+                    services.Add(new(serviceType, serviceKey, (sp, _) => sp.GetRequiredService<ConfigManager>().GetConfig(serviceType)!, serviceLifetime));
+                }
+                
+            }
+
+            var reactiveType = typeof(IReactiveConfig<>).MakeGenericType(serviceType);
+            services.AddSingleton(reactiveType, sp =>
+            {
+                var mgr = sp.GetRequiredService<ConfigManager>();
+                var method = mgr.GetType().GetMethod("GetReactiveConfig")!.MakeGenericMethod(serviceType);
+                return method.Invoke(mgr, null)!;
+            });
+        }
+
+    }
+
 
     private static void ThrowIfAlreadyRegistered(this IServiceCollection services)
     {
@@ -65,119 +190,14 @@ public static class CocoarConfigurationExtensions
         }
     }
 
-
-    internal static void RegisterConfigurationServices(
-        IServiceCollection services,
-        ConfigManager configManager,
-        ServiceRegistrationOptions options)
+    private static Dictionary<object, ServiceLifetime> ResolveLifetimeSelections(IEnumerable<ServiceLifetimeCapability<SetupDefinition>> lifetimeCapabilities)
     {
-        var explicitRegistrations = options.Register.Build().ToList();
-        var explicitServiceTypes = new HashSet<(Type ServiceType, object? ServiceKey)>();
-        var removedServiceTypes = options.Register.GetRemovals();
-
-        foreach (var reg in explicitRegistrations)
+        var keyed = new Dictionary<object, ServiceLifetime>();
+        foreach (var cap in lifetimeCapabilities)
         {
-            explicitServiceTypes.Add((reg.ServiceType, reg.ServiceKey));
+            keyed[cap.Key ?? ""] = cap.Lifetime;
         }
-
-        if (options.AutoRegisterReactiveConfigs)
-        {
-            foreach (var rule in configManager.Rules)
-            {
-                var concreteType = rule.ConcreteType;
-                var reactiveConfigType = typeof(IReactiveConfig<>).MakeGenericType(concreteType);
-                
-                if (!explicitServiceTypes.Contains((reactiveConfigType, null)) && !removedServiceTypes.Contains((reactiveConfigType, null)))
-                {
-                    var descriptor = ServiceDescriptor.Singleton(
-                        reactiveConfigType,
-                        serviceProvider =>
-                        {
-                            var manager = serviceProvider.GetRequiredService<ConfigManager>();
-                            var method = manager.GetType().GetMethod("GetReactiveConfig")!
-                                .MakeGenericMethod(concreteType);
-                            return method.Invoke(manager, null)!;
-                        });
-                    services.Add(descriptor);
-                }
-            }
-
-            foreach (var binding in configManager.Bindings)
-            {
-                foreach (var interfaceType in binding.BoundInterfaces)
-                {
-                    var reactiveConfigType = typeof(IReactiveConfig<>).MakeGenericType(interfaceType);
-                    
-                    if (!explicitServiceTypes.Contains((reactiveConfigType, null)) && !removedServiceTypes.Contains((reactiveConfigType, null)))
-                    {
-                        var descriptor = ServiceDescriptor.Singleton(
-                            reactiveConfigType,
-                            serviceProvider =>
-                            {
-                                var manager = serviceProvider.GetRequiredService<ConfigManager>();
-                                var method = manager.GetType().GetMethod("GetReactiveConfig")!
-                                    .MakeGenericMethod(interfaceType);
-                                return method.Invoke(manager, null)!;
-                            });
-                        services.Add(descriptor);
-                    }
-                }
-            }
-
-        }
-
-
-        if (options.DefaultLifetime.HasValue)
-        {
-            foreach (var rule in configManager.Rules)
-            {
-                var ruleType = rule.ConcreteType;
-                if (!explicitServiceTypes.Contains((ruleType, null)) && !removedServiceTypes.Contains((ruleType, null)))
-                {
-                    var descriptor = ServiceDescriptor.Describe(
-                        ruleType,
-                        _ => configManager.GetConfig(ruleType)!,
-                        options.DefaultLifetime.Value);
-                    services.Add(descriptor);
-                }
-            }
-        }
-
-        if (options.DefaultLifetime.HasValue)
-        {
-            foreach (var binding in configManager.Bindings)
-            {
-                foreach (var interfaceType in binding.BoundInterfaces)
-                {
-                    if (!explicitServiceTypes.Contains((interfaceType, null)) && !removedServiceTypes.Contains((interfaceType, null)))
-                    {
-                        var descriptor = ServiceDescriptor.Describe(
-                            interfaceType,
-                            _ => configManager.GetConfig(interfaceType)!,
-                            options.DefaultLifetime.Value);
-                        services.Add(descriptor);
-                    }
-                }
-            }
-        }
-
-        foreach (var registration in explicitRegistrations)
-        {
-            var descriptor =
-                registration.ServiceKey switch
-            {
-                null => ServiceDescriptor.Describe(
-                    registration.ServiceType,
-                    _ => configManager.GetConfig(registration.ServiceType)!,
-                    registration.Lifetime),
-                _ => ServiceDescriptor.DescribeKeyed(
-                    registration.ServiceType,
-                    registration.ServiceKey,
-                    (_, _) => configManager.GetConfig(registration.ServiceType)!,
-                    registration.Lifetime)
-            };
-
-            services.Add(descriptor);
-        }
+        return keyed;
     }
+
 }

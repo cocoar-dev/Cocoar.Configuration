@@ -4,34 +4,6 @@ using Xunit.Abstractions;
 
 namespace Cocoar.Configuration.Providers.Tests.File;
 
-/// <summary>
-/// ResilientFileSourceProviderTests
-/// ---------------------------------
-/// PURPOSE
-///   Tests for the resilient FileSourceProvider implementation validating hybrid 
-///   FileSystemWatcher + polling fallback behavior. Ensures reliable file monitoring
-///   under various failure conditions and recovery scenarios.
-/// 
-/// SCOPE
-///   - FileSystemWatcher primary monitoring behavior
-///   - Polling fallback when FileSystemWatcher fails
-///   - Directory deletion and recreation recovery
-///   - Required vs Optional rule behavior with missing files
-///   - File system resilience under stress conditions
-/// 
-/// COVERAGE
-///   - Hybrid monitoring strategy validation
-///   - Recovery from directory deletion/recreation cycles
-///   - Health status management (Up/Degraded) based on file availability
-///   - Polling interval configuration and effectiveness
-///   - Long-running stability under directory manipulation
-/// 
-/// SCENARIOS
-///   - Basic file existence and content reading
-///   - Directory disappearance and recovery
-///   - Required rule degradation on missing files
-///   - Optional rule resilience with missing files
-/// </summary>
 public class ResilientFileSourceProviderTests
 {
     private readonly ITestOutputHelper _output;
@@ -220,18 +192,9 @@ public class ResilientFileSourceProviderTests
         _output.WriteLine("- On directory creation: Provider switches back to FileSystemWatcher mode");
     }
 
-    private static int GetVersion(JsonElement element)
-    {
-        return element.TryGetProperty("version", out var versionProp) ? versionProp.GetInt32() : -1;
-    }
-    
-    private static bool GetEnabled(JsonElement element)
-    {
-        return element.TryGetProperty("enabled", out var enabledProp) && enabledProp.GetBoolean();
-    }
-    
-    private static bool GetRecovered(JsonElement element)
-    {
-        return element.TryGetProperty("recovered", out var recoveredProp) && recoveredProp.GetBoolean();
-    }
+    private static int GetVersion(JsonElement element) => element.TryGetProperty("version", out var versionProp) ? versionProp.GetInt32() : -1;
+
+    private static bool GetEnabled(JsonElement element) => element.TryGetProperty("enabled", out var enabledProp) && enabledProp.GetBoolean();
+
+    private static bool GetRecovered(JsonElement element) => element.TryGetProperty("recovered", out var recoveredProp) && recoveredProp.GetBoolean();
 }
