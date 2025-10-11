@@ -25,7 +25,7 @@ public class MultiProviderReactiveTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
-    public void ConfigManager_ObservableChanges_UpdatesReactiveConfig()
+    public async Task ConfigManager_ObservableChanges_UpdatesReactiveConfig()
     {
         var staticBase = """{"Name": "Static", "Version": 1, "Database": {"Timeout": 30}}""";
         var initialObservableJson = """{"Name": "Observable", "Version": 10}""";
@@ -43,7 +43,10 @@ public class MultiProviderReactiveTests
         var emissions = new List<AppConfig>();
         var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
 
-        Thread.Sleep(200);
+        // Wait for initial emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0 && emissions.Last().Name == "Observable",
+            description: "initial Observable configuration to emit");
 
         var initialConfig = emissions.Last();
         Assert.NotNull(initialConfig);
@@ -54,7 +57,10 @@ public class MultiProviderReactiveTests
         var updatedObservableJson = """{"Name": "UpdatedObservable", "Version": 20}""";
         behaviorSubject.OnNext(updatedObservableJson);
 
-        Thread.Sleep(300);
+        // Wait for updated emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Any(e => e.Name == "UpdatedObservable"),
+            description: "updated Observable configuration to emit");
 
         var latestConfig = emissions.Last();
         Assert.NotNull(latestConfig);
@@ -62,8 +68,8 @@ public class MultiProviderReactiveTests
         Assert.Equal(20, latestConfig.Version);               // Observable won
         Assert.Equal(30, latestConfig.Database.Timeout);      // Static preserved
 
-    var currentSnapshot = configManager.GetConfig<AppConfig>();
-    Assert.NotNull(currentSnapshot);
+        var currentSnapshot = configManager.GetConfig<AppConfig>();
+        Assert.NotNull(currentSnapshot);
         Assert.Equal("UpdatedObservable", currentSnapshot.Name);
         Assert.Equal(20, currentSnapshot.Version);
         Assert.Equal(30, currentSnapshot.Database.Timeout);
@@ -80,7 +86,7 @@ public class MultiProviderReactiveTests
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "ConfigManager")]
-    public void ConfigManager_RapidObservableChanges_DebouncesCorrectly()
+    public async Task ConfigManager_RapidObservableChanges_DebouncesCorrectly()
     {
         var staticBase = """
         {
@@ -116,7 +122,10 @@ public class MultiProviderReactiveTests
         var emissions = new List<AppConfig>();
         var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
 
-        Thread.Sleep(100); // Wait for initial
+        // Wait for initial emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            description: "initial emission");
         var initialCount = emissions.Count;
 
         for (var i = 1; i <= 20; i++)
@@ -133,7 +142,10 @@ public class MultiProviderReactiveTests
             behaviorSubject.OnNext(updateJson);
         }
 
-        Thread.Sleep(300);
+        // Wait for final emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Any(e => e.Name == "Change20"),
+            description: "final Change20 emission");
 
         var finalEmissionCount = emissions.Count;
         var finalConfig = emissions.Last();
@@ -167,7 +179,7 @@ public class MultiProviderReactiveTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
-    public void ConfigManager_Observable_NoEmission_WhenOnlyPropertyOrderDiffers()
+    public async Task ConfigManager_Observable_NoEmission_WhenOnlyPropertyOrderDiffers()
     {
 
         var initialJson = @"{
@@ -192,7 +204,10 @@ public class MultiProviderReactiveTests
         var emissions = new List<AppConfig>();
         var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
 
-        Thread.Sleep(200);
+        // Wait for initial emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            description: "initial emission");
         var initialEmissionCount = emissions.Count;
 
         var reorderedJson = @"{
@@ -205,7 +220,9 @@ public class MultiProviderReactiveTests
         }";
 
         subject.OnNext(reorderedJson);
-        Thread.Sleep(300);
+        
+        // Wait a bit to ensure no additional emission occurs
+        await Task.Delay(300);
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         
@@ -223,7 +240,7 @@ public class MultiProviderReactiveTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
-    public void ConfigManager_Observable_NoEmission_WhenWhitespaceChanges()
+    public async Task ConfigManager_Observable_NoEmission_WhenWhitespaceChanges()
     {
 
         var compactJson = @"{""Name"":""TestApp"",""Version"":2}";
@@ -241,7 +258,10 @@ public class MultiProviderReactiveTests
         var emissions = new List<AppConfig>();
         var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
 
-        Thread.Sleep(200);
+        // Wait for initial emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            description: "initial emission");
         var initialEmissionCount = emissions.Count;
 
         var formattedJson = @"{
@@ -250,7 +270,9 @@ public class MultiProviderReactiveTests
         }";
 
         subject.OnNext(formattedJson);
-        Thread.Sleep(300);
+        
+        // Wait a bit to ensure no additional emission occurs
+        await Task.Delay(300);
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         
@@ -267,7 +289,7 @@ public class MultiProviderReactiveTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
-    public void ConfigManager_Observable_EmissionWhen_ArrayOrderChanges_OrderSensitive()
+    public async Task ConfigManager_Observable_EmissionWhen_ArrayOrderChanges_OrderSensitive()
     {
 
         var initialJson = @"{
@@ -288,7 +310,10 @@ public class MultiProviderReactiveTests
         var emissions = new List<AppConfigWithArray>();
         var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
 
-        Thread.Sleep(200);
+        // Wait for initial emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            description: "initial emission");
         var initialEmissionCount = emissions.Count;
 
         var reorderedJson = @"{
@@ -298,8 +323,11 @@ public class MultiProviderReactiveTests
 
         subject.OnNext(reorderedJson);
 
-        // Wait for potential emission
-        Thread.Sleep(300);
+        // Wait for potential emission using active waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > initialEmissionCount,
+            timeout: TimeSpan.FromSeconds(5),
+            description: "emission after array order change");
 
         Assert.True(emissions.Count > initialEmissionCount, 
             "Expected emission when array order changes because arrays are order-sensitive");

@@ -73,13 +73,13 @@ dotnet add package Cocoar.Configuration.AspNetCore
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddCocoarConfiguration([
-        Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
-        Rule.From.Environment("APP_").For<AppSettings>()
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.File("appsettings.json").Select("App").For<AppSettings>(),
+    rule.Environment("APP_").For<AppSettings>()
 ], setup => [
-        setup.ConcreteType<AppSettings>()
-                                .ExposeAs<IAppSettings>() // optional interface exposure\n]);
-});
+    setup.ConcreteType<AppSettings>()
+        .ExposeAs<IAppSettings>() // optional interface exposure
+]);
 
 var app = builder.Build();
 
@@ -89,8 +89,8 @@ app.MapGet("/feature", (IAppSettings cfg) => new { cfg.FeatureFlag, cfg.Message 
 // Reactive tuple injection
 app.MapGet("/composite", (IReactiveConfig<(AppSettings App, LoggingConfig Log)> composite) =>
 {
-        var (appCfg, log) = composite.CurrentValue;
-        return new { appCfg.Version, log.Level };
+    var (appCfg, log) = composite.CurrentValue;
+    return new { appCfg.Version, log.Level };
 });
 
 app.Run();
@@ -99,7 +99,9 @@ app.Run();
 ### Opt-Out Examples
 ```csharp
 // Inside your configure function:
-builder.AddCocoarConfiguration(rules, setup => [
+builder.AddCocoarConfiguration(rule => [
+    rule.File("appsettings.json").For<AppSettings>()
+], setup => [
     // Skip concrete registration
     setup.ConcreteType<AppSettings>().DisableAutoRegistration(),
     
@@ -146,24 +148,6 @@ See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.
 
 ---
 
-## Migration (Bind → Configure)
-
-New (simplified):
-```csharp
-// Function-based configuration
-builder.AddCocoarConfiguration(rules, setup => [
-    setup.ConcreteType<AppSettings>()
-        .ExposeAs<IAppSettings>(), // Scoped
-
-    // Optional opt-outs
-    setup.ConcreteType<OtherSettings>().DisableAutoRegistration(),
-    setup.ExposedType<IAppSettings>().DisableAutoRegistration()
-]);
-```
-
-Full guide: [Migration Guide](./docs/migration-bind-to-setup.md)
-
----
 
 ## Security Notes
 * Don’t commit secrets; overlay via environment / secure providers.
