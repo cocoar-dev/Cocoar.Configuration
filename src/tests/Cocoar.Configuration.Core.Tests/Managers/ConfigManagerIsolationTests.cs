@@ -232,7 +232,7 @@ public class ConfigManagerIsolationTests : IDisposable
             configManager.GetRequiredConfig<ApiConfig>());
         
         Assert.Contains("ApiConfig", exception.Message);
-        Assert.Contains("not found", exception.Message);
+        Assert.Contains("hasn't been loaded", exception.Message);
     }
 
     #endregion
