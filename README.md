@@ -1,5 +1,4 @@
-# Reactive, strongly-typed configuration layering for .NET  
-
+# Reactive, strongly-typed configuration layering for .NET
 
 ![Cocoar.Configuration](social-preview-small.png)
 > Elevates configuration from hidden infrastructure to an observable, safety‑enforced subsystem you can trust under change and failure.
@@ -12,68 +11,56 @@
 
 ---
 
-## 🌟 Features
+## Features
 
-### 🚀 Key Innovations
-
-* **Auto-Registered Reactive Config** – Every config type gets [`IReactiveConfig<T>`](./docs/reactive-config.md) in DI automatically
-* **Atomic Tuple Reactive Configs** – Use `IReactiveConfig<(T1,T2,...,TN)>` for aligned, change-filtered multi-config snapshots (any arity) with strict element validation
-* [**Health Monitoring Service**](./docs/health-monitoring.md) – Real-time health snapshots, metrics export, and resilience tracking
-* **Streaming MD5 Change Detection** – High-performance hashing pipeline for file/HTTP providers
+### Key Capabilities
+* **Automatic Reactive Configs** – Every configured concrete type provides `IReactiveConfig<T>` (no opt-in).
+* **Tuple Reactive Snapshots** – `IReactiveConfig<(T1,T2,...,TN)>` for atomic aligned multi-config state (any tuple arity) with strict validation.
+* **Health Monitoring Service** – Real-time provider & rule health snapshots, status streams, metrics hook (see [`docs/health-monitoring.md`](./docs/health-monitoring.md)).
+* **Streaming MD5 Change Detection** – Efficient hashing for file & HTTP providers.
 
 ### Core Principles
-
-* **Deterministic Layering** – Explicit ordered rules, last-write-wins, no hidden merge logic.
-* **Strongly Typed** – Direct POCO injection, no `IOptions<T>` or attributes.
-* **Atomic Snapshots** – Always consistent view; no half-applied updates.
-* **Reactive & Dynamic Reload** – Config updates automatically propagate.
+* **Deterministic Layering** – Ordered rules, last-write-wins, no hidden merge magic.
+* **Strongly Typed** – Direct POCO access (no `IOptions<T>` ceremony).
+* **Atomic Snapshots** – Always consistent; no partial updates.
+* **Reactive & Dynamic** – Change propagation with debounce + coalescing.
 
 ### Rule System
-
-* **Unified Fluent API** – Same syntax across all providers.
-* **Composable Rules** – `Fetch → Select → Mount → Merge` pipeline.
-* **Dynamic Rule Factories** – Generate rules based on earlier snapshots.
-* **Advanced Binding** – Classes, interfaces, or factory functions.
-* **Partial Recomputation** – Only the earliest changed rule restarts, minimizing churn.
-* **Required / Optional rules** – control startup failure vs runtime degradation (`.Required(true/false)`).
-* **Conditional execution** – enable rules only when needed (`.When(() => condition)`).
+* **Unified Fluent API** across providers.
+* **Composable Pipeline**: `Fetch → Select → Mount → Merge`.
+* **Dynamic Rule Factories** – Derive new rules from earlier snapshot state.
+* **Interface Exposure** – Expose implemented interfaces for DI consumption.
+* **Partial Recomputation** – Only earliest changed rule re-executes.
+* **Required / Optional Rules** – Control startup fail vs graceful degradation.
+* **Conditional Execution** – Enable rules only when predicates hold.
 
 ### Providers
-
-* **Static / Observable** – Core built-ins.
-* **File** – resilient: falls back to polling when watching fails, then auto-recovers.
-* **Environment** – flexible mapping: `__` and `:` delimiters build JSON hierarchy.
-* **HTTP** – custom headers, caching, and change-only emissions.
-* **Microsoft Adapter Provider** *(extension)* – Bridge existing `IConfiguration`.
+* **Static / Observable** (in-memory) built-ins.
+* **File** – Watch + resilient poll fallback & recovery.
+* **Environment** – `__` / `:` hierarchy mapping.
+* **HTTP** – Caching, headers, change-only emissions.
+* **Microsoft Adapter** – Bridge existing `IConfiguration` (extension package).
 
 ### Health Monitoring & Reliability
+* Integrated `IConfigurationHealthService`.
+* Status & snapshot streams (coalesced, no duplicates).
+* Two‑phase error handling: fail-fast init, graceful runtime.
+* Last-known-good retention on provider failures.
 
-* **Integrated Health Service** – `IConfigurationHealthService` for all providers.
-* [**Health Snapshots**](./docs/health-monitoring.md) – Capture and stream provider health in real time.
-* **Metrics Export Hooks** *(experimental)* – Integrate with Prometheus / OpenTelemetry.
-* **Cancellation-Aware Reporting** – Accurate health checks under shutdown/load.
-* **Error-Resilient Observables** – Streams stay alive even if subscribers throw exceptions.
-* **Two-Phase Error Handling** – Fail-fast on init, graceful degradation at runtime.
-* **Fail-Safe Defaults** – Config remains valid even on failures.
-* **Change Propagation System** – Coalesced updates, consistent application.
-
-### Developer Experience
-
-* **Minimal Boilerplate** – Define a class, add a rule, done.
-* **Auto-Registered Reactive Config** – [`IReactiveConfig<T>`](./docs/reactive-config.md) registered automatically in DI.
-* **Tuple Multi-Config** – Inject `IReactiveConfig<(A,B,C)>` (any tuple size) for atomic multi-config snapshots (only configured types or bound interfaces allowed).
-* **Interface binding** – map POCOs to read-only interfaces (`Bind.Type<T>().To<IMyConfig>()`) for clean contracts.
-* **Service Lifetime Control** – Scoped, Singleton, Transient, and Keyed registrations supported.
-* **Test-Friendly** – Static/observable providers make testing easy.
-* **ASP.NET Core Integration** – Drop-in extensions for DI.
-* **Migration Path** – Adapter for Microsoft.Extensions.Configuration.
-
+### Developer Experience (Simplified)
+* **Minimal Boilerplate** – Define class + rule; optionally expose interfaces.
+* **Always Reactive** – `IReactiveConfig<T>` & tuple variants auto available.
+* **Scoped by Default** – Concrete & exposed interfaces registered as Scoped.
+* **Opt-Out** – `.DisableAutoRegistration()` (concrete) or global `setup.ExposedType<IMy>().DisableAutoRegistration()`.
+* **Atomic Tuple Snapshots** – Any tuple shape; aligned updates only.
+* **Test-Friendly** – Deterministic providers; easy fake sources.
+* **Clean Migration Path** – Legacy Bind API replaced by Configure (see migration doc).
 
 ---
 
 ## Install
 
-```bash
+```pwsh
 dotnet add package Cocoar.Configuration
 # For ASP.NET Core integration:
 dotnet add package Cocoar.Configuration.AspNetCore
@@ -86,100 +73,116 @@ dotnet add package Cocoar.Configuration.AspNetCore
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-// Register layered configuration (file + environment overlay)
 builder.Services.AddCocoarConfiguration([
-    Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
-    Rule.From.Environment("APP_").For<AppSettings>()
-]);
+        Rule.From.File("appsettings.json").Select("App").For<AppSettings>(),
+        Rule.From.Environment("APP_").For<AppSettings>()
+], setup => [
+        setup.ConcreteType<AppSettings>()
+                                .ExposeAs<IAppSettings>() // optional interface exposure\n]);
+});
 
 var app = builder.Build();
 
-// Simple endpoint: inject concrete snapshot (Scoped)
-app.MapGet("/feature", (AppSettings cfg) => new {
-    snapshotFlag = cfg.FeatureFlag,  // Value at scope start (request)
-    message = cfg.Message
-});
+// Interface injection (Scoped)
+app.MapGet("/feature", (IAppSettings cfg) => new { cfg.FeatureFlag, cfg.Message });
 
-// Tuple reactive usage example (arbitrary arity)
-app.MapGet("/composite", (IReactiveConfig<(AppSettings App, FeatureFlags Flags, LoggingConfig Log)> composite) =>
+// Reactive tuple injection
+app.MapGet("/composite", (IReactiveConfig<(AppSettings App, LoggingConfig Log)> composite) =>
 {
-    var (appCfg, flags, log) = composite.CurrentValue;
-    return new {
-        feature = flags.Enabled.Contains("NewX"),
-        level = log.Level,
-        appCfg.Version
-    };
+        var (appCfg, log) = composite.CurrentValue;
+        return new { appCfg.Version, log.Level };
 });
 
-// Guard: invalid tuple (e.g. unbound interface) throws immediately
-// var bad = manager.GetReactiveConfig<(UnconfiguredType, IUnboundInterface)>(); // -> InvalidOperationException
+app.Run();
 ```
+
+### Opt-Out Examples
+```csharp
+// Inside your configure function:
+builder.AddCocoarConfiguration(rules, setup => [
+    // Skip concrete registration
+    setup.ConcreteType<AppSettings>().DisableAutoRegistration(),
+    
+    // Globally suppress interface registration (affects any future exposure of IAppSettings)
+    setup.ExposedType<IAppSettings>().DisableAutoRegistration()
+]);
+```
+
+---
 
 ## Examples
 
-Each example is a standalone runnable project under `src/Examples/`:
-
 | Project | Description |
 |---------|-------------|
-| [BasicUsage](src/Examples/BasicUsage) | Common ASP.NET Core pattern (file + env overlay) |
-| [FileLayering](src/Examples/FileLayering) | Multiple JSON layering (base + env + local) |
-| [DynamicDependencies](src/Examples/DynamicDependencies) | Later rules derive values from earlier configs |
-| [AspNetCoreExample](src/Examples/AspNetCoreExample) | Minimal API exposing config via endpoints |
-| [GenericProviderAPI](src/Examples/GenericProviderAPI) | Generic provider registration API usage |
-| [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling configuration pattern |
-| [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrating existing `IConfigurationSource` assets |
-| [ServiceLifetimes](src/Examples/ServiceLifetimes) | DI lifetime & keyed registration control |
-| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding with JSON strings and factory functions |
-| [DIExample](src/Examples/DIExample) | Comprehensive DI patterns & overrides |
-| [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) with `ConfigManager` |
-| [BindingExample](src/Examples/BindingExample) | Interface binding without DI |
-| [TupleReactiveExample](src/Examples/TupleReactiveExample) | Tuple-based reactive multi-config snapshot with dynamic updates |
+| [BasicUsage](src/Examples/BasicUsage) | ASP.NET Core + file + environment overlay |
+| [FileLayering](src/Examples/FileLayering) | Multi-file layering (base/env/local) |
+| [DynamicDependencies](src/Examples/DynamicDependencies) | Rules derived from earlier snapshots |
+| [AspNetCoreExample](src/Examples/AspNetCoreExample) | Minimal API endpoints exposing config |
+| [GenericProviderAPI](src/Examples/GenericProviderAPI) | Using generic provider registration APIs |
+| [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling pattern |
+| [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrate existing `IConfigurationSource` providers |
+| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding with JSON / factories |
+| [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) usage |
+| [BindingExample](src/Examples/BindingExample) | Interface exposure without DI container |
+| [TupleReactiveExample](src/Examples/TupleReactiveExample) | Tuple-based aligned reactive snapshots |
 
-More details: [Examples README](src/Examples/README.md).
+More: [Examples README](src/Examples/README.md).
 
 ---
+
 ## Quality & Reliability
 
-Cocoar.Configuration is backed by an extensive test suite:
+Extensive automated test suite (>200 tests) spanning:
+* Integration & recompute pipeline
+* Concurrency, cancellation & debounce correctness
+* Large JSON + high-frequency mutation stress
+* File watcher ↔ polling resilience & recovery
+* HTTP provider headers, caching, status handling
+* Environment & adapter edge cases
+* Tuple reactive alignment correctness
+* Health snapshot/state transitions
 
-* **204 automated tests** across core, providers, and edge cases (v1.0.0).
-* Continuous integration (GitHub Actions) validates every PR and commit.
-* High coverage of provider behavior, failure handling, and the recompute pipeline.
-
-<details>
-<summary><strong>What’s covered beyond unit tests</strong></summary>
-
-* **Integration:** multi‑provider composition, rule ordering, recompute pipeline, snapshot stability.
-* **Concurrency & Cancellation:** debounce/coalescing under rapid change storms; overlapping recomputes; cancellation correctness.
-* **Stress & Performance:** large/megabyte JSONs; high‑frequency writes; multi‑provider concurrency; emission minimality (fewer emissions than changes).
-* **File Provider Resilience:** FileSystemWatcher ⇄ polling fallback; directory deletion/recreation recovery.
-* **HTTP Provider “battle tests”:** headers, caching, non‑200 handling, base address vs absolute URIs.
-* **Environment & Microsoft Adapter:** delimiter/underscore edge cases; in‑memory config integration.
-* **Fuzz/Differential tests:** random change sequences maintain correctness and stable merges.
-* **Health pipeline:** status derivation, recovery, version preservation on failure, observable health updates.
-
-</details>
-
-See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for patterns and trait filters.
+See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for details.
 
 ---
+
+## Migration (Bind → Configure)
+
+New (simplified):
+```csharp
+// Function-based configuration
+builder.AddCocoarConfiguration(rules, setup => [
+    setup.ConcreteType<AppSettings>()
+        .ExposeAs<IAppSettings>(), // Scoped
+
+    // Optional opt-outs
+    setup.ConcreteType<OtherSettings>().DisableAutoRegistration(),
+    setup.ExposedType<IAppSettings>().DisableAutoRegistration()
+]);
+```
+
+Full guide: [Migration Guide](./docs/migration-bind-to-setup.md)
+
+---
+
 ## Security Notes
-
-- Do not commit secrets to repo JSON
-- Overlay secrets via env/provider layers
-- Use TLS + auth for remote polling
-- Consider vault integration via Microsoft adapter
+* Don’t commit secrets; overlay via environment / secure providers.
+* Use TLS + auth for remote polling.
+* Consider vault integration through the Microsoft adapter.
 
 ---
-## Contributing & Versioning
 
-- SemVer (additive MINOR, breaking MAJOR)
-- PRs & issues welcome
-- Licensed under Apache License 2.0 (explicit patent grant & attribution via NOTICE)
+## Contributing & Versioning
+* Semantic Versioning (breaking changes = MAJOR)
+* Issues & PRs welcome
+* Licensed under Apache 2.0 (see `LICENSE`, `NOTICE`)
 
 ### License & Trademark
 This project is licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
 
-"Cocoar" and related marks are trademarks of COCOAR e.U. Use of the name in forks or derivatives should preserve attribution and avoid implying official endorsement. See [TRADEMARKS](TRADEMARKS.md) for permitted and restricted uses.
+“Cocoar” and related marks are trademarks of COCOAR e.U. Usage in forks should preserve attribution and avoid implying endorsement. See [TRADEMARKS](TRADEMARKS.md).
 
 ---
+
+
+

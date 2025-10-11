@@ -1,6 +1,0 @@
-{
-  "ApiKey": "sk_live_payment_key_123456789",
-  "MerchantId": "MERCHANT_PROD_001",
-  "MaxAmount": 5000.00,
-  "InternalNotes": "Production payment configuration - high security"
-}

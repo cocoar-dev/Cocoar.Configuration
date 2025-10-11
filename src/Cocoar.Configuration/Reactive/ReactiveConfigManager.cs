@@ -14,10 +14,10 @@ using Cocoar.Configuration.Utilities;
 namespace Cocoar.Configuration.Reactive;
 
 
-internal sealed class ReactiveConfigManager(ILogger logger, BindingRegistry bindingRegistry) : IDisposable
+internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bindingRegistry) : IDisposable
 {
     private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly BindingRegistry _bindingRegistry = bindingRegistry ?? throw new ArgumentNullException(nameof(bindingRegistry));
+    private readonly ExposureRegistry _bindingRegistry = bindingRegistry ?? throw new ArgumentNullException(nameof(bindingRegistry));
     private readonly ConcurrentDictionary<Type, object> _configObservables = new();
     private readonly ConcurrentDictionary<Type, string> _previousConfigHashes = new();
 

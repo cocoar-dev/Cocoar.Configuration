@@ -1,0 +1,315 @@
+using System.Reactive.Subjects;
+using System.Text.Json;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
+using static Cocoar.Configuration.Core.Tests.Integration.MultiProviderTestModels;
+
+namespace Cocoar.Configuration.Core.Tests.Integration;
+
+/// <summary>
+/// Tests for ConfigManager's reactive behavior with multiple providers.
+/// Validates reactive config updates and hash-gated emission optimizations.
+/// </summary>
+[Trait("Category", "Integration")]
+[Trait("Component", "ConfigManager")]
+public class MultiProviderReactiveTests
+{
+    #region Reactive Integration Tests
+
+    #region Reactive Integration Tests
+
+    /// <summary>
+    /// Tests that Observable changes update ConfigManager properly while Static remains unchanged.
+    /// This validates the reactive integration between ObservableProvider and ConfigManager.
+    /// Uses JSON strings to ensure proper flattened key merging.
+    /// </summary>
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "ConfigManager")]
+    public void ConfigManager_ObservableChanges_UpdatesReactiveConfig()
+    {
+        var staticBase = """{"Name": "Static", "Version": 1, "Database": {"Timeout": 30}}""";
+        var initialObservableJson = """{"Name": "Observable", "Version": 10}""";
+        var behaviorSubject = new BehaviorSubject<string>(initialObservableJson);
+
+        var rules = new List<ConfigRule>
+        {
+            TestRules.StaticJson<AppConfig>(staticBase),      // Base (rule 0)
+            TestRules.ObservableString<AppConfig>(behaviorSubject)  // Observable (rule 1, wins)
+        };
+
+        var configManager = new ConfigManager(rules, debounceMilliseconds: 100).Initialize();
+        var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
+        
+        var emissions = new List<AppConfig>();
+        var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
+
+        Thread.Sleep(200);
+
+        var initialConfig = emissions.Last();
+        Assert.NotNull(initialConfig);
+        Assert.Equal("Observable", initialConfig.Name);  // From Observable
+        Assert.Equal(10, initialConfig.Version);        // From Observable  
+        Assert.Equal(30, initialConfig.Database.Timeout); // From Static (not overridden)
+
+        var updatedObservableJson = """{"Name": "UpdatedObservable", "Version": 20}""";
+        behaviorSubject.OnNext(updatedObservableJson);
+
+        Thread.Sleep(300);
+
+        var latestConfig = emissions.Last();
+        Assert.NotNull(latestConfig);
+        Assert.Equal("UpdatedObservable", latestConfig.Name);  // Observable won
+        Assert.Equal(20, latestConfig.Version);               // Observable won
+        Assert.Equal(30, latestConfig.Database.Timeout);      // Static preserved
+
+    var currentSnapshot = configManager.GetConfig<AppConfig>();
+    Assert.NotNull(currentSnapshot);
+        Assert.Equal("UpdatedObservable", currentSnapshot.Name);
+        Assert.Equal(20, currentSnapshot.Version);
+        Assert.Equal(30, currentSnapshot.Database.Timeout);
+
+        subscription.Dispose();
+        behaviorSubject.Dispose();
+    }
+
+    /// <summary>
+    /// Tests that multiple rapid Observable changes are handled correctly with Static base.
+    /// This validates debouncing and final correctness in multi-provider scenarios with proper flattened merging.
+    /// Uses JSON strings to ensure proper key-based merging behavior.
+    /// </summary>
+    [Fact]
+    [Trait("Type", "Concurrency")]
+    [Trait("Provider", "ConfigManager")]
+    public void ConfigManager_RapidObservableChanges_DebouncesCorrectly()
+    {
+        var staticBase = """
+        {
+            "Name": "StaticBase",
+            "Database": {
+                "ConnectionString": "server=static;",
+                "Timeout": 30
+            }
+        }
+        """;
+
+        var initialObservableJson = """
+        {
+            "Name": "Initial",
+            "Version": 0,
+            "Database": {
+                "ConnectionString": "server=initial;"
+            }
+        }
+        """;
+
+        var behaviorSubject = new BehaviorSubject<string>(initialObservableJson);
+
+        var rules = new List<ConfigRule>
+        {
+            TestRules.StaticJson<AppConfig>(staticBase),
+            TestRules.ObservableString<AppConfig>(behaviorSubject)
+        };
+
+        var configManager = new ConfigManager(rules, debounceMilliseconds: 50).Initialize();
+        var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
+
+        var emissions = new List<AppConfig>();
+        var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
+
+        Thread.Sleep(100); // Wait for initial
+        var initialCount = emissions.Count;
+
+        for (var i = 1; i <= 20; i++)
+        {
+            var updateJson = $$"""
+            {
+                "Name": "Change{{i}}",
+                "Version": {{i}},
+                "Database": {
+                    "ConnectionString": "server=change{{i}};"
+                }
+            }
+            """;
+            behaviorSubject.OnNext(updateJson);
+        }
+
+        Thread.Sleep(300);
+
+        var finalEmissionCount = emissions.Count;
+        var finalConfig = emissions.Last();
+        Assert.NotNull(finalConfig);
+
+        Assert.Equal("Change20", finalConfig.Name);                    // Final Observable value
+        Assert.Equal(20, finalConfig.Version);                       // Final Observable value
+        Assert.Equal("server=change20;", finalConfig.Database.ConnectionString); // Final Observable value
+        Assert.Equal(30, finalConfig.Database.Timeout);              // From Static base (not overridden)
+
+        var newEmissions = finalEmissionCount - initialCount;
+        Assert.True(newEmissions > 0, "Should have at least one emission from changes");
+        Assert.True(newEmissions < 20, "Should have fewer emissions than changes (debouncing)");
+
+        subscription.Dispose();
+        behaviorSubject.Dispose();
+    }
+
+    #endregion
+
+    #endregion
+
+    #region Hash-Gated Emission Tests
+
+    #region Hash-Gated Emission Tests
+
+    /// <summary>
+    /// Validates that ConfigManager with ObservableProvider does NOT emit when only JSON property order differs.
+    /// Hash-gated emissions prevent unnecessary reactive updates for logically equivalent configurations.
+    /// </summary>
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "ConfigManager")]
+    public void ConfigManager_Observable_NoEmission_WhenOnlyPropertyOrderDiffers()
+    {
+
+        var initialJson = @"{
+            ""Name"": ""TestApp"",
+            ""Version"": 1,
+            ""Database"": {
+                ""ConnectionString"": ""Server=test"",
+                ""Timeout"": 30
+            }
+        }";
+
+        using var subject = new BehaviorSubject<string>(initialJson);
+
+        var rules = new List<ConfigRule>
+        {
+            TestRules.ObservableString<AppConfig>(subject)
+        };
+
+        var configManager = new ConfigManager(rules, debounceMilliseconds: 100).Initialize();
+        var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
+        
+        var emissions = new List<AppConfig>();
+        var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
+
+        Thread.Sleep(200);
+        var initialEmissionCount = emissions.Count;
+
+        var reorderedJson = @"{
+            ""Database"": {
+                ""Timeout"": 30,
+                ""ConnectionString"": ""Server=test""
+            },
+            ""Version"": 1,
+            ""Name"": ""TestApp""
+        }";
+
+        subject.OnNext(reorderedJson);
+        Thread.Sleep(300);
+
+        Assert.Equal(initialEmissionCount, emissions.Count);
+        
+        var currentConfig = reactiveConfig.CurrentValue;
+        Assert.Equal("TestApp", currentConfig.Name);
+        Assert.Equal(1, currentConfig.Version);
+        Assert.Equal("Server=test", currentConfig.Database.ConnectionString);
+        Assert.Equal(30, currentConfig.Database.Timeout);
+    }
+
+    /// <summary>
+    /// Validates that ConfigManager with ObservableProvider does NOT emit when only JSON whitespace differs.
+    /// Hash-gated emissions should ignore formatting differences in JSON strings.
+    /// </summary>
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "ConfigManager")]
+    public void ConfigManager_Observable_NoEmission_WhenWhitespaceChanges()
+    {
+
+        var compactJson = @"{""Name"":""TestApp"",""Version"":2}";
+
+        using var subject = new BehaviorSubject<string>(compactJson);
+
+        var rules = new List<ConfigRule>
+        {
+            TestRules.ObservableString<AppConfig>(subject)
+        };
+
+        var configManager = new ConfigManager(rules, debounceMilliseconds: 100).Initialize();
+        var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
+        
+        var emissions = new List<AppConfig>();
+        var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
+
+        Thread.Sleep(200);
+        var initialEmissionCount = emissions.Count;
+
+        var formattedJson = @"{
+            ""Name""   :   ""TestApp""  ,
+            ""Version""    :    2
+        }";
+
+        subject.OnNext(formattedJson);
+        Thread.Sleep(300);
+
+        Assert.Equal(initialEmissionCount, emissions.Count);
+        
+        var currentConfig = reactiveConfig.CurrentValue;
+        Assert.Equal("TestApp", currentConfig.Name);
+        Assert.Equal(2, currentConfig.Version);
+    }
+
+    /// <summary>
+    /// Validates ConfigManager emission behavior when array order changes.
+    /// Note: This test assumes arrays ARE order-sensitive in our configuration merging.
+    /// If arrays were order-agnostic, this would test NO emission. Adjust based on design.
+    /// </summary>
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "ConfigManager")]
+    public void ConfigManager_Observable_EmissionWhen_ArrayOrderChanges_OrderSensitive()
+    {
+
+        var initialJson = @"{
+            ""Name"": ""TestApp"",
+            ""Environments"": [""dev"", ""prod"", ""test""]
+        }";
+
+        using var subject = new BehaviorSubject<string>(initialJson);
+
+        var rules = new List<ConfigRule>
+        {
+            TestRules.ObservableString<AppConfigWithArray>(subject)
+        };
+
+        var configManager = new ConfigManager(rules, debounceMilliseconds: 100).Initialize();
+        var reactiveConfig = configManager.GetReactiveConfig<AppConfigWithArray>();
+        
+        var emissions = new List<AppConfigWithArray>();
+        var subscription = reactiveConfig.Subscribe(config => emissions.Add(config));
+
+        Thread.Sleep(200);
+        var initialEmissionCount = emissions.Count;
+
+        var reorderedJson = @"{
+            ""Name"": ""TestApp"",
+            ""Environments"": [""prod"", ""dev"", ""test""]
+        }";
+
+        subject.OnNext(reorderedJson);
+
+        // Wait for potential emission
+        Thread.Sleep(300);
+
+        Assert.True(emissions.Count > initialEmissionCount, 
+            "Expected emission when array order changes because arrays are order-sensitive");
+        
+        var currentConfig = reactiveConfig.CurrentValue;
+        Assert.Equal("TestApp", currentConfig.Name);
+        Assert.Equal(new[] { "prod", "dev", "test" }, currentConfig.Environments);
+    }
+
+    #endregion
+
+    #endregion
+}

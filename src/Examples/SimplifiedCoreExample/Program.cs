@@ -38,23 +38,19 @@ public static class Program
         Console.WriteLine("(No DI, no interface exposure - direct concrete type retrieval only)");
         Console.WriteLine();
 
-        // 1. Build rules using the simplified API (only For<ConcreteType>())
-        var rules = new ConfigRule[]
-        {
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
-                .For<AppConfig>().Build(),
+        // 1. Build rules using the function-based API
+        var manager = new ConfigManager(rule => [
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
+                .For<AppConfig>(),
                 
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/database.json"))
-                .For<DatabaseConfig>().Build(),
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/database.json"))
+                .For<DatabaseConfig>(),
                 
-            Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/features.json"))
-                .For<FeatureConfig>().Build()
-        };
-
-        // 2. Create ConfigManager manually (no DI)
-        var manager = new ConfigManager(rules).Initialize();
+            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/features.json"))
+                .For<FeatureConfig>()
+        ]).Initialize();
         
-        Console.WriteLine("📋 Configuration Manager initialized with {0} rules", rules.Length);
+        Console.WriteLine("📋 Configuration Manager initialized");
         Console.WriteLine();
 
         // 3. Retrieve configurations by concrete type only
@@ -90,20 +86,18 @@ public static class Program
             // 4. Demonstrate rule layering by creating a scenario with overrides
             Console.WriteLine("🔄 Demonstrating rule layering (later rules override earlier ones):");
             
-            var layeredRules = new ConfigRule[]
-            {
+            var layeredManager = new ConfigManager(rule => [
                 // Base configuration
-                Rule.From.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
-                    .For<AppConfig>().Build(),
+                rule.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
+                    .For<AppConfig>(),
                     
                 // Override via static JSON (simulating environment-specific override)
-                Rule.From.Static(_ => new {
+                rule.Static(_ => new {
                     Environment = "Production",
                     LogLevel = "Warning"
-                }).For<AppConfig>().Build()
-            };
+                }).For<AppConfig>()
+            ]).Initialize();
             
-            var layeredManager = new ConfigManager(layeredRules).Initialize();
             var overriddenApp = layeredManager.GetConfig<AppConfig>();
             
             Console.WriteLine("   Original Environment: Development → Overridden: {0}", overriddenApp.Environment);
@@ -113,9 +107,9 @@ public static class Program
 
             // 5. Show configuration access patterns
             Console.WriteLine("📖 Key API Patterns in Simplified Core:");
-            Console.WriteLine("   ✓ Rule.From.File(...).For<ConcreteType>()");
-            Console.WriteLine("   ✓ Rule.From.Static(...).For<ConcreteType>()");
-            Console.WriteLine("   ✓ new ConfigManager(rules).Initialize()");
+            Console.WriteLine("   ✓ rule.File(...).For<ConcreteType>()");
+            Console.WriteLine("   ✓ rule.Static(...).For<ConcreteType>()");
+            Console.WriteLine("   ✓ new ConfigManager(rule => [...]).Initialize()");
             Console.WriteLine("   ✓ manager.GetConfig<ConcreteType>()");
             Console.WriteLine("   ✗ No .As<Interface>() (removed from core)");
             Console.WriteLine("   ✗ No service lifetimes (moved to DI package)");

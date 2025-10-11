@@ -3,7 +3,8 @@ using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Reactive;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -16,7 +17,7 @@ public class MultiArityReactiveConfigTests
     private sealed class E { public string? Mode { get; set; } }
 
     private static ConfigRule RuleFromSubject<T>(BehaviorSubject<T> subject) where T : class
-        => Rule.From.Observable(subject).Required().For<T>().Build();
+        => TestRules.Observable(subject, required: true);
 
     [Fact]
     public async Task TwoArity_EmitsOnce_When_OneMemberChanges()

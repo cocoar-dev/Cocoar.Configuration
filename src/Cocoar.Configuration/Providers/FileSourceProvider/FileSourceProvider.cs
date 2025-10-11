@@ -11,20 +11,17 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     private readonly ConcurrentDictionary<string, JsonElement> _fileCache = new();
     private readonly ConcurrentDictionary<string, IObservable<JsonElement>> _changeStreams = new();
     
-    // Resilient FileSystemWatcher components
     private readonly Subject<FileSystemChange> _changeSubject = new();
     private readonly Timer _pollingTimer;
     private FileSystemWatcher? _fileSystemWatcher;
     private bool _isPolling;
-    private readonly object _lockObj = new();
+    private readonly Lock _lockObj = new();
     private bool _disposed;
 
     public FileSourceProvider(FileSourceProviderOptions options) : base(options)
     {
-        // Initialize polling timer (initially disabled)
         _pollingTimer = new(PollingCallback, null, Timeout.Infinite, Timeout.Infinite);
         
-        // Start appropriate monitoring mode
         StartMonitoring();
     }
 
@@ -72,9 +69,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         );
     }
 
-    /// <summary>
-    /// Start appropriate monitoring mode: FileSystemWatcher if directory exists, polling if not.
-    /// </summary>
     private void StartMonitoring()
     {
         lock (_lockObj)
@@ -95,10 +89,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         }
     }
 
-    /// <summary>
-    /// Start FileSystemWatcher for fast change detection.
-    /// Monitors Error event for directory deletion/access issues.
-    /// </summary>
     private void StartFileSystemWatcher()
     {
         lock (_lockObj)
@@ -117,21 +107,18 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
                     EnableRaisingEvents = true
                 };
 
-                // File events
                 _fileSystemWatcher.Created += OnFileSystemEvent;
                 _fileSystemWatcher.Changed += OnFileSystemEvent;
                 _fileSystemWatcher.Deleted += OnFileSystemEvent;
                 _fileSystemWatcher.Renamed += OnFileSystemRenamed;
 
-                // KEY: Monitor Error event for watcher failure
                 _fileSystemWatcher.Error += OnFileSystemWatcherError;
 
                 _isPolling = false;
-                _pollingTimer.Change(Timeout.Infinite, Timeout.Infinite); // Stop polling
+                _pollingTimer.Change(Timeout.Infinite, Timeout.Infinite);
             }
             catch (Exception)
             {
-                // If FileSystemWatcher creation fails, fall back to polling
                 _fileSystemWatcher?.Dispose();
                 _fileSystemWatcher = null;
                 StartPolling();
@@ -139,10 +126,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         }
     }
 
-    /// <summary>
-    /// Start Directory.Exists polling when FileSystemWatcher can't be used.
-    /// Uses configurable polling interval for directory existence checks.
-    /// </summary>
     private void StartPolling()
     {
         lock (_lockObj)
@@ -155,14 +138,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
             StopFileSystemWatcher();
             _isPolling = true;
             
-            // Start polling at configured interval (default 10 seconds)
             _pollingTimer.Change(TimeSpan.Zero, ProviderOptions.PollingInterval);
         }
     }
 
-    /// <summary>
-    /// Polling callback that checks if directory exists and can restart FileSystemWatcher.
-    /// </summary>
     private void PollingCallback(object? state)
     {
         lock (_lockObj)
@@ -180,10 +159,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         }
     }
 
-    /// <summary>
-    /// Handle FileSystemWatcher Error event - indicates watcher failure.
-    /// Falls back to polling until directory becomes accessible again.
-    /// </summary>
     private void OnFileSystemWatcherError(object sender, ErrorEventArgs e)
     {
         lock (_lockObj)
@@ -196,14 +171,10 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
             // Log the error for diagnostics
             // Console.WriteLine($"FileSystemWatcher error: {e.GetException()}");
             
-            // Watcher has failed, fall back to polling
             StartPolling();
         }
     }
 
-    /// <summary>
-    /// Handle standard FileSystemWatcher events.
-    /// </summary>
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
         _changeSubject.OnNext(new(
@@ -218,9 +189,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         ));
     }
 
-    /// <summary>
-    /// Handle FileSystemWatcher rename events.
-    /// </summary>
     private void OnFileSystemRenamed(object sender, RenamedEventArgs e)
     {
         _changeSubject.OnNext(new(
@@ -230,39 +198,35 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         ));
     }
 
-    /// <summary>
-    /// Stop FileSystemWatcher and clean up resources.
-    /// </summary>
     private void StopFileSystemWatcher()
     {
         _fileSystemWatcher?.Dispose();
         _fileSystemWatcher = null;
     }
 
-    /// <summary>
-    /// Load file with proper error handling for Required vs Optional rules.
-    /// During polling mode, this is the primary way configuration is accessed.
-    /// </summary>
+
     private JsonElement LoadFile(string filename)
     {
         var fullPath = Path.Combine(ProviderOptions.Directory, filename);
         
-        // CRITICAL: Handle directory existence for polling mode
+        // Throw specific exceptions so ConfigManager can handle Required vs Optional rules appropriately
         if (!Directory.Exists(ProviderOptions.Directory))
         {
-            // Directory doesn't exist - throw to allow ConfigManager to honor Required rules
-            throw new DirectoryNotFoundException($"Config directory not found: {ProviderOptions.Directory}");
+            throw new DirectoryNotFoundException(
+                $"Config directory doesn't exist: {ProviderOptions.Directory}. " +
+                $"Check your path or mark the rule as Optional if this directory might not exist yet.");
         }
         
         if (!File.Exists(fullPath))
         {
-            // File doesn't exist - throw to allow ConfigManager to honor Required rules  
-            throw new FileNotFoundException($"Config file not found: {fullPath}", fullPath);
+            throw new FileNotFoundException(
+                $"Config file not found: {fullPath}. " +
+                $"If this file is created later at runtime, mark the rule as Optional.", fullPath);
         }
 
-        // Use explicit FileShare.ReadWrite to avoid locking conflicts
-        // This allows other processes (including rapid test writes) to access the file
         string json;
+        // FileShare.ReadWrite allows other processes to write while we're reading - 
+        // important for hot reload scenarios where a deployment might update the file
         using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
         using (var reader = new StreamReader(stream))
         {
@@ -273,8 +237,19 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     }
 
     /// <summary>
-    /// Dispose resources: FileSystemWatcher, polling timer, and subjects.
+    /// Helper method to create a file configuration rule for testing purposes.
     /// </summary>
+    public static Rules.ConfigRule CreateRule<T>(string filePath, string? selectPath = null, bool required = false)
+    {
+        var options = FileSourceRuleOptions.FromFilePath(filePath);
+        return Rules.ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
+            _ => options.ToProviderOptions(),
+            _ => options.ToQueryOptions(),
+            typeof(T),
+            new Rules.ConfigRuleOptions(Required: required, UseWhen: null).WithSelect(selectPath)
+        );
+    }
+
     public void Dispose()
     {
         lock (_lockObj)

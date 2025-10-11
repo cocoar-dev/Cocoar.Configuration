@@ -1,5 +1,0 @@
-{
-  "ConnectionString": "Server=prod-sql.company.com;Database=MainDB;Trusted_Connection=true;",
-  "TimeoutSeconds": 45,
-  "EnableQueryLogging": false
-}

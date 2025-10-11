@@ -1,5 +1,6 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
+using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 
@@ -30,13 +31,13 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddCocoarConfiguration([
-            Rule.From.File("config.json").Select("StartUp").For<StartUpConfiguration>(),
-            Rule.From.File("config.json").Select("Marten").For<MartenStartupSettings>(),
-            Rule.From.Environment().For<StartUpConfiguration>(),
-            Rule.From.Environment("MARTEN_").For<MartenStartupSettings>()
-        ], [
-            Bind.Type<StartUpConfiguration>().To<IStartupSettings>()
+        builder.AddCocoarConfiguration(rule => [
+            rule.File("config.json").Select("StartUp").For<StartUpConfiguration>(),
+            rule.File("config.json").Select("Marten").For<MartenStartupSettings>(),
+            rule.Environment().For<StartUpConfiguration>(),
+            rule.Environment("MARTEN_").For<MartenStartupSettings>()
+        ], setup => [
+            setup.ConcreteType<StartUpConfiguration>().ExposeAs<IStartupSettings>()
         ]);
 
         var app = builder.Build();

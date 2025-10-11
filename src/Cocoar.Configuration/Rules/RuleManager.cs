@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Helper;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Providers.Abstractions;
@@ -184,7 +185,7 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
         }
         catch
         {
-            // ignore change processing failures to keep the stream alive
+            // ignore
         }
     }
 

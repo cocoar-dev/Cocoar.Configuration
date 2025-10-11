@@ -1,5 +1,6 @@
 using Cocoar.Configuration.Rules;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 

@@ -3,9 +3,10 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers;
 
-public sealed class StaticJsonProviderOptions(JsonElement value) : IProviderConfiguration
-{
-    public JsonElement Value { get; } = value;
 
+public record StaticJsonProviderQueryOptions() : IProviderQuery;
+
+public record StaticJsonProviderOptions(JsonElement Value) : IProviderConfiguration
+{
     public string? GenerateProviderKey() => null;
 }

@@ -1,5 +1,6 @@
 using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
+using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
@@ -31,13 +32,13 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddCocoarConfiguration([
-            Rule.From.File("config.json").Select("App").For<AppSettings>(),
-            Rule.From.Environment("APP_").For<AppSettings>(),
-            Rule.From.File("config.json").Select("Database").For<DatabaseSettings>(),
-            Rule.From.Environment("DB_").For<DatabaseSettings>()
-        ], [
-            Bind.Type<AppSettings>().To<IAppSettings>()
+        builder.AddCocoarConfiguration(rule => [
+            rule.File("config.json").Select("App").For<AppSettings>(),
+            rule.Environment("APP_").For<AppSettings>(),
+            rule.File("config.json").Select("Database").For<DatabaseSettings>(),
+            rule.Environment("DB_").For<DatabaseSettings>()
+        ], setup => [
+            setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>(),
         ]);
 
         var app = builder.Build();

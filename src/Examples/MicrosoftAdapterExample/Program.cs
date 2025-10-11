@@ -23,9 +23,9 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration([
+        services.AddCocoarConfiguration(rule => [
 
-            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+            rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
                     {
@@ -41,7 +41,7 @@ public static class Program
             .For<DatabaseSettings>()
             .Required(),
 
-            Rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
+            rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
                 instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
                     {

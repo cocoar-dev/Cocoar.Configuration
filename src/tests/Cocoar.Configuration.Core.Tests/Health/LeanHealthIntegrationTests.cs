@@ -2,7 +2,8 @@ using System.Text.Json;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Rules;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 

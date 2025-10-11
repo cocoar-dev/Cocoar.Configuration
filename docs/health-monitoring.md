@@ -134,6 +134,41 @@ These codes show up in `RuleHealthEntry.ErrorCode` for quick triage.
 
 ---
 
+## Provider-supplied error codes (recommended)
+
+Central code does not try to parse exception messages. Instead, providers should attach a short, structured error code to the exception they throw using `Exception.Data`.
+
+Contract:
+
+* Set `ex.Data["HealthErrorCode"] = "YOUR_CODE"` before throwing or rethrowing.
+* Optionally set a short message; the health tracker will use `Exception.Message` (trimmed) as `ErrorMessage`.
+* If no code is provided, the health tracker will leave `ErrorCode` unset (`null`). There is no central exception-type or message parsing in the core—providers own the mapping.
+
+Example in a provider:
+
+```csharp
+try
+{
+    // provider logic ...
+}
+catch (HttpRequestException ex)
+{
+    ex.Data["HealthErrorCode"] = ex.StatusCode == System.Net.HttpStatusCode.NotFound
+        ? "FILE_NOT_FOUND"
+        : "HTTP_ERROR_STATUS";
+    throw; // health tracker will pick up the code
+}
+catch (JsonException ex)
+{
+    ex.Data["HealthErrorCode"] = "JSON_PARSE";
+    throw;
+}
+```
+
+This approach keeps mapping responsibility with the provider (which has full context) while ensuring a consistent, compact surface for health reporting. Suggested codes: `FILE_NOT_FOUND`, `FILE_IO_ERROR`, `JSON_PARSE`, `HTTP_TIMEOUT`, `HTTP_ERROR_STATUS`, `PROVIDER_CANCELED` — but you can define others that fit your domain.
+
+---
+
 ## Notes
 
 * Identical snapshots (same overall status, same config version, same rule status/failure counters) are **suppressed** to avoid noisy streams.

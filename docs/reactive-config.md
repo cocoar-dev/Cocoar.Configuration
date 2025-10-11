@@ -119,9 +119,9 @@ Tuple configs behave like single-type reactive configs: they only emit after a r
 Only two kinds of types are allowed as tuple elements:
 
 1. Concrete types that have a configuration rule (i.e. appear as a `.For<ConcreteType>()` in your rules).
-2. Interfaces that are explicitly bound to a concrete type via `Bind.Type<Concrete>().To<IMyInterface>()` (or equivalent binding helpers).
+2. Interfaces exposed by a concrete type via the Configure API: `setup.ConcreteType<Concrete>().ExposeAs<IMyInterface>()`.
 
-If any tuple element is not one of those, construction of `IReactiveConfig<(...)>` throws immediately with a detailed message listing each invalid element and why it is invalid ("not a configured type" or "interface not bound"). This prevents silent default/null values inside composite snapshots.
+If any tuple element is not one of those, construction of `IReactiveConfig<(...)>` throws immediately with a detailed message listing each invalid element and why it is invalid ("not a configured type" or "interface not exposed"). This prevents silent default/null values inside composite snapshots.
 
 Example failure:
 
@@ -148,3 +148,5 @@ This guard ensures tuple snapshots are always composed exclusively of legitimate
 
 * [Quickstart](../README.md#quickstart)
 * [Features](../README.md#-features)
+
+

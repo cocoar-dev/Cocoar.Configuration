@@ -8,11 +8,9 @@ public static class FileSystemWatcherObservableExtensions
     public static IObservable<FileSystemChange[]> CollapseBurst(
         this IObservable<FileSystemChange> source,
         TimeSpan quietTime,
-        Func<FileSystemChange, string> keySelector)
-    {
+        Func<FileSystemChange, string> keySelector) =>
         // Default to Scheduler.Default for production usage
-        return CollapseBurst(source, quietTime, keySelector, Scheduler.Default);
-    }
+        CollapseBurst(source, quietTime, keySelector, Scheduler.Default);
 
     public static IObservable<FileSystemChange[]> CollapseBurst(
         this IObservable<FileSystemChange> source,

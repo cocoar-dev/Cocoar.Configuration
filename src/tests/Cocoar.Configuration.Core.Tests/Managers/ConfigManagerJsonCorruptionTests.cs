@@ -3,7 +3,8 @@ using System.Text.Json;
 using System.Reactive.Linq;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers.Abstractions;
-using Cocoar.Configuration.Rules;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
@@ -64,10 +65,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
             return Task.FromResult(ProviderOptions.ValidJsonData);
         }
 
-        public override IObservable<JsonElement> Changes(JsonCorruptionProviderQuery query)
-        {
-            return Observable.Empty<JsonElement>();
-        }
+        public override IObservable<JsonElement> Changes(JsonCorruptionProviderQuery query) => Observable.Empty<JsonElement>();
     }
 
     private class JsonCorruptionProviderOptions : IProviderConfiguration

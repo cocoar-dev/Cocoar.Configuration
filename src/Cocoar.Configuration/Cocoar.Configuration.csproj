@@ -2,6 +2,7 @@
 
 
   <ItemGroup>
+    <PackageReference Include="Cocoar.Capabilities" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>

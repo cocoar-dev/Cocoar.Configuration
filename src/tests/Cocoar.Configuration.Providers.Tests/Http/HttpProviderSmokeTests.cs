@@ -11,33 +11,6 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.Http;
-
-/// <summary>
-/// HttpProviderSmokeTests
-/// ----------------------
-/// PURPOSE
-///   Production-ready HTTP provider tests covering JSON response parsing, queue-based polling 
-///   behavior, and change detection semantics. Validates HTTP polling provider functionality
-///   with mock infrastructure for reliable testing.
-/// 
-/// SCOPE
-///   - HTTP response parsing and JSON deserialization
-///   - Queue-based response handling for polling changes
-///   - Change subscription behavior and initial emission semantics
-///   - ConfigManager integration with HTTP polling providers
-///   - Mock HTTP infrastructure (FakeHandler, QueueHandler)
-/// 
-/// COVERAGE
-///   - Basic HTTP fetch and JSON parsing
-///   - Dynamic response changes via queue-based mocking
-///   - Subscription lifecycle (no initial emission)
-///   - Integration with ConfigManager and DI container
-///   - Debouncing and change detection timing
-/// 
-/// INFRASTRUCTURE
-///   - FakeHandler: Single static HTTP response mocking
-///   - QueueHandler: Sequential response queue for change testing
-///   - Full DI integration with service collection
 /// </summary>
 // HTTP provider tests (production-ready coverage)
 public class HttpProviderSmokeTests
@@ -76,18 +49,16 @@ public class HttpProviderSmokeTests
         var handler = new QueueHandler(queue);
 
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration([
+        services.AddCocoarConfiguration(rules => [
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
-            Rule.From
-                .MicrosoftSource(cm => new(
+            rules.MicrosoftSource(cm => new(
                     new ConfigurationBuilder()
                         .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "/api/config" })
                         .Sources[0],
                     configurationPrefix: "Remote"
                 ))
                 .For<MyHttpPollingSettings>(),
-            Rule.From
-                .HttpPolling(configManager => new(
+            rules.HttpPolling(configManager => new(
                     urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
                     baseAddress: "https://example.com",
                     // Give CI plenty of time; we will actively wait for the change

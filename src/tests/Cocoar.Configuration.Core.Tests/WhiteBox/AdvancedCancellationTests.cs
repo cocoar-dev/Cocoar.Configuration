@@ -1,29 +1,11 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Reactive.Subjects;
 using Cocoar.Configuration.Rules;
-using Cocoar.Configuration.Providers;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
-/// <summary>
-/// Advanced cancellation tests that validate sophisticated recompute cancellation scenarios.
-/// 
-/// PURPOSE:
-///   Ensures an in-flight recompute is promptly cancelled when an earlier rule change arrives,
-///   and that a new recompute is started from the new earliest index. This prevents wasted work
-///   (fetching later providers based on stale earlier state) and reduces latency to consistent state.
-/// 
-/// APPROACH:
-///   - Uses Observable providers to simulate realistic timing scenarios
-///   - Tests multi-rule recompute cancellation and restart behavior
-///   - Validates that ConfigManager handles overlapping changes gracefully
-/// 
-/// VALIDATION:
-///   - Earlier rule changes properly cancel in-flight recomputes
-///   - New recomputes start from the correct earliest changed index
-///   - Rapid overlapping changes don't cause lost updates or inconsistent state
-///   - System remains stable under chaotic change patterns
-/// </summary>
 [Trait("Type", "WhiteBox")]
 [Trait("Provider", "ConfigManager")]
 [Trait("Feature", "Cancellation")]
@@ -44,10 +26,6 @@ public class AdvancedCancellationTests : IDisposable
 
     public record CancellationConfig(string Id, int Value, string Status);
 
-    /// <summary>
-    /// Tests that multiple overlapping changes are handled correctly with proper cancellation behavior.
-    /// This validates that the recompute engine can handle complex change scenarios without lost updates.
-    /// </summary>
     [Fact]
     public async Task MultipleOverlappingChanges_HandlesCancellationCorrectly()
     {

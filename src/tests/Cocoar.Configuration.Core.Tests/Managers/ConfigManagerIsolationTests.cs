@@ -2,7 +2,8 @@ using System.Text.Json;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Rules;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
@@ -231,7 +232,7 @@ public class ConfigManagerIsolationTests : IDisposable
             configManager.GetRequiredConfig<ApiConfig>());
         
         Assert.Contains("ApiConfig", exception.Message);
-        Assert.Contains("not found", exception.Message);
+        Assert.Contains("hasn't been loaded", exception.Message);
     }
 
     #endregion

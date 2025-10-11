@@ -1,6 +1,7 @@
 using System.Reactive.Linq;
 using System.Text.Json;
-using Cocoar.Configuration.Providers.Abstractions;
+
+using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.TestUtilities;
 
@@ -45,11 +46,9 @@ public sealed class FailableProvider : ConfigurationProvider<FailableProviderOpt
         return Task.FromResult(ProviderOptions.JsonData);
     }
 
-    public override IObservable<JsonElement> Changes(FailableProviderQuery query)
-    {
+    public override IObservable<JsonElement> Changes(FailableProviderQuery query) =>
         // For testing, we don't need change notifications
-        return Observable.Empty<JsonElement>();
-    }
+        Observable.Empty<JsonElement>();
 }
 
 /// <summary>

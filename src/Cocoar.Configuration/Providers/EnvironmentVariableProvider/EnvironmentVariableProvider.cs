@@ -145,6 +145,18 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         return s;
     }
 
+    /// <summary>
+    /// Helper method to create an environment variable configuration rule for testing purposes.
+    /// </summary>
+    public static Rules.ConfigRule CreateRule<T>(string? prefix = null, bool required = false)
+    {
+        return Rules.ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
+            _ => new EnvironmentVariableProviderOptions(prefix),
+            _ => new EnvironmentVariableProviderQueryOptions(prefix),
+            typeof(T),
+            new Rules.ConfigRuleOptions(Required: required, UseWhen: null)
+        );
+    }
 
     public override IObservable<JsonElement> Changes(EnvironmentVariableProviderQueryOptions queryOptions)
         => System.Reactive.Linq.Observable.Never<JsonElement>();

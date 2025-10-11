@@ -6,34 +6,6 @@ using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.Http;
 
-/// <summary>
-/// HttpProviderBattleTests
-/// -----------------------
-/// PURPOSE
-///   Comprehensive battle testing of HttpPollingProvider current functionality
-///   covering edge cases, error scenarios, and production-ready validation.
-///   Tests actual implementation behavior without adding new features.
-/// 
-/// SCOPE
-///   - HTTP error response handling (404, 500, timeouts)
-///   - JSON parsing edge cases and malformed responses
-///   - Custom header handling and URL construction
-///   - Polling interval and change detection validation
-///   - Resource disposal and lifecycle management
-///   - Caching behavior and key generation
-/// 
-/// COVERAGE
-///   - Network error scenarios (what provider currently handles)
-///   - JSON response validation and error recovery
-///   - Header injection and URL building logic
-///   - Change detection via JSON hashing
-///   - Memory and resource management
-/// 
-/// CONSTRAINTS
-///   - Tests ONLY current functionality - no retry, no ETags, no auth
-///   - Uses mock HttpMessageHandler for reliable testing
-///   - Focuses on provider behavior, not HTTP protocol implementation
-/// </summary>
 public class HttpProviderBattleTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = new();

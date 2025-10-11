@@ -12,33 +12,32 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
     private readonly int _initialDebounceMs = Math.Max(0, initialDebounceMs);
     private readonly int _trailingMs = Math.Max(0, trailingMs);
 
-    private int _earliestPending = int.MaxValue; // Pending (not yet started) earliest index.
-    private int _earliestDuringRun = int.MaxValue; // Events that arrive while a pass is running.
-    private int _running = 0; // 0 = idle, 1 = running.
+    private int _earliestPending = int.MaxValue;
+    private int _earliestDuringRun = int.MaxValue;
+    // 0 = false, 1 = true. Int is used (not bool) to support Interlocked.Exchange/CompareExchange atomics.
+    private int _running = 0;
 
     private System.Timers.Timer? _trailingTimer;
     private System.Timers.Timer? _initialTimer; // One-shot timer for initial debounce.
-    private readonly object _lock = new(); // Protect timer lifecycle.
+    private readonly Lock _lock = new();
 
     public void Signal(int index)
     {
         if (Volatile.Read(ref _running) == 1)
         {
-            // Coalesce into earliestDuringRun while a pass is executing.
             int current;
             do
             {
                 current = Volatile.Read(ref _earliestDuringRun);
                 if (index >= current)
                 {
-                    return; // existing earlier or equal index already captured
+                    return; 
                 }
             } while (Interlocked.CompareExchange(ref _earliestDuringRun, index, current) != current);
 
             return;
         }
 
-        // Idle path: fold into _earliestPending; if this is the first pending event, schedule initial debounce/start.
         int pending;
         do
         {
@@ -55,7 +54,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
             {
                 if (index >= pending)
                 {
-                    break; // existing earlier or equal pending index
+                    break;
                 }
             }
         } while (Interlocked.CompareExchange(ref _earliestPending, index, pending) != pending);
@@ -185,7 +184,6 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
             var during = Interlocked.Exchange(ref _earliestDuringRun, int.MaxValue);
             if (during != int.MaxValue)
             {
-                // Fold into pending earliest and schedule trailing immediately.
                 int current;
                 do
                 {

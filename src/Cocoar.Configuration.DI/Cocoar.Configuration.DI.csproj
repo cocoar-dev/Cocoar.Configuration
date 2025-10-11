@@ -7,4 +7,9 @@
     <ItemGroup>
         <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Cocoar.Capabilities" />
+    </ItemGroup>
+
 </Project>
