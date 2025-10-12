@@ -52,13 +52,13 @@ public class ConfigureLifetimeAndKeyTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(1))).Required()
+            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(5))).Required()
         ], setup => [
             setup.ConcreteType<AppImpl>() // reactive always available
         ]);
         var sp = services.BuildServiceProvider();
         var mgr = sp.GetRequiredService<ConfigManager>();
         var reactive = sp.GetRequiredService<IReactiveConfig<AppImpl>>();
-        Assert.Equal(4, reactive.CurrentValue.Value);
+        Assert.Equal(5, reactive.CurrentValue.Value);
     }
 }
