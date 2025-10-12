@@ -65,7 +65,7 @@ public class HttpProviderSmokeTests
                     pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler
                 ))
-                .When(() => true)
+                .When(_ => true)
                 .For<MyCfg>()
         ]);
         var sp = services.BuildServiceProvider();

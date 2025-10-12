@@ -1,10 +1,12 @@
+using Cocoar.Configuration.Core;
+
 namespace Cocoar.Configuration.Fluent;
 
 public abstract class RuleBuilderBase<TBuilder>
     where TBuilder : RuleBuilderBase<TBuilder>
 {
     protected bool IsRequired;
-    protected Func<bool>? UseWhen;
+    protected Func<IConfigurationAccessor, bool>? UseWhen;
     protected Type? ConcreteType;
     protected string? MountPath;
     protected string? SelectPath;
@@ -15,7 +17,7 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
     
-    public TBuilder When(Func<bool> predicate)
+    public TBuilder When(Func<IConfigurationAccessor, bool> predicate)
     {
         UseWhen = predicate;
         return (TBuilder)this;

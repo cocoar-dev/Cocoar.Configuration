@@ -1,19 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.DI.Extensions;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers;
 
 namespace Cocoar.Configuration.DI.Tests;
 
 public class BuilderPatternApiTests
 {
-    private static ConfigRule Rule<T>(T value) where T : class
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(value);
-        return Providers.StaticJsonProvider.CreateRule<T>(json, required: true);
-    }
-
     public interface ITestConfig { string Value { get; } }
     public record TestConfig(string Value) : ITestConfig;
 
@@ -21,9 +16,9 @@ public class BuilderPatternApiTests
     public void Builder_Pattern_Works_With_Multiple_Types()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [
-            Rule(new TestConfig("Hello")),
-            Rule(new AppImpl(42))
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>(),
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(42))).Required().For<AppImpl>()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             setup.ConcreteType<AppImpl>()

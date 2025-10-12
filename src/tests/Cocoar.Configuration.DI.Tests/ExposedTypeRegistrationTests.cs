@@ -1,6 +1,7 @@
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.DI.Extensions;
-using Cocoar.Configuration.Rules;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -8,12 +9,6 @@ namespace Cocoar.Configuration.DI.Tests;
 
 public class ExposedTypeRegistrationTests
 {
-    private static ConfigRule Rule<T>(T value) where T : class
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(value);
-        return Providers.StaticJsonProvider.CreateRule<T>(json, required: true);
-    }
-
     public interface ITestConfig { string Value { get; } }
     public record TestConfig(string Value) : ITestConfig;
 
@@ -21,8 +16,8 @@ public class ExposedTypeRegistrationTests
     public void ExposedType_Default_Registers_As_Scoped()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [
-            Rule(new TestConfig("Hello"))
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>()
         ], setup => [
             // Provide the concrete mapping so ConfigManager can resolve the interface
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
@@ -48,8 +43,8 @@ public class ExposedTypeRegistrationTests
     public void ExposedType_Can_Override_Lifetime_And_Add_Keyed_Registrations()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [
-            Rule(new TestConfig("Hello"))
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             // Override default (non-keyed) to Singleton, disable default (redundant when overriding), and add a keyed transient

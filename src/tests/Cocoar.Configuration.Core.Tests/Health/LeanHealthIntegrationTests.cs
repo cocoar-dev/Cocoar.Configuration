@@ -89,7 +89,7 @@ public class LeanHealthIntegrationTests
             skipOptions,
             skipQuery,
             typeof(object),
-            new(Required: true, UseWhen: () => false) // logically required but inactive
+            new(Required: true, UseWhen: _ => false) // logically required but inactive
         );
         using var mgr = new ConfigManager(new[]{requiredRule, skippedRule}, logger: NullLogger.Instance);
         mgr.Initialize();

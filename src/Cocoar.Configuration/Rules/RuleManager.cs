@@ -41,7 +41,7 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
     {
         LastFailureException = null;
 
-        if (ShouldSkipViaUseWhen())
+        if (ShouldSkipViaUseWhen(accessor))
         {
             return SkipResult();
         }
@@ -71,14 +71,14 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
         }
     }
 
-    private bool ShouldSkipViaUseWhen()
+    private bool ShouldSkipViaUseWhen(IConfigurationAccessor accessor)
     {
         if (rule.Options?.UseWhen == null)
         {
             return false;
         }
 
-        if (rule.Options.UseWhen.Invoke())
+        if (rule.Options.UseWhen.Invoke(accessor))
         {
             return false;
         }

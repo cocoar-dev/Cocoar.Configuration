@@ -2,6 +2,7 @@ using System.Text.Json;
 using Xunit;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Providers.Tests.File;
 
@@ -11,13 +12,22 @@ public class FileProviderUnitTests
     private sealed class AppConfig { public string? Name { get; set; } public int Value { get; set; } }
     private sealed class NestedConfig { public AppConfig App { get; set; } = new(); }
 
+    private static ConfigRule CreateFileRule<T>(string filePath, string? selectPath = null, bool required = false)
+    {
+        var rulesBuilder = new RulesBuilder();
+        var builder = rulesBuilder.File(filePath);
+        if (selectPath != null) builder = builder.Select(selectPath);
+        if (required) builder = builder.Required();
+        return builder.For<T>();
+    }
+
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "FileSourceProvider")]
     public void MissingFile_OptionalRule_SkipsHealthy()
     {
         var path = Path.Combine(Path.GetTempPath(), "cocoar_missing_" + Guid.NewGuid().ToString("N") + ".json");
-        var rule = FileSourceProvider.CreateRule<object>(path, required: false); // explicitly optional
+        var rule = CreateFileRule<object>(path, required: false); // explicitly optional
         using var manager = new ConfigManager(new[]{rule});
         
         // Optional rule should initialize successfully even with missing file
@@ -37,7 +47,7 @@ public class FileProviderUnitTests
     public void MissingFile_RequiredRule_Degrades()
     {
         var path = Path.Combine(Path.GetTempPath(), "cocoar_missing_req_" + Guid.NewGuid().ToString("N") + ".json");
-        var rule = FileSourceProvider.CreateRule<object>(path, required: true);
+        var rule = CreateFileRule<object>(path, required: true);
         using var manager = new ConfigManager(new[]{rule});
         
         // Should throw during initialization for required missing file (wrapped in InvalidOperationException)
@@ -54,7 +64,7 @@ public class FileProviderUnitTests
         using var file = TempFileHelper.Create();
         file.WriteJson(new { Name = "TestApp", Value = 42 });
 
-        var rule = FileSourceProvider.CreateRule<AppConfig>(file.FilePath, required: true);
+        var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
         using var manager = new ConfigManager(new[]{rule}).Initialize();
         
         var config = manager.GetConfig<AppConfig>();
@@ -75,7 +85,7 @@ public class FileProviderUnitTests
         using var file = TempFileHelper.Create();
         file.WriteContent("{ invalid json syntax }");
 
-        var rule = FileSourceProvider.CreateRule<AppConfig>(file.FilePath, required: true);
+        var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
         using var manager = new ConfigManager(new[]{rule});
         
         // Should throw during initialization due to JSON parse error (wrapped in InvalidOperationException)
@@ -93,7 +103,7 @@ public class FileProviderUnitTests
         using var file = TempFileHelper.Create();
         file.WriteContent("{}");
 
-        var rule = FileSourceProvider.CreateRule<AppConfig>(file.FilePath, required: true);
+        var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
         using var manager = new ConfigManager(new[]{rule}).Initialize();
         
         var config = manager.GetConfig<AppConfig>();
@@ -114,7 +124,7 @@ public class FileProviderUnitTests
         using var file = TempFileHelper.Create();
         file.WriteJson(new { App = new { Name = "Nested", Value = 100 } });
 
-        var rule = FileSourceProvider.CreateRule<NestedConfig>(file.FilePath, required: true);
+        var rule = CreateFileRule<NestedConfig>(file.FilePath, required: true);
         using var manager = new ConfigManager(new[]{rule}).Initialize();
         
         var config = manager.GetConfig<NestedConfig>();
@@ -134,7 +144,7 @@ public class FileProviderUnitTests
             App = new { Name = "SectionTest", Value = 200 }
         });
 
-        var rule = FileSourceProvider.CreateRule<AppConfig>(file.FilePath, selectPath: "App", required: true);
+        var rule = CreateFileRule<AppConfig>(file.FilePath, selectPath: "App", required: true);
         using var manager = new ConfigManager(new[]{rule}).Initialize();
         
         var config = manager.GetConfig<AppConfig>();

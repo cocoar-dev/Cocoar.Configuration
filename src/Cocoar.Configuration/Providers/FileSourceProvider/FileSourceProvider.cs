@@ -236,20 +236,6 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
         return JsonDocument.Parse(json).RootElement.Clone();
     }
 
-    /// <summary>
-    /// Helper method to create a file configuration rule for testing purposes.
-    /// </summary>
-    public static Rules.ConfigRule CreateRule<T>(string filePath, string? selectPath = null, bool required = false)
-    {
-        var options = FileSourceRuleOptions.FromFilePath(filePath);
-        return Rules.ConfigRule.Create<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
-            _ => options.ToProviderOptions(),
-            _ => options.ToQueryOptions(),
-            typeof(T),
-            new Rules.ConfigRuleOptions(Required: required, UseWhen: null).WithSelect(selectPath)
-        );
-    }
-
     public void Dispose()
     {
         lock (_lockObj)

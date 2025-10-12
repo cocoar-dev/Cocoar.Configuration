@@ -1,8 +1,10 @@
+using Cocoar.Configuration.Core;
+
 namespace Cocoar.Configuration.Rules;
 
 public sealed record ConfigRuleOptions(
     bool Required = false,
-    Func<bool>? UseWhen = null,
+    Func<IConfigurationAccessor, bool>? UseWhen = null,
     string? MountPath = null,
     string? SelectPath = null)
 {

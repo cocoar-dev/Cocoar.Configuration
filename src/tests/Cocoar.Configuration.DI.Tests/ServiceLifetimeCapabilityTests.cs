@@ -1,8 +1,8 @@
-using Cocoar.Configuration;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.DI.Extensions;
-using Cocoar.Configuration.Rules;
+using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -13,17 +13,13 @@ public class ServiceLifetimeCapabilityTests
     private record TestService(int Value);
     private interface ITestService { int Value { get; } }
 
-    private static ConfigRule Rule<T>(T value)
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(value);
-        return Providers.StaticJsonProvider.CreateRule<T>(json, required: true);
-    }
-
     [Fact]
     public void AsSingleton_Should_Create_Same_Instance()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(42))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().AsSingleton()
         ]);
         
@@ -39,7 +35,9 @@ public class ServiceLifetimeCapabilityTests
     public void RegisterAs_Singleton_Should_Create_Same_Instance()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(42))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Singleton)
         ]);
         
@@ -55,7 +53,9 @@ public class ServiceLifetimeCapabilityTests
     public void AsTransient_Should_Create_Different_Instances()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(123))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().AsTransient()
         ]);
         
@@ -72,7 +72,9 @@ public class ServiceLifetimeCapabilityTests
     public void RegisterAs_Transient_Should_Create_Different_Instances()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(123))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Transient)
         ]);
         
@@ -89,7 +91,9 @@ public class ServiceLifetimeCapabilityTests
     public void WithKey_Should_Register_Keyed_Service()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(999))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(999))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Scoped, "my-key")
         ]);
         
@@ -104,7 +108,9 @@ public class ServiceLifetimeCapabilityTests
     public void Default_Registration_Should_Be_Scoped()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(555))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(555))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>() // No explicit lifetime specified
         ]);
         
@@ -126,7 +132,9 @@ public class ServiceLifetimeCapabilityTests
     public void AsSingletonWithKey_Should_Register_Singleton_Keyed_Service()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(777))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(777))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().AsSingleton("singleton-key")
         ]);
         
@@ -142,7 +150,9 @@ public class ServiceLifetimeCapabilityTests
     public void Skip_Should_Prevent_Service_Registration()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(_ => [Rule(new TestService(888))], setup => [
+        services.AddCocoarConfiguration(rules => [
+            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(888))).Required().For<TestService>()
+        ], setup => [
             setup.ConcreteType<TestService>().DisableAutoRegistration()
         ]);
         

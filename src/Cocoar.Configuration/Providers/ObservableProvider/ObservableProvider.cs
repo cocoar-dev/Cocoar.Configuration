@@ -4,7 +4,6 @@ using System.Reactive.Threading.Tasks;
 using System.Text.Json;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.Abstractions;
-using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Providers;
 
@@ -43,32 +42,6 @@ public sealed class ObservableProvider<T>(ObservableProviderOptions<T> options)
             using var doc = JsonDocument.Parse(json);
             return doc.RootElement.Clone();
         });
-    }
-
-    /// <summary>
-    /// Helper method to create a configuration rule for testing purposes.
-    /// </summary>
-    public static ConfigRule CreateRule<TConfig>(IObservable<TConfig> observable, bool required = false, Func<bool>? useWhen = null)
-    {
-        return ConfigRule.Create<ObservableProvider<TConfig>, ObservableProviderOptions<TConfig>, ObservableProviderQuery>(
-            _ => new ObservableProviderOptions<TConfig>(observable),
-            _ => ObservableProviderQuery.Default,
-            typeof(TConfig),
-            new ConfigRuleOptions(Required: required, UseWhen: useWhen)
-        );
-    }
-
-    /// <summary>
-    /// Helper method to create a configuration rule from JSON string observable for testing purposes.
-    /// </summary>
-    public static ConfigRule CreateRule<TConfig>(IObservable<string> jsonObservable, bool required = false, Func<bool>? useWhen = null)
-    {
-        return ConfigRule.Create<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>(
-            _ => new ObservableProviderOptions<string>(jsonObservable),
-            _ => ObservableProviderQuery.Default,
-            typeof(TConfig),
-            new ConfigRuleOptions(Required: required, UseWhen: useWhen)
-        );
     }
 }
 

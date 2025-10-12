@@ -1,8 +1,8 @@
 using System.Text.Json;
 using Cocoar.Configuration.Core.Tests.TestUtilities;
+using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Rules;
-
 using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
@@ -38,6 +38,13 @@ public class ConfigManagerIsolationTests : IDisposable
         _disposables.Add(disposable);
     }
 
+    // Helper to create static rules using fluent API
+    private static ConfigRule CreateStaticRule<T>(T config)
+    {
+        var rulesBuilder = new RulesBuilder();
+        return rulesBuilder.StaticJson(JsonSerializer.Serialize(config)).Required().For<T>();
+    }
+
     // Test configuration classes
     public class DatabaseConfig
     {
@@ -62,7 +69,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+            CreateStaticRule(testConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -86,7 +93,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+            CreateStaticRule(testConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -117,7 +124,7 @@ public class ConfigManagerIsolationTests : IDisposable
 
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+            CreateStaticRule(expectedConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -139,7 +146,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var testConfig = new DatabaseConfig { ConnectionString = "test" };
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+            CreateStaticRule(testConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -158,7 +165,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var expectedConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 45 };
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+            CreateStaticRule(expectedConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -180,7 +187,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var testConfig = new DatabaseConfig();
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+            CreateStaticRule(testConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -200,7 +207,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var expectedConfig = new DatabaseConfig { ConnectionString = "required-test", Timeout = 90 };
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(expectedConfig))
+            CreateStaticRule(expectedConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -221,7 +228,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var testConfig = new DatabaseConfig();
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(testConfig))
+            CreateStaticRule(testConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -243,21 +250,20 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void ConfigManager_WithMultipleRules_ShouldRespectRuleOrder()
     {
-
         var rules = new List<ConfigRule>
         {
             // First rule - lower priority
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(new DatabaseConfig 
+            CreateStaticRule(new DatabaseConfig 
             { 
                 ConnectionString = "first-rule", 
                 Timeout = 30 
-            })),
+            }),
             // Second rule - higher priority (should win)
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(new DatabaseConfig 
+            CreateStaticRule(new DatabaseConfig 
             { 
                 ConnectionString = "second-rule", 
                 Timeout = 60 
-            }))
+            })
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
@@ -280,8 +286,8 @@ public class ConfigManagerIsolationTests : IDisposable
 
         var rules = new List<ConfigRule>
         {
-            StaticJsonProvider.CreateRule<DatabaseConfig>(JsonSerializer.Serialize(dbConfig)),
-            StaticJsonProvider.CreateRule<ApiConfig>(JsonSerializer.Serialize(apiConfig))
+            CreateStaticRule(dbConfig),
+            CreateStaticRule(apiConfig)
         };
 
         var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
