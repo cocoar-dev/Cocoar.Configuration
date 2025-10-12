@@ -112,6 +112,37 @@ builder.AddCocoarConfiguration(rule => [
 
 ---
 
+## Advanced Features
+
+### Conditional Rules with Config Awareness
+
+The `When()` method now supports **config-aware predicates** using `IConfigurationAccessor`:
+
+```csharp
+builder.Services.AddCocoarConfiguration(rule => [
+    // Load tenant info first
+    rule.File("tenant.json").For<TenantSettings>(),
+    
+    // Conditionally load premium features based on tenant tier
+    rule.File("premium-features.json")
+        .When(accessor =>
+        {
+            var tenant = accessor.GetRequiredConfig<TenantSettings>();
+            return tenant.Tier == "Premium";
+        })
+        .For<PremiumFeatures>(),
+    
+    // Conditionally load based on environment variable
+    rule.File("debug-settings.json")
+        .When(_ => Environment.GetEnvironmentVariable("DEBUG_MODE") == "true")
+        .For<DebugSettings>()
+]);
+```
+
+The predicate is evaluated during initialization and on every recompute—if it returns `false`, the rule is skipped entirely. This works seamlessly with dynamic rules for powerful conditional logic.
+
+---
+
 ## Examples
 
 | Project | Description |
@@ -119,6 +150,7 @@ builder.AddCocoarConfiguration(rule => [
 | [BasicUsage](src/Examples/BasicUsage) | ASP.NET Core + file + environment overlay |
 | [FileLayering](src/Examples/FileLayering) | Multi-file layering (base/env/local) |
 | [DynamicDependencies](src/Examples/DynamicDependencies) | Rules derived from earlier snapshots |
+| [ConditionalRulesExample](src/Examples/ConditionalRulesExample) | Config-aware conditional rule execution with `When()` |
 | [AspNetCoreExample](src/Examples/AspNetCoreExample) | Minimal API endpoints exposing config |
 | [GenericProviderAPI](src/Examples/GenericProviderAPI) | Using generic provider registration APIs |
 | [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling pattern |

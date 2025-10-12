@@ -7,6 +7,7 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **BasicUsage** – Common ASP.NET Core pattern with file + environment overrides
 - **FileLayering** – Multiple JSON file layering (base + env + local)  
 - **DynamicDependencies** – Later rules derive values from earlier configurations
+- **ConditionalRulesExample** – Using `When()` with config-aware predicates for conditional rule execution
 - **AspNetCoreExample** – Minimal API exposing configuration via endpoints
 - **GenericProviderAPI** – Using the generic provider registration API
 - **HttpPollingExample** – Demonstrates pattern for remote/polling configuration

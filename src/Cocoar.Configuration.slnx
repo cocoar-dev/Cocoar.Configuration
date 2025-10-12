@@ -12,6 +12,7 @@
     <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />
     <Project Path="Examples/BasicUsage/BasicUsage.csproj" />
     <Project Path="Examples/ExposeExample/ExposeExample.csproj" />
+    <Project Path="Examples/ConditionalRulesExample/ConditionalRulesExample.csproj" />
     <Project Path="Examples/DynamicDependencies/DynamicDependencies.csproj" />
     <Project Path="Examples/FileLayering/FileLayering.csproj" />
     <Project Path="Examples/GenericProviderAPI/GenericProviderAPI.csproj" />
