@@ -5,6 +5,7 @@ using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Reactive;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -36,7 +37,8 @@ public class MultiArityReactiveConfigTests
 
         // change only A
         subjA.OnNext(new() {Value=2});
-        await Task.Delay(120); // allow debounce + recompute
+        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count >= 1, 
+            description: "cohort emission after A changed");
 
         Assert.Single(emissions); // only one pass emitted
         Assert.Equal(2, emissions[0].Item1.Value);
@@ -63,7 +65,8 @@ public class MultiArityReactiveConfigTests
         subjA.OnNext(new() {Value=10});
         subjB.OnNext(new() {Name="y"});
         subjC.OnNext(new() {Flag=true});
-        await Task.Delay(120);
+        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count >= 1,
+            description: "cohort emission after A, B, C changed");
 
         Assert.Single(emissions);
         var (a,b,c) = emissions[0];
@@ -89,7 +92,9 @@ public class MultiArityReactiveConfigTests
         // Trigger recompute by re-emitting identical objects (no change detection => no emission)
         subjA.OnNext(new() {Value=1});
         subjB.OnNext(new() {Name="x"});
-        await Task.Delay(120);
+        
+        // Wait for debounce window to pass - should still have no emissions
+        await Task.Delay(200);
 
         Assert.Empty(emissions);
     }
@@ -109,7 +114,9 @@ public class MultiArityReactiveConfigTests
         using var sub = cohort.Subscribe(x => emissions.Add(x));
         // change one
         sd.OnNext(new() {Rate=2.5});
-        await Task.Delay(120);
+        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count >= 1,
+            description: "cohort emission after D changed");
+        
         Assert.Single(emissions);
         Assert.Equal(2.5, emissions[0].Item4.Rate);
     }
@@ -132,7 +139,9 @@ public class MultiArityReactiveConfigTests
         sa.OnNext(new() {Value=9});
         sd.OnNext(new() {Rate=3.14});
         se.OnNext(new() {Mode="m2"});
-        await Task.Delay(140);
+        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count >= 1,
+            description: "cohort emission after A, D, E changed");
+        
         Assert.Single(emissions);
         var last = emissions[0];
         Assert.Equal(9, last.Item1.Value);
