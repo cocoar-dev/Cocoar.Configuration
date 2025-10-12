@@ -502,7 +502,10 @@ public class MultiProviderPerformanceTests
                 .MountAt("Root:Dynamic")
         ]).Initialize();
 
-        await Task.Delay(350);
+        // Wait for initial configuration to be available
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<NestedConfig>() != null,
+            description: "initial config to be available");
         
     var initialConfig = configManager.GetConfig<NestedConfig>();
     Assert.NotNull(initialConfig);
@@ -533,7 +536,11 @@ public class MultiProviderPerformanceTests
         }
         """);
 
-        await Task.Delay(350);
+        // Wait for the dynamic value to update
+        await ActiveWaitHelpers.WaitForValueAsync(
+            () => configManager.GetConfig<NestedConfig>()?.Root?.Dynamic?.Value,
+            "UpdatedDynamic",
+            description: "dynamic config value to update to 'UpdatedDynamic'");
 
     var finalConfig = configManager.GetConfig<NestedConfig>();
     Assert.NotNull(finalConfig);
