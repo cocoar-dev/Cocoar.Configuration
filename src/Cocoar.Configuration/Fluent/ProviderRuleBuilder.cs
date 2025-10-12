@@ -4,16 +4,30 @@ using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Fluent;
 
-public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>(
-    Func<IConfigurationAccessor, TInstanceOptions> instanceFactory,
-    Func<IConfigurationAccessor, TQueryOptions> queryFactory)
-    : RuleBuilderBase<ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>>, IConfigRuleBuilder
+public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> : RuleBuilderBase<ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions>>, IConfigRuleBuilder
     where TProvider : ConfigurationProvider<TInstanceOptions, TQueryOptions>
     where TInstanceOptions : IProviderConfiguration
     where TQueryOptions : IProviderQuery
 {
-    private readonly Func<IConfigurationAccessor, TInstanceOptions> _instanceFactory = instanceFactory ?? throw new ArgumentNullException(nameof(instanceFactory));
-    private readonly Func<IConfigurationAccessor, TQueryOptions> _queryFactory = queryFactory ?? throw new ArgumentNullException(nameof(queryFactory));
+    private readonly Func<IConfigurationAccessor, TInstanceOptions> _instanceFactory;
+    private readonly Func<IConfigurationAccessor, TQueryOptions> _queryFactory;
+
+    public ProviderRuleBuilder(
+        Func<IConfigurationAccessor, TInstanceOptions> instanceFactory,
+        Func<IConfigurationAccessor, TQueryOptions> queryFactory)
+    {
+        _instanceFactory = instanceFactory ?? throw new ArgumentNullException(nameof(instanceFactory));
+        _queryFactory = queryFactory ?? throw new ArgumentNullException(nameof(queryFactory));
+    }
+
+    public ProviderRuleBuilder(
+        Func<IConfigurationAccessor, TInstanceOptions> instanceFactory,
+        Func<IConfigurationAccessor, TQueryOptions> queryFactory,
+        Type concreteType)
+        : this(instanceFactory, queryFactory)
+    {
+        ConcreteType = concreteType;
+    }
 
     public ConfigRule Build()
     {

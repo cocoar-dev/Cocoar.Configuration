@@ -14,36 +14,36 @@ public static class TestRules
 
     public static ConfigRule StaticJson<T>(string json, bool required = false)
     {
-        var rule = Builder.StaticJson(json).For<T>();
+        var rule = Builder.For<T>().FromStaticJson(json);
         return required ? rule.Required() : rule;
     }
 
     public static ConfigRule Observable<T>(System.IObservable<T> observable, bool required = false)
     {
-        var rule = Builder.Observable(observable).For<T>();
+        var rule = Builder.For<T>().FromObservable(observable);
         return required ? rule.Required() : rule;
     }
 
     public static ConfigRule ObservableString<T>(System.IObservable<string> jsonObservable, bool required = false)
     {
-        var rule = Builder.Observable(jsonObservable).For<T>();
+        var rule = Builder.For<T>().FromObservable(jsonObservable);
         return required ? rule.Required() : rule;
     }
 
     public static ConfigRule File<T>(string filePath, string? selectPath = null, bool required = false)
     {
-        var builder = Builder.File(filePath);
+        var builder = Builder.For<T>().FromFile(filePath);
         if (selectPath != null)
         {
             builder = builder.Select(selectPath);
         }
-        var rule = builder.For<T>();
+        var rule = builder;
         return required ? rule.Required() : rule;
     }
 
     public static ConfigRule Environment<T>(string? prefix = null, bool required = false)
     {
-        var rule = Builder.Environment(prefix).For<T>();
+        var rule = Builder.For<T>().FromEnvironment(prefix);
         return required ? rule.Required() : rule;
     }
 }

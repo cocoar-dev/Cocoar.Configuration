@@ -61,12 +61,13 @@ public static class ObservableRulesExtensions
     /// <summary>
     /// Creates an observable configuration rule from an observable stream.
     /// </summary>
-    public static ProviderRuleBuilder<ObservableProvider<T>, ObservableProviderOptions<T>, ObservableProviderQuery>
-        Observable<T>(this RulesBuilder builder, IObservable<T> observable)
+    public static ProviderRuleBuilder<ObservableProvider<TValue>, ObservableProviderOptions<TValue>, ObservableProviderQuery>
+        FromObservable<T, TValue>(this TypedRuleBuilder<T> builder, IObservable<TValue> observable)
     {
-        return builder.FromProvider<ObservableProvider<T>, ObservableProviderOptions<T>, ObservableProviderQuery>(
-            _ => new(observable),
-            _ => ObservableProviderQuery.Default
+        return new(
+            _ => new ObservableProviderOptions<TValue>(observable),
+            _ => ObservableProviderQuery.Default,
+            typeof(T)
         );
     }
 
@@ -74,11 +75,12 @@ public static class ObservableRulesExtensions
     /// Creates an observable configuration rule from a JSON string observable.
     /// </summary>
     public static ProviderRuleBuilder<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>
-        Observable(this RulesBuilder builder, IObservable<string> jsonObservable)
+        FromObservable<T>(this TypedRuleBuilder<T> builder, IObservable<string> jsonObservable)
     {
-        return builder.FromProvider<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>(
-            _ => new(jsonObservable),
-            _ => ObservableProviderQuery.Default
+        return new(
+            _ => new ObservableProviderOptions<string>(jsonObservable),
+            _ => ObservableProviderQuery.Default,
+            typeof(T)
         );
     }
 
@@ -86,16 +88,16 @@ public static class ObservableRulesExtensions
     /// Creates an observable configuration rule from an initial JSON string.
     /// </summary>
     public static ProviderRuleBuilder<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>
-        Observable(this RulesBuilder builder, string initialJsonString)
+        FromObservable<T>(this TypedRuleBuilder<T> builder, string initialJsonString)
     {
-
         using var document = JsonDocument.Parse(initialJsonString);
 
         var subject = new BehaviorSubject<string>(initialJsonString);
 
-        return builder.FromProvider<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>(
-            _ => new(subject),
-            _ => ObservableProviderQuery.Default
+        return new(
+            _ => new ObservableProviderOptions<string>(subject),
+            _ => ObservableProviderQuery.Default,
+            typeof(T)
         );
     }
 }

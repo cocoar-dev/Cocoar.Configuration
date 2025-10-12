@@ -25,8 +25,7 @@ public static class Program
 
         services.AddCocoarConfiguration(rule => [
 
-            rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
+            rule.For<DatabaseSettings>().FromMicrosoftSource(_ => new(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["Database:ConnectionString"] = "Server=localhost;Database=MyApp;Trusted_Connection=true;",
@@ -34,25 +33,20 @@ public static class Program
                         ["Database:CommandTimeout"] = "45",
                         ["App:ApplicationName"] = "Microsoft Adapter Demo",
                         ["App:Version"] = "2.1.0"
-                    }).Sources[0]
-                ),
-                queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "Database")
-            )
-            .For<DatabaseSettings>()
-            .Required(),
+                    }).Sources[0],
+                    configurationPrefix: "Database"
+                ))
+                .Required(),
 
-            rule.FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions, MicrosoftConfigurationSourceProviderQueryOptions>(
-                instanceOptions: _ => new MicrosoftConfigurationSourceProviderOptions(
+            rule.For<AppSettings>().FromMicrosoftSource(_ => new(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["App:ApplicationName"] = "Microsoft Adapter Demo",
                         ["App:Version"] = "2.1.0"
-                    }).Sources[0]
-                ),
-                queryOptions: _ => new MicrosoftConfigurationSourceProviderQueryOptions(configurationPrefix: "App")
-            )
-            .For<AppSettings>()
-            .Required()
+                    }).Sources[0],
+                    configurationPrefix: "App"
+                ))
+                .Required()
 
         ]);
 

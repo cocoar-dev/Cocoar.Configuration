@@ -74,8 +74,8 @@ dotnet add package Cocoar.Configuration.AspNetCore
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCocoarConfiguration(rule => [
-    rule.File("appsettings.json").Select("App").For<AppSettings>(),
-    rule.Environment("APP_").For<AppSettings>()
+    rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
+    rule.For<AppSettings>().FromEnvironment("APP_")
 ], setup => [
     setup.ConcreteType<AppSettings>()
         .ExposeAs<IAppSettings>() // optional interface exposure
@@ -100,7 +100,7 @@ app.Run();
 ```csharp
 // Inside your configure function:
 builder.AddCocoarConfiguration(rule => [
-    rule.File("appsettings.json").For<AppSettings>()
+    rule.For<AppSettings>().FromFile("appsettings.json")
 ], setup => [
     // Skip concrete registration
     setup.ConcreteType<AppSettings>().DisableAutoRegistration(),
@@ -121,21 +121,19 @@ The `When()` method now supports **config-aware predicates** using `IConfigurati
 ```csharp
 builder.Services.AddCocoarConfiguration(rule => [
     // Load tenant info first
-    rule.File("tenant.json").For<TenantSettings>(),
+    rule.For<TenantSettings>().FromFile("tenant.json"),
     
     // Conditionally load premium features based on tenant tier
-    rule.File("premium-features.json")
+    rule.For<PremiumFeatures>().FromFile("premium-features.json")
         .When(accessor =>
         {
             var tenant = accessor.GetRequiredConfig<TenantSettings>();
             return tenant.Tier == "Premium";
-        })
-        .For<PremiumFeatures>(),
+        }),
     
     // Conditionally load based on environment variable
-    rule.File("debug-settings.json")
+    rule.For<DebugSettings>().FromFile("debug-settings.json")
         .When(_ => Environment.GetEnvironmentVariable("DEBUG_MODE") == "true")
-        .For<DebugSettings>()
 ]);
 ```
 

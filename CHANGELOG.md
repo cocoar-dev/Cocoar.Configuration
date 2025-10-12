@@ -1,20 +1,82 @@
 # Changelog
 
-## [2.0.0]
+## [3.0.0] - Unreleased
+
+### Added
+- **Config-Aware Conditional Rules**: `.When()` method now receives `IConfigurationAccessor` parameter, allowing rules to be conditionally executed based on configuration from earlier rules
+  - Example: `rule.For<PremiumFeatures>().FromFile("premium.json").When(accessor => accessor.GetRequiredConfig<TenantSettings>().Tier == "Premium")`
+  - Enables powerful dynamic configuration scenarios (multi-tenant, environment-based, feature flags)
+- **ConditionalRulesExample**: New example project demonstrating config-aware conditional rules
 
 ### Changed
-- **Builder API Modernization**: Replaced static `Rule.From.*` API with function-based `RulesBuilder` pattern (`rule => rule.File(...)`) for more intuitive configuration.
-- **Setup API Modernization**: Replaced `Bind.Type<T>().To<I>()` API with function-based `SetupBuilder` pattern (`setup => setup.ConcreteType<T>().ExposeAs<I>()`) with clearer naming.
-- Renamed "binding" terminology to "exposure" throughout the API and documentation for clarity.
+- **Type-First API**: Refactored rule builder API from Provider-First to Type-First pattern for better discoverability and type safety
+  - Old: `rule.File("...").For<T>()` → New: `rule.For<T>().FromFile("...")`
+  - All provider methods renamed: `File()` → `FromFile()`, `Environment()` → `FromEnvironment()`, etc.
+  - Consistent pattern across all providers (File, Environment, Static, Observable, HttpPolling, MicrosoftSource)
+
+### Breaking
+- **Type-First API Changes** (⚠️ MAJOR):
+  - `rule.File(...)` → `rule.For<T>().FromFile(...)`
+  - `rule.Environment(...)` → `rule.For<T>().FromEnvironment(...)`
+  - `rule.StaticJson(...)` → `rule.For<T>().FromStaticJson(...)`
+  - `rule.Static<V>(...)` → `rule.For<T>().FromStatic(...)`
+  - `rule.Observable(...)` → `rule.For<T>().FromObservable(...)`
+  - `rule.HttpPolling(...)` → `rule.For<T>().FromHttpPolling(...)`
+  - `rule.MicrosoftSource(...)` → `rule.For<T>().FromMicrosoftSource(...)`
+  - `rule.FromProvider<P,O,Q>(...)` → `rule.For<T>().FromProvider<T,P,O,Q>(...)`
+- **When() Signature Change**: `.When(Func<bool>)` → `.When(Func<IConfigurationAccessor, bool>)`
+  - Old: `rule.File("...").When(() => condition).For<T>()`
+  - New: `rule.For<T>().FromFile("...").When(_ => condition)` or with accessor: `.When(accessor => accessor.GetRequiredConfig<Other>().Property)`
+
+### Removed
+- Removed test helper methods from production provider APIs (`CreateRule` methods in FileSourceProvider, StaticJsonProvider, ObservableProvider)
+  - These were internal test utilities mistakenly exposed in public API surface
+
+### Migration from v2.0
+```csharp
+// v2.0 (Provider-First)
+builder.AddCocoarConfiguration(rule => [
+    rule.File("config.json").Select("App").For<AppSettings>(),
+    rule.Environment("APP_").For<AppSettings>(),
+    
+    // Conditional rule (old signature)
+    rule.File("premium.json")
+        .When(() => isPremium)
+        .For<PremiumFeatures>()
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
+]);
+
+// v3.0 (Type-First + Config-Aware When)
+builder.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromFile("config.json").Select("App"),
+    rule.For<AppSettings>().FromEnvironment("APP_"),
+    
+    // Conditional rule (new signature with accessor)
+    rule.For<PremiumFeatures>().FromFile("premium.json")
+        .When(accessor => accessor.GetRequiredConfig<TenantSettings>().Tier == "Premium")
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
+]);
+```
+
+See [Migration Guide v2→v3](docs/migration-v2-to-v3.md) for detailed migration instructions.
+
+## [2.0.0] - 2025-09-30
+
+### Changed
+- **Builder API Modernization**: Replaced static `Rule.From.*` API with function-based `RulesBuilder` pattern (`rule => rule.File(...)`) for more intuitive configuration
+- **Setup API Modernization**: Replaced `Bind.Type<T>().To<I>()` API with function-based `SetupBuilder` pattern (`setup => setup.ConcreteType<T>().ExposeAs<I>()`) with clearer naming
+- Renamed "binding" terminology to "exposure" throughout the API and documentation for clarity
 
 ### Breaking
 - `Rule.From.File()`, `Rule.From.Environment()`, etc. replaced with `RulesBuilder` lambda parameter: `builder.AddCocoarConfiguration(rule => [rule.File(...), rule.Environment(...)])`
 - `Bind.Type<T>().To<I>()` replaced with `SetupBuilder` lambda parameter: `setup => setup.ConcreteType<T>().ExposeAs<I>()`
 - `ServiceRegistrationOptions` and `Register.Add<T>()` replaced with direct lifetime configuration on `ConcreteTypeSetup`
 
-### Migration
+### Migration from v1.x
 ```csharp
-// Old API
+// v1.x
 builder.AddCocoarConfiguration([
     Rule.From.File("config.json").Select("App").For<AppSettings>(),
     Rule.From.Environment("APP_").For<AppSettings>()
@@ -22,7 +84,7 @@ builder.AddCocoarConfiguration([
     Bind.Type<AppSettings>().To<IAppSettings>()
 ]);
 
-// New API
+// v2.0
 builder.AddCocoarConfiguration(rule => [
     rule.File("config.json").Select("App").For<AppSettings>(),
     rule.Environment("APP_").For<AppSettings>()
@@ -30,6 +92,8 @@ builder.AddCocoarConfiguration(rule => [
     setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
 ]);
 ```
+
+See [Migration Guide v1→v2](docs/migration-v1-to-v2.md) for detailed migration instructions.
 
 ## [1.1.0] - 2025-09-25
 

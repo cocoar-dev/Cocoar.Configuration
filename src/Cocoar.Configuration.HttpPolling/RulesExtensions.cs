@@ -9,9 +9,10 @@ public static class RulesExtensions
     /// Creates an HTTP polling configuration rule with custom options.
     /// </summary>
     public static ProviderRuleBuilder<HttpPollingProvider, HttpPollingProviderOptions, HttpPollingProviderQueryOptions>
-        HttpPolling(this RulesBuilder builder, Func<IConfigurationAccessor, HttpPollingRuleOptions> optionsFactory)
-        => builder.FromProvider<HttpPollingProvider, HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(
+        FromHttpPolling<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, HttpPollingRuleOptions> optionsFactory)
+        => new(
             cm => optionsFactory(cm).ToProviderOptions(),
-            cm => optionsFactory(cm).ToQueryOptions()
+            cm => optionsFactory(cm).ToQueryOptions(),
+            typeof(T)
         );
 }

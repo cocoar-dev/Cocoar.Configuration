@@ -42,7 +42,7 @@ public class ConfigManagerIsolationTests : IDisposable
     private static ConfigRule CreateStaticRule<T>(T config)
     {
         var rulesBuilder = new RulesBuilder();
-        return rulesBuilder.StaticJson(JsonSerializer.Serialize(config)).Required().For<T>();
+        return rulesBuilder.For<T>().FromStaticJson(JsonSerializer.Serialize(config)).Required();
     }
 
     // Test configuration classes

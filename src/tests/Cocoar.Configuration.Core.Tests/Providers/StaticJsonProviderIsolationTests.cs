@@ -489,7 +489,7 @@ public class StaticJsonProviderIsolationTests
         
         // Verify rule can be used in ConfigManager
         using var manager = new ConfigManager(rules => [
-            rules.StaticJson(json).For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(json)
         ]).Initialize();
         var config = manager.GetConfig<TestConfig>();
         
@@ -511,7 +511,7 @@ public class StaticJsonProviderIsolationTests
 
         // Verify rule works correctly
         using var manager = new ConfigManager(rules => [
-            rules.StaticJson(json).For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(json)
         ]).Initialize();
         var config = manager.GetConfig<TestConfig>();
         
@@ -531,7 +531,7 @@ public class StaticJsonProviderIsolationTests
 
         // Verify required flag is set by checking health service
         using var manager = new ConfigManager(rules => [
-            rules.StaticJson(json).Required().For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(json).Required()
         ]).Initialize();
         var health = manager.GetHealthService().Snapshot;
         
@@ -552,7 +552,7 @@ public class StaticJsonProviderIsolationTests
 
         // Verify the rule can be created and used
         using var manager = new ConfigManager(rules => [
-            rules.StaticJson(json).When(useWhen).For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(json).When(useWhen)
         ]).Initialize();
         // If TEST_ENV is not set, config should not be available
         var config = manager.GetConfig<TestConfig>();

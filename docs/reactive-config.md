@@ -40,9 +40,9 @@ This makes `IReactiveConfig<T>` **bulletproof** under real-world conditions.
 ### Dependency Injection (ASP.NET Core)
 
 ```csharp
-builder.Services.AddCocoarConfiguration([
-    Rule.From.File("appsettings.json").For<AppSettings>(),
-    Rule.From.Environment("APP_").For<AppSettings>()
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromFile("appsettings.json"),
+    rule.For<AppSettings>().FromEnvironment("APP_")
 ]);
 
 // Automatically registers IReactiveConfig<AppSettings>

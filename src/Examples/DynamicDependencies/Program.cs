@@ -39,11 +39,10 @@ public static class Program
 
         services.AddCocoarConfiguration(rule => [
 
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
-                .For<ApiSettings>()
+            rule.For<ApiSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .Required(),
 
-            rule.Static<FeatureFlags>(configManager =>
+            rule.For<FeatureFlags>().FromStatic(configManager =>
             {
                 var apiSettings = configManager.GetRequiredConfig<ApiSettings>();
                 if (apiSettings.BaseUrl.Contains("staging"))
@@ -51,13 +50,12 @@ public static class Program
                     return new FeatureFlags { EnableNewDashboard = true, EnableBetaFeatures = true, Theme = "staging" };        
                 }
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
-            }).For<FeatureFlags>(),
+            }),
 
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
-                .For<RegionSettings>()
+            rule.For<RegionSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Region")
                 .Required(),
 
-            rule.Static<RegionSpecificConfig>(configManager =>
+            rule.For<RegionSpecificConfig>().FromStatic(configManager =>
             {
                 var regionSettings = configManager.GetRequiredConfig<RegionSettings>();
                 return regionSettings.Region switch
@@ -66,7 +64,7 @@ public static class Program
                     "eu-central-1" => new RegionSpecificConfig { DatabaseEndpoint = "db-frankfurt.example.com", CdnUrl = "https://cdn-eu-central.example.com", AvailableLanguages = new[] { "en", "de", "fr" } },
                     _ => new RegionSpecificConfig { DatabaseEndpoint = "db-global.example.com", CdnUrl = "https://cdn-global.example.com", AvailableLanguages = new[] { "en" } }
                 };
-            }).For<RegionSpecificConfig>()
+            })
 
         ]);
 

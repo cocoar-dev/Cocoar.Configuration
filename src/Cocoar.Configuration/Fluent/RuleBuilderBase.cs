@@ -45,10 +45,9 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
 
-    public TBuilder For<TConcrete>()
+    protected void SetConcreteType<T>()
     {
-        ConcreteType = typeof(TConcrete);
-        return (TBuilder)this;
+        ConcreteType = typeof(T);
     }
 
     protected Type BuildRegistration()

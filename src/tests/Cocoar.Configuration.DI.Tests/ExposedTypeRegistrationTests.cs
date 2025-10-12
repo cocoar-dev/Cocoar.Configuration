@@ -17,7 +17,7 @@ public class ExposedTypeRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             // Provide the concrete mapping so ConfigManager can resolve the interface
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
@@ -44,7 +44,7 @@ public class ExposedTypeRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>()
+            rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             // Override default (non-keyed) to Singleton, disable default (redundant when overriding), and add a keyed transient

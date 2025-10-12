@@ -30,25 +30,25 @@ public static class Program
 
         var manager = new ConfigManager(rule => [
             // 1. JSON string approach - great for configuration templates, testing, defaults
-            rule.StaticJson("""
+            rule.For<CoreDefaults>().FromStaticJson("""
             {
                 "Feature": "JsonBasedFeature",
                 "Enabled": true,
                 "Priority": 5
             }
-            """).For<CoreDefaults>(),
+            """),
 
             // 2. Direct JSON string for database configuration  
-            rule.StaticJson("""
+            rule.For<DatabaseSettings>().FromStaticJson("""
             {
                 "ConnectionString": "Server=localhost;Database=MyApp;Integrated Security=true",
                 "TimeoutSeconds": 45,
                 "EnableRetries": true
             }
-            """).For<DatabaseSettings>(),
+            """),
 
             // 3. Factory approach - dynamic composition using previously resolved configs
-            rule.Static(cm => {
+            rule.For<Wrapper>().FromStatic(cm => {
                 var coreConfig = cm.GetRequiredConfig<CoreDefaults>();
                 return new Wrapper { 
                     Inner = new CoreDefaults {
@@ -57,7 +57,7 @@ public static class Program
                         Priority = coreConfig.Priority + 10
                     }
                 };
-            }).For<Wrapper>()
+            })
         ]).Initialize();
 
         // Retrieve and display configurations

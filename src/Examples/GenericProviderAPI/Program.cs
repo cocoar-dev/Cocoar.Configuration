@@ -17,9 +17,8 @@ public static class Program
         var services = new ServiceCollection();
 
         services.AddCocoarConfiguration(rule => [
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json"))
+            rule.For<AppSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json"))
                 .Select("App")
-                .For<AppSettings>()
                 .Required()
         ]);
 

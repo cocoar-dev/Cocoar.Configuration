@@ -18,7 +18,7 @@ public class ConfigureLifetimeAndKeyTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(1))).Required().For<AppImpl>()
+            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(1))).Required()
         ], setup => [
             setup.ConcreteType<AppImpl>().ExposeAs<IApp>()
         ]);
@@ -36,7 +36,7 @@ public class ConfigureLifetimeAndKeyTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(3))).Required().For<AppImpl>()
+            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(1))).Required()
         ], setup => [
             setup.ConcreteType<AppImpl>()
                 .ExposeAs<IApp>()
@@ -52,7 +52,7 @@ public class ConfigureLifetimeAndKeyTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(4))).Required().For<AppImpl>()
+            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(1))).Required()
         ], setup => [
             setup.ConcreteType<AppImpl>() // reactive always available
         ]);

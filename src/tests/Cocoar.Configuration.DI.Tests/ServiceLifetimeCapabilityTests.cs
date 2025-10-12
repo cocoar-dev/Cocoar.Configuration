@@ -18,7 +18,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().AsSingleton()
         ]);
@@ -36,7 +36,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(42))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Singleton)
         ]);
@@ -54,7 +54,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().AsTransient()
         ]);
@@ -73,7 +73,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Transient)
         ]);
@@ -92,7 +92,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(999))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(999))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Scoped, "my-key")
         ]);
@@ -109,7 +109,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(555))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(555))).Required()
         ], setup => [
             setup.ConcreteType<TestService>() // No explicit lifetime specified
         ]);
@@ -133,7 +133,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(777))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(777))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().AsSingleton("singleton-key")
         ]);
@@ -151,7 +151,7 @@ public class ServiceLifetimeCapabilityTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(888))).Required().For<TestService>()
+            rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(888))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().DisableAutoRegistration()
         ]);

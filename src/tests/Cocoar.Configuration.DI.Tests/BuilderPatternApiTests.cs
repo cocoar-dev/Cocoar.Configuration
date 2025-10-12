@@ -17,8 +17,8 @@ public class BuilderPatternApiTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required().For<TestConfig>(),
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(42))).Required().For<AppImpl>()
+            rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required(),
+            rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(42))).Required()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             setup.ConcreteType<AppImpl>()

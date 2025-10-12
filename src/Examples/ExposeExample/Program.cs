@@ -72,9 +72,9 @@ public static class Program
         try
         {           
             var manager = new ConfigManager(rule => [
-                rule.File(_ => FileSourceRuleOptions.FromFilePath("config/payment.json")).For<PaymentConfig>(),
-                rule.File(_ => FileSourceRuleOptions.FromFilePath("config/features.json")).For<FeatureToggleConfig>(),
-                rule.File(_ => FileSourceRuleOptions.FromFilePath("config/database.json")).For<DatabaseConfig>()
+                rule.For<PaymentConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/payment.json")),
+                rule.For<FeatureToggleConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/features.json")),
+                rule.For<DatabaseConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/database.json"))
             ], setup => [
                 setup.ConcreteType<PaymentConfig>().ExposeAs<IPaymentConfig>(),
                 setup.ConcreteType<FeatureToggleConfig>().ExposeAs<IFeatureToggles>().ExposeAs<IReadOnlyFeatureToggles>()

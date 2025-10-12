@@ -10,12 +10,11 @@ public static class RulesExtensions
     /// </summary>
     public static
         ProviderRuleBuilder<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
-            MicrosoftConfigurationSourceProviderQueryOptions> MicrosoftSource(this RulesBuilder builder,
+            MicrosoftConfigurationSourceProviderQueryOptions> FromMicrosoftSource<T>(this TypedRuleBuilder<T> builder,
             Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory)
-        => builder
-            .FromProvider<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
-                MicrosoftConfigurationSourceProviderQueryOptions>(
-                cm => optionsFactory(cm).ToProviderOptions(),
-                cm => optionsFactory(cm).ToQueryOptions()
-            );
+        => new(
+            cm => optionsFactory(cm).ToProviderOptions(),
+            cm => optionsFactory(cm).ToQueryOptions(),
+            typeof(T)
+        );
 }

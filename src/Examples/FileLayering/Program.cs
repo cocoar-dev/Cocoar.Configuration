@@ -20,9 +20,9 @@ public static class Program
         var services = new ServiceCollection();
 
         services.AddCocoarConfiguration(rule => [
-            rule.File("base.json").Select("App").For<AppConfig>(),
-            rule.File("production.json").Select("App").For<AppConfig>(),
-            rule.File("local.json").Select("App").For<AppConfig>()
+            rule.For<AppConfig>().FromFile("base.json").Select("App"),
+            rule.For<AppConfig>().FromFile("production.json").Select("App"),
+            rule.For<AppConfig>().FromFile("local.json").Select("App")
         ]);
 
         var serviceProvider = services.BuildServiceProvider();

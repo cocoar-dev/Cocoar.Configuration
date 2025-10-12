@@ -1,8 +1,8 @@
-# Migration Guide: v1.1.0 → v2.0.0
+# Migration Guide: v1.x → v2.0.0
 
-This guide explains how to migrate from v1.1.0 to v2.0.0, which introduces function-based builder APIs for both rules and setup configuration.
+This guide explains how to migrate from v1.x to v2.0.0, which introduces function-based builder APIs for both rules and setup configuration.
 
-## 1. Overview
+## Overview
 
 | v1.x API | v2.0 API |
 |----------|----------|
@@ -15,7 +15,7 @@ This guide explains how to migrate from v1.1.0 to v2.0.0, which introduces funct
 
 The core package remains DI-agnostic. DI-specific behavior lights up only when the `Cocoar.Configuration.DI` package is referenced.
 
-## 2. Quick Examples
+## Quick Examples
 
 ### Before (v1.x)
 ```csharp
@@ -55,7 +55,7 @@ var manager = new ConfigManager(rule => [
 ]);
 ```
 
-## 3. Key Concepts
+## Key Concepts
 
 ### Rules Builder Function
 You pass a lambda that receives a `RulesBuilder` instance (parameter named `rule`). Inside this lambda, you call methods on the builder to define configuration rules.

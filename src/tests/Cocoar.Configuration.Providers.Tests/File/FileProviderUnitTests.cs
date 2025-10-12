@@ -15,10 +15,10 @@ public class FileProviderUnitTests
     private static ConfigRule CreateFileRule<T>(string filePath, string? selectPath = null, bool required = false)
     {
         var rulesBuilder = new RulesBuilder();
-        var builder = rulesBuilder.File(filePath);
+        var builder = rulesBuilder.For<T>().FromFile(filePath);
         if (selectPath != null) builder = builder.Select(selectPath);
         if (required) builder = builder.Required();
-        return builder.For<T>();
+        return builder;
     }
 
     [Fact]

@@ -40,14 +40,11 @@ public static class Program
 
         // 1. Build rules using the function-based API
         var manager = new ConfigManager(rule => [
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
-                .For<AppConfig>(),
+            rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/app.json")),
                 
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/database.json"))
-                .For<DatabaseConfig>(),
+            rule.For<DatabaseConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/database.json")),
                 
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config/features.json"))
-                .For<FeatureConfig>()
+            rule.For<FeatureConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/features.json"))
         ]).Initialize();
         
         Console.WriteLine("📋 Configuration Manager initialized");
@@ -88,14 +85,10 @@ public static class Program
             
             var layeredManager = new ConfigManager(rule => [
                 // Base configuration
-                rule.File(_ => FileSourceRuleOptions.FromFilePath("config/app.json"))
-                    .For<AppConfig>(),
+                rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/app.json")),
                     
                 // Override via static JSON (simulating environment-specific override)
-                rule.Static(_ => new {
-                    Environment = "Production",
-                    LogLevel = "Warning"
-                }).For<AppConfig>()
+                rule.For<AppConfig>().FromStaticJson("""{"Environment": "Production", "LogLevel": "Warning"}""")
             ]).Initialize();
             
             var overriddenApp = layeredManager.GetConfig<AppConfig>();
@@ -107,7 +100,7 @@ public static class Program
 
             // 5. Show configuration access patterns
             Console.WriteLine("📖 Key API Patterns in Simplified Core:");
-            Console.WriteLine("   ✓ rule.File(...).For<ConcreteType>()");
+            Console.WriteLine("   ✓ rule.For<ConcreteType>().FromFile(...)");
             Console.WriteLine("   ✓ rule.Static(...).For<ConcreteType>()");
             Console.WriteLine("   ✓ new ConfigManager(rule => [...]).Initialize()");
             Console.WriteLine("   ✓ manager.GetConfig<ConcreteType>()");

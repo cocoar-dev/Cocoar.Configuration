@@ -25,17 +25,15 @@ public static class Program
 
         services.AddCocoarConfiguration(rule => [
 
-            rule.File(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
-                .For<ApiConfiguration>()
+            rule.For<ApiConfiguration>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .Required(),
 
-            rule.Static<RemoteFeatureFlags>(_ => new RemoteFeatureFlags
+            rule.For<RemoteFeatureFlags>().FromStatic(_ => new RemoteFeatureFlags
             {
                 EnableNewDashboard = true,
                 EnableBetaFeatures = false,
                 AllowedRegions = new[] { "us-east-1", "eu-west-1" }
             })
-            .For<RemoteFeatureFlags>()
 
         ]);
 

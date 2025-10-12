@@ -16,7 +16,7 @@ public class ReactiveConfigAbsenceTests
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
-            rules.StaticJson(System.Text.Json.JsonSerializer.Serialize(new Foo(9))).Required().For<Foo>()
+            rules.For<Foo>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new Foo(9))).Required()
         ], setup => [
             setup.ConcreteType<Foo>()
         ]);

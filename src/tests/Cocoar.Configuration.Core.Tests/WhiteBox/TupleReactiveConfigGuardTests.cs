@@ -13,7 +13,7 @@ public class TupleReactiveConfigGuardTests
     private static ConfigRule CreateStaticRule<T>(T value)
     {
         var rulesBuilder = new RulesBuilder();
-        return rulesBuilder.StaticJson(System.Text.Json.JsonSerializer.Serialize(value)).Required().For<T>();
+        return rulesBuilder.For<T>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(value)).Required();
     }
 
     [Fact]

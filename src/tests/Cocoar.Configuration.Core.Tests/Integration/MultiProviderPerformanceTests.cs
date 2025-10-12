@@ -417,10 +417,10 @@ public class MultiProviderPerformanceTests
         """;
 
         var configManager = new ConfigManager(rules => [
-            rules.StaticJson(baseConfig).For<ComplexConfig>(),                          // Rule 0: Base config
-            rules.StaticJson(databaseOverride).MountAt("Database").For<ComplexConfig>(), // Rule 1: Replace Database section
-            rules.StaticJson(featuresConfig).Select("NewFeatures").MountAt("Features").For<ComplexConfig>(), // Rule 2: Mount NewFeatures as Features
-            rules.StaticJson(featuresConfig).Select("Legacy").MountAt("LegacySettings").For<ComplexConfig>() // Rule 3: Mount Legacy under new path
+            rules.For<ComplexConfig>().FromStaticJson(baseConfig),                          // Rule 0: Base config
+            rules.For<ComplexConfig>().FromStaticJson(databaseOverride).MountAt("Database"), // Rule 1: Replace Database section
+            rules.For<ComplexConfig>().FromStaticJson(featuresConfig).Select("NewFeatures").MountAt("Features"), // Rule 2: Mount NewFeatures as Features
+            rules.For<ComplexConfig>().FromStaticJson(featuresConfig).Select("Legacy").MountAt("LegacySettings") // Rule 3: Mount Legacy under new path
         ]).Initialize();
 
         var config = configManager.GetConfig<ComplexConfig>();
@@ -496,11 +496,10 @@ public class MultiProviderPerformanceTests
         """);
 
         var configManager = new ConfigManager(rules => [
-            rules.StaticJson(baseConfig).For<NestedConfig>(),                                       // Rule 0: Base
-            rules.Observable(dynamicSubject)                                                        // Rule 1: Select deep path, mount at new location
+            rules.For<NestedConfig>().FromStaticJson(baseConfig),                                       // Rule 0: Base
+            rules.For<NestedConfig>().FromObservable(dynamicSubject)                                    // Rule 1: Select deep path, mount at new location
                 .Select("DynamicSection:Deep:Nested")
                 .MountAt("Root:Dynamic")
-                .For<NestedConfig>()
         ]).Initialize();
 
         await Task.Delay(350);

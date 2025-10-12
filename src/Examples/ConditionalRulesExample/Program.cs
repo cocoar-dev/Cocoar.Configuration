@@ -8,15 +8,15 @@ Console.WriteLine("Demonstrates using When() with IConfigurationAccessor\n");
 // Setup: Load tenant configuration, then conditionally load premium features
 var manager = new ConfigManager(rule => [
     // Load tenant info first
-    rule.StaticJson("""
+    rule.For<TenantSettings>().FromStaticJson("""
     {
         "TenantId": "acme-corp",
         "Tier": "Premium"
     }
-    """).For<TenantSettings>(),
+    """),
     
     // Conditionally load premium features only for Premium tier tenants
-    rule.StaticJson("""
+    rule.For<PremiumFeatures>().FromStaticJson("""
     {
         "AdvancedAnalytics": true,
         "PrioritySupport": true
@@ -27,7 +27,6 @@ var manager = new ConfigManager(rule => [
             var tenant = accessor.GetRequiredConfig<TenantSettings>();
             return tenant.Tier == "Premium";
         })
-        .For<PremiumFeatures>()
 ]).Initialize();
 
 var tenant = manager.GetRequiredConfig<TenantSettings>();

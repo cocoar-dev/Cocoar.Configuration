@@ -42,13 +42,9 @@ public class MultiProviderIsolationTests
         using var subject = new BehaviorSubject<string>(initialJson);
 
         var configManager = new ConfigManager(rules => [
-            rules.Observable(subject)
-                .Select("AppSettings")
-                .For<AppConfig>(),
+            rules.For<AppConfig>().FromObservable(subject).Select("AppSettings"),
                 
-            rules.Observable(subject)
-                .Select("DatabaseSettings")
-                .For<DatabaseConfig>()
+            rules.For<DatabaseConfig>().FromObservable(subject).Select("DatabaseSettings")
         ], debounceMilliseconds: 100).Initialize();
         
         var appConfig = configManager.GetReactiveConfig<AppConfig>();
@@ -116,17 +112,13 @@ public class MultiProviderIsolationTests
         var subject3 = new BehaviorSubject<string>("""{"Rule3Value": 100}""");
 
         var configManager = new ConfigManager(rules => [
-            rules.StaticJson("""{"Static": "Base", "Priority": 1}""")
-                .For<Dictionary<string, object>>(),
+            rules.For<Dictionary<string, object>>().FromStaticJson("""{"Static": "Base", "Priority": 1}"""),
 
-            rules.Observable(subject1)
-                .For<Dictionary<string, object>>(),
+            rules.For<Dictionary<string, object>>().FromObservable(subject1),
 
-            rules.Observable(subject2)
-                .For<Dictionary<string, object>>(),
+            rules.For<Dictionary<string, object>>().FromObservable(subject2),
 
-            rules.Observable(subject3)
-                .For<Dictionary<string, object>>()
+            rules.For<Dictionary<string, object>>().FromObservable(subject3)
         ], debounceMilliseconds: 30).Initialize();
         
         var config = configManager.GetReactiveConfig<Dictionary<string, object>>();
@@ -201,8 +193,7 @@ public class MultiProviderIsolationTests
 
         var configManager = new ConfigManager(rules => [
             // Single observable rule to isolate emission behavior
-            rules.Observable(subject)
-                .For<Dictionary<string, object>>()
+            rules.For<Dictionary<string, object>>().FromObservable(subject)
         ], debounceMilliseconds: 50).Initialize();
         
         var config = configManager.GetReactiveConfig<Dictionary<string, object>>();
@@ -460,13 +451,11 @@ public class MultiProviderIsolationTests
 
         var configManager = new ConfigManager(rules => [
             // This rule selects a non-existent path - should contribute nothing
-            rules.StaticJson(jsonWithoutPath)
-                .Select("NonExistentSection")  // This path doesn't exist - selection will be empty
-                .For<SelectMountConfig>(),
+            rules.For<SelectMountConfig>().FromStaticJson(jsonWithoutPath)
+                .Select("NonExistentSection"),  // This path doesn't exist - selection will be empty
             
             // Base rule to ensure we have some configuration
-            rules.StaticJson("""{"DefaultValue": "present"}""")
-                .For<SelectMountConfig>()
+            rules.For<SelectMountConfig>().FromStaticJson("""{"DefaultValue": "present"}""")
         ]).Initialize();
 
         var config = configManager.GetConfig<SelectMountConfig>();

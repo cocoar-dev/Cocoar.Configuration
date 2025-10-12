@@ -6,19 +6,24 @@ namespace Cocoar.Configuration.Providers;
 public static class FileSourceRulesExtensions
 {
     /// <summary>
-    /// Creates a file-based configuration rule with custom options.
-    /// </summary>
-    public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        File(this RulesBuilder builder, Func<IConfigurationAccessor, FileSourceRuleOptions> optionsFactory)
-        => builder.FromProvider<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>(
-            cm => optionsFactory(cm).ToProviderOptions(),
-            cm => optionsFactory(cm).ToQueryOptions()
-        );
-
-    /// <summary>
     /// Creates a file-based configuration rule from a file path.
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        File(this RulesBuilder builder, string filePath)
-        => builder.File(_ => FileSourceRuleOptions.FromFilePath(filePath));
+        FromFile<T>(this TypedRuleBuilder<T> builder, string filePath)
+        => new(
+            cm => FileSourceRuleOptions.FromFilePath(filePath).ToProviderOptions(),
+            cm => FileSourceRuleOptions.FromFilePath(filePath).ToQueryOptions(),
+            typeof(T)
+        );
+
+    /// <summary>
+    /// Creates a file-based configuration rule with custom options.
+    /// </summary>
+    public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
+        FromFile<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, FileSourceRuleOptions> optionsFactory)
+        => new(
+            cm => optionsFactory(cm).ToProviderOptions(),
+            cm => optionsFactory(cm).ToQueryOptions(),
+            typeof(T)
+        );
 }

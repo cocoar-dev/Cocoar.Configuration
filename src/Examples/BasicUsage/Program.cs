@@ -32,10 +32,10 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.AddCocoarConfiguration(rule => [
-            rule.File("config.json").Select("StartUp").For<StartUpConfiguration>(),
-            rule.File("config.json").Select("Marten").For<MartenStartupSettings>(),
-            rule.Environment().For<StartUpConfiguration>(),
-            rule.Environment("MARTEN_").For<MartenStartupSettings>()
+            rule.For<StartUpConfiguration>().FromFile("config.json").Select("StartUp"),
+            rule.For<MartenStartupSettings>().FromFile("config.json").Select("Marten"),
+            rule.For<StartUpConfiguration>().FromEnvironment(),
+            rule.For<MartenStartupSettings>().FromEnvironment("MARTEN_")
         ], setup => [
             setup.ConcreteType<StartUpConfiguration>().ExposeAs<IStartupSettings>()
         ]);
