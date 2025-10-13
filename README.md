@@ -3,58 +3,20 @@
 ![Cocoar.Configuration](social-preview-small.png)
 > Elevates configuration from hidden infrastructure to an observable, safety‑enforced subsystem you can trust under change and failure.
 
-[![Build (develop)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/push-develop.yml)
-[![PR Validation](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml/badge.svg)](https://github.com/cocoar-dev/cocoar.configuration/actions/workflows/pr-develop.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 [![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 
 ---
 
-## Features
-
-### Key Capabilities
-* **Automatic Reactive Configs** – Every configured concrete type provides `IReactiveConfig<T>` (no opt-in).
-* **Tuple Reactive Snapshots** – `IReactiveConfig<(T1,T2,...,TN)>` for atomic aligned multi-config state (any tuple arity) with strict validation.
-* **Health Monitoring Service** – Real-time provider & rule health snapshots, status streams, metrics hook (see [`docs/health-monitoring.md`](./docs/health-monitoring.md)).
-* **Streaming MD5 Change Detection** – Efficient hashing for file & HTTP providers.
-
-### Core Principles
-* **Deterministic Layering** – Ordered rules, last-write-wins, no hidden merge magic.
-* **Strongly Typed** – Direct POCO access (no `IOptions<T>` ceremony).
-* **Atomic Snapshots** – Always consistent; no partial updates.
-* **Reactive & Dynamic** – Change propagation with debounce + coalescing.
-
-### Rule System
-* **Unified Fluent API** across providers.
-* **Composable Pipeline**: `Fetch → Select → Mount → Merge`.
-* **Dynamic Rule Factories** – Derive new rules from earlier snapshot state.
-* **Interface Exposure** – Expose implemented interfaces for DI consumption.
-* **Partial Recomputation** – Only earliest changed rule re-executes.
-* **Required / Optional Rules** – Control startup fail vs graceful degradation.
-* **Conditional Execution** – Enable rules only when predicates hold.
-
-### Providers
-* **Static / Observable** (in-memory) built-ins.
-* **File** – Watch + resilient poll fallback & recovery.
-* **Environment** – `__` / `:` hierarchy mapping.
-* **HTTP** – Caching, headers, change-only emissions.
-* **Microsoft Adapter** – Bridge existing `IConfiguration` (extension package).
-
-### Health Monitoring & Reliability
-* Integrated `IConfigurationHealthService`.
-* Status & snapshot streams (coalesced, no duplicates).
-* Two‑phase error handling: fail-fast init, graceful runtime.
-* Last-known-good retention on provider failures.
-
-### Developer Experience (Simplified)
-* **Minimal Boilerplate** – Define class + rule; optionally expose interfaces.
-* **Always Reactive** – `IReactiveConfig<T>` & tuple variants auto available.
-* **Scoped by Default** – Concrete & exposed interfaces registered as Scoped.
-* **Opt-Out** – `.DisableAutoRegistration()` (concrete) or global `setup.ExposedType<IMy>().DisableAutoRegistration()`.
-* **Atomic Tuple Snapshots** – Any tuple shape; aligned updates only.
-* **Test-Friendly** – Deterministic providers; easy fake sources.
-* **Clean Migration Path** – Legacy Bind API replaced by Configure (see migration doc).
+### Shouldn't configuration be this easy?
+```csharp
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
+    rule.For<AppSettings>().FromEnvironment("APP_")
+]);
+```
+It is. `AppSettings` is now injectable — and automatically updates when configs change.
 
 ---
 
@@ -62,141 +24,268 @@
 
 ```pwsh
 dotnet add package Cocoar.Configuration
-# For ASP.NET Core integration:
 dotnet add package Cocoar.Configuration.AspNetCore
+
+# Optional providers:
+dotnet add package Cocoar.Configuration.HttpPolling
+dotnet add package Cocoar.Configuration.MicrosoftAdapter
 ```
+
+**Links:** [Cocoar.Configuration](https://www.nuget.org/packages/Cocoar.Configuration) · [AspNetCore](https://www.nuget.org/packages/Cocoar.Configuration.AspNetCore) · [HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling) · [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter)
 
 ---
 
-## Quickstart
+## Why Cocoar.Configuration?
+
+Microsoft's `IConfiguration` works, but configuration deserves better. Here's what you get:
+
+* **Zero ceremony** – Define a class, add a rule, inject it. No `Configure<T>()` calls, no `IOptions<T>` wrappers.
+* **Atomic multi-config updates** – `IReactiveConfig<(T1, T2, T3)>` means multiple configs stay in sync. Never see inconsistent state.
+* **Config-aware rules** – Rules can access earlier config to make decisions. Perfect for multi-tenant and dynamic scenarios.
+* **Reactive by default** – Subscribe to changes automatically. No manual `IOptionsMonitor` wiring.
+* **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
+* **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
+
+**DI Lifetimes:** Concrete config types are registered as **Scoped** (stable snapshot per request), while `IReactiveConfig<T>` is **Singleton** (continuous live updates). These defaults can be customized via the `setup` parameter.
+
+### Migration from IOptions
+
+**Before (IConfiguration + IOptions):**
+```csharp
+// Startup configuration
+builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("App"));
+
+// Injection - requires wrapper
+public class MyService(IOptions<AppSettings> options)
+{
+    var settings = options.Value; // Unwrap every time
+}
+```
+
+**After (Cocoar.Configuration):**
+```csharp
+// Startup configuration
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromFile("appsettings.json").Select("App")
+]);
+
+// Direct injection - no wrapper
+public class MyService(AppSettings settings)
+{
+    // Just use it
+}
+
+// Or reactive
+public class MyService(IReactiveConfig<AppSettings> config)
+{
+    config.Subscribe(newSettings => /* handle changes */);
+}
+```
+---
+
+## Quick Example
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
+// Define your configuration rules
 builder.Services.AddCocoarConfiguration(rule => [
     rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
-    rule.For<AppSettings>().FromEnvironment("APP_")
-], setup => [
-    setup.ConcreteType<AppSettings>()
-        .ExposeAs<IAppSettings>() // optional interface exposure
+    rule.For<AppSettings>().FromEnvironment("APP_"),
+    rule.For<DatabaseConfig>().FromFile("appsettings.json").Select("Database")
 ]);
 
 var app = builder.Build();
 
-// Interface injection (Scoped)
-app.MapGet("/feature", (IAppSettings cfg) => new { cfg.FeatureFlag, cfg.Message });
-
-// Reactive tuple injection
-app.MapGet("/composite", (IReactiveConfig<(AppSettings App, LoggingConfig Log)> composite) =>
-{
-    var (appCfg, log) = composite.CurrentValue;
-    return new { appCfg.Version, log.Level };
-});
+// Direct injection - just use your POCO
+app.MapGet("/api/status", (AppSettings settings) => 
+    new { settings.Version, settings.FeatureFlags });
 
 app.Run();
 ```
 
-### Opt-Out Examples
+### For reactive scenarios (long-lived services):
 ```csharp
-// Inside your configure function:
-builder.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json")
-], setup => [
-    // Skip concrete registration
-    setup.ConcreteType<AppSettings>().DisableAutoRegistration(),
+public class CacheWarmer : BackgroundService
+{
+    private readonly IReactiveConfig<AppSettings> _config;
     
-    // Globally suppress interface registration (affects any future exposure of IAppSettings)
-    setup.ExposedType<IAppSettings>().DisableAutoRegistration()
-]);
+    public CacheWarmer(IReactiveConfig<AppSettings> config)
+    {
+        _config = config;
+        
+        // Subscribe once - rebuild cache when settings change
+        _config.Subscribe(newSettings =>
+        {
+            Console.WriteLine($"Config changed, rebuilding cache...");
+            RebuildCache(newSettings);
+        });
+    }
+    
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask;
+}
+```
+
+### SignalR hub that streams atomic multi-config updates
+```csharp
+public class ConfigHub : Hub
+{
+    private readonly IReactiveConfig<(AppSettings App, DatabaseConfig Db)> _configs;
+    
+    public ConfigHub(IReactiveConfig<(AppSettings App, DatabaseConfig Db)> configs)
+    {
+        _configs = configs;
+        
+        // Stream config changes to connected clients - always atomic
+        _configs.Subscribe(async tuple =>
+        {
+            var (app, db) = tuple;
+            await Clients.All.SendAsync("ConfigUpdated", new { app.Version, db.ConnectionString });
+        });
+    }
+}
 ```
 
 ---
 
-## Advanced Features
+## What You Can Do
 
-### Conditional Rules with Config Awareness
-
-The `When()` method now supports **config-aware predicates** using `IConfigurationAccessor`:
-
+### Layer Configuration Sources
 ```csharp
 builder.Services.AddCocoarConfiguration(rule => [
-    // Load tenant info first
-    rule.For<TenantSettings>().FromFile("tenant.json"),
-    
-    // Conditionally load premium features based on tenant tier
-    rule.For<PremiumFeatures>().FromFile("premium-features.json")
-        .When(accessor =>
-        {
-            var tenant = accessor.GetRequiredConfig<TenantSettings>();
-            return tenant.Tier == "Premium";
-        }),
-    
-    // Conditionally load based on environment variable
-    rule.For<DebugSettings>().FromFile("debug-settings.json")
-        .When(_ => Environment.GetEnvironmentVariable("DEBUG_MODE") == "true")
+    rule.For<AppSettings>().FromFile("appsettings.json"),           // Base
+    rule.For<AppSettings>().FromFile("appsettings.Production.json"), // Environment
+    rule.For<AppSettings>().FromEnvironment("APP_")                  // Overrides (highest priority)
 ]);
+// Rules execute in order - last write wins
 ```
 
-The predicate is evaluated during initialization and on every recompute—if it returns `false`, the rule is skipped entirely. This works seamlessly with dynamic rules for powerful conditional logic.
+**Environment variable mapping:**  
+Hierarchical keys use `__` (double underscore):
+```bash
+APP_Database__Host=localhost
+APP_Database__Port=5432
+# Maps to: AppSettings.Database.Host and AppSettings.Database.Port
+```
+
+### Required vs Optional Rules
+```csharp
+// Required - fails fast if missing
+rule.For<CoreSettings>().FromFile("required.json").Required()
+
+// Optional - graceful degradation at runtime (default)
+rule.For<OptionalSettings>().FromFile("optional.json")
+```
+
+### Conditional Rules
+```csharp
+rule.For<TenantSettings>().FromFile("tenant.json"),
+
+rule.For<PremiumFeatures>().FromFile("premium.json")
+    .When(accessor => accessor.GetRequiredConfig<TenantSettings>().IsPremium)
+// Rules can access earlier config to make decisions
+```
+
+### Dynamic Configuration
+```csharp
+rule.For<TenantSettings>().FromFile("tenant.json"),
+
+rule.For<ApiSettings>().FromHttpPolling(accessor =>
+{
+    var tenant = accessor.GetRequiredConfig<TenantSettings>();
+    return new HttpPollingRuleOptions(
+        $"https://{tenant.Region}.api.example.com/config",
+        pollInterval: TimeSpan.FromMinutes(5)
+    );
+})
+// Rules can derive behavior from earlier rules
+```
+
+### Interface Exposure
+```csharp
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromFile("appsettings.json")
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
+]);
+
+// Both AppSettings and IAppSettings are injectable
+public class MyService(IAppSettings settings) { }
+```
+
+---
+
+## Providers
+
+* **File** – JSON files with automatic change detection and reload
+* **Environment Variables** – Prefix-based with hierarchical mapping (`__` for nesting)
+* **HTTP Polling** – Remote config with caching and change detection ([Cocoar.Configuration.HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling))
+* **Microsoft Adapter** – Bridge existing `IConfiguration` sources ([Cocoar.Configuration.MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter))
+* **Static/Observable** – In-memory for testing and development
 
 ---
 
 ## Examples
 
-| Project | Description |
-|---------|-------------|
-| [BasicUsage](src/Examples/BasicUsage) | ASP.NET Core + file + environment overlay |
-| [FileLayering](src/Examples/FileLayering) | Multi-file layering (base/env/local) |
-| [DynamicDependencies](src/Examples/DynamicDependencies) | Rules derived from earlier snapshots |
-| [ConditionalRulesExample](src/Examples/ConditionalRulesExample) | Config-aware conditional rule execution with `When()` |
-| [AspNetCoreExample](src/Examples/AspNetCoreExample) | Minimal API endpoints exposing config |
-| [GenericProviderAPI](src/Examples/GenericProviderAPI) | Using generic provider registration APIs |
-| [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP polling pattern |
-| [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrate existing `IConfigurationSource` providers |
-| [StaticProviderExample](src/Examples/StaticProviderExample) | Static seeding with JSON / factories |
-| [SimplifiedCoreExample](src/Examples/SimplifiedCoreExample) | Pure core (no DI) usage |
-| [BindingExample](src/Examples/BindingExample) | Interface exposure without DI container |
-| [TupleReactiveExample](src/Examples/TupleReactiveExample) | Tuple-based aligned reactive snapshots |
+Explore real-world scenarios in the [examples](src/Examples/) directory:
 
-More: [Examples README](src/Examples/README.md).
+| Example | Description |
+|---------|-------------|
+| [BasicUsage](src/Examples/BasicUsage) | ASP.NET Core with file + environment layering |
+| [FileLayering](src/Examples/FileLayering) | Multi-file layering (base/env/local) |
+| [DynamicDependencies](src/Examples/DynamicDependencies) | Rules derived from earlier config |
+| [ConditionalRulesExample](src/Examples/ConditionalRulesExample) | Config-aware conditional rules |
+| [TupleReactiveExample](src/Examples/TupleReactiveExample) | Atomic multi-config snapshots |
+| [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP config polling |
+| [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrate existing `IConfiguration` sources |
+
+[View all examples →](src/Examples/README.md)
 
 ---
 
-## Quality & Reliability
+## Documentation
 
-Extensive automated test suite (>200 tests) spanning:
-* Integration & recompute pipeline
-* Concurrency, cancellation & debounce correctness
-* Large JSON + high-frequency mutation stress
-* File watcher ↔ polling resilience & recovery
-* HTTP provider headers, caching, status handling
-* Environment & adapter edge cases
-* Tuple reactive alignment correctness
-* Health snapshot/state transitions
+| Topic | Link |
+|-------|------|
+| Getting Started | [Quickstart Guide](docs/QUICKSTART.md) |
+| Architecture & How It Works | [Architecture](docs/ARCHITECTURE.md) |
+| Provider Details | [Providers](docs/PROVIDERS.md) |
+| Reactive Configuration | [Reactive Config](docs/reactive-config.md) |
+| Health Monitoring | [Health Monitoring](docs/health-monitoring.md) |
+| Interface Binding | [Binding](docs/BINDING.md) |
+| Migration from v2.x | [Migration Guide](docs/migration-v2-to-v3.md) |
+| Advanced Scenarios | [Deep Dive](docs/DEEP_DIVE.md) |
+
+---
+
+## Testing
+
+Over 200 automated tests covering:
+* Configuration layering and rule execution
+* Reactive updates and atomic snapshots
+* Provider reliability and failover
+* Concurrent access and race conditions
+* Health monitoring and status tracking
 
 See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for details.
 
 ---
 
+## Contributing
 
-## Security Notes
-* Don’t commit secrets; overlay via environment / secure providers.
-* Use TLS + auth for remote polling.
-* Consider vault integration through the Microsoft adapter.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
----
-
-## Contributing & Versioning
-* Semantic Versioning (breaking changes = MAJOR)
-* Issues & PRs welcome
-* Licensed under Apache 2.0 (see `LICENSE`, `NOTICE`)
-
-### License & Trademark
-This project is licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
-
-“Cocoar” and related marks are trademarks of COCOAR e.U. Usage in forks should preserve attribution and avoid implying endorsement. See [TRADEMARKS](TRADEMARKS.md).
+* **Semantic Versioning** – Breaking changes increment major version
+* **Apache 2.0 License** – See [LICENSE](LICENSE) and [NOTICE](NOTICE)
+* **Trademarks** – See [TRADEMARKS.md](TRADEMARKS.md)
 
 ---
 
+## Security
 
+* Don't commit secrets to config files
+* Use environment variables or secure providers for sensitive data
+* Enable TLS/HTTPS for remote config endpoints
+* Consider Azure Key Vault or similar via the Microsoft Adapter
 
+---
