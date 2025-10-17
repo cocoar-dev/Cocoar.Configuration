@@ -6,7 +6,10 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![NuGet](https://img.shields.io/nuget/v/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
 [![Downloads](https://img.shields.io/nuget/dt/Cocoar.Configuration.svg)](https://www.nuget.org/packages/Cocoar.Configuration/)
-
+[![Read Article](https://img.shields.io/badge/dev.to-Read%20Article-0A0A0A?logo=dev.to)](https://dev.to/bwi/reactive-strongly-typed-configuration-in-net-introducing-cocoarconfiguration-v30-3gbn)
+---
+> **📖 New Article:** [Reactive, Strongly-Typed Configuration in .NET: Introducing Cocoar.Configuration v3.0](https://dev.to/bwi/reactive-strongly-typed-configuration-in-net-introducing-cocoarconfiguration-v30-3gbn)  
+> Learn how v3.0 simplifies configuration management with zero-ceremony DI, atomic multi-config updates, and reactive patterns.
 ---
 
 ### Shouldn't configuration be this easy?
@@ -289,3 +292,4 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 * Consider Azure Key Vault or similar via the Microsoft Adapter
 
 ---
+
