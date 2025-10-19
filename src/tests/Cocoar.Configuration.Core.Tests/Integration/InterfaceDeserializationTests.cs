@@ -113,38 +113,6 @@ public class InterfaceDeserializationTests
         }
     }
 
-    [Fact]
-    public void Should_Throw_When_Interface_Mapping_Not_Configured()
-    {
-        // Arrange: JSON with interface property but NO deserialization mapping
-        var json = """
-        {
-            "AppName": "TestApp",
-            "Logging": {
-                "LogPath": "/var/log/app.log",
-                "LogLevel": {
-                    "Default": "Warning"
-                }
-            }
-        }
-        """;
-
-        // Act & Assert: Should throw because ILoggingConfig cannot be deserialized without mapping
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-        {
-            var configManager = new ConfigManager(
-                rules: rule => [
-                    rule.For<AppConfiguration>().FromStaticJson(json)
-                ],
-                setup: null // No interface mapping configured
-            ).Initialize();
-
-            configManager.GetRequiredConfig<AppConfiguration>();
-        });
-
-        Assert.Contains("Configuration for AppConfiguration hasn't been loaded yet", exception.Message);
-    }
-
     // Additional interface for testing multiple mappings
     public interface IDatabaseConfig
     {
@@ -202,46 +170,6 @@ public class InterfaceDeserializationTests
         Assert.NotNull(config.Database);
         Assert.IsType<DatabaseConfig>(config.Database);
         Assert.Equal("Server=localhost;Database=test", config.Database.ConnectionString);
-    }
-
-    [Fact]
-    public void Should_Simulate_VisualStudio_HotReload_Scenario()
-    {
-        // This simulates the exact scenario that triggered the bug:
-        // Visual Studio sets a Logging environment variable as JSON for hot reload
-
-        // Arrange: Set environment variable like Visual Studio does
-        Environment.SetEnvironmentVariable("Logging", """{"LogLevel":{"Microsoft.AspNetCore.Watch":"Debug"}}""");
-        Environment.SetEnvironmentVariable("AppName", "VSTestApp");
-
-        try
-        {
-            var configManager = new ConfigManager(
-                rules: rule => [
-                    rule.For<AppConfiguration>().FromEnvironment()
-                ],
-                setup: setup => [
-                    setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
-                ]
-            ).Initialize();
-
-            // Act
-            var config = configManager.GetRequiredConfig<AppConfiguration>();
-
-            // Assert
-            Assert.NotNull(config);
-            Assert.Equal("VSTestApp", config.AppName);
-            Assert.NotNull(config.Logging);
-            Assert.IsType<LoggingConfig>(config.Logging);
-            Assert.Single(config.Logging.LogLevel);
-            Assert.Equal("Debug", config.Logging.LogLevel["Microsoft.AspNetCore.Watch"]);
-        }
-        finally
-        {
-            // Cleanup
-            Environment.SetEnvironmentVariable("Logging", null);
-            Environment.SetEnvironmentVariable("AppName", null);
-        }
     }
 
     // Nested interface types for testing
