@@ -1,6 +1,14 @@
 # Changelog
 
-## [3.1.0] - Unreleased
+## [3.1.1] - 2025-10-19
+
+### Fixed
+- **Enum String Conversion**: Added `JsonStringEnumConverter` to support deserializing enums from string values in JSON/environment variables
+  - Fixes issue where enum properties (e.g., `LogEventLevel.Debug`) would fail when provided as strings (e.g., `"Debug"`)
+  - Common scenario: Visual Studio setting `Logging={"LogLevel":{"Microsoft.AspNetCore.Watch":"Debug"}}` as environment variable
+  - Now supports case-insensitive string-to-enum conversion for all enum types
+
+## [3.1.0] - 2025-10-19
 
 ### Added
 - **Interface Deserialization Support**: New `setup.Interface<I>().DeserializeTo<T>()` API for deserializing interface-typed properties in configuration classes

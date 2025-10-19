@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Cocoar.Configuration.Utilities;
 
@@ -33,6 +34,7 @@ internal static class ConfigurationDeserializer
         options.Converters.Add(new StringToPrimitiveConverter<float>());
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
+        options.Converters.Add(new JsonStringEnumConverter());
 
         return options;
     }
@@ -47,6 +49,7 @@ internal static class ConfigurationDeserializer
         options.Converters.Add(new StringToPrimitiveConverter<float>());
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
+        options.Converters.Add(new JsonStringEnumConverter());
         options.Converters.Add(new InterfaceConverter(new Dictionary<Type, Type>(deserializationMap)));
 
         return options;
