@@ -51,6 +51,7 @@ Microsoft's `IConfiguration` works, but configuration deserves better. Here's wh
 * **Config-aware rules** – Rules can access earlier config to make decisions. Perfect for multi-tenant and dynamic scenarios.
 * **Reactive by default** – Subscribe to changes automatically. No manual `IOptionsMonitor` wiring.
 * **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
+* **Interface deserialization** – Support for interface-typed properties in config classes with explicit mapping.
 * **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
 
 **DI Lifetimes:** Concrete config types are registered as **Scoped** (stable snapshot per request), while `IReactiveConfig<T>` is **Singleton** (continuous live updates). These defaults can be customized via the `setup` parameter.
@@ -219,6 +220,35 @@ builder.Services.AddCocoarConfiguration(rule => [
 // Both AppSettings and IAppSettings are injectable
 public class MyService(IAppSettings settings) { }
 ```
+
+### Interface Deserialization
+
+When your configuration classes have interface-typed properties, you need to map them to concrete types for JSON deserialization:
+
+```csharp
+// Configuration with interface properties
+public class AppSettings
+{
+    public string AppName { get; set; }
+    public ILoggingConfig Logging { get; set; }  // Interface property!
+}
+
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromEnvironment()  // or FromFile, FromHttpPolling, etc.
+], setup => [
+    // Map interface to concrete type for deserialization
+    setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
+]);
+```
+
+**Why is this needed?** When loading configuration from JSON sources (files, environment variables, HTTP), properties typed as interfaces cannot be deserialized directly. This mapping tells the deserializer which concrete type to instantiate.
+
+**Common scenarios:**
+- Environment variables: `Logging__LogLevel__Default=Debug`
+- Visual Studio hot reload injecting logging configuration
+- Modular configuration with abstracted dependencies
+
+**Supports nested interfaces:** If your interface properties contain other interface properties, just register all the mappings and they'll work at any depth.
 
 ---
 

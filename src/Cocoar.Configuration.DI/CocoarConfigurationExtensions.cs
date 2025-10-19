@@ -61,7 +61,7 @@ public static class CocoarConfigurationExtensions
     public static IServiceCollection AddCocoarConfiguration(
         this IServiceCollection services,
         Func<RulesBuilder, ConfigRule[]> rule,
-        Func<SetupBuilder, SetupDefinition[]>? configure = null,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null,
         ILogger? logger = null,
         int debounceMilliseconds = 300)
     {
@@ -70,7 +70,7 @@ public static class CocoarConfigurationExtensions
         var rulesBuilder = new RulesBuilder();
         var ruleList = rule(rulesBuilder);
 
-        var configManager = new ConfigManager(ruleList, configure, logger, debounceMilliseconds: debounceMilliseconds);
+        var configManager = new ConfigManager(ruleList, setup, logger, debounceMilliseconds: debounceMilliseconds);
         configManager.Initialize();
 
         services.AddCocoarConfiguration(configManager);
