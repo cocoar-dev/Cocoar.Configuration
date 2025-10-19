@@ -8,6 +8,7 @@ namespace Cocoar.Configuration.Infrastructure;
 internal sealed class ExposureRegistry
 {
     private readonly Dictionary<Type, Type> _interfaceToConcreteMap = new();
+    private readonly Dictionary<Type, Type> _deserializationMap = new();
     private readonly ILogger _logger;
     private readonly CapabilityScope _capabilityScope;
 
@@ -15,15 +16,24 @@ internal sealed class ExposureRegistry
     {
         _logger = logger;
         _capabilityScope = capabilityScope;
-        BuildMappingTable(bindings);
+        BuildMappingTables(bindings);
     }
 
     public bool TryGetConcreteType(Type interfaceType, out Type concreteType) => _interfaceToConcreteMap.TryGetValue(interfaceType, out concreteType!);
 
+    public IReadOnlyDictionary<Type, Type> InterfaceToConcreteMap => _interfaceToConcreteMap;
 
-    private void BuildMappingTable(IEnumerable<SetupDefinition> bindings)
+    /// <summary>
+    /// Gets the deserialization mappings for interfaces to concrete types.
+    /// This is separate from the DI exposure mappings and is specifically for JSON deserialization.
+    /// </summary>
+    public IReadOnlyDictionary<Type, Type> DeserializationMap => _deserializationMap;
+
+
+    private void BuildMappingTables(IEnumerable<SetupDefinition> bindings)
     {
         _interfaceToConcreteMap.Clear();
+        _deserializationMap.Clear();
         
         foreach (var configureSpec in bindings)
         {
@@ -35,30 +45,60 @@ internal sealed class ExposureRegistry
            
             if (!bag.TryGetPrimaryAs<IPrimaryTypeCapability>(out var typeCapability))
             {
-                _logger.LogDebug("ConfigureSpec does not have a valid primary type capability, skipping exposure registration");
+                _logger.LogDebug("ConfigureSpec does not have a valid primary type capability, skipping");
                 continue;
             }
 
-            var concreteType = typeCapability!.SelectedType;
+            var primaryType = typeCapability!.SelectedType;
 
-            bag.GetAll<ExposeAsCapability<SetupDefinition>>().ForEach(exposeAs =>
+            // Handle ConcreteType().ExposeAs<I>() - for DI exposure
+            if (primaryType.IsClass)
             {
-                var interfaceType = exposeAs.ContractType;
+                var concreteType = primaryType;
                 
-
-                if (_interfaceToConcreteMap.TryGetValue(interfaceType, out var existingConcrete))
+                bag.GetAll<ExposeAsCapability<SetupDefinition>>().ForEach(exposeAs =>
                 {
-                    _logger.LogWarning("Interface {InterfaceType} was already exposed by {ExistingConcreteType}, now overridden by {NewConcreteType}",
-                        interfaceType.Name, existingConcrete.Name, concreteType.Name);
+                    var interfaceType = exposeAs.ContractType;
+                    
+
+                    if (_interfaceToConcreteMap.TryGetValue(interfaceType, out var existingConcrete))
+                    {
+                        _logger.LogWarning("Interface {InterfaceType} was already exposed by {ExistingConcreteType}, now overridden by {NewConcreteType}",
+                            interfaceType.Name, existingConcrete.Name, concreteType.Name);
+                    }
+                    
+                    _interfaceToConcreteMap[interfaceType] = concreteType;
+                    
+                    _logger.LogDebug("Exposed interface {InterfaceType} → {ConcreteType}", 
+                        interfaceType.Name, concreteType.Name);
+                });
+            }
+
+            // Handle Interface<I>().DeserializeTo<T>() - for JSON deserialization
+            if (primaryType.IsInterface)
+            {
+                var interfaceType = primaryType;
+                
+                var deserializeToCapability = bag.GetAll<DeserializeToCapability<SetupDefinition>>().FirstOrDefault();
+                if (deserializeToCapability != null)
+                {
+                    var concreteType = deserializeToCapability.ConcreteType;
+
+                    if (_deserializationMap.TryGetValue(interfaceType, out var existingConcrete))
+                    {
+                        _logger.LogWarning("Interface {InterfaceType} deserialization was already mapped to {ExistingConcreteType}, now overridden by {NewConcreteType}",
+                            interfaceType.Name, existingConcrete.Name, concreteType.Name);
+                    }
+                    
+                    _deserializationMap[interfaceType] = concreteType;
+                    
+                    _logger.LogDebug("Interface deserialization mapping: {InterfaceType} → {ConcreteType}", 
+                        interfaceType.Name, concreteType.Name);
                 }
-                
-                _interfaceToConcreteMap[interfaceType] = concreteType;
-                
-                _logger.LogDebug("Exposed interface {InterfaceType} → {ConcreteType}", 
-                    interfaceType.Name, concreteType.Name);
-            });
+            }
         }
         
-        _logger.LogInformation("Built exposure registry with {Count} interface mappings", _interfaceToConcreteMap.Count);
+        _logger.LogInformation("Built exposure registry with {ExposureCount} DI mappings and {DeserializationCount} deserialization mappings", 
+            _interfaceToConcreteMap.Count, _deserializationMap.Count);
     }
 }

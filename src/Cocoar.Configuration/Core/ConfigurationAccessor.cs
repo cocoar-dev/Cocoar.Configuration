@@ -80,7 +80,7 @@ internal class ConfigurationAccessor(ConfigurationRepository repository, Exposur
             return false;
         }
 
-        value = ConfigurationDeserializer.Deserialize(jsonElement, registration);
+        value = ConfigurationDeserializer.Deserialize(jsonElement, registration, bindingRegistry.DeserializationMap);
         return true;
     }
 }

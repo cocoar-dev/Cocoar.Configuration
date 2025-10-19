@@ -29,5 +29,12 @@ public sealed class SetupBuilder(CapabilityScope capabilityScope)
     /// </summary>
     public ConcreteTypeSetup<T> ConcreteType<T>() where T : class => new(_capabilityScope);
 
+    /// <summary>
+    /// Configure deserialization mapping for an interface type.
+    /// Use this when your configuration classes have interface-typed properties that need to be
+    /// deserialized from JSON/environment variables. Specify which concrete type to instantiate.
+    /// </summary>
+    public InterfaceTypeSetup<TInterface> Interface<TInterface>() where TInterface : class => new(_capabilityScope);
+
     public static CapabilityScope GetCapabilityScopeFor(SetupBuilder builder) => builder._capabilityScope;
 }

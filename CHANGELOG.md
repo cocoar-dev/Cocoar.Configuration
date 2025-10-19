@@ -1,6 +1,28 @@
 # Changelog
 
-## [3.0.0] - Unreleased
+## [3.1.0] - Unreleased
+
+### Added
+- **Interface Deserialization Support**: New `setup.Interface<I>().DeserializeTo<T>()` API for deserializing interface-typed properties in configuration classes
+  - Solves the problem where configuration classes with interface properties (e.g., `public ILoggingConfig Logging { get; set; }`) would fail deserialization from JSON sources
+  - Common scenario: Setting logging configuration via environment variables (e.g., `Logging__LogLevel__Default=Debug`) or when Visual Studio injects logging configuration for hot reload
+  - Supports deeply nested interface properties at any depth
+  - Example: `setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()`
+  - Includes comprehensive test coverage for nested and deeply nested scenarios
+
+### Usage Example
+```csharp
+builder.AddCocoarConfiguration(rule => [
+    rule.For<AppSettings>().FromEnvironment()
+], setup => [
+    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>(),
+    
+    // Map interface properties to concrete types
+    setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
+]);
+```
+
+## [3.0.0]
 
 ### Added
 - **Config-Aware Conditional Rules**: `.When()` method now receives `IConfigurationAccessor` parameter, allowing rules to be conditionally executed based on configuration from earlier rules
