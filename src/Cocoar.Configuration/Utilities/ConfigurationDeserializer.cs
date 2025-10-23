@@ -26,7 +26,10 @@ internal static class ConfigurationDeserializer
 
     private static JsonSerializerOptions CreateDefaultOptions()
     {
-        var options = new JsonSerializerOptions();
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
         options.Converters.Add(new StringToPrimitiveConverter<int>());
@@ -41,7 +44,10 @@ internal static class ConfigurationDeserializer
 
     private static JsonSerializerOptions CreateOptionsWithInterfaceMapping(IReadOnlyDictionary<Type, Type> deserializationMap)
     {
-        var options = new JsonSerializerOptions();
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
         options.Converters.Add(new StringToPrimitiveConverter<int>());

@@ -151,7 +151,7 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     public static Rules.ConfigRule CreateRule<T>(string? prefix = null, bool required = false)
     {
         return Rules.ConfigRule.Create<EnvironmentVariableProvider, EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(
-            _ => new EnvironmentVariableProviderOptions(prefix),
+            _ => new EnvironmentVariableProviderOptions(),
             _ => new EnvironmentVariableProviderQueryOptions(prefix),
             typeof(T),
             new Rules.ConfigRuleOptions(Required: required, UseWhen: null)

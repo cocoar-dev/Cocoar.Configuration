@@ -1,0 +1,35 @@
+using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Fluent;
+
+namespace Cocoar.Configuration.Providers;
+
+public static class CommandLineArgumentRulesExtensions
+{
+    public static
+        ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder, string prefix, string[]? switchPrefixes = null)
+        => new(
+            cm => new(),
+            cm => new(null, switchPrefixes, prefix),
+            typeof(T)
+        );
+
+    public static
+        ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder, string[] switchPrefixes, string? prefix = null)
+        => new(
+            cm => new(),
+            cm => new(null, switchPrefixes, prefix),
+            typeof(T)
+        );
+
+    public static
+        ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder,
+            Func<IConfigurationAccessor, CommandLineRuleOptions> optionsFactory)
+        => new(
+            cm => new(),
+            cm => new(optionsFactory(cm).Args, optionsFactory(cm).SwitchPrefixes, optionsFactory(cm).Prefix),
+            typeof(T)
+        );
+}

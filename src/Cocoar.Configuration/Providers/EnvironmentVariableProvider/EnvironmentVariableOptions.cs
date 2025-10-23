@@ -6,7 +6,7 @@ public record EnvironmentVariableRuleOptions(string? EnvironmentPrefix = null);
 
 public record EnvironmentVariableProviderQueryOptions(string? EnvironmentPrefix = null) : IProviderQuery;
 
-public record EnvironmentVariableProviderOptions(string? EnvironmentPrefix = null) : IProviderConfiguration
+public record EnvironmentVariableProviderOptions() : IProviderConfiguration
 {
     public string GenerateProviderKey() => "Environment:Global";
 }

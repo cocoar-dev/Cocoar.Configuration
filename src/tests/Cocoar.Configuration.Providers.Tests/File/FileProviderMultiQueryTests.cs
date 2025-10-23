@@ -28,7 +28,7 @@ public class FileProviderMultiQueryTests
         using var file3 = TempFileHelper.CreateInDirectory(tempDir.Path, "config3.json", """{"file": 3, "value": 0}""");
 
         // Single provider instance for the directory
-        var options = new FileSourceProviderOptions(tempDir.Path, debounceTime: TimeSpan.FromMilliseconds(100));
+        var options = new FileSourceProviderOptions(tempDir.Path);
         var provider = new FileSourceProvider(options);
 
         // Three separate queries for different files

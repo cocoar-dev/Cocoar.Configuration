@@ -46,6 +46,6 @@ public sealed class FileSourceRuleOptions
         return new(directory, filename, debounceTime, pollingInterval);
     }
 
-    public FileSourceProviderOptions ToProviderOptions() => new(Directory, DebounceTime, PollingInterval);
-    public FileSourceProviderQueryOptions ToQueryOptions() => new(Filename);
+    public FileSourceProviderOptions ToProviderOptions() => new(Directory, PollingInterval);
+    public FileSourceProviderQueryOptions ToQueryOptions() => new(Filename, DebounceTime);
 }

@@ -12,7 +12,7 @@ public static class EnvironmentVariableRulesExtensions
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
             EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder, string? environmentPrefix = null)
         => new(
-            cm => new(environmentPrefix),
+            cm => new(),
             cm => new(environmentPrefix),
             typeof(T)
         );
@@ -25,7 +25,7 @@ public static class EnvironmentVariableRulesExtensions
             EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder,
             Func<IConfigurationAccessor, EnvironmentVariableRuleOptions> optionsFactory)
         => new(
-            cm => new(optionsFactory(cm).EnvironmentPrefix),
+            cm => new(),
             cm => new(optionsFactory(cm).EnvironmentPrefix),
             typeof(T)
         );

@@ -163,7 +163,8 @@ public class ConfigHub : Hub
 builder.Services.AddCocoarConfiguration(rule => [
     rule.For<AppSettings>().FromFile("appsettings.json"),           // Base
     rule.For<AppSettings>().FromFile("appsettings.Production.json"), // Environment
-    rule.For<AppSettings>().FromEnvironment("APP_")                  // Overrides (highest priority)
+    rule.For<AppSettings>().FromEnvironment("APP_"),                 // Overrides
+    rule.For<AppSettings>().FromCommandLine()                        // Final overrides (highest priority)
 ]);
 // Rules execute in order - last write wins
 ```
@@ -174,6 +175,47 @@ Hierarchical keys use `__` (double underscore):
 APP_Database__Host=localhost
 APP_Database__Port=5432
 # Maps to: AppSettings.Database.Host and AppSettings.Database.Port
+```
+
+**Command-line argument mapping:**  
+Hierarchical keys use `:` or `__`:
+```bash
+dotnet run --Database:Host=localhost --Database:Port=5432 --Verbose
+# Maps to: AppSettings.Database.Host, AppSettings.Database.Port, and AppSettings.Verbose (true)
+```
+
+**Flexible switch prefixes for command-line arguments:**  
+Use any prefix style (`--`, `-`, `/`, `@`, `#`, `%`) - even multiple at once:
+```csharp
+// Single custom prefix
+rule.For<AppConfig>().FromCommandLine(["-"])     // Unix-style
+rule.For<AppConfig>().FromCommandLine(["/"])     // Windows-style
+rule.For<AppConfig>().FromCommandLine(["@"])     // Custom semantic style
+
+// Multiple prefixes simultaneously
+rule.For<AppConfig>().FromCommandLine(["--", "-", "/"])
+```
+
+```bash
+# Mix different styles in the same command line
+dotnet run --host=localhost -port=8080 /verbose
+
+# Or use semantic prefixes for self-documenting CLIs
+invoke.exe @target=server #issue=123 %env=prod
+```
+
+**Prefix filtering for command-line arguments:**  
+Map arguments to specific configuration types:
+```csharp
+builder.Services.AddCocoarConfiguration(rule => [
+    rule.For<AppConfig>().FromCommandLine("app_"),
+    rule.For<DatabaseConfig>().FromCommandLine("db_")
+]);
+```
+```bash
+dotnet run --app_host=localhost --db_connectionstring="Server=localhost"
+# --app_host → AppConfig.Host (prefix stripped)
+# --db_connectionstring → DatabaseConfig.ConnectionString (prefix stripped)
 ```
 
 ### Required vs Optional Rules
@@ -256,6 +298,7 @@ builder.Services.AddCocoarConfiguration(rule => [
 
 * **File** – JSON files with automatic change detection and reload
 * **Environment Variables** – Prefix-based with hierarchical mapping (`__` for nesting)
+* **Command-Line Arguments** – POSIX-style parsing with prefix support and nested configuration
 * **HTTP Polling** – Remote config with caching and change detection ([Cocoar.Configuration.HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling))
 * **Microsoft Adapter** – Bridge existing `IConfiguration` sources ([Cocoar.Configuration.MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter))
 * **Static/Observable** – In-memory for testing and development

@@ -25,7 +25,7 @@ public class FileProviderStressTests
         using var tempDir = TempDirectoryHelper.Create();
         using var file = TempFileHelper.CreateInDirectory(tempDir.Path, "config.json", """{"value": 0}""");
         
-        var options = new FileSourceProviderOptions(tempDir.Path, debounceTime: TimeSpan.FromMilliseconds(100));
+        var options = new FileSourceProviderOptions(tempDir.Path);
         var query = new FileSourceProviderQueryOptions("config.json", DebounceTime: TimeSpan.FromMilliseconds(50));
         var provider = new FileSourceProvider(options);
         
