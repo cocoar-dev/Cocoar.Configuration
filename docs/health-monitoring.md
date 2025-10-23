@@ -61,8 +61,21 @@ Each `RuleHealthEntry` tracks:
 
 * `Index`, `Name?`, `Required`
 * `Status` (`Up`/`Down`/`Skipped`/`Unknown`)
+  - `Up`: Rule executed successfully
+  - `Down`: Rule failed to execute
+  - `Skipped`: Rule was skipped due to `.When()` condition returning false
+  - `Unknown`: Rule has not been evaluated yet
 * `LastSuccessUtc`, `LastFailureUtc`, `FailureCount`
+  - **`FailureCount`** is cumulative and persistent - it increments on each failure but **never automatically resets**. This provides historical reliability metrics and enables threshold-based alerting.
 * `ErrorCode?`, `ErrorMessage?` (short, provider‑specific mapping)
+
+The `Summary` provides aggregated counts:
+* `Total`: Total number of rules
+* `RequiredFailed`: Count of required rules that are `Down`
+* `OptionalFailed`: Count of optional rules that are `Down`
+* `Skipped`: Count of rules that were skipped
+
+> **Note:** The `Name` field can be set explicitly using `.Named("MyRuleName")` on the rule builder. This helps identify specific rules in health snapshots.
 
 ---
 
@@ -87,32 +100,59 @@ app.MapGet("/health", (ConfigManager manager) =>
 > **Status: Experimental / Untested**
 > Implementation exists but lacks dedicated unit tests. Validate in your environment and pin versions. Tracking issue recommended.
 
-A minimal exporter consumes the snapshot stream and forwards **aggregated counters** to any sink you provide.
+### Simple Prometheus Example
+
+Access `health.Snapshot` directly to expose metrics:
 
 ```csharp
-public interface ISimpleHealthMetricsSink
+app.MapGet("/metrics", (IConfigurationHealthService health) => 
 {
-    void Report(HealthMetrics metrics);
-}
-
-public readonly record struct HealthMetrics(
-    long SnapshotId,
-    DateTime TimestampUtc,
-    long ConfigVersion,
-    HealthStatus OverallStatus,
-    int RequiredFailed,
-    int OptionalFailed,
-    int Skipped);
-
-// Start exporting:
-var health = manager.GetHealthService();
-using var exporter = health.StartHealthMetricsExporter(mySink);
+    var s = health.Snapshot;
+    var sb = new StringBuilder();
+    
+    sb.Append("# HELP cocoar_config_health_status Overall health (0=Unknown,1=Healthy,2=Degraded,3=Unhealthy)\n");
+    sb.Append("# TYPE cocoar_config_health_status gauge\n");
+    sb.Append($"cocoar_config_health_status {(int)s.OverallStatus}\n\n");
+    
+    sb.Append("# HELP cocoar_config_required_failures Required rules that failed\n");
+    sb.Append("# TYPE cocoar_config_required_failures gauge\n");
+    sb.Append($"cocoar_config_required_failures {s.Summary.RequiredFailed}\n\n");
+    
+    sb.Append("# HELP cocoar_config_optional_failures Optional rules that failed\n");
+    sb.Append("# TYPE cocoar_config_optional_failures gauge\n");
+    sb.Append($"cocoar_config_optional_failures {s.Summary.OptionalFailed}\n\n");
+    
+    sb.Append("# HELP cocoar_config_version Configuration version counter\n");
+    sb.Append("# TYPE cocoar_config_version counter\n");
+    sb.Append($"cocoar_config_version {s.ConfigVersion}\n");
+    
+    return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
+});
 ```
 
-Write a tiny `ISimpleHealthMetricsSink` that updates your Prometheus gauges or emits OTEL metrics.
+> **Note:** Use `\n` (not `\r\n`) for line endings in Prometheus text format.
 
-> **Planned tests:** constructor wiring, snapshot coalescing, sink exceptions resilience, correct counters on rule status transitions.
-> *See GitHub issue: TBD — "Add tests for HealthMetricsExporter"*
+### Push-based Metrics (Optional)
+
+Subscribe to `SnapshotStream` if you need push-based updates:
+
+```csharp
+// Subscribe to health changes
+health.SnapshotStream.Subscribe(snapshot => {
+    // Update Datadog/StatsD/custom metrics
+    myMetrics.Gauge("config.health.status", (int)snapshot.OverallStatus);
+    myMetrics.Gauge("config.health.failed_required", snapshot.Summary.RequiredFailed);
+    myMetrics.Gauge("config.health.failed_optional", snapshot.Summary.OptionalFailed);
+});
+
+// Or just log changes
+health.SnapshotStream.Subscribe(snapshot => {
+    foreach (var rule in snapshot.Rules.Where(r => r.Status == RuleResultStatus.Down))
+    {
+        _logger.LogError("Config rule failed: {Name} - {Error}", rule.Name, rule.ErrorMessage);
+    }
+});
+```
 
 ---
 
@@ -169,10 +209,80 @@ This approach keeps mapping responsibility with the provider (which has full con
 
 ---
 
+## Example: Naming Rules for Better Observability
+
+You can give rules explicit names using the `.Named()` method to make health snapshots more readable:
+
+```csharp
+builder.AddCocoarConfiguration(rule => [
+    rule.For<DatabaseConfig>()
+        .FromFile("db.json")
+        .Required()
+        .Named("Primary Database"),
+    
+    rule.For<CacheConfig>()
+        .FromFile("cache.json")
+        .Named("Redis Cache"),
+    
+    rule.For<ApiConfig>()
+        .FromEnvironment("API_")
+        .Named("API Settings")
+]);
+```
+
+When you check health, rule names appear in the snapshot:
+
+```csharp
+var health = manager.GetHealthService().Snapshot;
+foreach (var rule in health.Rules)
+{
+    Console.WriteLine($"{rule.Name ?? $"Rule {rule.Index}"}: {rule.Status}");
+}
+// Output:
+// Primary Database: Up
+// Redis Cache: Up
+// API Settings: Up
+```
+
+You can also check the summary for aggregated information:
+
+```csharp
+var summary = health.Summary;
+Console.WriteLine($"Total rules: {summary.Total}");
+Console.WriteLine($"Skipped: {summary.Skipped}");
+Console.WriteLine($"Required failed: {summary.RequiredFailed}");
+Console.WriteLine($"Optional failed: {summary.OptionalFailed}");
+```
+
+### Conditional Rules and Skipped Status
+
+Rules with `.When()` conditions that evaluate to `false` are marked as `Skipped`:
+
+```csharp
+builder.AddCocoarConfiguration(rule => [
+    rule.For<FeatureConfig>()
+        .FromFile("features.json")
+        .When(cfg => cfg.Get<AppConfig>().EnableFeatureX)
+        .Named("Feature X Config")
+]);
+
+// If EnableFeatureX is false, this rule will have Status = Skipped
+var health = manager.GetHealthService().Snapshot;
+var featureRule = health.Rules.FirstOrDefault(r => r.Name == "Feature X Config");
+if (featureRule?.Status == RuleResultStatus.Skipped)
+{
+    Console.WriteLine("Feature X is disabled, config was skipped");
+}
+```
+
+If no explicit name is provided, the name will be `null` and you can identify rules by their index.
+
+---
+
 ## Notes
 
 * Identical snapshots (same overall status, same config version, same rule status/failure counters) are **suppressed** to avoid noisy streams.
-* Rule *names* are optional; index order is stable and sufficient for dashboards.
+* Rule *names* are optional and can be set with `.Named("RuleName")`; index order is stable and sufficient for dashboards.
 * Health is **orthogonal** to configuration retrieval; even when health is degraded, consumers keep using the last good config.
 
 ---

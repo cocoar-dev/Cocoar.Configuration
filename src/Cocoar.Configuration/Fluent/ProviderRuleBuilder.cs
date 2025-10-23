@@ -34,7 +34,8 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
         var registration = BuildRegistration();
         var opts = new ConfigRuleOptions(
                 Required: IsRequired,
-                UseWhen: UseWhen)
+                UseWhen: UseWhen,
+                Name: Name)
             .WithMount(MountPath)
             .WithSelect(SelectPath);
 

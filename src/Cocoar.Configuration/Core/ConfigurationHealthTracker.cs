@@ -16,14 +16,16 @@ internal class ConfigurationHealthTracker
 
         var initialEntries = rules.Select((r, i) => new RuleHealthEntry(
             index: i,
-            name: r.Options?.MountPath,
+            name: r.Options?.Name,
             required: r.Options?.Required == true,
             status: RuleResultStatus.Unknown,
             lastSuccessUtc: null,
             lastFailureUtc: null,
             failureCount: 0,
             errorCode: null,
-            errorMessage: null)).ToList();
+            errorMessage: null,
+            providerType: r.ProviderType.Name,
+            configType: r.ConcreteType.Name)).ToList();
 
         var initialSnapshot = new ConfigHealthSnapshot(
             id: ++_healthSequence,
@@ -73,7 +75,7 @@ internal class ConfigurationHealthTracker
             }
             else
             {
-                list.Add(new(seed, null, _ruleManagers[seed].Required, RuleResultStatus.Unknown, null, null, 0, null, null));
+                list.Add(new(seed, null, _ruleManagers[seed].Required, RuleResultStatus.Unknown, null, null, 0, null, null, null, null));
             }
         }
 
@@ -119,7 +121,7 @@ internal class ConfigurationHealthTracker
                     var existing = list[j];
                     if (existing.Status is RuleResultStatus.Up or RuleResultStatus.Skipped)
                     {
-                        list[j] = new(existing.Index, existing.Name, existing.Required, RuleResultStatus.Unknown, existing.LastSuccessUtc, existing.LastFailureUtc, existing.FailureCount, existing.ErrorCode, existing.ErrorMessage);
+                        list[j] = new(existing.Index, existing.Name, existing.Required, RuleResultStatus.Unknown, existing.LastSuccessUtc, existing.LastFailureUtc, existing.FailureCount, existing.ErrorCode, existing.ErrorMessage, existing.ProviderType, existing.ConfigType);
                     }
                 }
                 break;

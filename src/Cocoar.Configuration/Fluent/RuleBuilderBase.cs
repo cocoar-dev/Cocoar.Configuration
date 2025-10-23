@@ -10,6 +10,7 @@ public abstract class RuleBuilderBase<TBuilder>
     protected Type? ConcreteType;
     protected string? MountPath;
     protected string? SelectPath;
+    protected string? Name;
 
     public TBuilder Required(bool value = true)
     {
@@ -42,6 +43,17 @@ public abstract class RuleBuilderBase<TBuilder>
         }
 
         SelectPath = selectPath.Trim();
+        return (TBuilder)this;
+    }
+
+    public TBuilder Named(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("name cannot be null/empty", nameof(name));
+        }
+
+        Name = name.Trim();
         return (TBuilder)this;
     }
 

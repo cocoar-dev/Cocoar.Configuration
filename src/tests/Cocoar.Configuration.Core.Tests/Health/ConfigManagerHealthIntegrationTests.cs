@@ -118,4 +118,98 @@ public class ConfigManagerHealthIntegrationTests
         Assert.Contains(health.Rules, r => r.Required);
         Assert.Contains(health.Rules, r => !r.Required);
     }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Area", "Health")]
+    public void ConfigManager_WithNamedRules_ShowsNamesInHealth()
+    {
+        using var document1 = JsonDocument.Parse("{\"Name\":\"config1\",\"Value\":1}");
+        using var document2 = JsonDocument.Parse("{\"Name\":\"config2\",\"Value\":2}");
+        var providerOptions1 = new StaticJsonProviderOptions(document1.RootElement);
+        var providerOptions2 = new StaticJsonProviderOptions(document2.RootElement);
+        var queryOptions = new StaticJsonProviderQueryOptions();
+        
+        var namedRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions1, queryOptions, typeof(SimpleConfig),
+            new(Required: true, Name: "Primary Config"));
+
+        var unnamedRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions2, queryOptions, typeof(SimpleConfig),
+            new(Required: false));
+
+        using var configManager = new ConfigManager(new[] {namedRule, unnamedRule});
+        configManager.Initialize();
+        var health = configManager.GetHealthService().Snapshot;
+
+        Assert.Equal(HealthStatus.Healthy, health.OverallStatus);
+        Assert.Equal(2, health.Rules.Count);
+        
+        // Check that explicit name is used
+        var rule1 = health.Rules[0];
+        Assert.Equal("Primary Config", rule1.Name);
+        Assert.True(rule1.Required);
+        
+        // Check that no name results in null
+        var rule2 = health.Rules[1];
+        Assert.Null(rule2.Name);
+        Assert.False(rule2.Required);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Area", "Health")]
+    public void ConfigManager_WithNameAndMountPath_NameIsIndependentOfMountPath()
+    {
+        using var document = JsonDocument.Parse("{\"Name\":\"test\",\"Value\":123}");
+        var providerOptions = new StaticJsonProviderOptions(document.RootElement);
+        var queryOptions = new StaticJsonProviderQueryOptions();
+        
+        // Both name and mount path provided - they are independent
+        var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
+            new(Required: false, Name: "Explicit Name", MountPath: "MountPath"));
+
+        using var configManager = new ConfigManager(new[] {rule});
+        configManager.Initialize();
+        var health = configManager.GetHealthService().Snapshot;
+
+        Assert.Single(health.Rules);
+        var ruleHealth = health.Rules[0];
+        Assert.Equal("Explicit Name", ruleHealth.Name);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Area", "Health")]
+    public void ConfigManager_WithConditionalRule_ShowsSkippedStatus()
+    {
+        using var document = JsonDocument.Parse("{\"Name\":\"test\",\"Value\":123}");
+        var providerOptions = new StaticJsonProviderOptions(document.RootElement);
+        var queryOptions = new StaticJsonProviderQueryOptions();
+        
+        // Rule with UseWhen that returns false - should be skipped
+        var conditionalRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
+            new(Required: false, UseWhen: _ => false, Name: "Conditional Rule"));
+
+        var alwaysRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
+            new(Required: false, Name: "Always Rule"));
+
+        using var configManager = new ConfigManager(new[] {conditionalRule, alwaysRule});
+        configManager.Initialize();
+        var health = configManager.GetHealthService().Snapshot;
+
+        Assert.Equal(HealthStatus.Healthy, health.OverallStatus);
+        Assert.Equal(2, health.Rules.Count);
+        
+        // First rule should be skipped
+        var rule1 = health.Rules[0];
+        Assert.Equal("Conditional Rule", rule1.Name);
+        Assert.Equal(RuleResultStatus.Skipped, rule1.Status);
+        
+        // Second rule should be up
+        var rule2 = health.Rules[1];
+        Assert.Equal("Always Rule", rule2.Name);
+        Assert.Equal(RuleResultStatus.Up, rule2.Status);
+        
+        // Check summary
+        Assert.Equal(1, health.Summary.Skipped);
+    }
 }
