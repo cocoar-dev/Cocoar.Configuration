@@ -1,3 +1,4 @@
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
 namespace Cocoar.Configuration.Health;
@@ -27,7 +28,9 @@ public sealed class RuleHealthEntry(
     DateTime? lastFailureUtc,
     int failureCount,
     string? errorCode,
-    string? errorMessage)
+    string? errorMessage,
+    string? providerType = null,
+    string? configType = null)
 {
     public int Index { get; } = index;
     public string? Name { get; } = name;
@@ -38,13 +41,15 @@ public sealed class RuleHealthEntry(
     public int FailureCount { get; } = failureCount;
     public string? ErrorCode { get; } = errorCode;
     public string? ErrorMessage { get; } = errorMessage;
+    public string? ProviderType { get; } = providerType;
+    public string? ConfigType { get; } = configType;
 
     public RuleHealthEntry WithStatus(RuleResultStatus status, DateTime utcNow, string? errorCode = null, string? errorMessage = null)
     {
         var lastSuccess = status == RuleResultStatus.Up ? utcNow : LastSuccessUtc;
         var lastFailure = status == RuleResultStatus.Down ? utcNow : LastFailureUtc;
-        var failureCount = status == RuleResultStatus.Down ? FailureCount + 1 : (status == RuleResultStatus.Up ? 0 : FailureCount);
-        return new(Index, Name, Required, status, lastSuccess, lastFailure, failureCount, errorCode, errorMessage);
+        var failureCount = status == RuleResultStatus.Down ? FailureCount + 1 : FailureCount;
+        return new(Index, Name, Required, status, lastSuccess, lastFailure, failureCount, errorCode, errorMessage, ProviderType, ConfigType);
     }
 }
 

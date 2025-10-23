@@ -8,6 +8,7 @@ using Cocoar.Configuration.Fluent;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Reactive;
 using Cocoar.Configuration.DI.Capabilities;
+using Cocoar.Configuration.Health;
 
 namespace Cocoar.Configuration.DI;
 
@@ -22,6 +23,9 @@ public static class CocoarConfigurationExtensions
         services.ThrowIfAlreadyRegistered();
         services.AddSingleton(configManager);
         services.AddSingleton<IConfigurationAccessor>(sp => sp.GetRequiredService<ConfigManager>());
+        
+        // Register the health service
+        services.AddSingleton<IConfigurationHealthService>(sp => sp.GetRequiredService<ConfigManager>().GetHealthService());
 
         // Use the existing SetupDefinition instances from the ConfigManager
         var configSpecs = configManager.SetupDefinitions;

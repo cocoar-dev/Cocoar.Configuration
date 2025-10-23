@@ -1,5 +1,41 @@
 # Changelog
 
+## [3.3.0] - 2025-10-23
+
+### Added
+- **Rule Naming**: New `.Named("name")` fluent API for adding human-readable names to rules
+  - Example: `rule.For<DbConfig>().FromFile("db.json").Named("Primary Database")`
+  - Names appear in health snapshots for better observability in dashboards and logs
+  
+- **Enhanced Health Monitoring**: Expanded `RuleHealthEntry` with additional metadata
+  - `Name` - Optional rule name (set via `.Named()`)
+  - `ProviderType` - Name of the provider type used by the rule
+  - `ConfigType` - Name of the configuration type being loaded
+  - `Skipped` status - New `RuleResultStatus.Skipped` for rules skipped by `.When()` conditions
+  
+- **Health Summary Metrics**: New `Skipped` count in `Summary` for tracking conditional rules
+  - Complements existing `Total`, `RequiredFailed`, `OptionalFailed` counters
+
+- **Auto DI Registration**: `IConfigurationHealthService` now automatically registered in DI container
+  - Available immediately after `AddCocoarConfiguration()`
+  - No manual registration needed
+
+- **Comprehensive Health Tests**: 94 lines of new integration tests covering all health monitoring features
+
+### Improved
+- **Health Documentation**: Simplified health-monitoring.md with clearer, direct usage examples
+  - Added Prometheus endpoint example (pull-based metrics)
+  - Added reactive subscription example (push-based metrics)
+  - Removed complex export system in favor of simple, direct `IConfigurationHealthService` access
+
+### Removed
+- **Experimental Metrics Export APIs** (marked "Experimental / Untested" in v3.2.0):
+  - `HealthMetricsExporter` class - Unnecessary wrapper around health service
+  - `ISimpleHealthMetricsSink` interface - Over-engineered abstraction
+  - `HealthMetrics` struct - Redundant with `ConfigHealthSnapshot`
+  - `AddCocoarHealthMetricsExporter()` extension - Removed in favor of direct health service usage
+  - Users should access `IConfigurationHealthService.Snapshot` directly or subscribe to `SnapshotStream`
+
 ## [3.2.0] - 2025-10-23
 
 ### Added
