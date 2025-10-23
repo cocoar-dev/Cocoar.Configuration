@@ -28,7 +28,6 @@ public class ConfigurablePollingIntervalTests
 
         var options = new FileSourceProviderOptions(
             directory: "test-dir",
-            debounceTime: TimeSpan.FromMilliseconds(100),
             pollingInterval: testInterval
         );
 

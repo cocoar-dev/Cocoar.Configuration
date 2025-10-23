@@ -1,5 +1,31 @@
 # Changelog
 
+## [3.2.0] - 2025-10-23
+
+### Added
+- **CommandLine Provider**: New built-in provider for parsing command-line arguments
+  - Supports multiple switch prefixes simultaneously: `["--", "-", "/"]` or custom semantic prefixes like `["@", "#", "%"]`
+  - Example: `.FromCommandLine(["--", "-", "/"])` accepts all three styles in the same command line
+  - Automatic longest-match-first algorithm prevents ambiguity (e.g., `--host` matches `"--"` before `"-"`)
+  - Flexible API: `.FromCommandLine()`, `.FromCommandLine("prefix_")`, `.FromCommandLine(["-"])`
+  - Supports nested configuration with `:` or `__` separators (e.g., `--database:host=localhost` or `--database__host=localhost`)
+  - Prefix filtering to map different arguments to different config types
+  - Three argument formats: `--key=value`, `--key value`, `--flag` (boolean)
+  - Enables self-documenting CLIs: `invoke.exe @host=server #issue=123 %env=prod`
+
+- **Test Example**: New CommandLineExample project with 6 comprehensive integration tests
+
+### Improved
+- **Provider Architecture**: Enhanced ProviderOptions vs QueryOptions separation across CommandLine, Environment, and FileSource providers
+  - `ProviderOptions` now only contains provider-level configuration (shared across queries)
+  - `QueryOptions` contains query-specific parameters (different per rule)
+  - Enables proper provider sharing and rule-specific configuration
+
+### Removed
+- **Dead Code Cleanup**: Removed 4 unused FileSystemObservable files (~140 lines)
+  - Existing `FileWatcherObservable` is used and battle-tested
+
+
 ## [3.1.1] - 2025-10-19
 
 ### Fixed

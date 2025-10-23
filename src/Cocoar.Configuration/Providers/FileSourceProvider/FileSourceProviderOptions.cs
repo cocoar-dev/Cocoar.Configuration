@@ -3,7 +3,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 
 namespace Cocoar.Configuration.Providers;
 
-public class FileSourceProviderOptions(string directory, TimeSpan? debounceTime = null, TimeSpan? pollingInterval = null)
+public class FileSourceProviderOptions(string directory, TimeSpan? pollingInterval = null)
     : IProviderConfiguration
 {
     private static readonly string BasePath =
@@ -11,8 +11,6 @@ public class FileSourceProviderOptions(string directory, TimeSpan? debounceTime 
 
     public string Directory { get; } =
         Path.IsPathRooted(directory) ? directory : Path.GetFullPath(Path.Combine(BasePath, directory));
-
-    public TimeSpan? DebounceTime { get; } = debounceTime;
 
     public TimeSpan PollingInterval { get; } = pollingInterval ?? TimeSpan.FromSeconds(10);
 
