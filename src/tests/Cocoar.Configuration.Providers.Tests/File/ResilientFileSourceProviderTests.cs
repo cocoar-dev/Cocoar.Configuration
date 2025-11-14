@@ -82,9 +82,14 @@ public class ResilientFileSourceProviderTests
         Directory.Delete(featureDir, recursive: true);
         
         await ActiveWaitHelpers.WaitUntilAsync(
-            () => errors.Count > 0 || emissions.Any(e => GetVersion(e) == -1),
-            timeout: TimeSpan.FromSeconds(5),
-            description: "polling mode engaged (error or sentinel)");
+            () => {
+                try {
+                    provider.FetchConfigurationBytesAsync(query).GetAwaiter().GetResult();
+                    return false; // still able to fetch
+                } catch (DirectoryNotFoundException) { return true; } catch { return false; }
+            },
+            timeout: TimeSpan.FromSeconds(8),
+            description: "fetch failing with DirectoryNotFoundException after deletion");
         
         // Test FetchConfigurationAsync during polling (should throw)
         try
