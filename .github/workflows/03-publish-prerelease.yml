@@ -92,14 +92,14 @@ jobs:
       - name: Ensure packages exist
         run: |
           shopt -s nullglob
-          files=(../artifacts/*.nupkg ../artifacts/*.snupkg)
+          files=("$GITHUB_WORKSPACE"/artifacts/*.nupkg "$GITHUB_WORKSPACE"/artifacts/*.snupkg)
           (( ${#files[@]} )) || { echo "::error ::No packages found in artifacts/"; exit 1; }
 
       - name: Upload artifacts (audit)
         uses: actions/upload-artifact@v4
         with:
           name: prerelease-packages-${{ steps.gv.outputs.SemVer }}
-          path: ../artifacts
+          path: ${{ github.workspace }}/artifacts
           retention-days: 30
 
       - name: Push prerelease to NuGet.org
@@ -107,7 +107,7 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           shopt -s nullglob
-          for p in ../artifacts/*.nupkg ../artifacts/*.snupkg; do
+          for p in "$GITHUB_WORKSPACE"/artifacts/*.nupkg "$GITHUB_WORKSPACE"/artifacts/*.snupkg; do
             echo "Pushing prerelease package: $p"
             dotnet nuget push "$p" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
           done
