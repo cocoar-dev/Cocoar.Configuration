@@ -216,3 +216,4 @@ public class CacheSettings
     public string? Host { get; set; }
     public int Ttl { get; set; }
 }
+

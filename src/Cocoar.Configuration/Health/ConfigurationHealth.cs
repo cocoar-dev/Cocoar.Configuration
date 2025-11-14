@@ -85,26 +85,18 @@ public class ConfigurationHealthInfo
             {
                 return ConfigurationHealthStatus.Unknown;
             }
-
-            // If any required rule failed, system is unhealthy
             if (Rules.Any(r => r is { IsRequired: true, State: RuleEvaluationState.Failed }))
             {
                 return ConfigurationHealthStatus.Unhealthy;
             }
-
-            // If any rule is still evaluating or not evaluated, system state is unknown
             if (Rules.Any(r => r.State is RuleEvaluationState.Evaluating or RuleEvaluationState.NotEvaluated))
             {
                 return ConfigurationHealthStatus.Unknown;
             }
-
-            // If any optional rule failed, system is degraded
             if (Rules.Any(r => r is { IsRequired: false, State: RuleEvaluationState.Failed }))
             {
                 return ConfigurationHealthStatus.Degraded;
             }
-
-            // All required rules succeeded (optional rules may be skipped or succeeded)
             return ConfigurationHealthStatus.Healthy;
         }
     }

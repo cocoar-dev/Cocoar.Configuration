@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -165,7 +167,7 @@ public class ConfigurablePollingIntervalTests
         _output.WriteLine($"Testing with fast polling interval: {options.PollingInterval.TotalMilliseconds}ms");
         
         // Initial state - file doesn't exist, should throw
-        var initialException = await Record.ExceptionAsync(() => provider.FetchConfigurationAsync(query));
+        var initialException = await Record.ExceptionAsync(() => provider.FetchConfigurationBytesAsync(query));
         Assert.NotNull(initialException);
         _output.WriteLine("Initial fetch failed as expected (file doesn't exist)");
         
@@ -179,8 +181,8 @@ public class ConfigurablePollingIntervalTests
         await Task.Delay(300);
         
         // Now fetch should succeed
-        var result = await provider.FetchConfigurationAsync(query);
-        Assert.True(result.TryGetProperty("test", out var testProp));
+        var result = await provider.FetchConfigurationBytesAsync(query);
+        Assert.True(result.ToJsonElement().TryGetProperty("test", out var testProp));
         Assert.Equal("value", testProp.GetString());
         
         _output.WriteLine($"Successfully fetched config: {result}");

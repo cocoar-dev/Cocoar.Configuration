@@ -27,8 +27,6 @@ internal static class JsonHelper
         }
 
         JsonElement current = element;
-
-        // Build from the leaf outward: {"c": element} -> {"b": {...}} -> {"a": {...}}
         for (var i = segments.Length - 1; i >= 0; i--)
         {
             var obj = new Dictionary<string, JsonElement>(1) { [segments[i]] = current };
@@ -146,8 +144,14 @@ internal static class JsonHelper
             }
         }
 
-        var json = JsonSerializer.Serialize(root);
-        return JsonDocument.Parse(json).RootElement;
+        // Avoid creating a managed string for user data; serialize directly to UTF-8 bytes
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            JsonSerializer.Serialize(writer, root);
+            writer.Flush();
+        }
+        return JsonDocument.Parse(buffer.WrittenMemory).RootElement;
     }
 
     private static void FlattenRecursive(JsonElement e, string? prefix, Dictionary<string, JsonElement> dict)

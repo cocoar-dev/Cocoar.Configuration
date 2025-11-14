@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Providers.Tests;
+namespace Cocoar.Configuration.Providers.Tests.TestUtilities;
 
 /// <summary>
 /// Utility for creating temporary directories with automatic cleanup.

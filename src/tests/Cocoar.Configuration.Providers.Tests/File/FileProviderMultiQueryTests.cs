@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -40,9 +42,9 @@ public class FileProviderMultiQueryTests
         var emissions2 = new List<JsonElement>();
         var emissions3 = new List<JsonElement>();
 
-        var subscription1 = provider.Changes(query1).Subscribe(emissions1.Add);
-        var subscription2 = provider.Changes(query2).Subscribe(emissions2.Add);
-        var subscription3 = provider.Changes(query3).Subscribe(emissions3.Add);
+        var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
+        var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
+        var subscription3 = provider.ChangesAsBytes(query3).Subscribe(e => emissions3.Add(e.ToJsonElement()));
 
         try
         {
@@ -110,8 +112,8 @@ public class FileProviderMultiQueryTests
         var emissions1 = new List<JsonElement>();
         var emissions2 = new List<JsonElement>();
 
-        var subscription1 = provider.Changes(query1).Subscribe(emissions1.Add);
-        var subscription2 = provider.Changes(query2).Subscribe(emissions2.Add);
+        var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
+        var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
 
         try
         {
@@ -162,8 +164,8 @@ public class FileProviderMultiQueryTests
         var emissionsFast = new List<JsonElement>();
         var emissionsSlow = new List<JsonElement>();
 
-        var subscriptionFast = provider.Changes(queryFast).Subscribe(emissionsFast.Add);
-        var subscriptionSlow = provider.Changes(querySlow).Subscribe(emissionsSlow.Add);
+        var subscriptionFast = provider.ChangesAsBytes(queryFast).Subscribe(e => emissionsFast.Add(e.ToJsonElement()));
+        var subscriptionSlow = provider.ChangesAsBytes(querySlow).Subscribe(e => emissionsSlow.Add(e.ToJsonElement()));
 
         try
         {

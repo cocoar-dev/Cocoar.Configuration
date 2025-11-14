@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -46,11 +48,11 @@ public class ResilientFileSourceProviderTests
         var emissions = new List<JsonElement>();
         var errors = new List<Exception>();
         
-        var subscription = provider.Changes(query).Subscribe(
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
             onNext: emission => 
             {
-                emissions.Add(emission);
-                _output.WriteLine($"📩 Change emission: version={GetVersion(emission)}, enabled={GetEnabled(emission)}");
+                emissions.Add(emission.ToJsonElement());
+                _output.WriteLine($"📩 Change emission: version={GetVersion(emission.ToJsonElement())}, enabled={GetEnabled(emission.ToJsonElement())}");
             },
             onError: ex => 
             {
@@ -62,8 +64,8 @@ public class ResilientFileSourceProviderTests
         await Task.Delay(200); // Let FileSystemWatcher initialize
         
         // Test initial FetchConfigurationAsync
-        var initialConfig = await provider.FetchConfigurationAsync(query);
-        _output.WriteLine($"✅ Initial config fetch: version={GetVersion(initialConfig)}");
+        var initialConfig = await provider.FetchConfigurationBytesAsync(query);
+        _output.WriteLine($"✅ Initial config fetch: version={GetVersion(initialConfig.ToJsonElement())}");
         
         // === PHASE 2: Modify file (FileSystemWatcher should detect) ===
         _output.WriteLine("Phase 2: Modifying file to test FileSystemWatcher");
@@ -81,7 +83,7 @@ public class ResilientFileSourceProviderTests
         // Test FetchConfigurationAsync during polling (should throw)
         try
         {
-            var configDuringPolling = await provider.FetchConfigurationAsync(query);
+            var configDuringPolling = await provider.FetchConfigurationBytesAsync(query);
             _output.WriteLine("⚠️ Unexpected: FetchConfigurationAsync succeeded during polling");
         }
         catch (DirectoryNotFoundException ex)
@@ -103,8 +105,8 @@ public class ResilientFileSourceProviderTests
         // Test FetchConfigurationAsync after recovery
         try
         {
-            var recoveredConfig = await provider.FetchConfigurationAsync(query);
-            _output.WriteLine($"✅ Recovery config fetch: version={GetVersion(recoveredConfig)}, recovered={GetRecovered(recoveredConfig)}");
+            var recoveredConfig = await provider.FetchConfigurationBytesAsync(query);
+            _output.WriteLine($"✅ Recovery config fetch: version={GetVersion(recoveredConfig.ToJsonElement())}, recovered={GetRecovered(recoveredConfig.ToJsonElement())}");
         }
         catch (Exception ex)
         {
@@ -172,7 +174,7 @@ public class ResilientFileSourceProviderTests
         // Test FetchConfigurationAsync behavior
         try
         {
-            var config = await provider.FetchConfigurationAsync(query);
+            var config = await provider.FetchConfigurationBytesAsync(query);
             _output.WriteLine("❌ PROBLEM: FetchConfigurationAsync should have thrown for non-existent directory");
         }
         catch (DirectoryNotFoundException ex)

@@ -1,9 +1,10 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration.Memory;
-using Xunit;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Microsoft.Extensions.Configuration.Memory;
+using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.MicrosoftAdapter;
 
@@ -39,17 +40,17 @@ public class MicrosoftAdapterBattleTests : IDisposable
         // Note: MicrosoftConfigurationSourceProvider doesn't implement IDisposable
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new());
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
         
-        var app = result.GetProperty("App");
+        var app = result.ToJsonElement().GetProperty("App");
         Assert.Equal("TestApp", app.GetProperty("Name").GetString());
         Assert.Equal("1.0.0", app.GetProperty("Version").GetString());
         
-        var db = result.GetProperty("Database");
+        var db = result.ToJsonElement().GetProperty("Database");
         Assert.Equal("Server=localhost", db.GetProperty("ConnectionString").GetString());
         Assert.Equal("30", db.GetProperty("Timeout").GetString());
     }
@@ -73,19 +74,19 @@ public class MicrosoftAdapterBattleTests : IDisposable
             new(configSource));
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new("Logging"));
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Equal("Debug", result.GetProperty("Level").GetString());
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
+        Assert.Equal("Debug", result.ToJsonElement().GetProperty("Level").GetString());
         
-        var providers = result.GetProperty("Providers");
+        var providers = result.ToJsonElement().GetProperty("Providers");
         Assert.Equal("true", providers.GetProperty("Console").GetString());
         
 
-        Assert.False(result.TryGetProperty("App", out _));
-        Assert.False(result.TryGetProperty("Database", out _));
+        Assert.False(result.ToJsonElement().TryGetProperty("App", out _));
+        Assert.False(result.ToJsonElement().TryGetProperty("Database", out _));
     }
 
     [Fact]
@@ -100,12 +101,12 @@ public class MicrosoftAdapterBattleTests : IDisposable
             new(configSource));
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new());
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Equal("{}", result.GetRawText());
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
+        Assert.Equal("{}", result.ToJsonElement().GetRawText());
     }
 
     [Fact]
@@ -124,12 +125,12 @@ public class MicrosoftAdapterBattleTests : IDisposable
             new(configSource));
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new("NonExistent"));
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Equal("{}", result.GetRawText());
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
+        Assert.Equal("{}", result.ToJsonElement().GetRawText());
     }
 
     [Fact]
@@ -152,11 +153,11 @@ public class MicrosoftAdapterBattleTests : IDisposable
             new(configSource));
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new());
 
 
-        var services = result.GetProperty("Services");
+        var services = result.ToJsonElement().GetProperty("Services");
         
         var primaryDb = services.GetProperty("Database").GetProperty("Primary");
         Assert.Equal("db1.example.com", primaryDb.GetProperty("Host").GetString());
@@ -173,7 +174,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Fact]
     [Trait("Type", "Integration")]
     [Trait("Provider", "MicrosoftAdapter")]
-    public async Task ConfigManager_IntegratesWithMicrosoftConfig()
+    public void ConfigManager_IntegratesWithMicrosoftConfig()
     {
 
         var data = new Dictionary<string, string?>
@@ -223,16 +224,16 @@ public class MicrosoftAdapterBattleTests : IDisposable
             new(configSource));
 
 
-        var result = await provider.FetchConfigurationAsync(
+        var result = await provider.FetchConfigurationBytesAsync(
             new());
 
 
         // Let's first check what the actual structure looks like
-        var jsonString = result.GetRawText();
+        var jsonString = result.ToJsonElement().GetRawText();
         Assert.NotEmpty(jsonString);
         
         // The keys might be normalized, so let's check what's actually available
-        Assert.True(result.TryGetProperty("app", out var app) || result.TryGetProperty("App", out app) || result.TryGetProperty("APP", out app));
+        Assert.True(result.ToJsonElement().TryGetProperty("app", out var app) || result.ToJsonElement().TryGetProperty("App", out app) || result.ToJsonElement().TryGetProperty("APP", out app));
         
         // Check for properties within the app section using case-insensitive search
         var hasName = app.TryGetProperty("name", out var nameElement) || 

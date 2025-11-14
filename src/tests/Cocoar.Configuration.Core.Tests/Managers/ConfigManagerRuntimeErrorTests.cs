@@ -4,11 +4,6 @@ using Cocoar.Configuration.Core.Tests.TestUtilities;
 using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
-
-/// <summary>
-/// Tests runtime behavior when required rules fail during recompute (vs initialization).
-/// Validates the difference between initialization failures and runtime failures.
-/// </summary>
 public class ConfigManagerRuntimeErrorTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = new();
@@ -39,11 +34,6 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
         public string Name { get; set; } = string.Empty;
         public int Value { get; set; }
     }
-
-    /// <summary>
-    /// Tests that initialization fails immediately when a required provider always fails.
-    /// This represents the expected behavior - required rules must succeed during startup.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -76,12 +66,6 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
         Assert.NotNull(exception.InnerException);
         Assert.Contains("FailableProvider configured to fail", exception.InnerException.Message);
     }
-
-    /// <summary>
-    /// Tests the "file corruption after startup" scenario - provider succeeds initially 
-    /// but would fail on subsequent calls. Since we can't easily trigger recompute 
-    /// in this test setup, this demonstrates the failure pattern.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -145,10 +129,6 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
         Assert.NotNull(stillGoodConfig);
         Assert.Equal("InitialGood", stillGoodConfig.Name);
     }
-
-    /// <summary>
-    /// Tests provider that fails after N successful calls - simulates progressive failure.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -166,13 +146,13 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
         var query = FailableProviderQuery.Success;
 
 
-        var firstResult = await provider.FetchConfigurationAsync(query);
-        Assert.Equal("ProgressiveFailure", firstResult.GetProperty("Name").GetString());
-        Assert.Equal(200, firstResult.GetProperty("Value").GetInt32());
+        var firstResult = await provider.FetchConfigurationBytesAsync(query);
+        Assert.Equal("ProgressiveFailure", firstResult.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal(200, firstResult.ToJsonElement().GetProperty("Value").GetInt32());
 
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await provider.FetchConfigurationAsync(query));
+            await provider.FetchConfigurationBytesAsync(query));
         
         Assert.Contains("FailableProvider configured to fail", exception.Message);
         Assert.Contains("AfterNCalls", exception.Message);

@@ -82,11 +82,6 @@ public class AdvancedCancellationTests : IDisposable
         Assert.Equal("changed", finalConfig.Status);
         Assert.Equal(1, finalConfig.Value);
     }
-
-    /// <summary>
-    /// Tests rapid overlapping changes that should trigger multiple cancellations.
-    /// Validates that the system handles chaotic change scenarios gracefully.
-    /// </summary>
     [Fact]
     public async Task RapidOverlappingChanges_HandlesCancellationsChaotically()
     {
@@ -136,11 +131,6 @@ public class AdvancedCancellationTests : IDisposable
         Assert.True(finalConfig.Status.Contains("wave-2"), 
             $"Config should reflect final wave changes, got status: {finalConfig.Status}");
     }
-
-    /// <summary>
-    /// Tests behavior under very high frequency changes to validate debouncing and coalescing.
-    /// Ensures the system doesn't become overwhelmed by rapid-fire configuration updates.
-    /// </summary>
     [Fact]
     public async Task HighFrequencyChanges_DebounceAndCoalesceCorrectly()
     {

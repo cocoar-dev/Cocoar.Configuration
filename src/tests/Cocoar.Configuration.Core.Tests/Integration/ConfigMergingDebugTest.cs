@@ -76,3 +76,6 @@ public class ConfigMergingDebugTest
         Assert.Equal(50, config.Sub.Number);            // Should be kept from static
     }
 }
+
+
+

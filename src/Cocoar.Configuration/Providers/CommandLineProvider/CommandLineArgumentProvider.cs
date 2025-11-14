@@ -6,7 +6,7 @@ namespace Cocoar.Configuration.Providers;
 public sealed class CommandLineArgumentProvider(CommandLineProviderOptions options)
     : ConfigurationProvider<CommandLineProviderOptions, CommandLineProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(CommandLineProviderQueryOptions queryOptions, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(CommandLineProviderQueryOptions queryOptions, CancellationToken ct = default)
     {
         var args = queryOptions.Args ?? Environment.GetCommandLineArgs().Skip(1).ToArray();
         var switchPrefixes = queryOptions.SwitchPrefixes ?? ["--"];
@@ -32,11 +32,8 @@ public sealed class CommandLineArgumentProvider(CommandLineProviderOptions optio
             AddToNestedDict(dict, key, kvp.Value);
         }
 
-        var json = JsonSerializer.Serialize(dict);
-        using var doc = JsonDocument.Parse(json);
-        var element = doc.RootElement.Clone();
-
-        return Task.FromResult(element);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(dict);
+        return Task.FromResult(bytes);
     }
 
     private static Dictionary<string, string?> ParseBasicPosixArguments(string[] args, string[] switchPrefixes)
@@ -136,6 +133,6 @@ public sealed class CommandLineArgumentProvider(CommandLineProviderOptions optio
         );
     }
 
-    public override IObservable<JsonElement> Changes(CommandLineProviderQueryOptions queryOptions)
-        => System.Reactive.Linq.Observable.Never<JsonElement>();
+    public override IObservable<byte[]> ChangesAsBytes(CommandLineProviderQueryOptions queryOptions)
+        => System.Reactive.Linq.Observable.Never<byte[]>();
 }

@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Providers.Tests;
+namespace Cocoar.Configuration.Providers.Tests.TestUtilities;
 
 /// <summary>
 /// Utility to isolate environment variable mutations within a using scope.

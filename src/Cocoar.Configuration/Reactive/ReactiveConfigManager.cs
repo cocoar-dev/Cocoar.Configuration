@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Reactive.Subjects;
@@ -20,8 +21,6 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
     private readonly ExposureRegistry _bindingRegistry = bindingRegistry ?? throw new ArgumentNullException(nameof(bindingRegistry));
     private readonly ConcurrentDictionary<Type, object> _configObservables = new();
     private readonly ConcurrentDictionary<Type, string> _previousConfigHashes = new();
-
-    // Per-pass subjects emit once per recompute pass (even if value unchanged)
     private readonly ConcurrentDictionary<Type, object> _perPassSubjects = new();
     private long _passId;
 
@@ -177,16 +176,17 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
 
     private static string ComputeConfigHash(object? config)
     {
+        if (config is null)
+        {
+            return "NULL";
+        }
+
         try
         {
-            if (config is null)
-            {
-                return "NULL";
-            }
-
-            using var md5 = MD5.Create();
-            using var stream = new CryptoStream(Stream.Null, md5, CryptoStreamMode.Write);
-            using var writer = new Utf8JsonWriter(stream, new()
+            // Use IncrementalHash for better performance (no stream overhead)
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var bufferWriter = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(bufferWriter, new()
             { 
                 Indented = false,
                 SkipValidation = true 
@@ -194,13 +194,15 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
             
             JsonSerializer.Serialize(writer, config, config.GetType(), _optimizedJsonOptions);
             writer.Flush();
-            stream.FlushFinalBlock();
             
-            return Convert.ToHexString(md5.Hash!);
+            var written = bufferWriter.WrittenSpan;
+            hash.AppendData(written);
+            
+            return Convert.ToHexString(hash.GetHashAndReset());
         }
         catch
         {
-            return $"{config!.GetType().FullName}#{config.GetHashCode()}";
+            return $"{config.GetType().FullName}#{config.GetHashCode()}";
         }
     }
 

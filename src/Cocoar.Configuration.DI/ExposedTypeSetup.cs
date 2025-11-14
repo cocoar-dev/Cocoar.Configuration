@@ -1,5 +1,6 @@
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
+using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.DI;
 
@@ -10,9 +11,9 @@ public sealed record ExposedTypePrimary<T>(Type Concrete) : IPrimaryTypeCapabili
 
 public sealed class ExposedTypeSetup<T> : SetupDefinition where T : class
 {
-    internal ExposedTypeSetup(CapabilityScope capabilityScope): base(capabilityScope)
+    internal ExposedTypeSetup(ConfigManagerCapabilityScope capabilityScope): base(capabilityScope)
     {
-        capabilityScope.For(this).WithPrimary(
+        capabilityScope.Compose(this).WithPrimary(
             new ExposedTypePrimary<SetupDefinition>(typeof(T)));
     }
 

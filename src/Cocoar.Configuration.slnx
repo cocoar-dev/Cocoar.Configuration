@@ -4,9 +4,11 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Cocoar.Configuration.Analyzers.Tests/Cocoar.Configuration.Analyzers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Core.Tests/Cocoar.Configuration.Core.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.DI.Tests/Cocoar.Configuration.DI.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.Secrets.Tests/Cocoar.Configuration.Secrets.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />
@@ -19,13 +21,19 @@
     <Project Path="Examples/GenericProviderAPI/GenericProviderAPI.csproj" />
     <Project Path="Examples/HttpPollingExample/HttpPollingExample.csproj" />
     <Project Path="Examples/MicrosoftAdapterExample/MicrosoftAdapterExample.csproj" />
+    <Project Path="Examples/SecretsBasicExample/SecretsBasicExample.csproj" />
+    <Project Path="Examples/SecretsCertificateExample/SecretsCertificateExample.csproj" />
     <Project Path="Examples/SimplifiedCoreExample/SimplifiedCoreExample.csproj" />
     <Project Path="Examples/StaticProviderExample/StaticProviderExample.csproj" />
     <Project Path="Examples/TupleReactiveExample/TupleReactiveExample.csproj" />
   </Folder>
+  <Project Path="Cocoar.Configuration.Analyzers/Cocoar.Configuration.Analyzers.csproj" />
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
   <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />
   <Project Path="Cocoar.Configuration.HttpPolling/Cocoar.Configuration.HttpPolling.csproj" />
   <Project Path="Cocoar.Configuration.MicrosoftAdapter/Cocoar.Configuration.MicrosoftAdapter.csproj" />
   <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />
+  <Project Path="Cocoar.Configuration.Secrets.Cli/Cocoar.Configuration.Secrets.Cli.csproj" />
+  <Project Path="Cocoar.Configuration.X509Encryption/Cocoar.Configuration.X509Encryption.csproj" />
+  <Project Path="Cocoar.Configuration.Secrets/Cocoar.Configuration.Secrets.csproj" />
 </Solution>

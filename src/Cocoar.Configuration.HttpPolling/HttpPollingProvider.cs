@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Utilities;
+using System.Threading;
 
 namespace Cocoar.Configuration.HttpPolling;
 
@@ -10,8 +11,9 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
     : ConfigurationProvider<HttpPollingProviderOptions, HttpPollingProviderQueryOptions>(options), IDisposable
 {
     private readonly HttpClient _client = CreateClient(options);
-    private readonly ConcurrentDictionary<string, JsonElement> _lastByKey = new();
+    // Providers are dumb: no content cache/dedup here; emit every poll and let RuleManager dedup
     private bool _disposed;
+    private int _consecutiveFailures;
 
     private static HttpClient CreateClient(HttpPollingProviderOptions opts)
     {
@@ -33,15 +35,14 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         return client;
     }
 
-    public override async Task<JsonElement> FetchConfigurationAsync(HttpPollingProviderQueryOptions query, CancellationToken ct = default)
+    public override async Task<byte[]> FetchConfigurationBytesAsync(HttpPollingProviderQueryOptions query, CancellationToken ct = default)
     {
-        var key = MakeKey(query);
-        if (_lastByKey.TryGetValue(key, out var cached))
-        {
-            return cached;
-        }
-
         var url = BuildUrl(_client, query.UrlPathOrAbsolute);
+        
+        // Create timeout token linked to caller's cancellation token
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(ProviderOptions.PollInterval);
+        
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         if (query.Headers != null)
         {
@@ -54,18 +55,15 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                 }
             }
         }
-        var resp = await _client.SendAsync(req, ct).ConfigureAwait(false);
+        var resp = await _client.SendAsync(req, timeoutCts.Token).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
-        await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
-        var element = doc.RootElement.Clone();
-    _lastByKey[key] = element;
-    return element;
+        var bytes = await resp.Content.ReadAsByteArrayAsync(timeoutCts.Token).ConfigureAwait(false);
+        return bytes;
     }
 
-    public override IObservable<JsonElement> Changes(HttpPollingProviderQueryOptions query)
+    public override IObservable<byte[]> ChangesAsBytes(HttpPollingProviderQueryOptions query)
     {
-        // Poll and emit only when payload changes
+        // Poll and emit on each interval; RuleManager will dedup identical payloads
         return Observable
             .Interval(ProviderOptions.PollInterval)
             .SelectMany(async _ =>
@@ -87,26 +85,26 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
                     }
                     var resp = await _client.SendAsync(req, cts.Token).ConfigureAwait(false);
                     resp.EnsureSuccessStatusCode();
-                    await using var stream = await resp.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
-                    using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
-                    var element = doc.RootElement.Clone();
-                    var key = MakeKey(query);
-                    if (_lastByKey.TryGetValue(key, out var last))
-                    {
-                        if (JsonElementEqualityComparer.Instance.Equals(last, element))
-                        {
-                            return (changed: false, value: element);
-                        }
-                    }
-                    _lastByKey[key] = element;
-                    return (changed: true, value: element);
+                    var bytes = await resp.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
+                    // reset failure count on success
+                    Interlocked.Exchange(ref _consecutiveFailures, 0);
+                    return (ok: true, value: bytes);
                 }
                 catch
                 {
-                    return (changed: false, value: JsonDocument.Parse("{}").RootElement);
+                    // On consecutive failures reaching threshold, emit a sentinel to trigger recompute/health update
+                    var failures = Interlocked.Increment(ref _consecutiveFailures);
+                    if (failures >= ProviderOptions.ErrorConsecutiveFailureThreshold)
+                    {
+                        // reset to avoid spamming; will emit again only after another threshold worth of failures
+                        Interlocked.Exchange(ref _consecutiveFailures, 0);
+                        return (ok: true, value: Array.Empty<byte>());
+                    }
+                    // otherwise suppress emission on error
+                    return (ok: false, value: Array.Empty<byte>());
                 }
             })
-            .Where(t => t.changed)
+            .Where(t => t.ok)
             .Select(t => t.value)
             .Publish()
             .RefCount();
@@ -143,44 +141,5 @@ public sealed class HttpPollingProvider(HttpPollingProviderOptions options)
         return pathOrAbsolute;
     }
 
-    private static string MakeKey(HttpPollingProviderQueryOptions query)
-    {
-        var hdr = query.Headers == null
-            ? string.Empty
-            : string.Join(";", query.Headers.OrderBy(k => k.Key).Select(kv => kv.Key + "=" + kv.Value));
-    return $"{query.UrlPathOrAbsolute}|{hdr}";
-    }
-
-    private sealed class JsonElementEqualityComparer : IEqualityComparer<JsonElement>
-    {
-        public static readonly JsonElementEqualityComparer Instance = new();
-        
-        public bool Equals(JsonElement x, JsonElement y) =>
-            // Use streaming hash comparison - much faster than string comparison
-            ComputeJsonElementHash(x) == ComputeJsonElementHash(y);
-
-        public int GetHashCode(JsonElement obj) => ComputeJsonElementHash(obj);
-
-        private static int ComputeJsonElementHash(JsonElement element)
-        {
-            try
-            {
-                using var md5 = System.Security.Cryptography.MD5.Create();
-                using var stream = new System.Security.Cryptography.CryptoStream(Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
-                using var writer = new Utf8JsonWriter(stream);
-                
-                element.WriteTo(writer);
-                writer.Flush();
-                stream.FlushFinalBlock();
-                
-                // Convert first 4 bytes of hash to int for GetHashCode
-                var hash = md5.Hash!;
-                return BitConverter.ToInt32(hash, 0);
-            }
-            catch
-            {
-                return element.GetRawText().GetHashCode();
-            }
-        }
-    }
+    // No provider-level content cache or equality comparer
 }

@@ -1,23 +1,32 @@
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using System.Buffers;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Helper;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Utilities;
+using Cocoar.Json.Mutable;
 using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Rules;
 
-internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry) : IDisposable
+/// <summary>
+/// Coordinates rule execution: provider lifecycle, query management, caching, and change tracking.
+/// Delegates caching to TransformCache and subscriptions to ChangeSubscription.
+/// </summary>
+internal sealed class RuleManager : IDisposable
 {
+    private readonly ConfigRule _rule;
+    private readonly ILogger _logger;
+    private readonly ProviderRegistry _registry;
+    
+    private readonly TransformCache _cache = new();
+    private readonly ChangeSubscription _changeSubscription = new();
+    
     private ProviderRegistry.ProviderHandle? _providerHandle;
     private ConfigurationProvider? _provider;
     private string? _providerKey;
-    private IDisposable? _subscription;
-    private string? _queryKey;
-    private readonly Subject<bool> _changes = new();
 
     internal enum RuleExecutionOutcome
     {
@@ -30,14 +39,25 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
     internal RuleExecutionOutcome LastOutcome { get; private set; } = RuleExecutionOutcome.Unknown;
     internal Exception? LastFailureException { get; private set; }
 
-    public Type TypeDefinition => rule.ConcreteType;
-    public bool Required => rule.Options?.Required == true;
-    public IObservable<bool> Changes => _changes.AsObservable();
+    public Type TypeDefinition => _rule.ConcreteType;
+    public bool Required => _rule.Options?.Required == true;
+    public IObservable<bool> Changes => _changeSubscription.Changes;
 
-    internal Dictionary<string, JsonElement>? LastFlatContribution { get; set; }
-    internal string? LastSelectionHash { get; set; }
+    internal MutableJsonObject? LastJsonContribution { get; set; }
+    internal string? LastSelectionHash
+    {
+        get => _cache.LastSelectionHash;
+        set => _cache.LastSelectionHash = value;
+    }
 
-    public async Task<(bool include, JsonElement value)> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
+    public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
+    {
+        _rule = rule;
+        _logger = logger;
+        _registry = registry;
+    }
+
+    public async Task<(bool include, ReadOnlyMemory<byte> bytes)> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
     {
         LastFailureException = null;
 
@@ -46,24 +66,54 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
             return SkipResult();
         }
 
-        var providerOptions = rule.ResolveProviderOptions(accessor);
+        var providerOptions = _rule.ResolveProviderOptions(accessor);
         EnsureProvider(providerOptions);
 
-        var queryOptions = rule.ResolveQueryOptions(accessor);
+        var queryOptions = _rule.ResolveQueryOptions(accessor);
         EnsureSubscription(queryOptions);
+        var newTransformKey = ComputeTransformKey(_rule.Options);
+        _cache.UpdateTransformKey(newTransformKey);
 
         try
         {
-            var value = await _provider!.FetchConfigurationAsync(queryOptions, ct).ConfigureAwait(false);
-
-            if (!TryApplySelectAndMount(value, out var transformed))
+            if (_cache.HasValidCache)
             {
-                return SkipResult();
+                LastOutcome = RuleExecutionOutcome.Up;
+                return (include: true, bytes: _cache.GetCachedBytes());
             }
-            value = transformed;
+            if (_cache.CanReuseWithoutFetch)
+            {
+                _cache.MarkClean();
+                LastOutcome = RuleExecutionOutcome.Up;
+                return (include: true, bytes: _cache.GetCachedBytes());
+            }
+            var bytesMemory = await _provider!.FetchConfigurationBytesAsync(queryOptions, ct).ConfigureAwait(false);
+
+            try
+            {
+                var transformedBytes = JsonTransform.SelectAndMount(bytesMemory, _rule.Options?.SelectPath, _rule.Options?.MountPath);
+                
+                _cache.StoreTransformedBytes(transformedBytes);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                if (!HandleSelectFailure(_rule.Options?.SelectPath ?? string.Empty, ex))
+                {
+                    return SkipResult();
+                }
+                throw; // Required path: HandleSelectFailure throws
+            }
+            finally
+            {
+                // CRITICAL: Zero provider bytes after use
+                if (bytesMemory != null && bytesMemory.Length > 0)
+                {
+                    CryptographicOperations.ZeroMemory(bytesMemory);
+                }
+            }
             
             LastOutcome = RuleExecutionOutcome.Up;
-            return (include: true, value);
+            return (include: true, bytes: _cache.GetCachedBytes());
         }
         catch (Exception ex)
         {
@@ -73,17 +123,17 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
 
     private bool ShouldSkipViaUseWhen(IConfigurationAccessor accessor)
     {
-        if (rule.Options?.UseWhen == null)
+        if (_rule.Options?.UseWhen == null)
         {
             return false;
         }
 
-        if (rule.Options.UseWhen.Invoke(accessor))
+        if (_rule.Options.UseWhen.Invoke(accessor))
         {
             return false;
         }
 
-        Unsubscribe();
+        _changeSubscription.Unsubscribe();
         LastOutcome = RuleExecutionOutcome.Skipped;
         return true;
     }
@@ -101,181 +151,98 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
 
     private void EnsureSubscription(IProviderQuery queryOptions)
     {
-        var newQueryKey = ComputeQueryKey(queryOptions);
-        if (_subscription != null && _queryKey == newQueryKey)
+        if (_provider is null)
         {
             return;
         }
 
-        Resubscribe(queryOptions, newQueryKey);
-    }
+        var newQueryKey = ComputeQueryKey(queryOptions);
+        
+        bool subscriptionChanged = _changeSubscription.EnsureSubscription(
+            _provider,
+            queryOptions,
+            newQueryKey,
+            ProcessProviderChangeBytes);
 
-    private bool TryApplySelectAndMount(JsonElement value, out JsonElement transformed)
-    {
-        transformed = value;
-
-        var selectPath = rule.Options?.SelectPath;
-        if (!string.IsNullOrWhiteSpace(selectPath))
+        if (subscriptionChanged)
         {
-            try
-            {
-                transformed = JsonHelper.SelectColonDelimited(transformed, selectPath);
-            }
-            catch (Exception ex)
-            {
-                return HandleSelectFailure(selectPath, ex, out transformed);
-            }
+            LastSelectionHash = null;
         }
-
-        var mountPath = rule.Options?.MountPath;
-        if (!string.IsNullOrWhiteSpace(mountPath))
-        {
-            transformed = JsonHelper.WrapIfNeeded(transformed, mountPath);
-        }
-
-        return true;
     }
 
     private void RebuildProvider(IProviderConfiguration providerOptions, string? providerKey)
     {
-        Unsubscribe();
+        _changeSubscription.Reset();
+        
         if (_providerHandle is not null)
         {
             Safety.DisposeQuietly(_providerHandle);
             _providerHandle = null;
         }
 
-        _providerHandle = registry.Acquire(rule.ProviderType, providerOptions);
+        _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
         _provider = _providerHandle.Provider;
         _providerKey = providerKey;
+        
         LastSelectionHash = null;
+        _cache.Invalidate();
     }
 
-    private void Resubscribe(IProviderQuery queryOptions, string queryKey)
+    private void ProcessProviderChangeBytes(byte[] bytesMemory)
     {
-        Unsubscribe();
-        _queryKey = queryKey;
-        LastSelectionHash = null;
-
-        if (_provider is null)
+        bool changed = _cache.ProcessProviderChange(bytesMemory, _rule.Options?.SelectPath, _rule.Options?.MountPath);
+        
+        if (changed)
         {
-            return;
-        }
-
-        _subscription = _provider
-            .Changes(queryOptions)
-            .Subscribe(
-                ProcessProviderChange,
-                _ => PublishChangeSafely());
-    }
-
-    private void ProcessProviderChange(JsonElement element)
-    {
-        try
-        {
-            var selected = ApplySelect(element);
-            var hash = ComputeSelectionHash(selected);
-            if (hash == LastSelectionHash)
-            {
-                return;
-            }
-
-            LastSelectionHash = hash;
-            PublishChangeSafely();
-        }
-        catch
-        {
-            // ignore
+            _changeSubscription.PublishChangeSafely();
         }
     }
 
-    private void PublishChangeSafely()
+    private bool HandleSelectFailure(string selectPath, Exception ex)
     {
-        Safety.NotifyQuietly(_changes, true);
-    }
-
-    private bool HandleSelectFailure(string selectPath, Exception ex, out JsonElement transformed)
-    {
-        transformed = default;
-
         if (Required)
         {
-            throw new InvalidOperationException($"Selection path '{selectPath}' failed for provider {rule.ProviderType.Name}", ex);
+            throw new InvalidOperationException($"Selection path '{selectPath}' failed for provider {_rule.ProviderType.Name}", ex);
         }
 
-        logger.LogWarning(ex, "Selection path '{SelectPath}' failed; skipping optional rule.", selectPath);
+        _logger.LogWarning(ex, "Selection path '{SelectPath}' failed; skipping optional rule.", selectPath);
         LastOutcome = RuleExecutionOutcome.Skipped;
         return false;
     }
 
-    private (bool include, JsonElement value) HandleFailure(Exception ex)
+    private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
     {
         LastOutcome = RuleExecutionOutcome.Failed;
         LastFailureException = ex;
 
         if (Required)
         {
-            logger.LogError(ex, "Required rule failed: {Provider}->{Config}", rule.ProviderType.Name, rule.ConcreteType.Name);
-            throw new InvalidOperationException($"Required rule failed for {rule.ProviderType.Name} → {rule.ConcreteType.Name}", ex);
+            _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+            throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConcreteType.Name}", ex);
         }
 
-        logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", rule.ProviderType.Name, rule.ConcreteType.Name);
+        _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
         return SkipResult();
     }
 
-    private static (bool include, JsonElement value) SkipResult() => (include: false, value: default);
-
-
-    private JsonElement ApplySelect(JsonElement value)
-    {
-        var selectPath = rule.Options?.SelectPath;
-        if (!string.IsNullOrWhiteSpace(selectPath))
-        {
-            try { value = JsonHelper.SelectColonDelimited(value, selectPath); }
-            catch { /* ignore */ }
-        }
-        return value;
-    }
-
-    private static string ComputeSelectionHash(JsonElement value)
-    {
-        try
-        {
-            using var md5 = System.Security.Cryptography.MD5.Create();
-            using var stream = new System.Security.Cryptography.CryptoStream(Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
-            using var writer = new Utf8JsonWriter(stream);
-
-            value.WriteTo(writer);
-            writer.Flush();
-            stream.FlushFinalBlock();
-
-            return Convert.ToHexString(md5.Hash!);
-        }
-        catch { return string.Empty; }
-    }
-
-    private void Unsubscribe()
-    {
-        if (_subscription != null)
-        {
-            Safety.DisposeQuietly(_subscription);
-            _subscription = null;
-        }
-    }
+    private static (bool include, ReadOnlyMemory<byte> bytes) SkipResult() => (include: false, bytes: default);
 
     private static string ComputeQueryKey(IProviderQuery query)
     {
         try
         {
-            using var md5 = System.Security.Cryptography.MD5.Create();
-            using var stream = new System.Security.Cryptography.CryptoStream(Stream.Null, md5, System.Security.Cryptography.CryptoStreamMode.Write);
-            using var writer = new Utf8JsonWriter(stream);
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            
+            var bufferWriter = new ArrayBufferWriter<byte>();
+            using var writer = new Utf8JsonWriter(bufferWriter);
 
             JsonSerializer.Serialize(writer, query, query.GetType());
             writer.Flush();
-            stream.FlushFinalBlock();
+            
+            var written = bufferWriter.WrittenSpan;
+            hash.AppendData(written);
 
-            return Convert.ToHexString(md5.Hash!);
+            return Convert.ToHexString(hash.GetHashAndReset());
         }
         catch
         {
@@ -283,17 +250,53 @@ internal sealed class RuleManager(ConfigRule rule, ILogger logger, ProviderRegis
         }
     }
 
+    private static string ComputeTransformKey(ConfigRuleOptions? options)
+    {
+        try
+        {
+            var select = string.IsNullOrWhiteSpace(options?.SelectPath) ? string.Empty : options!.SelectPath!;
+            var mount = string.IsNullOrWhiteSpace(options?.MountPath) ? string.Empty : options!.MountPath!;
+            var input = select + "|" + mount;
+            using var sha = SHA256.Create();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+            var hash = sha.ComputeHash(bytes);
+            return Convert.ToHexString(hash);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Clears the cached bytes (zeros them) without disposing the SecureBytes object.
+    /// Used to zero plaintext before replacing with encrypted bytes.
+    /// </summary>
+    internal void ClearCachedBytes()
+    {
+        _cache.ClearCachedBytes();
+    }
+
+    /// <summary>
+    /// Updates the cached bytes with encrypted/preprocessed bytes.
+    /// This prevents plaintext secrets from lingering in memory.
+    /// </summary>
+    internal void UpdateCachedBytes(byte[] encryptedBytes)
+    {
+        _cache.UpdateCachedBytes(encryptedBytes);
+    }
+
     public void Dispose()
     {
-        Unsubscribe();
+        _changeSubscription.Dispose();
+        _cache.Dispose();
+        
         if (_providerHandle is not null)
         {
             Safety.DisposeQuietly(_providerHandle);
             _providerHandle = null;
         }
+        
         _provider = null;
-        _changes.OnCompleted();
-        _changes.Dispose();
     }
-
 }

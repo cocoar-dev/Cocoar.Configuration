@@ -20,12 +20,13 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private readonly List<RuleManager> _ruleManagers = new();
 
     private readonly ConfigurationAccessor _accessor;
-    private readonly ConfigurationHealthTracker _healthTracker;
     private readonly ReactiveConfigurationFactory _reactiveFactory;
-    private readonly ConfigurationInitializer _initializer;
-    private readonly ConfigurationRecomputeCoordinator _recomputeCoordinator;
     private readonly ReactiveConfigManager _reactiveConfigManager;
-    private readonly CapabilityScope _capabilityScope = new();
+    private readonly ConfigManagerCapabilityScope _capabilityScope;
+    private readonly ConfigurationEngine _engine;
+    private readonly ConfigurationState _state;
+    private readonly ProviderRegistry _providerRegistry;
+    private readonly int _debounceMilliseconds;
 
     private volatile bool _initialized;
 
@@ -36,27 +37,25 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     {
         var rulesBuilder = new RulesBuilder();
         _rules = rules(rulesBuilder).ToList();
+
+        _capabilityScope = new ConfigManagerCapabilityScope(this);
+
+        // Create global Owner composer for cross-cutting capabilities (e.g., Secrets)
+        _capabilityScope.Owner.Compose();
+        
         _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
-        
-        var repository = new ConfigurationRepository();
-        var providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
+        _debounceMilliseconds = debounceMilliseconds;
+
+        _state = new ConfigurationState(_ruleManagers, _rules);
+        _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
         var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
-        
-        _accessor = new(repository, bindingRegistry);
-        _healthTracker = new(_ruleManagers, _rules);
+
+        _accessor = new(_state, bindingRegistry, _capabilityScope);
         _reactiveConfigManager = new(logger, bindingRegistry);
-    _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
-        
-        var orchestrator = new ConfigurationOrchestrator(repository, logger);
-        var subscriptionManager = new ChangeSubscriptionManager(logger);
-        
-        _recomputeCoordinator = new(
-            _ruleManagers, orchestrator, _reactiveConfigManager, _healthTracker, logger);
-        
-        _initializer = new(
-            _rules, _ruleManagers, providerRegistry, orchestrator, 
-            subscriptionManager, _healthTracker, logger, debounceMilliseconds);
+        _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
+
+        _engine = new ConfigurationEngine(_state, logger);
     }
 
     /// <summary>
@@ -65,33 +64,31 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     public ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
         _rules = rules.ToList();
+
+        _capabilityScope = new ConfigManagerCapabilityScope(this);
+
+        // Create global Owner composer for cross-cutting capabilities (e.g., Secrets)
+        _capabilityScope.Owner.Compose();
+        
         _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
-        
-        var repository = new ConfigurationRepository();
-        var providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
+        _debounceMilliseconds = debounceMilliseconds;
+
+        _state = new ConfigurationState(_ruleManagers, _rules);
+        _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
         var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
-        
-        _accessor = new(repository, bindingRegistry);
-        _healthTracker = new(_ruleManagers, _rules);
+
+        _accessor = new(_state, bindingRegistry, _capabilityScope);
         _reactiveConfigManager = new(logger, bindingRegistry);
-    _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
-        
-        var orchestrator = new ConfigurationOrchestrator(repository, logger);
-        var subscriptionManager = new ChangeSubscriptionManager(logger);
-        
-        _recomputeCoordinator = new(
-            _ruleManagers, orchestrator, _reactiveConfigManager, _healthTracker, logger);
-        
-        _initializer = new(
-            _rules, _ruleManagers, providerRegistry, orchestrator, 
-            subscriptionManager, _healthTracker, logger, debounceMilliseconds);
+        _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
+
+        _engine = new ConfigurationEngine(_state, logger);
     }
 
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
     internal IReadOnlyList<SetupDefinition> SetupDefinitions => _setupDefinitions.AsReadOnly();
-    
-    public CapabilityScope CapabilityScope => _capabilityScope;
+
+    public ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
 
 
     public ConfigManager Initialize()
@@ -103,7 +100,17 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
         if (!Interlocked.CompareExchange(ref _initialized, true, false))
         {
-            _initializer.Initialize(this, ScheduleRecompute);
+            _capabilityScope.Owner.TryGetComposer(out var composer);
+            composer?.Build();
+            _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
+            
+            _engine.InitializeAndCompute(
+                _rules,
+                _ruleManagers,
+                _providerRegistry,
+                this,
+                ScheduleRecompute,
+                _debounceMilliseconds);
         }
         return this;
     }
@@ -118,19 +125,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public IReactiveConfig<T> GetReactiveConfig<T>() => _reactiveFactory.GetReactiveConfig(() => GetConfig<T>()!);
 
-    public IConfigurationHealthService GetHealthService() => _healthTracker.GetHealthService();
+    public IConfigurationHealthService GetHealthService() => _state.GetHealthService();
 
-    internal void ScheduleRecompute(int startIndex) => _recomputeCoordinator.ScheduleRecompute(startIndex, this);
-    
+    internal void ScheduleRecompute(int startIndex) => 
+        _engine.ScheduleRecompute(_ruleManagers, this, _reactiveConfigManager, startIndex);
 
-    internal Task? CurrentRecomputeTask => _recomputeCoordinator.CurrentRecomputeTask;
+    internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 
     public void Dispose()
     {
-        _recomputeCoordinator.Dispose();
+        _engine.Dispose();
         _reactiveConfigManager.Dispose();
-        _healthTracker.Dispose();
-        
+        _state.Dispose();
+
         foreach (var rm in _ruleManagers.ToArray())
         {
             Safety.DisposeQuietly(rm);

@@ -16,10 +16,7 @@ public static class Safety
         {
             disposable.Dispose();
         }
-        catch
-        {
-            // ignore dispose failures
-        }
+        catch { }
     }
 
     public static void CancelAndDisposeQuietly(CancellationTokenSource? cts)
@@ -33,10 +30,7 @@ public static class Safety
         {
             cts.Cancel();
         }
-        catch
-        {
-            // ignore cancellation failures
-        }
+        catch { }
         finally
         {
             DisposeQuietly(cts);
@@ -54,9 +48,6 @@ public static class Safety
         {
             observer.OnNext(value);
         }
-        catch
-        {
-            // ignore observer failures
-        }
+        catch { }
     }
 }

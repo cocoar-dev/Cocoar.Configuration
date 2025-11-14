@@ -7,11 +7,6 @@ using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
-
-/// <summary>
-/// Tests how ConfigManager handles actual JSON corruption scenarios.
-/// This is different from provider failures - this tests malformed JSON content.
-/// </summary>
 public class ConfigManagerJsonCorruptionTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = new();
@@ -52,20 +47,23 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
         {
         }
 
-        public override Task<JsonElement> FetchConfigurationAsync(JsonCorruptionProviderQuery query, CancellationToken ct = default)
+        public override Task<byte[]> FetchConfigurationBytesAsync(JsonCorruptionProviderQuery query, CancellationToken ct = default)
         {
             if (query.ReturnCorruptJson)
             {
                 // This will cause JsonDocument.Parse to throw JsonException
                 var corruptJson = ProviderOptions.CorruptJsonString;
                 var document = JsonDocument.Parse(corruptJson); // This will throw!
-                return Task.FromResult(document.RootElement);
+                var _bytes = JsonSerializer.SerializeToUtf8Bytes(document.RootElement);
+                return Task.FromResult(_bytes);
             }
 
-            return Task.FromResult(ProviderOptions.ValidJsonData);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(ProviderOptions.ValidJsonData);
+
+            return Task.FromResult(bytes);
         }
 
-        public override IObservable<JsonElement> Changes(JsonCorruptionProviderQuery query) => Observable.Empty<JsonElement>();
+        public override IObservable<byte[]> ChangesAsBytes(JsonCorruptionProviderQuery query) => Observable.Empty<byte[]>();
     }
 
     private class JsonCorruptionProviderOptions : IProviderConfiguration
@@ -92,11 +90,6 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
             ReturnCorruptJson = returnCorruptJson;
         }
     }
-
-    /// <summary>
-    /// Tests what happens when a required rule encounters corrupted JSON during initialization.
-    /// This simulates a corrupted config file that can't be parsed.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -132,11 +125,6 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
             $"Expected JSON-related exception, but got {exception.InnerException.GetType().Name}");
         Assert.Contains("JsonCorruptionProvider", exception.Message);
     }
-
-    /// <summary>
-    /// Tests what happens when an optional rule encounters corrupted JSON.
-    /// The corrupted rule should be skipped, and processing should continue.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -177,11 +165,6 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
         Assert.Equal("ValidRule", config.Name);
         Assert.Equal(200, config.Value);
     }
-
-    /// <summary>
-    /// Tests the difference between provider failures and JSON corruption.
-    /// Both should be handled similarly, but have different root causes.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]

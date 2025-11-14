@@ -10,38 +10,25 @@ namespace Cocoar.Configuration.Providers;
 public sealed class ObservableProvider<T>(ObservableProviderOptions<T> options)
     : ConfigurationProvider<ObservableProviderOptions<T>, ObservableProviderQuery>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(ObservableProviderQuery query, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(ObservableProviderQuery query, CancellationToken ct = default)
     {
-        var observable = ProviderOptions.Observable.Select(value =>
-        {
-            if (typeof(T) == typeof(string) && value is string jsonString)
-            {
-                using var document = JsonDocument.Parse(jsonString);
-                return document.RootElement.Clone();
-            }
-
-            var json = JsonSerializer.Serialize(value);
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.Clone();
-        });
-
+        var observable = ProviderOptions.Observable.Select(ConvertToBytes);
         return observable.FirstAsync().ToTask(ct);
     }
 
-    public override IObservable<JsonElement> Changes(ObservableProviderQuery query)
+    public override IObservable<byte[]> ChangesAsBytes(ObservableProviderQuery query)
     {
-        return ProviderOptions.Observable.Select(value =>
-        {
-            if (typeof(T) == typeof(string) && value is string jsonString)
-            {
-                using var document = JsonDocument.Parse(jsonString);
-                return document.RootElement.Clone();
-            }
+        return ProviderOptions.Observable.Select(ConvertToBytes);
+    }
 
-            var json = JsonSerializer.Serialize(value);
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.Clone();
-        });
+    private byte[] ConvertToBytes(T value)
+    {
+        if (typeof(T) == typeof(string) && value is string jsonString)
+        {
+            return System.Text.Encoding.UTF8.GetBytes(jsonString);
+        }
+
+        return JsonSerializer.SerializeToUtf8Bytes(value);
     }
 }
 

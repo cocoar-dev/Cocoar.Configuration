@@ -6,8 +6,9 @@ using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.HttpPolling;
 using Cocoar.Configuration.MicrosoftAdapter;
-using Microsoft.Extensions.DependencyInjection;
+using Cocoar.Configuration.Providers.Tests.Helpers;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.Http;
@@ -26,9 +27,9 @@ public class HttpProviderSmokeTests
         var provider =
             new HttpPollingProvider(new("https://example.com", TimeSpan.FromMilliseconds(50),
                 handler));
-        var result = await provider.FetchConfigurationAsync(new("/api/config"));
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.True(result.TryGetProperty("Value", out var v));
+        var result = await provider.FetchConfigurationBytesAsync(new("/api/config"));
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
+        Assert.True(result.ToJsonElement().TryGetProperty("Value", out var v));
         Assert.Equal(1, v.GetInt32());
     }
 
@@ -102,7 +103,7 @@ public class HttpProviderSmokeTests
 
         var emitted = false;
         using var sub = provider
-            .Changes(new("/api/config"))
+            .ChangesAsBytes(new("/api/config"))
             .Subscribe(_ => emitted = true);
 
 

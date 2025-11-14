@@ -61,23 +61,23 @@ public static class Program
             Console.WriteLine();
             
             Console.WriteLine("🏗️  App Configuration:");
-            Console.WriteLine("   Name: {0}", appConfig.ApplicationName);
-            Console.WriteLine("   Version: {0}", appConfig.Version);
-            Console.WriteLine("   Environment: {0}", appConfig.Environment);
-            Console.WriteLine("   LogLevel: {0}", appConfig.LogLevel);
+            Console.WriteLine("   Name: {0}", appConfig?.ApplicationName);
+            Console.WriteLine("   Version: {0}", appConfig?.Version);
+            Console.WriteLine("   Environment: {0}", appConfig?.Environment);
+            Console.WriteLine("   LogLevel: {0}", appConfig?.LogLevel);
             Console.WriteLine();
             
             Console.WriteLine("🗄️  Database Configuration:");
-            Console.WriteLine("   ConnectionString: {0}", MaskConnectionString(dbConfig.ConnectionString));
-            Console.WriteLine("   CommandTimeout: {0}s", dbConfig.CommandTimeout);
-            Console.WriteLine("   MaxRetries: {0}", dbConfig.MaxRetries);
+            Console.WriteLine("   ConnectionString: {0}", dbConfig?.ConnectionString != null ? MaskConnectionString(dbConfig.ConnectionString) : "N/A");
+            Console.WriteLine("   CommandTimeout: {0}s", dbConfig?.CommandTimeout);
+            Console.WriteLine("   MaxRetries: {0}", dbConfig?.MaxRetries);
             Console.WriteLine();
             
             Console.WriteLine("🎛️  Feature Configuration:");
-            Console.WriteLine("   EnableNewDashboard: {0}", featureConfig.EnableNewDashboard);
-            Console.WriteLine("   EnableExperimentalFeatures: {0}", featureConfig.EnableExperimentalFeatures);
-            Console.WriteLine("   MaxConcurrentUsers: {0}", featureConfig.MaxConcurrentUsers);
-            Console.WriteLine("   CacheEnabled: {0}", featureConfig.CacheEnabled);
+            Console.WriteLine("   EnableNewDashboard: {0}", featureConfig?.EnableNewDashboard);
+            Console.WriteLine("   EnableExperimentalFeatures: {0}", featureConfig?.EnableExperimentalFeatures);
+            Console.WriteLine("   MaxConcurrentUsers: {0}", featureConfig?.MaxConcurrentUsers);
+            Console.WriteLine("   CacheEnabled: {0}", featureConfig?.CacheEnabled);
             Console.WriteLine();
 
             // 4. Demonstrate rule layering by creating a scenario with overrides
@@ -93,9 +93,9 @@ public static class Program
             
             var overriddenApp = layeredManager.GetConfig<AppConfig>();
             
-            Console.WriteLine("   Original Environment: Development → Overridden: {0}", overriddenApp.Environment);
-            Console.WriteLine("   Original LogLevel: Information → Overridden: {0}", overriddenApp.LogLevel);
-            Console.WriteLine("   ApplicationName (unchanged): {0}", overriddenApp.ApplicationName);
+            Console.WriteLine("   Original Environment: Development → Overridden: {0}", overriddenApp?.Environment);
+            Console.WriteLine("   Original LogLevel: Information → Overridden: {0}", overriddenApp?.LogLevel);
+            Console.WriteLine("   ApplicationName (unchanged): {0}", overriddenApp?.ApplicationName);
             Console.WriteLine();
 
             // 5. Show configuration access patterns
@@ -132,3 +132,4 @@ public static class Program
         return connectionString;
     }
 }
+

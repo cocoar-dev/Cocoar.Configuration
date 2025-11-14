@@ -4,11 +4,6 @@ using Cocoar.Configuration.Core.Tests.TestUtilities;
 using static Cocoar.Configuration.Core.Tests.Integration.MultiProviderTestModels;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
-
-/// <summary>
-/// Tests for ConfigManager's reactive behavior with multiple providers.
-/// Validates reactive config updates and hash-gated emission optimizations.
-/// </summary>
 [Trait("Category", "Integration")]
 [Trait("Component", "ConfigManager")]
 public class MultiProviderReactiveTests
@@ -16,12 +11,6 @@ public class MultiProviderReactiveTests
     #region Reactive Integration Tests
 
     #region Reactive Integration Tests
-
-    /// <summary>
-    /// Tests that Observable changes update ConfigManager properly while Static remains unchanged.
-    /// This validates the reactive integration between ObservableProvider and ConfigManager.
-    /// Uses JSON strings to ensure proper flattened key merging.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -77,12 +66,6 @@ public class MultiProviderReactiveTests
         subscription.Dispose();
         behaviorSubject.Dispose();
     }
-
-    /// <summary>
-    /// Tests that multiple rapid Observable changes are handled correctly with Static base.
-    /// This validates debouncing and final correctness in multi-provider scenarios with proper flattened merging.
-    /// Uses JSON strings to ensure proper key-based merging behavior.
-    /// </summary>
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "ConfigManager")]
@@ -171,11 +154,6 @@ public class MultiProviderReactiveTests
     #region Hash-Gated Emission Tests
 
     #region Hash-Gated Emission Tests
-
-    /// <summary>
-    /// Validates that ConfigManager with ObservableProvider does NOT emit when only JSON property order differs.
-    /// Hash-gated emissions prevent unnecessary reactive updates for logically equivalent configurations.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -232,11 +210,6 @@ public class MultiProviderReactiveTests
         Assert.Equal("Server=test", currentConfig.Database.ConnectionString);
         Assert.Equal(30, currentConfig.Database.Timeout);
     }
-
-    /// <summary>
-    /// Validates that ConfigManager with ObservableProvider does NOT emit when only JSON whitespace differs.
-    /// Hash-gated emissions should ignore formatting differences in JSON strings.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -280,12 +253,6 @@ public class MultiProviderReactiveTests
         Assert.Equal("TestApp", currentConfig.Name);
         Assert.Equal(2, currentConfig.Version);
     }
-
-    /// <summary>
-    /// Validates ConfigManager emission behavior when array order changes.
-    /// Note: This test assumes arrays ARE order-sensitive in our configuration merging.
-    /// If arrays were order-agnostic, this would test NO emission. Adjust based on design.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]

@@ -33,7 +33,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
         builder.Services.AddCocoarConfiguration(configManager);
 
         // Attach ConfigManager as a capability to the WebApplicationBuilder
-        _capabilityScope.For(builder).Add(configManager).Build();
+        _capabilityScope.Compose(builder).Add(configManager).Build();
         
         return builder;
     }
@@ -45,7 +45,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
         builder.Services.AddCocoarConfiguration(configManager);
 
         // Attach ConfigManager as a capability to the WebApplicationBuilder
-        _capabilityScope.For(builder).Add(configManager).Build();
+        _capabilityScope.Compose(builder).Add(configManager).Build();
         
         return builder;
     }

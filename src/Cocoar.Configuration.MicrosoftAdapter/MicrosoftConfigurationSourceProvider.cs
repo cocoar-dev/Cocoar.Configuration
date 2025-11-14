@@ -22,19 +22,19 @@ public sealed class MicrosoftConfigurationSourceProvider(
         return builder.Build().Providers.Last();
     }
 
-    public override Task<JsonElement> FetchConfigurationAsync(MicrosoftConfigurationSourceProviderQueryOptions query,
+    public override Task<byte[]> FetchConfigurationBytesAsync(MicrosoftConfigurationSourceProviderQueryOptions query,
         CancellationToken ct = default)
     {
         var provider = BuildProvider();
         var root = new ConfigurationRoot(new[] { provider });
         var dict = Flatten(root, query.ConfigurationPrefix);
-        var element = DictToJson(dict);
-        return Task.FromResult(element);
+        var bytes = DictToJsonBytes(dict);
+        return Task.FromResult(bytes);
     }
 
-    public override IObservable<JsonElement> Changes(MicrosoftConfigurationSourceProviderQueryOptions query)
+    public override IObservable<byte[]> ChangesAsBytes(MicrosoftConfigurationSourceProviderQueryOptions query)
     {
-        return System.Reactive.Linq.Observable.Create<JsonElement>(observer =>
+        return System.Reactive.Linq.Observable.Create<byte[]>(observer =>
         {
             var provider = BuildProvider();
 
@@ -42,8 +42,8 @@ public sealed class MicrosoftConfigurationSourceProvider(
             {
                 var root = new ConfigurationRoot(new[] { provider });
                 var dict = Flatten(root, query.ConfigurationPrefix);
-                var json = DictToJson(dict);
-                observer.OnNext(json);
+                var bytes = DictToJsonBytes(dict);
+                observer.OnNext(bytes);
             }
 
             var token = provider.GetReloadToken();
@@ -89,7 +89,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
         return dict;
     }
 
-    private static JsonElement DictToJson(Dictionary<string, string?> flat)
+    private static byte[] DictToJsonBytes(Dictionary<string, string?> flat)
     {
         var root = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (var (k, v) in flat)
@@ -110,9 +110,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
             cur[parts[^1]] = v;
         }
 
-        var json = JsonSerializer.Serialize(root);
-        using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.Clone();
+        return JsonSerializer.SerializeToUtf8Bytes(root);
     }
 
     /// <summary>

@@ -5,7 +5,15 @@ namespace Cocoar.Configuration.Providers.Abstractions;
 
 public abstract class ConfigurationProvider
 {
-    public abstract Task<JsonElement> FetchConfigurationAsync(IProviderQuery query, CancellationToken ct = default);
-    public abstract IObservable<JsonElement> Changes(IProviderQuery query);
+    /// <summary>
+    /// Fetches configuration as raw UTF-8 JSON bytes, avoiding string allocations.
+    /// This is more secure for sensitive data as bytes can be zeroed after use.
+    /// </summary>
+    public abstract Task<byte[]> FetchConfigurationBytesAsync(IProviderQuery query, CancellationToken ct = default);
 
+    /// <summary>
+    /// Observes configuration changes as raw UTF-8 JSON bytes, avoiding string allocations.
+    /// This is more secure for sensitive data as bytes can be zeroed after use.
+    /// </summary>
+    public abstract IObservable<byte[]> ChangesAsBytes(IProviderQuery query);
 }

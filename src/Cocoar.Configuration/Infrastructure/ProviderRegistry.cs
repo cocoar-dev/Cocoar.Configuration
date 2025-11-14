@@ -19,10 +19,6 @@ internal sealed class ProviderRegistry(
         public int RefCount;
     }
 
-    //internal int EntryCount => _entries.Count;
-    //internal int GetRefCountFor(Type providerType, string key)
-    //    => _entries.TryGetValue((providerType, key), out var e) ? e.RefCount : 0;
-
     public sealed class ProviderHandle : IDisposable
     {
         private readonly ProviderRegistry? _owner;
@@ -98,12 +94,14 @@ internal sealed class ProviderRegistry(
         }
         
         var id = (providerType, key);
+        var isNewEntry = false;
         var entry = _entries.GetOrAdd(id, _ =>
         {
+            isNewEntry = true;
             var created = new Entry
             {
                 Provider = CreateProvider(providerType, options),
-                RefCount = 0
+                RefCount = 1  // Start at 1 to prevent race condition
             };
             if (enableDiagnostics)
             {
@@ -112,7 +110,7 @@ internal sealed class ProviderRegistry(
 
             return created;
         });
-        var newCount = Interlocked.Increment(ref entry.RefCount);
+        var newCount = isNewEntry ? 1 : Interlocked.Increment(ref entry.RefCount);
         if (enableDiagnostics)
         {
             _logger.LogDebug("ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}", providerType.Name, key, newCount);

@@ -1,6 +1,6 @@
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+using ConditionalRulesExample;
 
 Console.WriteLine("=== Conditional Rules Example ===\n");
 Console.WriteLine("Demonstrates using When() with IConfigurationAccessor\n");
@@ -9,19 +9,19 @@ Console.WriteLine("Demonstrates using When() with IConfigurationAccessor\n");
 var manager = new ConfigManager(rule => [
     // Load tenant info first
     rule.For<TenantSettings>().FromStaticJson("""
-    {
-        "TenantId": "acme-corp",
-        "Tier": "Premium"
-    }
-    """),
+                                              {
+                                                  "TenantId": "acme-corp",
+                                                  "Tier": "Premium"
+                                              }
+                                              """),
     
     // Conditionally load premium features only for Premium tier tenants
     rule.For<PremiumFeatures>().FromStaticJson("""
-    {
-        "AdvancedAnalytics": true,
-        "PrioritySupport": true
-    }
-    """)
+                                               {
+                                                   "AdvancedAnalytics": true,
+                                                   "PrioritySupport": true
+                                               }
+                                               """)
         .When(accessor =>
         {
             var tenant = accessor.GetRequiredConfig<TenantSettings>();
@@ -44,15 +44,17 @@ if (features != null)
 
 Console.WriteLine("\n=== Example Complete ===");
 
-// Configuration classes
-public record TenantSettings
-{
-    public string TenantId { get; set; } = string.Empty;
-    public string Tier { get; set; } = string.Empty;
-}
+namespace ConditionalRulesExample
+{ // Configuration classes
+    public record TenantSettings
+    {
+        public string TenantId { get; set; } = string.Empty;
+        public string Tier { get; set; } = string.Empty;
+    }
 
-public record PremiumFeatures
-{
-    public bool AdvancedAnalytics { get; set; }
-    public bool PrioritySupport { get; set; }
+    public record PremiumFeatures
+    {
+        public bool AdvancedAnalytics { get; set; }
+        public bool PrioritySupport { get; set; }
+    }
 }

@@ -4,11 +4,6 @@ using Cocoar.Configuration.Core.Tests.TestUtilities;
 using static Cocoar.Configuration.Core.Tests.Integration.MultiProviderTestModels;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
-
-/// <summary>
-/// Tests for provider isolation and type merging edge cases in ConfigManager.
-/// Validates independent reactive configs and configuration path selection/mounting.
-/// </summary>
 [Trait("Category", "Integration")]
 [Trait("Component", "ConfigManager")]
 public class MultiProviderIsolationTests
@@ -16,12 +11,6 @@ public class MultiProviderIsolationTests
     #region Provider Isolation Regression Tests
 
     #region Provider Isolation Regression Tests
-
-    /// <summary>
-    /// Validates that multiple rules from the same ObservableProvider source remain properly isolated.
-    /// This prevents cross-rule bleed regression where changes to one rule affect another rule
-    /// from the same observable source.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -250,11 +239,6 @@ public class MultiProviderIsolationTests
     #region Type Merging Edge Cases
 
     #region MEDIUM Priority Tests - Type Merging Edge Cases
-
-    /// <summary>
-    /// Tests that when merging object vs scalar values, the last rule wins and completely replaces the value.
-    /// This validates that there's no attempt to merge incompatible types - clean replacement semantics.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -290,11 +274,6 @@ public class MultiProviderIsolationTests
 
         Assert.Equal("simple-connection-string", config.Database);
     }
-
-    /// <summary>
-    /// Tests that when merging array vs object values, the last rule wins and completely replaces the value.
-    /// Arrays are not merged element-wise; they follow last-write-wins semantics like all other values.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -331,11 +310,6 @@ public class MultiProviderIsolationTests
         Assert.Equal("newValue", config.Settings.Primary);
         Assert.Equal("anotherValue", config.Settings.Secondary);
     }
-
-    /// <summary>
-    /// Tests that null values use System.Text.Json default deserialization behavior.
-    /// Validates current null handling: null strings become null, null value types become default(T).
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -377,11 +351,6 @@ public class MultiProviderIsolationTests
         Assert.False(config.Enabled);               // bool: null ΓåÆ false
         Assert.Equal(95.5, config.Score, 1);       // Score not overridden, keeps original value
     }
-
-    /// <summary>
-    /// Tests that GetConfig() returns a stable snapshot during live reactive updates.
-    /// The snapshot API should be isolated from ongoing observable changes until the next debounced emission.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -429,11 +398,6 @@ public class MultiProviderIsolationTests
     Assert.Equal(300, finalSnapshot.Value);
         observable.Dispose();
     }
-
-    /// <summary>
-    /// Tests that Select with empty/non-existent selection contributes nothing to the final configuration.
-    /// Edge case: selecting non-existent paths should result in no contribution to the final configuration.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -463,11 +427,6 @@ public class MultiProviderIsolationTests
 
         Assert.Equal("present", config.DefaultValue);
         Assert.Null(config.MountedSection);    }
-
-    /// <summary>
-    /// Tests that flattened key merging is order-independent and produces structurally equivalent JSON.
-    /// Property order in source JSON should not affect the final merged configuration structure.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -532,3 +491,4 @@ public class MultiProviderIsolationTests
 
     #endregion
 }
+

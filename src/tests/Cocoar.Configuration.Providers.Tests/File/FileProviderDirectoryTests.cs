@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -55,7 +57,7 @@ public class FileProviderDirectoryTests
             
             var fetchException = await Record.ExceptionAsync(async () =>
             {
-                await provider.FetchConfigurationAsync(query);
+                await provider.FetchConfigurationBytesAsync(query);
             });
 
             _output.WriteLine($"Fetch attempt result: {(fetchException != null ? $"Failed with {fetchException.GetType().Name}" : "Succeeded")}");
@@ -103,8 +105,8 @@ public class FileProviderDirectoryTests
         var emissions = new List<JsonElement>();
         var changeStreamException = await Record.ExceptionAsync(() =>
         {
-            var subscription = provider!.Changes(query).Subscribe(
-                onNext: emissions.Add,
+            var subscription = provider!.ChangesAsBytes(query).Subscribe(
+                onNext: e => emissions.Add(e.ToJsonElement()),
                 onError: ex => _output.WriteLine($"Change stream error: {ex}"));
             return Task.Delay(100);
         });
@@ -195,10 +197,10 @@ public class FileProviderDirectoryTests
         // Query should include the subdirectory path in filename
         var query = new FileSourceProviderQueryOptions(Path.Combine("configs", "app.json"));
         
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
 
-        Assert.Equal("test", config.GetProperty("app").GetString());
-        Assert.Equal("development", config.GetProperty("env").GetString());
+        Assert.Equal("test", config.ToJsonElement().GetProperty("app").GetString());
+        Assert.Equal("development", config.ToJsonElement().GetProperty("env").GetString());
         _output.WriteLine("Successfully loaded file from subdirectory");
     }
 }

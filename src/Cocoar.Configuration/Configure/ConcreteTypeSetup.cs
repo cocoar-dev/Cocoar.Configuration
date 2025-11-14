@@ -1,4 +1,5 @@
 using Cocoar.Capabilities;
+using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Configure;
 
@@ -9,9 +10,9 @@ namespace Cocoar.Configuration.Configure;
 public sealed class ConcreteTypeSetup<T> : SetupDefinition where T : class
 {
     public Guid Id { get; } = Guid.NewGuid();
-    internal ConcreteTypeSetup(CapabilityScope capabilityScope): base(capabilityScope)
+    internal ConcreteTypeSetup(ConfigManagerCapabilityScope capabilityScope): base(capabilityScope)
     {
-       capabilityScope.For(this).WithPrimary(
+       capabilityScope.Compose(this).WithPrimary(
             new ConcreteTypePrimary<SetupDefinition>(typeof(T)));
     }
     

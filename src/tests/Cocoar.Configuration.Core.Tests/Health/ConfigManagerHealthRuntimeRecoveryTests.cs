@@ -55,14 +55,15 @@ internal sealed class WorkingProvider : ConfigurationProvider<WorkingProviderOpt
 {
     public WorkingProvider(WorkingProviderOptions options) : base(options) { }
     
-    public override Task<JsonElement> FetchConfigurationAsync(WorkingProviderQuery query, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(WorkingProviderQuery query, CancellationToken ct = default)
     {
         using var document = JsonDocument.Parse(ProviderOptions.Json);
-        return Task.FromResult(document.RootElement.Clone());
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(document.RootElement.Clone());
+        return Task.FromResult(bytes);
     }
     
-    public override IObservable<JsonElement> Changes(WorkingProviderQuery query) 
-        => System.Reactive.Linq.Observable.Empty<JsonElement>();
+    public override IObservable<byte[]> ChangesAsBytes(WorkingProviderQuery query) 
+        => System.Reactive.Linq.Observable.Empty<byte[]>();
 }
 
 // Always failing provider
@@ -73,9 +74,12 @@ internal sealed class AlwaysFailingProvider : ConfigurationProvider<AlwaysFailin
 {
     public AlwaysFailingProvider(AlwaysFailingProviderOptions options) : base(options) { }
     
-    public override Task<JsonElement> FetchConfigurationAsync(AlwaysFailingProviderQuery query, CancellationToken ct = default)
-        => Task.FromException<JsonElement>(ProviderOptions.Ex);
+    public override Task<byte[]> FetchConfigurationBytesAsync(AlwaysFailingProviderQuery query, CancellationToken ct = default)
+        => Task.FromException<byte[]>(ProviderOptions.Ex);
     
-    public override IObservable<JsonElement> Changes(AlwaysFailingProviderQuery query) 
-        => System.Reactive.Linq.Observable.Empty<JsonElement>();
+    public override IObservable<byte[]> ChangesAsBytes(AlwaysFailingProviderQuery query) 
+        => System.Reactive.Linq.Observable.Empty<byte[]>();
 }
+
+
+

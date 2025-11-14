@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Cocoar.Configuration.Providers.Tests;
+namespace Cocoar.Configuration.Providers.Tests.TestUtilities;
 
 /// <summary>
 /// Utility for creating temporary files with automatic cleanup.

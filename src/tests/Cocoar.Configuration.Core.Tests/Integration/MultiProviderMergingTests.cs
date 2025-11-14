@@ -4,11 +4,6 @@ using Cocoar.Configuration.Core.Tests.TestUtilities;
 using static Cocoar.Configuration.Core.Tests.Integration.MultiProviderTestModels;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
-
-/// <summary>
-/// Tests for ConfigManager's configuration merging behavior with multiple providers.
-/// Validates last-write-wins semantics and complex configuration scenarios.
-/// </summary>
 [Trait("Category", "Integration")]
 [Trait("Component", "ConfigManager")]
 public class MultiProviderMergingTests
@@ -16,11 +11,6 @@ public class MultiProviderMergingTests
     #region Last-Write-Wins Semantics Tests
 
     #region Last-Write-Wins Semantics Tests
-
-    /// <summary>
-    /// Tests that when multiple providers provide the same keys, later rules win.
-    /// StaticJson (base) + Observable (overrides) = Observable values take precedence.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -78,11 +68,6 @@ public class MultiProviderMergingTests
     Assert.True(config.Features.EnableLogging);          // From Rule 0 (not overridden in Rule 1)
     Assert.Equal("Debug", config.Features.LogLevel);     // From Rule 1 (override)
     }
-
-    /// <summary>
-    /// Tests rule ordering: Observable first, then Static should NOT override.
-    /// This proves that rule order matters for last-write-wins semantics.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -136,11 +121,6 @@ public class MultiProviderMergingTests
     #region Complex Configuration Tests
 
     #region Complex Configuration Tests
-
-    /// <summary>
-    /// Tests complex nested configuration merging with multiple providers.
-    /// This validates deep object merging logic across provider boundaries.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -194,11 +174,6 @@ public class MultiProviderMergingTests
         Assert.True(config.Features.EnableLogging);                     // From Static (not overridden)
         Assert.Equal("Debug", config.Features.LogLevel);                // From Rule 1
     }
-
-    /// <summary>
-    /// Tests three-provider scenario: Static base + Observable overrides + Static final.
-    /// This validates complex rule ordering and last-write-wins with multiple layers.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -237,3 +212,4 @@ public class MultiProviderMergingTests
 
     #endregion
 }
+

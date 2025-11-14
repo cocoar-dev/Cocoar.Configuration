@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.Secrets\Cocoar.Configuration.Secrets.csproj" />
   </ItemGroup>
 
   <ItemGroup>

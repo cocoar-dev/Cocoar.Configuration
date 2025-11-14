@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -32,10 +34,10 @@ public class FileProviderEdgeCaseTests
         var query = new FileSourceProviderQueryOptions(unicodeFilename);
         var provider = new FileSourceProvider(options);
 
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
 
-        Assert.Equal("支持中文", config.GetProperty("unicode").GetString());
-        Assert.Equal(42, config.GetProperty("value").GetInt32());
+        Assert.Equal("支持中文", config.ToJsonElement().GetProperty("unicode").GetString());
+        Assert.Equal(42, config.ToJsonElement().GetProperty("value").GetInt32());
         _output.WriteLine($"Successfully loaded config from Unicode filename: {unicodeFilename}");
     }
 
@@ -56,10 +58,10 @@ public class FileProviderEdgeCaseTests
         var query = new FileSourceProviderQueryOptions("bom-test.json");
         var provider = new FileSourceProvider(options);
 
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
 
-        Assert.Equal("Ελληνικά 中文 русский العربية", config.GetProperty("message").GetString());
-        Assert.Equal("🚀✨", config.GetProperty("emoji").GetString());
+        Assert.Equal("Ελληνικά 中文 русский العربية", config.ToJsonElement().GetProperty("message").GetString());
+        Assert.Equal("🚀✨", config.ToJsonElement().GetProperty("emoji").GetString());
         _output.WriteLine("Successfully parsed UTF-8 with BOM");
     }
 
@@ -100,13 +102,13 @@ public class FileProviderEdgeCaseTests
         var provider = new FileSourceProvider(options);
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
         stopwatch.Stop();
 
         // Verify content
-        Assert.Equal("large", config.GetProperty("metadata").GetProperty("size").GetString());
-        Assert.Equal(2468, config.GetProperty("property_01234").GetProperty("nested").GetProperty("level1").GetProperty("level2").GetProperty("value").GetInt32());
-        Assert.Equal(9999, config.GetProperty("property_09999").GetProperty("id").GetInt32());
+        Assert.Equal("large", config.ToJsonElement().GetProperty("metadata").GetProperty("size").GetString());
+        Assert.Equal(2468, config.ToJsonElement().GetProperty("property_01234").GetProperty("nested").GetProperty("level1").GetProperty("level2").GetProperty("value").GetInt32());
+        Assert.Equal(9999, config.ToJsonElement().GetProperty("property_09999").GetProperty("id").GetInt32());
 
         _output.WriteLine($"Large file loaded in {stopwatch.ElapsedMilliseconds}ms");
         Assert.True(stopwatch.ElapsedMilliseconds < 1000, "Large file should load within 1 second");
@@ -129,10 +131,10 @@ public class FileProviderEdgeCaseTests
             var query = new FileSourceProviderQueryOptions("readonly.json");
             var provider = new FileSourceProvider(options);
 
-            var config = await provider.FetchConfigurationAsync(query);
+            var config = await provider.FetchConfigurationBytesAsync(query);
 
-            Assert.True(config.GetProperty("readonly").GetBoolean());
-            Assert.Equal("immutable", config.GetProperty("value").GetString());
+            Assert.True(config.ToJsonElement().GetProperty("readonly").GetBoolean());
+            Assert.Equal("immutable", config.ToJsonElement().GetProperty("value").GetString());
             _output.WriteLine("Successfully loaded read-only file");
         }
         finally
@@ -157,10 +159,10 @@ public class FileProviderEdgeCaseTests
         var query = new FileSourceProviderQueryOptions("config");
         var provider = new FileSourceProvider(options);
 
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
 
-        Assert.False(config.GetProperty("extension").GetBoolean());
-        Assert.Equal("json", config.GetProperty("type").GetString());
+        Assert.False(config.ToJsonElement().GetProperty("extension").GetBoolean());
+        Assert.Equal("json", config.ToJsonElement().GetProperty("type").GetString());
         _output.WriteLine("Successfully loaded file without extension");
     }
 
@@ -176,10 +178,10 @@ public class FileProviderEdgeCaseTests
         var query = new FileSourceProviderQueryOptions("empty.json");
         var provider = new FileSourceProvider(options);
 
-        var config = await provider.FetchConfigurationAsync(query);
+        var config = await provider.FetchConfigurationBytesAsync(query);
 
-        Assert.Equal(JsonValueKind.Object, config.ValueKind);
-        Assert.False(config.EnumerateObject().Any(), "Empty JSON should have no properties");
+        Assert.Equal(JsonValueKind.Object, config.ToJsonElement().ValueKind);
+        Assert.False(config.ToJsonElement().EnumerateObject().Any(), "Empty JSON should have no properties");
         _output.WriteLine("Successfully loaded empty JSON object");
     }
 
@@ -196,7 +198,7 @@ public class FileProviderEdgeCaseTests
         var provider = new FileSourceProvider(options);
 
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
 
         try
         {
@@ -245,8 +247,8 @@ public class FileProviderEdgeCaseTests
         var provider = new FileSourceProvider(options);
 
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(
-            onNext: emissions.Add,
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
+            onNext: e => emissions.Add(e.ToJsonElement()),
             onError: ex => _output.WriteLine($"Change stream error: {ex.GetType().Name}: {ex.Message}"),
             onCompleted: () => _output.WriteLine("Change stream completed"));
 

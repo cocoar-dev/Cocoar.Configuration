@@ -8,26 +8,35 @@ public abstract class ConfigurationProvider<TProviderConfiguration, TProviderQue
 {
     protected TProviderConfiguration ProviderOptions { get; } = options;
 
-    public abstract Task<JsonElement> FetchConfigurationAsync(TProviderQuery query, CancellationToken ct = default);
-    public abstract IObservable<JsonElement> Changes(TProviderQuery query);
+    /// <summary>
+    /// Fetches configuration as raw UTF-8 JSON bytes for the typed query.
+    /// Override this to provide your provider's implementation.
+    /// </summary>
+    public abstract Task<byte[]> FetchConfigurationBytesAsync(TProviderQuery query, CancellationToken ct = default);
+    
+    /// <summary>
+    /// Observes configuration changes as raw UTF-8 JSON bytes for the typed query.
+    /// Override this to provide your provider's implementation.
+    /// </summary>
+    public abstract IObservable<byte[]> ChangesAsBytes(TProviderQuery query);
 
-    public override Task<JsonElement> FetchConfigurationAsync(IProviderQuery query, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(IProviderQuery query, CancellationToken ct = default)
     {
         if (query is not TProviderQuery typedQuery)
         {
             throw new ArgumentException($"Expected query of type {typeof(TProviderQuery).FullName}, but received {query.GetType().FullName}", nameof(query));
         }
 
-        return FetchConfigurationAsync(typedQuery, ct);
+        return FetchConfigurationBytesAsync(typedQuery, ct);
     }
 
-    public override IObservable<JsonElement> Changes(IProviderQuery query)
+    public override IObservable<byte[]> ChangesAsBytes(IProviderQuery query)
     {
         if (query is not TProviderQuery typedQuery)
         {
             throw new ArgumentException($"Expected query of type {typeof(TProviderQuery).FullName}, but received {query.GetType().FullName}", nameof(query));
         }
 
-        return Changes(typedQuery);
+        return ChangesAsBytes(typedQuery);
     }
 }

@@ -59,7 +59,7 @@ public class ConfigManagerHealthCancellationTests
 /// </summary>
 internal sealed class SlowCancellableProvider : ConfigurationProvider<SlowCancellableProviderOptions, SlowCancellableProviderQueryOptions>
 {
-    private readonly Subject<JsonElement> _rawChanges = new();
+    private readonly Subject<byte[]> _rawChanges = new();
     private readonly int _delayMs;
 
     public static SlowCancellableProvider? LastCreatedInstance { get; private set; }
@@ -70,24 +70,26 @@ internal sealed class SlowCancellableProvider : ConfigurationProvider<SlowCancel
         LastCreatedInstance = this;
     }
 
-    public override async Task<JsonElement> FetchConfigurationAsync(SlowCancellableProviderQueryOptions query, CancellationToken ct = default)
+    public override async Task<byte[]> FetchConfigurationBytesAsync(SlowCancellableProviderQueryOptions query, CancellationToken ct = default)
     {
         // Simulate slow work
         await Task.Delay(_delayMs, ct);
-        return JsonDocument.Parse("{\"Result\":\"OK\"}").RootElement.Clone();
+        return System.Text.Encoding.UTF8.GetBytes("{\"Result\":\"OK\"}");
     }
 
-    public override IObservable<JsonElement> Changes(SlowCancellableProviderQueryOptions query) =>
-        // Project raw change payloads into dummy JsonElements (changes themselves are irrelevant; just triggers recompute)
+    public override IObservable<byte[]> ChangesAsBytes(SlowCancellableProviderQueryOptions query) =>
+        // Changes themselves are irrelevant; just triggers recompute
         _rawChanges.AsObservable();
 
     public void TriggerChange(object payload)
     {
-        var json = JsonSerializer.Serialize(payload);
-        using var doc = JsonDocument.Parse(json);
-        _rawChanges.OnNext(doc.RootElement.Clone());
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        _rawChanges.OnNext(bytes);
     }
 }
 
 internal sealed record SlowCancellableProviderOptions(int DelayMs = 200) : IProviderConfiguration;
 internal sealed record SlowCancellableProviderQueryOptions() : IProviderQuery;
+
+
+

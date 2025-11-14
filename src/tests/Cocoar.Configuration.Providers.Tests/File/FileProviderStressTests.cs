@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -30,7 +32,7 @@ public class FileProviderStressTests
         var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
         
         try
         {
@@ -77,11 +79,11 @@ public class FileProviderStressTests
         var successfulReads = 0;
         var emissions = new List<JsonElement>();
         
-        var subscription = provider.Changes(query)
+        var subscription = provider.ChangesAsBytes(query)
             .Subscribe(
                 onNext: json => 
                 {
-                    emissions.Add(json);
+                    emissions.Add(json.ToJsonElement());
                     Interlocked.Increment(ref successfulReads);
                 },
                 onError: ex => 
@@ -158,7 +160,7 @@ public class FileProviderStressTests
                 var emissions = new List<JsonElement>();
                 allEmissions.Add(emissions);
                 
-                var subscription = provider.Changes(query).Subscribe(emissions.Add);
+                var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
                 subscriptions.Add(subscription);
             }
             
@@ -209,7 +211,7 @@ public class FileProviderStressTests
         var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
         
         try
         {
@@ -253,7 +255,7 @@ public class FileProviderStressTests
         var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
         
         try
         {

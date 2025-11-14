@@ -46,11 +46,6 @@ public class RecomputeStressTests : IDisposable
     private void TrackForDisposal(IDisposable disposable) => _disposables.Add(disposable);
 
     public record StressConfig(Dictionary<string, object> Data);
-
-    /// <summary>
-    /// Tests sustained rapid changes from multiple providers.
-    /// This validates debouncing, coalescing, and resource management under realistic load.
-    /// </summary>
     [Fact]
     public async Task SustainedRapidChanges_MaintainsStabilityAndCorrectness()
     {
@@ -132,11 +127,6 @@ public class RecomputeStressTests : IDisposable
         Assert.True(memoryIncrease < 10_000_000, 
             $"Memory increase too large: {memoryIncrease} bytes. Possible memory leak.");
     }
-
-    /// <summary>
-    /// Tests overlapping debounce windows with complex change patterns.
-    /// Validates that debouncing logic works correctly when changes arrive faster than debounce intervals.
-    /// </summary>
     [Fact]
     public async Task OverlappingDebounceWindows_CoalesceCorrectly()
     {
@@ -220,11 +210,6 @@ public class RecomputeStressTests : IDisposable
         var burstCounter = ((JsonElement)finalConfig.Data["burst_counter"]).GetInt32();
         Assert.Equal(burstCount - 1, burstCounter); // Final burst (0-indexed)
     }
-
-    /// <summary>
-    /// Tests recompute engine behavior under memory pressure.
-    /// Validates that the system remains stable when processing large configurations.
-    /// </summary>
     [Fact]
     public async Task LargeConfigurationChanges_HandleMemoryPressureGracefully()
     {
@@ -305,11 +290,6 @@ public class RecomputeStressTests : IDisposable
         Assert.True(memoryIncrease < 100_000_000, 
             $"Memory increase excessive: {memoryIncrease} bytes. Possible memory issue.");
     }
-
-    /// <summary>
-    /// Tests that cancellation and cleanup work properly under stress conditions.
-    /// Validates that disposal doesn't cause issues even when changes are in flight.
-    /// </summary>
     [Fact]
     public async Task DisposalUnderStress_CleansUpProperly()
     {

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Internal shared library - not published as NuGet package -->
+    <!-- Gets compiled into both CLI and Secrets library -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- No external dependencies - pure encryption logic -->
+
+</Project>

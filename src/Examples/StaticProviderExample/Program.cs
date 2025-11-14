@@ -1,7 +1,7 @@
-using Cocoar.Configuration;
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+
+namespace Examples.StaticProviderExample;
 
 public sealed class CoreDefaults
 {
@@ -31,21 +31,21 @@ public static class Program
         var manager = new ConfigManager(rule => [
             // 1. JSON string approach - great for configuration templates, testing, defaults
             rule.For<CoreDefaults>().FromStaticJson("""
-            {
-                "Feature": "JsonBasedFeature",
-                "Enabled": true,
-                "Priority": 5
-            }
-            """),
+                                                    {
+                                                        "Feature": "JsonBasedFeature",
+                                                        "Enabled": true,
+                                                        "Priority": 5
+                                                    }
+                                                    """),
 
             // 2. Direct JSON string for database configuration  
             rule.For<DatabaseSettings>().FromStaticJson("""
-            {
-                "ConnectionString": "Server=localhost;Database=MyApp;Integrated Security=true",
-                "TimeoutSeconds": 45,
-                "EnableRetries": true
-            }
-            """),
+                                                        {
+                                                            "ConnectionString": "Server=localhost;Database=MyApp;Integrated Security=true",
+                                                            "TimeoutSeconds": 45,
+                                                            "EnableRetries": true
+                                                        }
+                                                        """),
 
             // 3. Factory approach - dynamic composition using previously resolved configs
             rule.For<Wrapper>().FromStatic(cm => {

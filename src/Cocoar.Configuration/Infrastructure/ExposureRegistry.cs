@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
+using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Infrastructure;
 
@@ -10,9 +11,9 @@ internal sealed class ExposureRegistry
     private readonly Dictionary<Type, Type> _interfaceToConcreteMap = new();
     private readonly Dictionary<Type, Type> _deserializationMap = new();
     private readonly ILogger _logger;
-    private readonly CapabilityScope _capabilityScope;
+    private readonly ConfigManagerCapabilityScope _capabilityScope;
 
-    public ExposureRegistry(IEnumerable<SetupDefinition> bindings, ILogger logger, CapabilityScope capabilityScope)
+    public ExposureRegistry(IEnumerable<SetupDefinition> bindings, ILogger logger, ConfigManagerCapabilityScope capabilityScope)
     {
         _logger = logger;
         _capabilityScope = capabilityScope;
@@ -50,8 +51,6 @@ internal sealed class ExposureRegistry
             }
 
             var primaryType = typeCapability!.SelectedType;
-
-            // Handle ConcreteType().ExposeAs<I>() - for DI exposure
             if (primaryType.IsClass)
             {
                 var concreteType = primaryType;
@@ -73,8 +72,6 @@ internal sealed class ExposureRegistry
                         interfaceType.Name, concreteType.Name);
                 });
             }
-
-            // Handle Interface<I>().DeserializeTo<T>() - for JSON deserialization
             if (primaryType.IsInterface)
             {
                 var interfaceType = primaryType;

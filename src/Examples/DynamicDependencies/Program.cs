@@ -1,9 +1,8 @@
-
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
+namespace Examples.DynamicDependencies;
 
 public class ApiSettings
 {

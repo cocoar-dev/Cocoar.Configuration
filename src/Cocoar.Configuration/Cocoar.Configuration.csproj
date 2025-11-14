@@ -6,8 +6,20 @@
 
   <ItemGroup>
     <PackageReference Include="Cocoar.Capabilities" />
+    <PackageReference Include="Cocoar.FileSystem" />
+    <PackageReference Include="Cocoar.Json.Mutable" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Reactive" />
+    
+    <!-- Analyzer included for compile-time validation -->
+    <!-- Note: Using ProjectReference until analyzer is published to NuGet -->
+    <ProjectReference Include="..\Cocoar.Configuration.Analyzers\Cocoar.Configuration.Analyzers.csproj">
+      <PrivateAssets>none</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 
+
+  
 </Project>

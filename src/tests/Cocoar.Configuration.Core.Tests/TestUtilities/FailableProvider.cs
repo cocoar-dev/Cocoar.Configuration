@@ -18,7 +18,7 @@ public sealed class FailableProvider : ConfigurationProvider<FailableProviderOpt
     {
     }
 
-    public override Task<JsonElement> FetchConfigurationAsync(FailableProviderQuery query, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(FailableProviderQuery query, CancellationToken ct = default)
     {
         _callCount++;
 
@@ -43,12 +43,13 @@ public sealed class FailableProvider : ConfigurationProvider<FailableProviderOpt
         }
 
         // Return the configured JSON data
-        return Task.FromResult(ProviderOptions.JsonData);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(ProviderOptions.JsonData);
+        return Task.FromResult(bytes);
     }
 
-    public override IObservable<JsonElement> Changes(FailableProviderQuery query) =>
+    public override IObservable<byte[]> ChangesAsBytes(FailableProviderQuery query) =>
         // For testing, we don't need change notifications
-        Observable.Empty<JsonElement>();
+        Observable.Empty<byte[]>();
 }
 
 /// <summary>

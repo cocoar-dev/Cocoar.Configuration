@@ -147,11 +147,6 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
 
         ValidateResultsMatch(incrementalConfig, naiveResult);
     }
-
-    /// <summary>
-    /// Tests correctness under high-frequency change bursts.
-    /// Validates that debouncing and coalescing don't lose changes.
-    /// </summary>
     [Fact]
     public async Task HighFrequencyChangeBursts_MaintainCorrectness()
     {
@@ -244,10 +239,6 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
 
         return result;
     }
-
-    /// <summary>
-    /// Validates that incremental and naive results match exactly.
-    /// </summary>
     private void ValidateResultsMatch(FuzzConfig? incrementalConfig, Dictionary<string, object> naiveResult)
     {
         Assert.NotNull(incrementalConfig);

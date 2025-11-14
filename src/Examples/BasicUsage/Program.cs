@@ -1,8 +1,7 @@
-using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
-using Cocoar.Configuration.Configure;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+
+namespace Examples.BasicUsage;
 
 public interface IStartupSettings
 {

@@ -97,3 +97,4 @@ public class RocketConfig
 {
     public bool Verbose { get; set; }
 }
+
