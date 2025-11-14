@@ -240,8 +240,11 @@ public class HttpProviderBattleTests : IDisposable
         using var subscription = provider.ChangesAsBytes(query)
             .Subscribe(element => emissions.Add(element.ToJsonElement()));
 
-    // wait for several poll cycles
-    await Task.Delay(400);
+    await ActiveWaitHelpers.WaitUntilAsync(
+        () => emissions.Any(e => e.GetProperty("Value").GetInt32() == 1) &&
+              emissions.Any(e => e.GetProperty("Value").GetInt32() == 2),
+        timeout: TimeSpan.FromSeconds(3),
+        description: "emissions to contain both 1 and 2");
 
     // should emit on each successful poll (we don't assert exact count due to timing)
     Assert.True(emissions.Count >= 2);
