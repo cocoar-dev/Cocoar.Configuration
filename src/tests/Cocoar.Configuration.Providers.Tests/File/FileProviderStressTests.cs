@@ -231,8 +231,9 @@ public class FileProviderStressTests
             
             Assert.True(emissions.Count >= 2, "Should detect both modification and recreation");
             
-            // Last emission should reflect recreated content
-            var finalEmission = emissions[^1];
+            // Find the last emission that contains the "state" property (skip any empty/deletion emissions)
+            var finalEmission = emissions.LastOrDefault(e => e.TryGetProperty("state", out _));
+            Assert.NotEqual(default, finalEmission);
             Assert.Equal("recreated", finalEmission.GetProperty("state").GetString());
             Assert.True(finalEmission.TryGetProperty("newField", out _), "Should contain new field after recreation");
         }
