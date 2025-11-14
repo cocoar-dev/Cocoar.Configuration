@@ -174,11 +174,7 @@ public class MultiProviderIsolationTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_EmissionMinimalityProof_FewerEmissionsThanChanges()
     {
-
-        var rawChangeCount = 0;
         var subject = new BehaviorSubject<string>("""{"Value": 0, "Timestamp": "initial"}""");
-        
-        var rawChangeTracker = subject.Subscribe(_ => Interlocked.Increment(ref rawChangeCount));
 
         var configManager = new ConfigManager(rules => [
             // Single observable rule to isolate emission behavior
@@ -194,8 +190,10 @@ public class MultiProviderIsolationTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "initial emission");
 
-        var baselineRawChanges = rawChangeCount;
+        // Establish baseline after initial stabilization to avoid counting setup emissions
         var baselineEmissions = emissions.Count;
+        var rawChangeCount = 0;
+        var rawChangeTracker = subject.Subscribe(_ => Interlocked.Increment(ref rawChangeCount));
 
         const int TOTAL_CHANGES = 10;
         
@@ -211,8 +209,8 @@ public class MultiProviderIsolationTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "debounced emissions completion");
 
-        // Calculate deltas
-        var actualRawChanges = rawChangeCount - baselineRawChanges;
+        // Calculate deltas - rawChangeCount now only includes the 10 explicit changes
+        var actualRawChanges = rawChangeCount;
         var actualEmissions = emissions.Count - baselineEmissions;
 
         Assert.Equal(TOTAL_CHANGES, actualRawChanges);
