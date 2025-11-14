@@ -1,0 +1,89 @@
+name: Develop - Push
+
+on:
+  push:
+    branches: [ develop ]
+
+jobs:
+  test-multiplatform:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./src
+
+      - name: Build solution
+        run: dotnet build -c Release --no-restore
+        working-directory: ./src
+
+      - name: Run tests
+        run: dotnet test -c Release --no-build --no-restore --verbosity normal
+        working-directory: ./src
+
+  build-artifacts:
+    name: Build alpha artifacts
+    runs-on: ubuntu-latest
+    needs: test-multiplatform
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: '6.x'
+
+      - name: Calculate version
+        id: gv
+        uses: gittools/actions/gitversion/execute@v3
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./src
+
+      - name: Build solution
+        run: dotnet build -c Release --no-restore -p:Version=${{ steps.gv.outputs.SemVer }} -p:AssemblyVersion=${{ steps.gv.outputs.AssemblySemVer }} -p:FileVersion=${{ steps.gv.outputs.AssemblySemFileVer }}
+        working-directory: ./src
+
+      - name: Pack NuGet packages (alpha)
+        run: dotnet pack -c Release --no-restore -o ../artifacts -p:Version=${{ steps.gv.outputs.SemVer }}
+        working-directory: ./src
+
+      - name: Upload artifacts for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-${{ steps.gv.outputs.SemVer }}
+          path: artifacts
+          retention-days: 7
+    
+

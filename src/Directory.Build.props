@@ -1,51 +1,74 @@
 <Project>
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>latest</LangVersion>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);1591</NoWarn>
-    </PropertyGroup>
 
-    <PropertyGroup>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <IsPackable>true</IsPackable>
-        <PackageOutputPath>$(SolutionDir)nupkgs</PackageOutputPath>
-        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-        <EmbedUntrackedSources>true</EmbedUntrackedSources>
-        <IncludeSymbols>true</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  <!-- ===== GLOBAL BUILD SETTINGS ===== -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>    <!-- Missing XML comments -->
+    <IsPackable>false</IsPackable>    <!-- Safe default: opt-in for packaging -->
+  </PropertyGroup>
 
-        <!-- Common NuGet metadata -->
-        <RepositoryUrl>https://github.com/cocoar-dev/cocoar.configuration</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  <!-- ===== CI/CD BUILD OPTIMIZATIONS ===== -->
+  <PropertyGroup>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <DebugType>portable</DebugType>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
 
-        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  <!-- ===== PACKAGE METADATA ===== -->
+  <PropertyGroup>
+    <Authors>Bernhard Windisch</Authors>
+    <Company>COCOAR e.U.</Company>
+    <Product>Cocoar.Configuration</Product>
+    <Copyright>Copyright © COCOAR $([System.DateTime]::Now.Year)</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cocoar-dev/cocoar.configuration</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>configuration;reactive;dotnet;csharp;aspnetcore;dependency-injection;resilience;health-monitoring;strongly-typed</PackageTags>
+    <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
+    <Description>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates.</Description>
+    <PackageIcon>package-icon.png</PackageIcon>
+  </PropertyGroup>
 
-        <!-- Package Description & Discovery -->
-        <PackageDescription>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates</PackageDescription>
-        <PackageTags>configuration;reactive;dotnet;csharp;aspnetcore;dependency-injection;resilience;health-monitoring;strongly-typed</PackageTags>
-        <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
-        <PackageIcon>package-icon.png</PackageIcon>
+  <!-- ===== SOURCE LINK (for debugging) ===== -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
 
-        <Authors>Bernhard Windisch</Authors>
-        <Company>COCOAR e.U.</Company>
-    </PropertyGroup>
+  <!-- ===== ANALYZERS ===== -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
 
-    <!-- SourceLink: publish repo URL and embed source link info -->
-    <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-    </ItemGroup>
+  <!-- ===== PACKAGE REFERENCES (Global) ===== -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)..\README.md" Pack="true" PackagePath="README.md" />
+    <None Include="$(MSBuildThisFileDirectory)..\LICENSE" Pack="true" PackagePath="LICENSE" />
+    <None Include="$(MSBuildThisFileDirectory)..\CHANGELOG.md" Pack="true" PackagePath="CHANGELOG.md" />
+    <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="package-icon.png" />
+    <None Include="$(MSBuildThisFileDirectory)..\social-preview-small.png" Pack="true" PackagePath="social-preview-small.png" />
+  </ItemGroup>
 
-    <!-- Include README.md in packages -->
-    <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="README.md" />
-        <None Include="$(MSBuildThisFileDirectory)package-icon.png" Pack="true" PackagePath="package-icon.png" />
-        <None Include="$(MSBuildThisFileDirectory)\..\social-preview-small.png" Pack="true" PackagePath="social-preview-small.png" />
-    </ItemGroup>
+  <!-- ===== TOOLING PACKAGES (SourceLink) ===== -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- ===== PERFORMANCE OPTIMIZATIONS ===== -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
 </Project>

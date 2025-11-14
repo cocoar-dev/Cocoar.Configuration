@@ -11,8 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.Http;
-/// </summary>
-// HTTP provider tests (production-ready coverage)
+
 public class HttpProviderSmokeTests
 {
     [Fact]

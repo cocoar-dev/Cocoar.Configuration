@@ -3,7 +3,6 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
     <IsExampleProject>true</IsExampleProject>
     <RootNamespace>Examples.TupleReactiveExample</RootNamespace>
   </PropertyGroup>
