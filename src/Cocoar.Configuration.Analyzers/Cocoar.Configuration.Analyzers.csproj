@@ -39,9 +39,11 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Package the analyzer DLL in the appropriate analyzer folder -->
-    <None Include="bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-  </ItemGroup>
+  <!-- Pack the analyzer assembly after build -->
+  <Target Name="GetAnalyzerPackFiles" DependsOnTargets="$(GenerateNuspecDependsOn)">
+    <ItemGroup>
+      <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>
