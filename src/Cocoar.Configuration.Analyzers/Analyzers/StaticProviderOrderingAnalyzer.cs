@@ -107,7 +107,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
                     // Check if this is a provider method
                     if (IsProviderMethod(methodName))
                     {
-                        bool isStatic = methodName.Contains("Static", StringComparison.OrdinalIgnoreCase);
+                        bool isStatic = methodName.IndexOf("Static", StringComparison.OrdinalIgnoreCase) >= 0;
                         return (isStatic, parentInv.GetLocation());
                     }
                 }

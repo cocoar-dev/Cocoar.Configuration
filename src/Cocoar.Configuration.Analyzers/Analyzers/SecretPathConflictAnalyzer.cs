@@ -205,7 +205,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
             if (IsSecretType(prop.Type))
             {
                 // Check if selectPath could conflict with this secret property
-                if (selectPath.Contains(prop.Name, StringComparison.OrdinalIgnoreCase))
+                if (selectPath.IndexOf(prop.Name, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     return $"{typeSymbol.Name}.{prop.Name}";
                 }
