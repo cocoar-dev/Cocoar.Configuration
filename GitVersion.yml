@@ -12,7 +12,7 @@ branches:
 
   feature:
     regex: ^(feature|bugfix|fix)[/-]
-    label: useBranchName
+    label: '{BranchName}'
 
   hotfix:
     regex: ^hotfix[/-]
