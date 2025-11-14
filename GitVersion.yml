@@ -3,7 +3,7 @@ mode: ContinuousDeployment
 branches:
   develop:
     regex: ^develop$
-    label: alpha
+    label: beta
     is-main-branch: true
 
   release:
@@ -11,7 +11,7 @@ branches:
     label: rc
 
   feature:
-    regex: ^(feature|bugfix)[/-]
+    regex: ^(feature|bugfix|fix)[/-]
     label: useBranchName
 
   hotfix:
