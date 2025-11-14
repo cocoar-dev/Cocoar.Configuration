@@ -1,6 +1,7 @@
 using Cocoar.Configuration.Rules;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -43,7 +44,10 @@ public class TupleReactiveConfigTests
         var emitted = new List<(A,B)>();
         using var sub = reactive.Subscribe(v => emitted.Add(v));
         subjA.OnNext(new(2));
-        await Task.Delay(180); // debounce + recompute
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emitted.Any(t => t.Item1.V == 2 && t.Item2.S == "x"),
+            TimeSpan.FromSeconds(2),
+            description: "tuple emission after change");
         Assert.Contains(emitted, t => t.Item1.V == 2 && t.Item2.S == "x");
     }
 
@@ -60,12 +64,27 @@ public class TupleReactiveConfigTests
         var reactive = mgr.GetReactiveConfig<(A,B,C,D,E)>();
         var list = new List<(A,B,C,D,E)>();
         using var sub = reactive.Subscribe(v => list.Add(v));
+        
+        // Wait for initial emission
+        await ActiveWaitHelpers.WaitUntilAsync(() => list.Count >= 1, 
+            TimeSpan.FromSeconds(2), 
+            description: "initial tuple emission");
+        var initialCount = list.Count;
+        
+        // Fire multiple rapid changes - should be coalesced into one emission
         s1.OnNext(new(9));
         s3.OnNext(new(false));
         s5.OnNext(new(42));
-        await Task.Delay(220);
+        
+        // Wait for the coalesced emission with final values
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => list.Any(v => v.Item1.V == 9 && v.Item3.Flag == false && v.Item5.Z == 42),
+            TimeSpan.FromSeconds(2),
+            description: "coalesced emission with updated values");
+        
         var matching = list.Where(v => v.Item1.V==9 && v.Item3.Flag==false && v.Item5.Z==42).ToList();
-        Assert.Equal(1, matching.Count);
+        Assert.Single(matching); // Exactly one emission with the final values
+        Assert.Equal(initialCount + 1, list.Count); // Only one new emission after the rapid changes
     }
 
     [Fact]
@@ -85,7 +104,10 @@ public class TupleReactiveConfigTests
         var emissions = new List<(A,B,C,D,E,F,G,H)>();
         using var sub = reactive.Subscribe(e => emissions.Add(e));
         s8.OnNext(new(9999));
-        await Task.Delay(180);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Any(t => t.Item8.L == 9999),
+            TimeSpan.FromSeconds(2),
+            description: "large tuple emission after change");
         Assert.Contains(emissions, t => t.Item8.L == 9999);
     }
 
