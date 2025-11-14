@@ -374,3 +374,4 @@ dist/
 .DS_Store
 
 /local
+.local/
