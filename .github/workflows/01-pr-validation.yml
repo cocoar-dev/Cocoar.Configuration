@@ -51,3 +51,7 @@ jobs:
         run: dotnet test -c Release --no-build --no-restore --verbosity normal
         working-directory: ./src
 
+      - name: Validate packaging
+        run: dotnet pack -c Release --no-restore -p:Version=${{ steps.gv.outputs.SemVer }}
+        working-directory: ./src
+
