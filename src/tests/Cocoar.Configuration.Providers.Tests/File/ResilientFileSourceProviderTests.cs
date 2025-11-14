@@ -71,14 +71,20 @@ public class ResilientFileSourceProviderTests
         _output.WriteLine("Phase 2: Modifying file to test FileSystemWatcher");
         System.IO.File.WriteAllText(configFile, "{ \"version\": 2, \"enabled\": false }");
         
-        await Task.Delay(300);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            timeout: TimeSpan.FromSeconds(3),
+            description: "detect initial modification");
         var emissionsAfterModify = emissions.Count;
         
         // === PHASE 3: Delete directory ===
         _output.WriteLine("Phase 3: Deleting directory - should trigger Error event and polling fallback");
         Directory.Delete(featureDir, recursive: true);
         
-        await Task.Delay(500); // Wait for Error event to trigger polling
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => errors.Count > 0 || emissions.Any(e => GetVersion(e) == -1),
+            timeout: TimeSpan.FromSeconds(5),
+            description: "polling mode engaged (error or sentinel)");
         
         // Test FetchConfigurationAsync during polling (should throw)
         try
@@ -100,7 +106,16 @@ public class ResilientFileSourceProviderTests
         Directory.CreateDirectory(featureDir);
         System.IO.File.WriteAllText(configFile, "{ \"version\": 3, \"enabled\": true, \"recovered\": true }");
         
-        await Task.Delay(12000); // Wait for polling cycle (10 seconds + buffer)
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                try {
+                    var cfg = provider.FetchConfigurationBytesAsync(query).GetAwaiter().GetResult();
+                    var el = cfg.ToJsonElement();
+                    return GetRecovered(el);
+                } catch { return false; }
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            description: "recovery after directory recreation");
         
         // Test FetchConfigurationAsync after recovery
         try
@@ -117,7 +132,10 @@ public class ResilientFileSourceProviderTests
         _output.WriteLine("Phase 5: Testing recovered FileSystemWatcher with file modification");
         System.IO.File.WriteAllText(configFile, "{ \"version\": 4, \"enabled\": false, \"test\": \"final\" }");
         
-        await Task.Delay(500);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > emissionsAfterModify,
+            timeout: TimeSpan.FromSeconds(5),
+            description: "post-recovery modification detected");
         
         var finalEmissions = emissions.Count;
         

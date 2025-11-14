@@ -176,9 +176,13 @@ public class ConfigurablePollingIntervalTests
         System.IO.File.WriteAllText(configFile, testContent);
         _output.WriteLine("Created config file");
         
-        // With 100ms polling, we should detect the file within a reasonable time
-        // Wait a bit longer than polling interval to ensure detection
-        await Task.Delay(300);
+        // Subscribe to changes and wait until detected
+        var detected = 0;
+        using var sub = provider.ChangesAsBytes(query).Subscribe(_ => System.Threading.Interlocked.Increment(ref detected));
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => System.Threading.Volatile.Read(ref detected) > 0,
+            timeout: TimeSpan.FromSeconds(3),
+            description: "detect created file");
         
         // Now fetch should succeed
         var result = await provider.FetchConfigurationBytesAsync(query);

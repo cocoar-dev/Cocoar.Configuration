@@ -215,7 +215,10 @@ public class FileProviderEdgeCaseTests
 
             // Write the invalid JSON to trigger file change
             file.WriteContent(jsonWithComments);
-            await Task.Delay(100);
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions.Count > 0,
+                timeout: TimeSpan.FromSeconds(3),
+                description: "emission after invalid JSON write");
 
             _output.WriteLine($"Received {emissions.Count} emissions for JSON with comments");
 
@@ -256,7 +259,10 @@ public class FileProviderEdgeCaseTests
         {
             // Initial file change
             file.WriteJson(new { before = "deletion", step = 1 });
-            await Task.Delay(100);
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions.Count > 0,
+                timeout: TimeSpan.FromSeconds(3),
+                description: "initial file change emission");
 
             _output.WriteLine($"Before directory deletion: {emissions.Count} emissions");
 
