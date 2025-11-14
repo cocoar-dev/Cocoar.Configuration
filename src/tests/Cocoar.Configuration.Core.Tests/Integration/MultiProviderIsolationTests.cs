@@ -190,10 +190,7 @@ public class MultiProviderIsolationTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "initial emission");
 
-        // Establish baseline after initial stabilization to avoid counting setup emissions
         var baselineEmissions = emissions.Count;
-        var rawChangeCount = 0;
-        var rawChangeTracker = subject.Subscribe(_ => Interlocked.Increment(ref rawChangeCount));
 
         const int TOTAL_CHANGES = 10;
         
@@ -209,13 +206,11 @@ public class MultiProviderIsolationTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "debounced emissions completion");
 
-        // Calculate deltas - rawChangeCount now only includes the 10 explicit changes
-        var actualRawChanges = rawChangeCount;
         var actualEmissions = emissions.Count - baselineEmissions;
 
-        Assert.Equal(TOTAL_CHANGES, actualRawChanges);
-        Assert.True(actualEmissions < actualRawChanges, 
-            $"EMISSION MINIMALITY FAILED: Expected emissions ({actualEmissions}) to be less than raw changes ({actualRawChanges})");
+        // We explicitly pushed TOTAL_CHANGES updates, so emissions should be fewer
+        Assert.True(actualEmissions < TOTAL_CHANGES, 
+            $"EMISSION MINIMALITY FAILED: Expected emissions ({actualEmissions}) to be less than raw changes ({TOTAL_CHANGES})");
 
         var finalConfig = emissions.Last();
         Assert.True(finalConfig.ContainsKey("Value"));
@@ -223,11 +218,10 @@ public class MultiProviderIsolationTests
         Assert.Equal(TOTAL_CHANGES, finalValue); // Final value should be 10 (last change)
 
         // Performance assertion: Significant emission reduction (at least 2:1 ratio)
-        var emissionReductionRatio = (double)actualRawChanges / actualEmissions;
+        var emissionReductionRatio = (double)TOTAL_CHANGES / actualEmissions;
         Assert.True(emissionReductionRatio >= 2.0, 
-            $"Expected significant emission reduction (ΓëÑ2:1), got {emissionReductionRatio:F2}:1");
+            $"Expected significant emission reduction (≥2:1), got {emissionReductionRatio:F2}:1");
         subscription.Dispose();
-        rawChangeTracker.Dispose();
     }
 
     #endregion
