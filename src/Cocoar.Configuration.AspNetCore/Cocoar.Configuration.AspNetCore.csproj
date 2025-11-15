@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Description>ASP.NET Core integration for Cocoar.Configuration providing health check endpoints, configuration health monitoring, and seamless integration with WebApplicationBuilder for reactive configuration in web applications.</Description>
+    <PackageTags>configuration;aspnetcore;health-checks;web;monitoring;middleware;webapplicationbuilder</PackageTags>
   </PropertyGroup>
 
 	<ItemGroup>

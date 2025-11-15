@@ -106,8 +106,8 @@ public class HttpProviderSmokeTests
             .ChangesAsBytes(new("/api/config"))
             .Subscribe(_ => emitted = true);
 
-
-        await Task.Delay(150); // still far below 2s interval
+        // Wait well below the 2s poll interval to validate no immediate emission on subscribe
+        await Task.Delay(500);
         Assert.False(emitted);
     }
 

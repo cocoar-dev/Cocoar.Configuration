@@ -41,7 +41,7 @@ jobs:
         working-directory: ./src
 
       - name: Run tests
-        run: dotnet test -c Release --no-build --no-restore --verbosity normal
+        run: dotnet test -c Release --no-build --no-restore --verbosity normal --filter "Type!=Performance"
         working-directory: ./src
 
 

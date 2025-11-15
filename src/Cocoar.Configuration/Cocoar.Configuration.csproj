@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Description>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates. Core library providing ConfigManager, providers (file, environment, command-line, observable), and differential updates.</Description>
+    <PackageTags>configuration;reactive;dotnet;aspnetcore;strongly-typed;health-monitoring;resilience;zero-downtime;file-watching;differential-updates</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

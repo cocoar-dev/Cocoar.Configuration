@@ -190,8 +190,9 @@ public class HttpProviderBattleTests : IDisposable
         using var subscription = provider.ChangesAsBytes(query)
             .Subscribe(element => emissions.Add(element.ToJsonElement()));
 
-    // wait for several poll attempts but below sentinel threshold
-    await Task.Delay(200);
+        // Wait for several poll attempts (at 50ms interval, 500ms = ~10 polls)
+        // This validates that exceptions don't emit until sentinel threshold is reached
+        await Task.Delay(500);
 
 
         Assert.Empty(emissions);
@@ -212,8 +213,11 @@ public class HttpProviderBattleTests : IDisposable
         using var subscription = provider.ChangesAsBytes(query)
             .Subscribe(_ => Interlocked.Increment(ref emissionCount));
 
-        // Wait long enough to cross the failure threshold and emit at least once
-        await Task.Delay(200);
+        // Wait for sentinel emission after 3 consecutive failures
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissionCount >= 1,
+            timeout: TimeSpan.FromSeconds(5),
+            description: "sentinel emission after consecutive failures");
 
         Assert.True(emissionCount >= 1);
     }

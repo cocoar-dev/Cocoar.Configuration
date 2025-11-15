@@ -31,9 +31,8 @@
     <RepositoryUrl>https://github.com/cocoar-dev/cocoar.configuration</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>configuration;reactive;dotnet;csharp;aspnetcore;dependency-injection;resilience;health-monitoring;strongly-typed</PackageTags>
     <PackageReleaseNotes>Full release notes: https://github.com/cocoar-dev/cocoar.configuration/blob/develop/CHANGELOG.md</PackageReleaseNotes>
-    <Description>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates.</Description>
+    <!-- Description and PackageTags must be defined in each project's .csproj -->
     <PackageIcon>package-icon.png</PackageIcon>
   </PropertyGroup>
 

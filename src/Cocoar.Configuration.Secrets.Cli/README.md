@@ -4,19 +4,31 @@ Command-line tool for encrypting secrets in JSON configuration files using hybri
 
 ## Installation
 
-### As Global Tool (Development)
+### As .NET Global Tool (Recommended)
 
+**From NuGet:**
 ```bash
 dotnet tool install --global Cocoar.Configuration.Secrets.Cli
 ```
 
-Or from local build:
-
+**From local build:**
 ```bash
 cd src/Cocoar.Configuration.Secrets.Cli
 dotnet pack
 dotnet tool install --global --add-source ./nupkgs Cocoar.Configuration.Secrets.Cli
 ```
+
+**Update to latest version:**
+```bash
+dotnet tool update --global Cocoar.Configuration.Secrets.Cli
+```
+
+**Uninstall:**
+```bash
+dotnet tool uninstall --global Cocoar.Configuration.Secrets.Cli
+```
+
+> **Note:** Requires .NET 9.0 SDK or runtime. For production servers without .NET SDK, self-contained binaries will be provided in future releases.
 
 ## Commands
 

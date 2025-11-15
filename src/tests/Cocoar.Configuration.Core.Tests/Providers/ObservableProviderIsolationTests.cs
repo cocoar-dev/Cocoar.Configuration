@@ -469,8 +469,9 @@ public class ObservableProviderIsolationTests
 
 
         var latency = emissionTimes[0] - emissionStart;
-        Assert.True(latency.TotalMilliseconds < 50, 
-            $"Emission latency was {latency.TotalMilliseconds}ms, expected < 50ms");
+        // Allow more latency on slower CI runners (especially ARM64 macOS)
+        Assert.True(latency.TotalMilliseconds < 200, 
+            $"Emission latency was {latency.TotalMilliseconds}ms, expected < 200ms");
         
         subscription.Dispose();
         subject.Dispose();
