@@ -17,11 +17,11 @@ internal static class GenerateCertCommand
         };
 
         var passwordOption = new Option<string?>(
-            aliases: ["--password", "-p"],
+            aliases: ["--password", "-pwd"],
             description: "Password for PFX file (required for --format pfx)");
 
         var formatOption = new Option<string>(
-            aliases: ["--format", "-f"],
+            aliases: ["--format"],
             description: "Output format: pfx (default), pem, or auto",
             getDefaultValue: () => "pfx");
 

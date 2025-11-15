@@ -1,6 +1,15 @@
 # Cocoar.Configuration.Secrets CLI
 
-Command-line tool for encrypting secrets in JSON configuration files using hybrid RSA+AES encryption.
+Command-line tool for encrypting and decrypting secrets in JSON configuration files using hybrid RSA+AES encryption with X.509 certificates.
+
+## Features
+
+- **Hybrid Encryption**: RSA + AES-256-GCM for secure and performant encryption
+- **Certificate-Based**: Uses X.509 certificates (PFX or PEM format)
+- **Smart JSON Type Handling**: Preserves types for strings, numbers, booleans, arrays, and objects
+- **Multiple Secrets per File**: Each secret can use a different certificate
+- **Safe Defaults**: Non-destructive operations by default, explicit flags for modifications
+- **Two Workflows**: Encrypt inline with `-v` flag or encrypt existing values in-place
 
 ## Installation
 
@@ -30,6 +39,24 @@ dotnet tool uninstall --global Cocoar.Configuration.Secrets.Cli
 
 > **Note:** Requires .NET 9.0 SDK or runtime. For production servers without .NET SDK, self-contained binaries will be provided in future releases.
 
+## Quick Start
+
+```bash
+# 1. Generate a certificate
+cocoar-secrets generate-cert -o config-cert.pfx -pwd MySecurePassword
+
+# 2. Encrypt a database connection string
+cocoar-secrets encrypt -f appsettings.json -p Database:ConnectionString -v "Server=prod;Password=secret" -c config-cert.pfx -pwd MySecurePassword
+
+# 3. View decrypted value (doesn't modify file)
+cocoar-secrets decrypt -f appsettings.json -p Database:ConnectionString -c config-cert.pfx -pwd MySecurePassword
+
+# 4. Decrypt back to plaintext in file (explicit with --replace)
+cocoar-secrets decrypt -f appsettings.json -p Database:ConnectionString -c config-cert.pfx -pwd MySecurePassword --replace
+```
+
+---
+
 ## Commands
 
 ### `generate-cert` - Generate Self-Signed Certificate
@@ -38,16 +65,17 @@ Creates a self-signed X.509 certificate for encryption/decryption.
 
 **Usage:**
 ```bash
-cocoar-secrets generate-cert --output mycert.pfx --password "MySecurePassword"
+cocoar-secrets generate-cert -o mycert.pfx -pwd "MySecurePassword"
 ```
 
 **Options:**
-- `--output, -o` (Required) - Path where the PFX certificate will be saved
-- `--password, -pwd` (Required) - Password to protect the PFX file
-- `--subject, -s` - Certificate subject (default: "CN=Cocoar Secrets")
-- `--valid-years, -y` - Certificate validity in years (default: 5)
-- `--key-size, -k` - RSA key size: 2048, 3072, or 4096 bits (default: 2048)
-- `--overwrite` - Overwrite existing certificate file
+- `--output, -o` (Required) - Path where the certificate will be saved
+- `--password, -pwd` - Password to protect the PFX file (required for PFX format)
+- `--format` - Output format: `pfx` (default), `pem`, or `auto` (detects from file extension)
+- `--subject, -s` - Certificate subject (default: `CN=Cocoar Secrets`)
+- `--valid-years` - Certificate validity in years (default: `1`)
+- `--key-size` - RSA key size: `2048`, `3072`, or `4096` bits (default: `2048`)
+- `--overwrite` - Overwrite existing certificate file without prompt
 
 **Example:**
 ```bash
@@ -61,60 +89,104 @@ cocoar-secrets generate-cert \
 
 ### `encrypt` - Encrypt Value in JSON File
 
-Encrypts a plaintext value and stores it at the specified property path in a JSON file.
+Encrypts a plaintext value and stores it as an encrypted envelope at the specified property path in a JSON file.
 
-**Usage:**
-```bash
-cocoar-secrets encrypt \
-  --file appsettings.json \
-  --path "Database:ConnectionString" \
-  --value "Server=prod;Database=db;Password=secret123" \
-  --cert mycert.pfx \
-  --password "MySecurePassword"
-```
+**Two Workflows:**
+
+1. **Inline Encryption** (with `-v` flag):
+   ```bash
+   cocoar-secrets encrypt -f config.json -p Database:Password -v "secret123" -c cert.pfx -pwd CertPass
+   ```
+
+2. **In-Place Encryption** (without `-v` flag):
+   ```bash
+   # First, add plaintext to your JSON file
+   echo '{"Database": {"Password": "secret123"}}' > config.json
+   
+   # Then encrypt the existing value
+   cocoar-secrets encrypt -f config.json -p Database:Password -c cert.pfx -pwd CertPass
+   ```
 
 **Options:**
 - `--file, -f` (Required) - Path to the JSON configuration file
-- `--path, -p` (Required) - Property path using colon separator (e.g., "Database:ConnectionString")
-- `--value, -v` (Required) - The plaintext value to encrypt
+- `--path, -p` (Required) - Property path using colon separator (e.g., `Database:ConnectionString`)
+- `--value, -v` (Optional) - The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path
 - `--cert, -c` (Required) - Path to the PFX certificate file for encryption
 - `--password, -pwd` - Certificate password (will prompt if not provided)
-- `--kid` - Key identifier for the certificate (default: "default")
-- `--create` - Create the JSON file if it doesn't exist (prevents accidental typos)
+- `--kid` - Key identifier for the certificate (default: `default`)
+- `--create` - Create the JSON file if it doesn't exist
 
 **Property Path Format:**
-Use colon (`:`) as separator to navigate nested objects:
-- `"ApiKey"` - Top-level property
-- `"Database:ConnectionString"` - Nested property
-- `"Services:Stripe:SecretKey"` - Deeply nested property
+Use colon (`:`) to navigate nested objects:
+- `ApiKey` → Top-level property
+- `Database:ConnectionString` → Nested property
+- `Services:Stripe:SecretKey` → Deeply nested property
+
+**JSON Type Handling:**
+
+The tool intelligently handles different JSON value types:
+
+```bash
+# String (auto-quoted)
+cocoar-secrets encrypt -f config.json -p Name -v Alice -c cert.pfx -pwd Pass
+# Result: "Alice"
+
+# Number (preserved as number)
+cocoar-secrets encrypt -f config.json -p Port -v 5432 -c cert.pfx -pwd Pass
+# Result: 5432
+
+# Boolean (preserved as boolean)
+cocoar-secrets encrypt -f config.json -p EnableDebug -v true -c cert.pfx -pwd Pass
+# Result: true
+
+# Explicit string (use quotes with shell escaping)
+cocoar-secrets encrypt -f config.json -p PortAsString -v '"5432"' -c cert.pfx -pwd Pass
+# Result: "5432" (string, not number)
+
+# Array or Object (valid JSON preserved)
+cocoar-secrets encrypt -f config.json -p Tags -v '["prod","db"]' -c cert.pfx -pwd Pass
+# Result: ["prod","db"]
+```
 
 **Examples:**
 
-Encrypt a database connection string:
+Encrypt a connection string:
 ```bash
 cocoar-secrets encrypt \
-  --file appsettings.json \
-  --path "ConnectionStrings:DefaultConnection" \
-  --value "Server=prod-db;User=sa;Password=P@ssw0rd123" \
-  --cert ./certs/prod.pfx \
-  --password "CertPassword"
+  -f appsettings.json \
+  -p ConnectionStrings:DefaultConnection \
+  -v "Server=prod-db;User=sa;Password=P@ss123" \
+  -c ./certs/prod.pfx \
+  -pwd "CertPassword"
 ```
 
-Create a new file with an encrypted API key:
+In-place workflow (add plaintext first, then encrypt):
+```json
+{
+  "Database": {
+    "ConnectionString": "Server=prod;Password=secret"
+  }
+}
+```
+```bash
+cocoar-secrets encrypt -f appsettings.json -p Database:ConnectionString -c cert.pfx -pwd Pass
+```
+
+Create a new encrypted secrets file:
 ```bash
 cocoar-secrets encrypt \
-  --file config/secrets.json \
-  --path "Stripe:ApiKey" \
-  --value "sk_live_51H..." \
-  --cert ./certs/prod.pfx \
-  --password "CertPassword" \
+  -f config/secrets.json \
+  -p Stripe:ApiKey \
+  -v "sk_live_51H..." \
+  -c ./certs/prod.pfx \
+  -pwd "CertPassword" \
   --kid "stripe-prod" \
   --create
 ```
 
-**Output Format:**
+**Encrypted Envelope Format:**
 
-The encrypted value is stored as a `__cocoar_secret__` envelope:
+Values are stored as `__cocoar_secret__` envelopes:
 
 ```json
 {
@@ -136,197 +208,284 @@ The encrypted value is stored as a `__cocoar_secret__` envelope:
 
 ### `decrypt` - Decrypt Value from JSON File
 
-Decrypts an encrypted value and optionally re-encrypts it with a new certificate (certificate rotation).
+Decrypts an encrypted value. By default, displays the plaintext without modifying the file. Use `--replace` to explicitly replace the encrypted envelope with plaintext in the JSON file.
 
 **Usage:**
 ```bash
-# Decrypt and display (warning: exposes secret in terminal)
-cocoar-secrets decrypt \
-  --file appsettings.json \
-  --path "Database:ConnectionString" \
-  --old-cert oldcert.pfx \
-  --old-password "OldPassword" \
-  --show
+# Default: Show decrypted value (safe, doesn't modify file)
+cocoar-secrets decrypt -f config.json -p Database:Password -c cert.pfx -pwd CertPass
 
-# Decrypt and re-encrypt with new certificate (rotation)
-cocoar-secrets decrypt \
-  --file appsettings.json \
-  --path "Database:ConnectionString" \
-  --old-cert oldcert.pfx \
-  --old-password "OldPassword" \
-  --new-cert newcert.pfx \
-  --new-password "NewPassword"
+# Explicit: Replace encrypted value with plaintext in file
+cocoar-secrets decrypt -f config.json -p Database:Password -c cert.pfx -pwd CertPass --replace
 ```
 
 **Options:**
 - `--file, -f` (Required) - Path to the JSON configuration file
 - `--path, -p` (Required) - Property path to the encrypted value
-- `--old-cert` (Required) - Path to the certificate with private key for decryption
-- `--old-password, -opwd` - Password for the old certificate
-- `--new-cert` - Path to new certificate for re-encryption (certificate rotation)
-- `--new-password, -npwd` - Password for the new certificate
-- `--show` - Display the decrypted plaintext (⚠️ WARNING: exposes secret in terminal)
+- `--cert, -c` (Required) - Path to the PFX certificate file with private key for decryption
+- `--password, -pwd` - Certificate password (will prompt if not provided)
+- `--replace` - Replace the encrypted envelope with plaintext in the JSON file (⚠️ WARNING: modifies file)
 
-**Certificate Rotation Example:**
+**Safe Default Behavior:**
+
+By default, `decrypt` only displays the value without modifying the file:
+
 ```bash
-# Rotate all secrets to a new certificate
+cocoar-secrets decrypt -f appsettings.json -p Database:Password -c cert.pfx -pwd Pass
+```
+Output:
+```
+✓ Successfully decrypted value at 'Database:Password'
+
+Decrypted value:
+MySecretPassword123
+```
+
+The JSON file remains unchanged with the encrypted envelope intact.
+
+**Explicit File Modification:**
+
+To replace the encrypted value with plaintext, use `--replace`:
+
+```bash
+cocoar-secrets decrypt -f appsettings.json -p Database:Password -c cert.pfx -pwd Pass --replace
+```
+
+Before (encrypted):
+```json
+{
+  "Database": {
+    "Password": {
+      "__cocoar_secret__": "v1",
+      "kid": "default",
+      "ct": "base64_ciphertext..."
+    }
+  }
+}
+```
+
+After (plaintext):
+```json
+{
+  "Database": {
+    "Password": "MySecretPassword123"
+  }
+}
+```
+
+**Examples:**
+
+View a decrypted connection string:
+```bash
 cocoar-secrets decrypt \
-  --file appsettings.json \
-  --path "ConnectionStrings:DefaultConnection" \
-  --old-cert ./certs/old-prod.pfx \
-  --old-password "OldPassword" \
-  --new-cert ./certs/new-prod.pfx \
-  --new-password "NewPassword"
+  -f appsettings.json \
+  -p ConnectionStrings:DefaultConnection \
+  -c ./certs/prod.pfx \
+  -pwd "CertPassword"
 ```
 
-### `cert-info` - Display Certificate Information
-
-Display information about a certificate (placeholder - not yet implemented).
-
-## Workflow Examples
-
-### Initial Setup
-
-1. **Generate a certificate:**
+Decrypt all secrets back to plaintext (run for each secret):
 ```bash
-cocoar-secrets generate-cert \
-  --output ./certs/dev.pfx \
-  --password "DevPassword123" \
-  --subject "CN=Development"
+cocoar-secrets decrypt -f config.json -p Database:Password -c cert.pfx -pwd Pass --replace
+cocoar-secrets decrypt -f config.json -p ApiKeys:Stripe -c cert.pfx -pwd Pass --replace
 ```
 
-2. **Encrypt secrets in your configuration:**
+---
+
+## Complete Workflow Examples
+
+### Development Workflow
+
+**1. Generate a certificate:**
 ```bash
-cocoar-secrets encrypt \
-  --file appsettings.Development.json \
-  --path "Database:ConnectionString" \
-  --value "Server=localhost;Database=DevDB;Trusted_Connection=true" \
-  --cert ./certs/dev.pfx \
-  --password "DevPassword123" \
-  --create
-
-cocoar-secrets encrypt \
-  --file appsettings.Development.json \
-  --path "ApiKeys:SendGrid" \
-  --value "SG.abc123xyz..." \
-  --cert ./certs/dev.pfx \
-  --password "DevPassword123"
+cocoar-secrets generate-cert -o ./certs/dev.pfx -pwd "DevPass123" --subject "CN=Development"
 ```
 
-3. **Use in your application:**
+**2. Add plaintext secrets to your JSON file:**
+```json
+{
+  "Database": {
+    "ConnectionString": "Server=localhost;Database=DevDB;User=dev;Password=devpass"
+  },
+  "ApiKeys": {
+    "Stripe": "sk_test_123...",
+    "SendGrid": "SG.abc123..."
+  }
+}
+```
+
+**3. Encrypt secrets in-place:**
+```bash
+cocoar-secrets encrypt -f appsettings.Development.json -p Database:ConnectionString -c ./certs/dev.pfx -pwd DevPass123
+cocoar-secrets encrypt -f appsettings.Development.json -p ApiKeys:Stripe -c ./certs/dev.pfx -pwd DevPass123
+cocoar-secrets encrypt -f appsettings.Development.json -p ApiKeys:SendGrid -c ./certs/dev.pfx -pwd DevPass123
+```
+
+**4. Commit encrypted JSON to source control** (certificate stays local or in secure vault)
+
+**5. Use in your application:**
 ```csharp
 var config = new ConfigurationBuilder()
     .UseCocoar()
     .Secrets(secrets => secrets
         .UseHybridEncryption(hybrid => hybrid
-            .UseCertificateFromFile("./certs/dev.pfx", "DevPassword123")
+            .UseCertificateFromFile("./certs/dev.pfx", "DevPass123")
         )
     )
     .Build();
 
 var connString = config.Get<Secret<string>>("Database:ConnectionString");
-// Decrypts automatically when accessed
+// Automatically decrypts when accessed
 ```
 
-### Certificate Rotation
+### Certificate Rotation Workflow
 
-When rotating certificates (e.g., before expiry):
+Certificate rotation requires re-encrypting secrets with a new certificate. Since each secret can use a different certificate (via `kid`), this is typically done manually per secret:
 
-1. **Generate new certificate:**
-```bash
-cocoar-secrets generate-cert \
-  --output ./certs/prod-2026.pfx \
-  --password "NewProdPassword" \
-  --subject "CN=Production 2026"
-```
+**Note:** Direct certificate rotation is not currently supported. To rotate certificates:
 
-2. **Rotate each encrypted secret:**
-```bash
-# Rotate database connection string
-cocoar-secrets decrypt \
-  --file appsettings.Production.json \
-  --path "Database:ConnectionString" \
-  --old-cert ./certs/prod-2025.pfx \
-  --old-password "OldProdPassword" \
-  --new-cert ./certs/prod-2026.pfx \
-  --new-password "NewProdPassword"
+1. **Decrypt to plaintext:**
+   ```bash
+   cocoar-secrets decrypt -f config.json -p Database:Password -c old-cert.pfx -pwd OldPass --replace
+   ```
 
-# Rotate API keys
-cocoar-secrets decrypt \
-  --file appsettings.Production.json \
-  --path "ApiKeys:Stripe" \
-  --old-cert ./certs/prod-2025.pfx \
-  --old-password "OldProdPassword" \
-  --new-cert ./certs/prod-2026.pfx \
-  --new-password "NewProdPassword"
-```
+2. **Re-encrypt with new certificate:**
+   ```bash
+   cocoar-secrets encrypt -f config.json -p Database:Password -c new-cert.pfx -pwd NewPass
+   ```
 
-3. **Deploy new certificate with your application**
+This two-step approach ensures clarity and prevents accidental data loss when rotating certificates.
 
 ### CI/CD Integration
 
-Store the certificate securely (e.g., Azure Key Vault, AWS Secrets Manager) and retrieve it during deployment:
+**GitHub Actions Example:**
 
-```bash
-# Example: GitHub Actions
-- name: Decrypt secrets for deployment
-  run: |
-    echo "${{ secrets.PROD_CERT_BASE64 }}" | base64 -d > prod.pfx
-    
-    cocoar-secrets decrypt \
-      --file appsettings.Production.json \
-      --path "Database:ConnectionString" \
-      --old-cert prod.pfx \
-      --old-password "${{ secrets.CERT_PASSWORD }}" \
-      --show
+```yaml
+name: Deploy with Secrets
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Install CLI tool
+        run: dotnet tool install --global Cocoar.Configuration.Secrets.Cli
+      
+      - name: Restore certificate from secrets
+        run: |
+          echo "${{ secrets.PROD_CERT_BASE64 }}" | base64 -d > prod.pfx
+      
+      - name: View decrypted config (for verification)
+        run: |
+          cocoar-secrets decrypt \
+            -f appsettings.Production.json \
+            -p Database:ConnectionString \
+            -c prod.pfx \
+            -pwd "${{ secrets.CERT_PASSWORD }}"
+      
+      - name: Deploy application
+        run: |
+          # Deploy with encrypted config
+          # Certificate (prod.pfx) must be deployed alongside the app
+          dotnet publish -c Release
 ```
+
+---
 
 ## Security Best Practices
 
-### ✅ DO:
-- **Store certificates securely** - Use Key Vault, Secrets Manager, or encrypted storage
-- **Use strong passwords** - Minimum 16 characters with complexity
-- **Rotate certificates regularly** - Before expiry, or annually for production
-- **Use different certificates per environment** - Dev, staging, production should have separate certs
-- **Keep private keys private** - Never commit certificates with private keys to source control
-- **Use `--create` flag** - Prevents accidental file creation from typos
-- **Audit certificate usage** - Track which certificates are used where
+### Certificate Management
 
-### ❌ DON'T:
-- **Commit certificates to Git** - Add `*.pfx` to `.gitignore`
-- **Use the same certificate for all environments** - Separate dev/staging/prod
-- **Share certificate passwords insecurely** - Use secure secret management
-- **Use `--show` in scripts** - Only use interactively when absolutely necessary
-- **Skip certificate validation** - Verify certificate before using in production
+✅ **DO:**
+- Store certificates securely (Key Vault, Secrets Manager, encrypted storage)
+- Use strong passwords (minimum 16 characters with complexity)
+- Rotate certificates before expiry (recommend annually for production)
+- Use different certificates per environment (dev, staging, production)
+- Keep private keys private (never commit PFX files to source control)
+- Use meaningful certificate subjects and key identifiers
+- Audit certificate usage regularly
 
-## Encrypted File Format
+❌ **DON'T:**
+- Commit certificates to Git (add `*.pfx`, `*.pem` to `.gitignore`)
+- Use the same certificate across all environments
+- Share certificate passwords insecurely (no email, Slack, etc.)
+- Leave expired certificates in production
+- Use weak passwords or leave passwords empty
 
-The CLI creates JSON files with encrypted secrets in the `cocoar.secret` envelope format:
+### File Handling
+
+✅ **DO:**
+- Use `--create` flag to prevent typos creating unintended files
+- Verify file paths before running encrypt/decrypt operations
+- Keep encrypted config files in source control
+- Back up certificates before rotation
+
+❌ **DON'T:**
+- Run decrypt with `--replace` without backing up first
+- Store plaintext secrets in source control
+- Use default/guessable property paths
+
+### Operational Security
+
+✅ **DO:**
+- Test decrypt operations in non-production first
+- Use CI/CD secret management for certificate passwords
+- Monitor certificate expiry dates
+- Document which certificates are used where
+
+❌ **DON'T:**
+- Run CLI commands with secrets in shell history (use prompts for passwords)
+- Display decrypted values in CI/CD logs
+- Use `--replace` in automated scripts without careful review
+
+---
+
+## Encrypted Envelope Format
+
+Encrypted values are stored as `__cocoar_secret__` envelopes in your JSON files:
 
 ```json
 {
-  "type": "cocoar.secret",            // Envelope discriminator
-  "version": 1,                        // Envelope format version
-  "kid": "default",                  // Key identifier (selects certificate / protector)
-  "alg": "RSA-OAEP-AES256-GCM",     // Encryption algorithm profile
-  "contentType": "text/plain; charset=utf-8", // Plaintext encoding (optional)
-  "wk": "...",                       // Wrapped (encrypted) AES key (base64)
-  "walg": "RSA-OAEP-256",           // Key wrapping algorithm
-  "iv": "...",                       // AES-GCM initialization vector (base64)
-  "ct": "...",                       // Ciphertext (base64)
-  "tag": "..."                       // AES-GCM authentication tag (base64)
+  "__cocoar_secret__": "v1",
+  "kid": "default",
+  "alg": "RSA-OAEP-AES256-GCM",
+  "type": "utf8",
+  "wk": "base64_wrapped_aes_key...",
+  "walg": "RSA-OAEP-256",
+  "iv": "base64_initialization_vector...",
+  "ct": "base64_ciphertext...",
+  "tag": "base64_authentication_tag..."
 }
 ```
 
-**Encryption Method:**
-- **Key Wrapping**: RSA-OAEP-SHA256 (wraps the AES key)
-- **Data Encryption**: AES-256-GCM (encrypts the actual data)
-- **Encoding**: Base64 for all binary data
+**Field Descriptions:**
+- `__cocoar_secret__` - Envelope version (currently `v1`)
+- `kid` - Key identifier to select the correct certificate/protector
+- `alg` - Encryption algorithm profile
+- `type` - Content type (e.g., `utf8` for text)
+- `wk` - Wrapped (encrypted) AES-256 key using RSA
+- `walg` - Key wrapping algorithm (RSA-OAEP with SHA-256)
+- `iv` - AES-GCM initialization vector (12 bytes, base64)
+- `ct` - Encrypted ciphertext (base64)
+- `tag` - AES-GCM authentication tag for integrity (16 bytes, base64)
 
-This hybrid approach combines:
-- **RSA security** - Strong asymmetric encryption for key distribution
-- **AES performance** - Fast symmetric encryption for data
-- **GCM authentication** - Ensures data integrity and authenticity
+**Hybrid Encryption Process:**
+1. Generate random 256-bit AES key
+2. Encrypt data with AES-256-GCM (fast, authenticated)
+3. Wrap AES key with certificate's RSA public key (secure key distribution)
+4. Store wrapped key + encrypted data in envelope
+
+This combines RSA security with AES performance and GCM authentication.
 
 ## Architecture
 
@@ -345,44 +504,102 @@ This means:
 - **PowerShell modules** can reference the library for scripting
 - **Custom tooling** can build on the same foundation
 
+---
+
 ## Troubleshooting
 
 ### Certificate not found
 ```
 Error: Certificate file not found: mycert.pfx
 ```
-**Solution:** Verify the path is correct and the file exists.
-
-### JSON file not found (without --create)
-```
-Error: JSON file not found: config.json. Use --create to create a new file.
-```
-**Solution:** Either create the file first, or use `--create` flag to create it automatically.
+**Solution:** Verify the file path is correct and the certificate exists.
 
 ### Invalid certificate password
 ```
 Error: The specified network password is not correct
 ```
-**Solution:** Verify the certificate password is correct.
+**Solution:** Verify the certificate password. If no password was set during generation, omit the `--password` flag to be prompted.
 
 ### Certificate has no private key
 ```
-Error: Certificate must have a private key for encryption/decryption
+Error: Certificate must have a private key for decryption
 ```
-**Solution:** Ensure you're using a PFX file that contains the private key, not just a public certificate.
+**Solution:** Ensure you're using a PFX file with the private key, not just the public certificate. Use the same PFX file that was used for encryption.
 
 ### Property path not found
 ```
-Error: Property 'ApiKey' not found in path 'Settings:ApiKey'
+Error: Property path 'Settings:ApiKey' not found in JSON
 ```
-**Solution:** Verify the property path matches the JSON structure. Use `--create` for new files.
+**Solution:** 
+- For encrypt: Verify the parent object exists, or use `--create` for new files
+- For decrypt: Verify the property path matches the encrypted value location
+
+### JSON file not found (without --create)
+```
+Error: JSON file not found: config.json
+```
+**Solution:** Either create the file first, or use `--create` flag with encrypt command.
+
+### Invalid JSON syntax
+```
+Error: Failed to parse JSON file
+```
+**Solution:** Validate your JSON syntax. The file must contain a valid JSON object at the root level.
+
+### Decryption fails
+```
+Error: Failed to decrypt: MAC validation failed
+```
+**Solution:** 
+- Verify you're using the correct certificate (must match the one used for encryption)
+- Verify the certificate password is correct
+- Check that the encrypted envelope hasn't been manually modified
+
+---
+
+## FAQ
+
+**Q: Can I use multiple certificates in the same file?**  
+A: Yes! Each encrypted value can use a different certificate by specifying different `--kid` values during encryption.
+
+**Q: How do I back up my certificates?**  
+A: Store PFX files securely in a password manager, Key Vault, or encrypted backup. Keep the password separate from the certificate file.
+
+**Q: Can I use this in production?**  
+A: Yes. The hybrid encryption (RSA + AES-256-GCM) is production-grade. Ensure certificates are stored securely and rotated regularly.
+
+**Q: What happens if I lose the certificate?**  
+A: Encrypted values cannot be decrypted without the certificate's private key. Always back up certificates and store them securely.
+
+**Q: Can I encrypt entire JSON objects?**  
+A: Yes. Use `-v '{"key":"value"}'` to encrypt valid JSON objects or arrays. They will be preserved as structured data.
+
+**Q: How do I rotate certificates?**  
+A: Currently, decrypt with `--replace` to plaintext, then re-encrypt with the new certificate. A direct rotation command may be added in future releases.
+
+**Q: Can the library decrypt without the CLI?**  
+A: Yes. The `Cocoar.Configuration.Secrets` library automatically decrypts values at runtime using configured certificates. The CLI is for managing encrypted files, not runtime decryption.
+
+---
 
 ## Related Documentation
 
-- [Cocoar.Configuration.Secrets Library](../Cocoar.Configuration.Secrets/README.md)
-- [Secrets Usage Examples](../../docs/secrets-usage-examples.md)
-- [Migration Guide](../../docs/migration-v2-to-v3.md)
+- [Cocoar.Configuration.Secrets Library](../Cocoar.Configuration.Secrets/README.md) - Runtime secret decryption
+- [Secrets Usage Examples](../../docs/secrets-usage-examples.md) - Code examples and patterns
+- [Secrets API Reference](../../docs/secrets-api-reference.md) - Detailed API documentation
+- [Migration Guide v2 → v3](../../docs/migration-v2-to-v3.md) - Breaking changes and migration steps
+
+---
+
+## Support & Contributing
+
+- **Issues**: [GitHub Issues](https://github.com/cocoar-dev/Cocoar.Configuration/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/cocoar-dev/Cocoar.Configuration/discussions)
+- **Contributing**: See [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- **Security**: Report vulnerabilities via [SECURITY.md](../../SECURITY.md)
+
+---
 
 ## License
 
-This project is part of the Cocoar.Configuration library and is licensed under the same terms.
+Part of the Cocoar.Configuration library. See [LICENSE](../../LICENSE) for details.

@@ -89,6 +89,66 @@ public static class JsonSecretsEditor
     }
 
     /// <summary>
+    /// Encrypts an existing plaintext value in-place at the specified property path in a JSON file.
+    /// Reads the current value, encrypts it, and replaces it with the encrypted envelope.
+    /// </summary>
+    /// <param name="jsonFilePath">Path to the JSON configuration file</param>
+    /// <param name="propertyPath">Property path using colon separator (e.g., "Database:ConnectionString")</param>
+    /// <param name="certificate">X.509 certificate with public key for encryption</param>
+    /// <param name="kid">Key identifier (kid) for the certificate</param>
+    /// <returns>Always returns false (file must exist)</returns>
+    /// <exception cref="FileNotFoundException">If file doesn't exist</exception>
+    /// <exception cref="InvalidOperationException">If JSON file doesn't contain a root object or property path doesn't exist</exception>
+    public static async Task<bool> EncryptExistingValueInFileAsync(
+        string jsonFilePath,
+        string propertyPath,
+        X509Certificate2 certificate,
+        string kid = "default")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(jsonFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyPath);
+        ArgumentNullException.ThrowIfNull(certificate);
+        ArgumentException.ThrowIfNullOrWhiteSpace(kid);
+
+        if (!File.Exists(jsonFilePath))
+            throw new FileNotFoundException($"JSON file not found: {jsonFilePath}");
+
+        // Read JSON file
+        var jsonText = await File.ReadAllTextAsync(jsonFilePath);
+        var jsonNode = JsonNode.Parse(jsonText);
+
+        if (jsonNode is not JsonObject rootObject)
+            throw new InvalidOperationException("JSON file must contain a root object");
+
+        // Get the existing value at the path
+        var existingValue = GetValueAtPath(rootObject, propertyPath);
+        if (existingValue is null)
+            throw new InvalidOperationException($"No value found at path: {propertyPath}");
+
+        // Serialize the existing JSON value to a string (preserving its JSON representation)
+        var jsonValueString = JsonSerializer.Serialize(existingValue);
+
+        // Encrypt the JSON string
+        var crypto = new X509HybridCrypto(certificate);
+        var envelope = crypto.Encrypt(jsonValueString);
+
+        // Replace the value with the encrypted envelope
+        SetValueAtPath(rootObject, propertyPath, envelope, kid);
+
+        // Write back to file
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        var updatedJson = JsonSerializer.Serialize(rootObject, options);
+        await File.WriteAllTextAsync(jsonFilePath, updatedJson, Encoding.UTF8);
+
+        return false; // File already existed
+    }
+
+    /// <summary>
     /// Decrypts a value from the specified property path in a JSON file.
     /// </summary>
     /// <param name="jsonFilePath">Path to the JSON configuration file</param>
@@ -276,5 +336,27 @@ public static class JsonSecretsEditor
             ?? throw new InvalidOperationException($"Failed to deserialize envelope at '{path}'");
 
         return (envelope, kid);
+    }
+
+    private static JsonNode? GetValueAtPath(JsonObject root, string path)
+    {
+        var segments = path.Split(':', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+            throw new ArgumentException("Property path cannot be empty", nameof(path));
+
+        JsonNode? current = root;
+
+        // Navigate to the property
+        foreach (var segment in segments)
+        {
+            if (current is not JsonObject obj)
+                throw new InvalidOperationException($"Path segment '{segment}' does not exist or is not an object");
+
+            current = obj[segment];
+            if (current == null)
+                throw new InvalidOperationException($"Property '{segment}' not found in path '{path}'");
+        }
+
+        return current;
     }
 }

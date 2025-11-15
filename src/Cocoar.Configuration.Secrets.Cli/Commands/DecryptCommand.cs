@@ -10,7 +10,7 @@ internal static class DecryptCommand
 {
     public static Command Create()
     {
-        var command = new Command("decrypt", "Decrypt a value from a JSON file and optionally re-encrypt with a new certificate");
+        var command = new Command("decrypt", "Decrypt an encrypted value from a JSON file");
 
         var fileOption = new Option<FileInfo>(
             aliases: ["--file", "-f"],
@@ -26,84 +26,69 @@ internal static class DecryptCommand
             IsRequired = true
         };
 
-        var oldCertOption = new Option<FileInfo>(
-            aliases: ["--old-cert"],
-            description: "Path to the PFX certificate file used for current encryption")
+        var certOption = new Option<FileInfo>(
+            aliases: ["--cert", "-c"],
+            description: "Path to the PFX certificate file for decryption")
         {
             IsRequired = true
         };
 
-        var oldPasswordOption = new Option<string?>(
-            aliases: ["--old-password"],
-            description: "Password for the old certificate (will prompt if not provided)");
+        var passwordOption = new Option<string?>(
+            aliases: ["--password", "-pwd"],
+            description: "Password for the certificate (will prompt if not provided)");
 
-        var newCertOption = new Option<FileInfo?>(
-            aliases: ["--new-cert"],
-            description: "Path to the new PFX certificate file for re-encryption (optional, for certificate rotation)");
-
-        var newPasswordOption = new Option<string?>(
-            aliases: ["--new-password"],
-            description: "Password for the new certificate (will prompt if not provided)");
-
-        var showValueOption = new Option<bool>(
-            aliases: ["--show"],
-            description: "Show the decrypted plaintext value (WARNING: exposes secret in terminal)",
+        var replaceOption = new Option<bool>(
+            aliases: ["--replace"],
+            description: "Replace the encrypted value with plaintext in the JSON file (WARNING: modifies file)",
             getDefaultValue: () => false);
 
         command.AddOption(fileOption);
         command.AddOption(pathOption);
-        command.AddOption(oldCertOption);
-        command.AddOption(oldPasswordOption);
-        command.AddOption(newCertOption);
-        command.AddOption(newPasswordOption);
-        command.AddOption(showValueOption);
+        command.AddOption(certOption);
+        command.AddOption(passwordOption);
+        command.AddOption(replaceOption);
 
-        command.SetHandler(async (file, path, oldCert, oldPassword, newCert, newPassword, showValue) =>
+        command.SetHandler(async (file, path, cert, password, replace) =>
         {
             try
             {
-                await DecryptAndRotateAsync(file, path, oldCert, oldPassword, newCert, newPassword, showValue);
+                await DecryptAsync(file, path, cert, password, replace);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
                 Environment.ExitCode = 1;
             }
-        }, fileOption, pathOption, oldCertOption, oldPasswordOption, newCertOption, newPasswordOption, showValueOption);
+        }, fileOption, pathOption, certOption, passwordOption, replaceOption);
 
         return command;
     }
 
-    private static async Task DecryptAndRotateAsync(
+    private static async Task DecryptAsync(
         FileInfo jsonFile,
         string propertyPath,
-        FileInfo oldCertFile,
-        string? oldPassword,
-        FileInfo? newCertFile,
-        string? newPassword,
-        bool showValue)
+        FileInfo certFile,
+        string? password,
+        bool replace)
     {
         // Validate inputs
         if (!jsonFile.Exists)
             throw new FileNotFoundException($"JSON file not found: {jsonFile.FullName}");
 
-        if (!oldCertFile.Exists)
-            throw new FileNotFoundException($"Old certificate file not found: {oldCertFile.FullName}");
+        if (!certFile.Exists)
+            throw new FileNotFoundException($"Certificate file not found: {certFile.FullName}");
 
-        if (newCertFile != null && !newCertFile.Exists)
-            throw new FileNotFoundException($"New certificate file not found: {newCertFile.FullName}");
-
-        // Prompt for old certificate password if not provided
-        if (string.IsNullOrEmpty(oldPassword))
+        // Prompt for certificate password if not provided
+        if (string.IsNullOrEmpty(password))
         {
-            Console.Write("Enter old certificate password: ");
-            oldPassword = ReadPassword();
+            Console.Write("Enter certificate password: ");
+            password = ReadPassword();
             Console.WriteLine();
         }
 
-        // Load old certificate and decrypt
-        var oldCertificate = X509HybridCrypto.LoadCertificate(oldCertFile.FullName, oldPassword);
-        var oldCrypto = new X509HybridCrypto(oldCertificate);
+        // Load certificate and decrypt
+        var certificate = X509HybridCrypto.LoadCertificate(certFile.FullName, password);
+        var crypto = new X509HybridCrypto(certificate);
 
         // Read JSON file
         var jsonText = await File.ReadAllTextAsync(jsonFile.FullName);
@@ -116,39 +101,13 @@ internal static class DecryptCommand
         var envelope = GetEnvelopeAtPath(rootObject, propertyPath);
 
         // Decrypt the value
-        var plaintext = oldCrypto.DecryptToString(envelope);
+        var plaintext = crypto.DecryptToString(envelope);
 
-        Console.WriteLine($"✓ Successfully decrypted value at '{propertyPath}'");
-
-        if (showValue)
+        if (replace)
         {
-            Console.WriteLine($"\n⚠️  WARNING: Plaintext secret exposed in terminal!");
-            Console.WriteLine($"Decrypted value: {plaintext}\n");
-        }
+            // Replace encrypted value with plaintext in JSON file
+            SetPlaintextAtPath(rootObject, propertyPath, plaintext);
 
-        // If new certificate provided, re-encrypt and update file
-        if (newCertFile != null)
-        {
-            Console.WriteLine("Re-encrypting with new certificate...");
-
-            // Prompt for new certificate password if not provided
-            if (string.IsNullOrEmpty(newPassword))
-            {
-                Console.Write("Enter new certificate password: ");
-                newPassword = ReadPassword();
-                Console.WriteLine();
-            }
-
-            // Load new certificate and re-encrypt
-            var newCertificate = X509HybridCrypto.LoadCertificate(newCertFile.FullName, newPassword);
-            var newCrypto = new X509HybridCrypto(newCertificate);
-
-            var newEnvelope = newCrypto.Encrypt(plaintext);
-
-            // Update the JSON file with the new envelope
-            SetEnvelopeAtPath(rootObject, propertyPath, newEnvelope);
-
-            // Write back to file with nice formatting
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,
@@ -158,13 +117,13 @@ internal static class DecryptCommand
             var updatedJson = JsonSerializer.Serialize(rootObject, options);
             await File.WriteAllTextAsync(jsonFile.FullName, updatedJson, Encoding.UTF8);
 
-            Console.WriteLine($"✓ Successfully re-encrypted value with new certificate");
-            Console.WriteLine($"  New wrapping algorithm: {newEnvelope.WrappingAlgorithm}");
+            Console.WriteLine($"✓ Successfully decrypted value at '{propertyPath}' and replaced in file");
         }
         else
         {
-            Console.WriteLine("\nNo new certificate provided. Value was decrypted but not re-encrypted.");
-            Console.WriteLine("To rotate certificates, use --new-cert option.");
+            // Default: just show the decrypted value, don't modify file
+            Console.WriteLine($"✓ Successfully decrypted value at '{propertyPath}'");
+            Console.WriteLine($"\nDecrypted value:\n{plaintext}");
         }
     }
 
@@ -207,7 +166,7 @@ internal static class DecryptCommand
         }
     }
 
-    private static void SetEnvelopeAtPath(JsonObject root, string path, HybridSecretEnvelope envelope)
+    private static void SetPlaintextAtPath(JsonObject root, string path, string plaintext)
     {
         var segments = path.Split(':', StringSplitOptions.RemoveEmptyEntries);
         if (segments.Length == 0)
@@ -230,10 +189,20 @@ internal static class DecryptCommand
             }
         }
 
-        // Set the final property to the new envelope
+        // Set the final property to the plaintext JSON value
         var finalSegment = segments[^1];
-        var envelopeJson = JsonSerializer.SerializeToNode(envelope);
-        current[finalSegment] = envelopeJson;
+        
+        // Parse plaintext as JSON to preserve type (string, number, boolean, etc.)
+        try
+        {
+            using var doc = JsonDocument.Parse(plaintext);
+            current[finalSegment] = JsonNode.Parse(plaintext);
+        }
+        catch (JsonException)
+        {
+            // If not valid JSON, treat as string literal
+            current[finalSegment] = JsonValue.Create(plaintext);
+        }
     }
 
     private static string ReadPassword()

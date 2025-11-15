@@ -24,11 +24,11 @@ internal static class EncryptCommand
             IsRequired = true
         };
 
-        var valueOption = new Option<string>(
+        var valueOption = new Option<string?>(
             aliases: ["--value", "-v"],
-            description: "The plaintext value to encrypt")
+            description: "The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path.")
         {
-            IsRequired = true
+            IsRequired = false
         };
 
         var certOption = new Option<FileInfo>(
@@ -79,7 +79,7 @@ internal static class EncryptCommand
     private static async Task EncryptValueAsync(
         FileInfo jsonFile,
         string propertyPath,
-        string plaintext,
+        string? plaintext,
         FileInfo certFile,
         string? password,
         string kid,
@@ -104,14 +104,44 @@ internal static class EncryptCommand
         // Load certificate
         var certificate = X509HybridCrypto.LoadCertificate(certFile.FullName, password);
 
-        // Use the JsonSecretsEditor to encrypt the value in the file
-        var wasCreated = await JsonSecretsEditor.EncryptValueInFileAsync(
-            jsonFile.FullName,
-            propertyPath,
-            plaintext,
-            certificate,
-            kid,
-            allowCreate);
+        bool wasCreated;
+        
+        if (plaintext is not null)
+        {
+            // Encrypt the provided value
+            // Try to parse as JSON first (handles numbers, booleans, null, objects, arrays)
+            // If parsing fails, treat as a string and serialize it
+            string jsonValue;
+            try
+            {
+                // Attempt to parse as JSON - this validates JSON syntax
+                using var doc = System.Text.Json.JsonDocument.Parse(plaintext);
+                // If successful, use the original value as-is (it's valid JSON)
+                jsonValue = plaintext;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Not valid JSON, treat as a string and serialize it with quotes
+                jsonValue = System.Text.Json.JsonSerializer.Serialize(plaintext);
+            }
+            
+            wasCreated = await JsonSecretsEditor.EncryptValueInFileAsync(
+                jsonFile.FullName,
+                propertyPath,
+                jsonValue,
+                certificate,
+                kid,
+                allowCreate);
+        }
+        else
+        {
+            // Encrypt existing value at the path
+            wasCreated = await JsonSecretsEditor.EncryptExistingValueInFileAsync(
+                jsonFile.FullName,
+                propertyPath,
+                certificate,
+                kid);
+        }
 
         var action = wasCreated ? "created file and encrypted value at" : "encrypted value at";
         Console.WriteLine($"✓ Successfully {action} '{propertyPath}' in {jsonFile.Name}");
