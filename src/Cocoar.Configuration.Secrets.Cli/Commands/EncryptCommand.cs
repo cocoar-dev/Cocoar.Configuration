@@ -10,68 +10,80 @@ internal static class EncryptCommand
     {
         var command = new Command("encrypt", "Encrypt a value and set it at a property path in a JSON file");
 
-        var fileOption = new Option<FileInfo>(
-            aliases: ["--file", "-f"],
-            description: "Path to the JSON configuration file")
+        var fileOption = new Option<FileInfo>("--file")
         {
-            IsRequired = true
+            Description = "Path to the JSON configuration file",
+            Required = true
+        };
+        fileOption.Aliases.Add("-f");
+
+        var pathOption = new Option<string>("--path")
+        {
+            Description = "Property path where to set the encrypted value (e.g. 'Database:ConnectionString' or 'ApiKeys:Stripe')",
+            Required = true
+        };
+        pathOption.Aliases.Add("-p");
+
+        var valueOption = new Option<string?>("--value")
+        {
+            Description = "The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path.",
+            Required = false
+        };
+        valueOption.Aliases.Add("-v");
+
+        var certOption = new Option<FileInfo>("--cert")
+        {
+            Description = "Path to the PFX certificate file for encryption",
+            Required = true
+        };
+        certOption.Aliases.Add("-c");
+
+        var passwordOption = new Option<string?>("--password")
+        {
+            Description = "Password for the PFX certificate (will prompt if not provided)"
+        };
+        passwordOption.Aliases.Add("-pwd");
+
+        var kidOption = new Option<string>("--kid")
+        {
+            Description = "Key identifier (kid) for the certificate",
+            DefaultValueFactory = _ => "default"
         };
 
-        var pathOption = new Option<string>(
-            aliases: ["--path", "-p"],
-            description: "Property path where to set the encrypted value (e.g. 'Database:ConnectionString' or 'ApiKeys:Stripe')")
+        var createOption = new Option<bool>("--create")
         {
-            IsRequired = true
+            Description = "Create the JSON file if it doesn't exist (prevents accidental file creation from typos)",
+            DefaultValueFactory = _ => false
         };
 
-        var valueOption = new Option<string?>(
-            aliases: ["--value", "-v"],
-            description: "The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path.")
-        {
-            IsRequired = false
-        };
+        command.Options.Add(fileOption);
+        command.Options.Add(pathOption);
+        command.Options.Add(valueOption);
+        command.Options.Add(certOption);
+        command.Options.Add(passwordOption);
+        command.Options.Add(kidOption);
+        command.Options.Add(createOption);
 
-        var certOption = new Option<FileInfo>(
-            aliases: ["--cert", "-c"],
-            description: "Path to the PFX certificate file for encryption")
-        {
-            IsRequired = true
-        };
-
-        var passwordOption = new Option<string?>(
-            aliases: ["--password", "-pwd"],
-            description: "Password for the PFX certificate (will prompt if not provided)");
-
-        var kidOption = new Option<string>(
-            aliases: ["--kid"],
-            description: "Key identifier (kid) for the certificate",
-            getDefaultValue: () => "default");
-
-        var createOption = new Option<bool>(
-            aliases: ["--create"],
-            description: "Create the JSON file if it doesn't exist (prevents accidental file creation from typos)",
-            getDefaultValue: () => false);
-
-        command.AddOption(fileOption);
-        command.AddOption(pathOption);
-        command.AddOption(valueOption);
-        command.AddOption(certOption);
-        command.AddOption(passwordOption);
-        command.AddOption(kidOption);
-        command.AddOption(createOption);
-
-        command.SetHandler(async (file, path, value, cert, password, kid, create) =>
+        command.SetAction(parseResult =>
         {
             try
             {
-                await EncryptValueAsync(file, path, value, cert, password, kid, create);
+                var file = parseResult.GetValue(fileOption);
+                var path = parseResult.GetValue(pathOption);
+                var value = parseResult.GetValue(valueOption);
+                var cert = parseResult.GetValue(certOption);
+                var password = parseResult.GetValue(passwordOption);
+                var kid = parseResult.GetValue(kidOption);
+                var create = parseResult.GetValue(createOption);
+                EncryptValueAsync(file, path, value, cert, password, kid, create).GetAwaiter().GetResult();
+                return 0;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
-                Environment.ExitCode = 1;
+                return 1;
             }
-        }, fileOption, pathOption, valueOption, certOption, passwordOption, kidOption, createOption);
+        });
 
         return command;
     }

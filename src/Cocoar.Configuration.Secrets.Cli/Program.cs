@@ -5,7 +5,7 @@ namespace Cocoar.Configuration.Secrets.Cli;
 
 internal class Program
 {
-    static async Task<int> Main(string[] args)
+    static int Main(string[] args)
     {
         var rootCommand = new RootCommand("Cocoar.Configuration.Secrets CLI - Encrypt secrets in JSON configuration files")
         {
@@ -16,6 +16,6 @@ internal class Program
             CertInfoCommand.Create()
         };
 
-        return await rootCommand.InvokeAsync(args);
+        return rootCommand.Parse(args).Invoke();
     }
 }

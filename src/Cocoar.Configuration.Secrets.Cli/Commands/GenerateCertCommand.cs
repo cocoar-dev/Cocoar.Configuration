@@ -9,54 +9,69 @@ internal static class GenerateCertCommand
     {
         var command = new Command("generate-cert", "Generate a self-signed certificate for encryption");
 
-        var outputOption = new Option<string>(
-            aliases: ["--output", "-o"],
-            description: "Output path for certificate file(s)")
+        var outputOption = new Option<string>("--output")
         {
-            IsRequired = true
+            Description = "Output path for certificate file(s)",
+            Required = true
+        };
+        outputOption.Aliases.Add("-o");
+
+        var passwordOption = new Option<string?>("--password")
+        {
+            Description = "Password for PFX file (required for --format pfx)"
+        };
+        passwordOption.Aliases.Add("-pwd");
+
+        var formatOption = new Option<string>("--format")
+        {
+            Description = "Output format: pfx (default), pem, or auto",
+            DefaultValueFactory = _ => "pfx"
         };
 
-        var passwordOption = new Option<string?>(
-            aliases: ["--password", "-pwd"],
-            description: "Password for PFX file (required for --format pfx)");
-
-        var formatOption = new Option<string>(
-            aliases: ["--format"],
-            description: "Output format: pfx (default), pem, or auto",
-            getDefaultValue: () => "pfx");
-
-        var subjectOption = new Option<string>(
-            aliases: ["--subject", "-s"],
-            description: "Certificate subject",
-            getDefaultValue: () => "CN=Cocoar Secrets");
-
-        var validYearsOption = new Option<int>(
-            aliases: ["--valid-years"],
-            description: "Validity period in years",
-            getDefaultValue: () => 1);
-
-        var keySizeOption = new Option<int>(
-            aliases: ["--key-size"],
-            description: "RSA key size (2048, 3072, or 4096)",
-            getDefaultValue: () => 2048);
-
-        var overwriteOption = new Option<bool>(
-            aliases: ["--overwrite"],
-            description: "Overwrite existing file without prompt",
-            getDefaultValue: () => false);
-
-        command.AddOption(outputOption);
-        command.AddOption(passwordOption);
-        command.AddOption(formatOption);
-        command.AddOption(subjectOption);
-        command.AddOption(validYearsOption);
-        command.AddOption(keySizeOption);
-        command.AddOption(overwriteOption);
-
-        command.SetHandler(async (output, password, format, subject, validYears, keySize, overwrite) =>
+        var subjectOption = new Option<string>("--subject")
         {
-            await ExecuteAsync(output, password, format, subject, validYears, keySize, overwrite);
-        }, outputOption, passwordOption, formatOption, subjectOption, validYearsOption, keySizeOption, overwriteOption);
+            Description = "Certificate subject",
+            DefaultValueFactory = _ => "CN=Cocoar Secrets"
+        };
+        subjectOption.Aliases.Add("-s");
+
+        var validYearsOption = new Option<int>("--valid-years")
+        {
+            Description = "Validity period in years",
+            DefaultValueFactory = _ => 1
+        };
+
+        var keySizeOption = new Option<int>("--key-size")
+        {
+            Description = "RSA key size (2048, 3072, or 4096)",
+            DefaultValueFactory = _ => 2048
+        };
+
+        var overwriteOption = new Option<bool>("--overwrite")
+        {
+            Description = "Overwrite existing file without prompt",
+            DefaultValueFactory = _ => false
+        };
+
+        command.Options.Add(outputOption);
+        command.Options.Add(passwordOption);
+        command.Options.Add(formatOption);
+        command.Options.Add(subjectOption);
+        command.Options.Add(validYearsOption);
+        command.Options.Add(keySizeOption);
+        command.Options.Add(overwriteOption);
+
+        command.SetAction(parseResult =>
+        {
+            var output = parseResult.GetValue(outputOption);
+            var password = parseResult.GetValue(passwordOption);
+            var format = parseResult.GetValue(formatOption);
+            var subject = parseResult.GetValue(subjectOption);
+            var validYears = parseResult.GetValue(validYearsOption);
+            var keySize = parseResult.GetValue(keySizeOption);
+            var overwrite = parseResult.GetValue(overwriteOption);
+            return ExecuteAsync(output, password, format, subject, validYears, keySize, overwrite).GetAwaiter().GetResult();
+        });
 
         return command;
     }

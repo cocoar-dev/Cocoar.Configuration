@@ -9,9 +9,10 @@ internal static class CertInfoCommand
         var command = new Command("cert-info", "Display information about a certificate");
 
         // TODO: Implement options and handler
-        command.SetHandler(() =>
+        command.SetAction(_ =>
         {
             Console.WriteLine("Cert-info command - coming soon");
+            return 0;
         });
 
         return command;

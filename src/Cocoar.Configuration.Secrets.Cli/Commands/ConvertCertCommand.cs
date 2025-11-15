@@ -10,49 +10,62 @@ internal static class ConvertCertCommand
     {
         var command = new Command("convert-cert", "Convert certificate between PFX and PEM formats");
 
-        var inputOption = new Option<string>(
-            aliases: ["--input", "-i"],
-            description: "Input certificate file (.pfx, .p12, .crt, .pem, .cer)")
+        var inputOption = new Option<string>("--input")
         {
-            IsRequired = true
+            Description = "Input certificate file (.pfx, .p12, .crt, .pem, .cer)",
+            Required = true
+        };
+        inputOption.Aliases.Add("-i");
+
+        var outputOption = new Option<string>("--output")
+        {
+            Description = "Output certificate file",
+            Required = true
+        };
+        outputOption.Aliases.Add("-o");
+
+        var inputPasswordOption = new Option<string?>("--input-password")
+        {
+            Description = "Password for input PFX file (required when converting from PFX)"
+        };
+        inputPasswordOption.Aliases.Add("--ipass");
+
+        var outputPasswordOption = new Option<string?>("--output-password")
+        {
+            Description = "Password for output PFX file (required when converting to PFX)"
+        };
+        outputPasswordOption.Aliases.Add("--opass");
+
+        var formatOption = new Option<string>("--format")
+        {
+            Description = "Output format: pfx, pem, or auto (detect from extension)",
+            DefaultValueFactory = _ => "auto"
+        };
+        formatOption.Aliases.Add("-f");
+
+        var overwriteOption = new Option<bool>("--overwrite")
+        {
+            Description = "Overwrite existing output file(s) without prompt",
+            DefaultValueFactory = _ => false
         };
 
-        var outputOption = new Option<string>(
-            aliases: ["--output", "-o"],
-            description: "Output certificate file")
+        command.Options.Add(inputOption);
+        command.Options.Add(outputOption);
+        command.Options.Add(inputPasswordOption);
+        command.Options.Add(outputPasswordOption);
+        command.Options.Add(formatOption);
+        command.Options.Add(overwriteOption);
+
+        command.SetAction(parseResult =>
         {
-            IsRequired = true
-        };
-
-        var inputPasswordOption = new Option<string?>(
-            aliases: ["--input-password", "--ipass"],
-            description: "Password for input PFX file (required when converting from PFX)");
-
-        var outputPasswordOption = new Option<string?>(
-            aliases: ["--output-password", "--opass"],
-            description: "Password for output PFX file (required when converting to PFX)");
-
-        var formatOption = new Option<string>(
-            aliases: ["--format", "-f"],
-            description: "Output format: pfx, pem, or auto (detect from extension)",
-            getDefaultValue: () => "auto");
-
-        var overwriteOption = new Option<bool>(
-            aliases: ["--overwrite"],
-            description: "Overwrite existing output file(s) without prompt",
-            getDefaultValue: () => false);
-
-        command.AddOption(inputOption);
-        command.AddOption(outputOption);
-        command.AddOption(inputPasswordOption);
-        command.AddOption(outputPasswordOption);
-        command.AddOption(formatOption);
-        command.AddOption(overwriteOption);
-
-        command.SetHandler(async (input, output, inputPassword, outputPassword, format, overwrite) =>
-        {
-            await ExecuteAsync(input, output, inputPassword, outputPassword, format, overwrite);
-        }, inputOption, outputOption, inputPasswordOption, outputPasswordOption, formatOption, overwriteOption);
+            var input = parseResult.GetValue(inputOption);
+            var output = parseResult.GetValue(outputOption);
+            var inputPassword = parseResult.GetValue(inputPasswordOption);
+            var outputPassword = parseResult.GetValue(outputPasswordOption);
+            var format = parseResult.GetValue(formatOption);
+            var overwrite = parseResult.GetValue(overwriteOption);
+            return ExecuteAsync(input, output, inputPassword, outputPassword, format, overwrite).GetAwaiter().GetResult();
+        });
 
         return command;
     }

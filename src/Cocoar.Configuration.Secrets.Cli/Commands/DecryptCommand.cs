@@ -12,54 +12,63 @@ internal static class DecryptCommand
     {
         var command = new Command("decrypt", "Decrypt an encrypted value from a JSON file");
 
-        var fileOption = new Option<FileInfo>(
-            aliases: ["--file", "-f"],
-            description: "Path to the JSON configuration file")
+        var fileOption = new Option<FileInfo>("--file")
         {
-            IsRequired = true
+            Description = "Path to the JSON configuration file",
+            Required = true
+        };
+        fileOption.Aliases.Add("-f");
+
+        var pathOption = new Option<string>("--path")
+        {
+            Description = "Property path of the encrypted value (e.g. 'Database:ConnectionString')",
+            Required = true
+        };
+        pathOption.Aliases.Add("-p");
+
+        var certOption = new Option<FileInfo>("--cert")
+        {
+            Description = "Path to the PFX certificate file for decryption",
+            Required = true
+        };
+        certOption.Aliases.Add("-c");
+
+        var passwordOption = new Option<string?>("--password")
+        {
+            Description = "Password for the certificate (will prompt if not provided)"
+        };
+        passwordOption.Aliases.Add("-pwd");
+
+        var replaceOption = new Option<bool>("--replace")
+        {
+            Description = "Replace the encrypted value with plaintext in the JSON file (WARNING: modifies file)",
+            DefaultValueFactory = _ => false
         };
 
-        var pathOption = new Option<string>(
-            aliases: ["--path", "-p"],
-            description: "Property path of the encrypted value (e.g. 'Database:ConnectionString')")
-        {
-            IsRequired = true
-        };
+        command.Options.Add(fileOption);
+        command.Options.Add(pathOption);
+        command.Options.Add(certOption);
+        command.Options.Add(passwordOption);
+        command.Options.Add(replaceOption);
 
-        var certOption = new Option<FileInfo>(
-            aliases: ["--cert", "-c"],
-            description: "Path to the PFX certificate file for decryption")
-        {
-            IsRequired = true
-        };
-
-        var passwordOption = new Option<string?>(
-            aliases: ["--password", "-pwd"],
-            description: "Password for the certificate (will prompt if not provided)");
-
-        var replaceOption = new Option<bool>(
-            aliases: ["--replace"],
-            description: "Replace the encrypted value with plaintext in the JSON file (WARNING: modifies file)",
-            getDefaultValue: () => false);
-
-        command.AddOption(fileOption);
-        command.AddOption(pathOption);
-        command.AddOption(certOption);
-        command.AddOption(passwordOption);
-        command.AddOption(replaceOption);
-
-        command.SetHandler(async (file, path, cert, password, replace) =>
+        command.SetAction(parseResult =>
         {
             try
             {
-                await DecryptAsync(file, path, cert, password, replace);
+                var file = parseResult.GetValue(fileOption);
+                var path = parseResult.GetValue(pathOption);
+                var cert = parseResult.GetValue(certOption);
+                var password = parseResult.GetValue(passwordOption);
+                var replace = parseResult.GetValue(replaceOption);
+                DecryptAsync(file, path, cert, password, replace).GetAwaiter().GetResult();
+                return 0;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
-                Environment.ExitCode = 1;
+                return 1;
             }
-        }, fileOption, pathOption, certOption, passwordOption, replaceOption);
+        });
 
         return command;
     }
