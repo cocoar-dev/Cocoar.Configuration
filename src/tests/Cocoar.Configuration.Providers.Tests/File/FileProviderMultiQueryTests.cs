@@ -59,11 +59,14 @@ public class FileProviderMultiQueryTests
                 await Task.Delay(10); // Rapid writes to test debouncing
             }
 
-            // Wait for all file changes to be detected and debounced
+            // Wait for all file changes to be detected and for final debounced values to arrive
             await ActiveWaitHelpers.WaitUntilAsync(
-                () => emissions1.Count > 0 && emissions2.Count > 0 && emissions3.Count > 0,
+                () => emissions1.Count > 0 && emissions2.Count > 0 && emissions3.Count > 0 &&
+                      emissions1[^1].GetProperty("value").GetInt32() == changeCount &&
+                      emissions2[^1].GetProperty("value").GetInt32() == changeCount &&
+                      emissions3[^1].GetProperty("value").GetInt32() == changeCount,
                 timeout: TimeSpan.FromSeconds(3),
-                description: "multi-file rapid changes debouncing");
+                description: "final debounced values for all files");
 
             _output.WriteLine($"File 1: made {changeCount} changes, received {emissions1.Count} emissions");
             _output.WriteLine($"File 2: made {changeCount} changes, received {emissions2.Count} emissions");
@@ -127,11 +130,13 @@ public class FileProviderMultiQueryTests
                 await Task.Delay(50); // Spaced writes
             }
 
-            // Wait for both queries to receive emissions
+            // Wait for both queries to have their final value
             await ActiveWaitHelpers.WaitUntilAsync(
-                () => emissions1.Count > 0 && emissions2.Count > 0,
+                () => emissions1.Count > 0 && emissions2.Count > 0 &&
+                      emissions1[^1].GetProperty("value").GetInt32() == 5 &&
+                      emissions2[^1].GetProperty("value").GetInt32() == 5,
                 timeout: TimeSpan.FromSeconds(2),
-                description: "shared file change detection by both queries");
+                description: "shared file final value for both queries");
 
             _output.WriteLine($"Query 1: {emissions1.Count} emissions");
             _output.WriteLine($"Query 2: {emissions2.Count} emissions");
