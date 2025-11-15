@@ -29,7 +29,8 @@ public class FileProviderStressTests
         
         var options = new FileSourceProviderOptions(tempDir.Path);
         var query = new FileSourceProviderQueryOptions("config.json", DebounceTime: TimeSpan.FromMilliseconds(50));
-        var provider = new FileSourceProvider(options);
+        // Using declaration ensures provider (file watchers) are disposed before temp file
+        using var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
         var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
@@ -41,11 +42,14 @@ public class FileProviderStressTests
             for (var i = 1; i <= changeCount; i++)
             {
                 file.WriteJson(new { value = i });
-                await Task.Delay(10); // Faster than debounce window
+                await Task.Delay(10); // Faster than debounce window to test coalescing
             }
             
-            // Wait for debouncing to settle
-            await Task.Delay(300);
+            // Wait for debouncing to settle and final emission
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions.Count > 0 && emissions[^1].GetProperty("value").GetInt32() == changeCount,
+                timeout: TimeSpan.FromSeconds(3),
+                description: "rapid file changes debouncing");
             
             _output.WriteLine($"Made {changeCount} rapid changes, received {emissions.Count} emissions");
             
@@ -73,7 +77,8 @@ public class FileProviderStressTests
         
         var options = new FileSourceProviderOptions(tempDir.Path);
         var query = new FileSourceProviderQueryOptions("highfreq.json");
-        var provider = new FileSourceProvider(options);
+        // Using declaration: dispose provider before file cleanup to release read handles (avoids delete locking on Windows)
+        using var provider = new FileSourceProvider(options);
         
         var readErrors = 0;
         var successfulReads = 0;
@@ -118,7 +123,10 @@ public class FileProviderStressTests
             await Task.WhenAll(writeTasks);
             
             // Wait for file system events to settle
-            await Task.Delay(500);
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => successfulReads > 0,
+                timeout: TimeSpan.FromSeconds(3),
+                description: "concurrent file writes completion");
             
             _output.WriteLine($"Completed {writeCount} writes, {successfulReads} successful reads, {readErrors} read errors, {emissions.Count} emissions");
             
@@ -169,10 +177,14 @@ public class FileProviderStressTests
             for (var i = 1; i <= changes; i++)
             {
                 file.WriteJson(new { shared = true, iteration = i, timestamp = DateTime.UtcNow.Ticks });
-                await Task.Delay(50);
+                await Task.Delay(50); // Deliberate spacing between writes
             }
             
-            await Task.Delay(200); // Let changes settle
+            // Wait for all providers to receive emissions
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => allEmissions.All(e => e.Count > 0),
+                timeout: TimeSpan.FromSeconds(3),
+                description: "concurrent providers receiving file changes");
             
             _output.WriteLine($"Made {changes} changes across {providerCount} concurrent providers");
             
@@ -208,7 +220,8 @@ public class FileProviderStressTests
         
         var options = new FileSourceProviderOptions(tempDir.Path);
         var query = new FileSourceProviderQueryOptions(fileName);
-        var provider = new FileSourceProvider(options);
+        // Dispose provider earlier than file to avoid lingering watchers during delete/recreate cycle
+        using var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
         var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
@@ -217,15 +230,21 @@ public class FileProviderStressTests
         {
             // Initial modification
             file.WriteJson(new { state = "modified" });
-            await Task.Delay(100);
+            await Task.Delay(100); // File system propagation delay
             
             // Delete the file
             file.Delete();
-            await Task.Delay(100);
+            await Task.Delay(100); // File system propagation delay
             
             // Recreate with different content
             file.WriteJson(new { state = "recreated", newField = "added" });
-            await Task.Delay(100);
+            
+            // Wait for recreation to be detected
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions.Any(e => e.TryGetProperty("state", out var state) && 
+                                        state.GetString() == "recreated"),
+                timeout: TimeSpan.FromSeconds(2),
+                description: "file recreation detection");
             
             _output.WriteLine($"File recreation cycle completed, received {emissions.Count} emissions");
             
@@ -253,7 +272,8 @@ public class FileProviderStressTests
         
         var options = new FileSourceProviderOptions(tempDir.Path);
         var query = new FileSourceProviderQueryOptions("recovery.json");
-        var provider = new FileSourceProvider(options);
+        // Ensure provider disposed before temp file to reduce chance of locked handle during malformed/valid transitions
+        using var provider = new FileSourceProvider(options);
         
         var emissions = new List<JsonElement>();
         var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));

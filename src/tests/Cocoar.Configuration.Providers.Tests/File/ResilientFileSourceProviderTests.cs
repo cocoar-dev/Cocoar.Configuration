@@ -191,8 +191,8 @@ public class ResilientFileSourceProviderTests
         var options = new FileSourceProviderOptions(nonExistentDir);
         using var provider = new FileSourceProvider(options);
         
-        // Provider should start in polling mode since directory doesn't exist
-        await Task.Delay(100);
+        // Allow brief moment for provider initialization
+        await Task.Delay(10);
         
         // Test FetchConfigurationAsync behavior
         try

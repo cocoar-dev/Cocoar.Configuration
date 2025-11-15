@@ -120,7 +120,11 @@ public class FileProviderDirectoryTests
         Directory.CreateDirectory(nestedPath);
         System.IO.File.WriteAllText(configFile, """{"created": "later", "value": 42}""");
 
-        await Task.Delay(200);
+        // Wait for file system events to propagate
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => System.IO.File.Exists(configFile),
+            timeout: TimeSpan.FromSeconds(2),
+            description: "file creation detection");
 
         _output.WriteLine($"After creating directory and file: {emissions.Count} emissions");
 

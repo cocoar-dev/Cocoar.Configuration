@@ -28,6 +28,8 @@ public sealed class SecretsBuilder : SetupDefinition
     internal override SetupDefinition Build() => this;
 
     internal static Composer GetComposerFor(SecretsBuilder builder) => builder._composer;
+
+    internal static ConfigManagerCapabilityScope GetCapabilityScopeFor(SecretsBuilder builder) => builder.CapabilityScope;
 }
 
 public static class SecretsSetupExtensions

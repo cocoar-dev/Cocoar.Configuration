@@ -53,7 +53,6 @@ class Program
             setup.Secrets()
                 .UseCertificateFromFile(devCertPath, devCertPassword)
                 .WithKeyId("dev-secrets")
-                .Build()
         ]).Initialize();
 
         var config = manager.GetConfig<AppConfig>();
@@ -104,7 +103,6 @@ class Program
             setup.Secrets()
                 .UseCertificateFromFile(prodCertPath, prodCertPassword)
                 .WithKeyId("prod-secrets")
-                .Build()
         ]).Initialize();
 
         var config = manager.GetConfig<AppConfig>();

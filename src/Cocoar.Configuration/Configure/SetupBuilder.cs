@@ -3,6 +3,9 @@ using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Configure;
 
+
+
+
 public abstract class SetupDefinition(ConfigManagerCapabilityScope capabilityScope) {
     protected readonly ConfigManagerCapabilityScope CapabilityScope = capabilityScope;
     internal abstract SetupDefinition Build();

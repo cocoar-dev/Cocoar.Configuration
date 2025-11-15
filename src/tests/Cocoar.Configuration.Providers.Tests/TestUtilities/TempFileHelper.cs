@@ -76,10 +76,35 @@ public sealed class TempFileHelper : IDisposable
     /// </summary>
     public void Delete()
     {
-        if (System.IO.File.Exists(FilePath))
+        if (!System.IO.File.Exists(FilePath))
         {
-            System.IO.File.Delete(FilePath);
+            return;
         }
+
+        // High-frequency file change stress tests can attempt deletion while a watcher/read handle
+        // is still being torn down. We retry briefly to avoid transient Windows sharing violations
+        // instead of marking the test flaky. This targets test reliability; production code should
+        // still fail fast on persistent locking.
+        const int maxAttempts = 25; // ~500ms worst-case
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                System.IO.File.Delete(FilePath);
+                return; // success
+            }
+            catch (IOException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(20);
+            }
+            catch (UnauthorizedAccessException) when (attempt < maxAttempts)
+            {
+                Thread.Sleep(20);
+            }
+        }
+
+        // Final attempt – allow original exception to surface for diagnosis
+        System.IO.File.Delete(FilePath);
     }
 
     public void Dispose()

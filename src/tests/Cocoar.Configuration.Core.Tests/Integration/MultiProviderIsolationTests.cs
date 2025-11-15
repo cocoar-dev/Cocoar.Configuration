@@ -121,14 +121,12 @@ public class MultiProviderIsolationTests
 
         var baselineEmissions = emissions.Count;
         subject3.OnNext("""{"Rule3Value": 101}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject2.OnNext("""{"Rule2Value": 11}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject3.OnNext("""{"Rule3Value": 102}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject1.OnNext("""{"Rule1Value": 2}""");
-
-        await Task.Delay(100);
 
         // Wait for all waves to complete - expect at least one emission after baseline
         await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count > baselineEmissions, 
@@ -197,14 +195,16 @@ public class MultiProviderIsolationTests
         for (var i = 1; i <= TOTAL_CHANGES; i++)
         {
             subject.OnNext($$$"""{"Value": {{{i}}}, "Timestamp": "change_{{{i}}}"}""");
-            await Task.Delay(2); // 2ms between changes = 20ms total (less than 50ms debounce)
+            await Task.Delay(2); // 2ms between changes to test debouncing (20ms total < 50ms debounce)
         }
-
-        await Task.Delay(100);
         
-        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count > baselineEmissions, 
-            timeout: TimeSpan.FromMilliseconds(500),
-            description: "debounced emissions completion");
+        // Wait for debouncing to complete and final value to arrive
+        await ActiveWaitHelpers.WaitUntilAsync(() => 
+            emissions.Count > baselineEmissions && 
+            emissions.Last().ContainsKey("Value") &&
+            ((JsonElement)emissions.Last()["Value"]).GetInt32() == TOTAL_CHANGES, 
+            timeout: TimeSpan.FromSeconds(1),
+            description: "final debounced value arrival");
 
         var actualEmissions = emissions.Count - baselineEmissions;
 

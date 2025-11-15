@@ -493,9 +493,8 @@ public class ConfigManagerIsolationTests : IDisposable
 
         observable1.OnNext(new() { ConnectionString = "rule1-updated", Timeout = 15 });
         
-        // Wait a bit for any recomputation
-        await Task.Delay(100);
-
+        // Allow time for recomputation
+        await Task.Delay(50);
 
         var afterRule1Update = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(afterRule1Update);

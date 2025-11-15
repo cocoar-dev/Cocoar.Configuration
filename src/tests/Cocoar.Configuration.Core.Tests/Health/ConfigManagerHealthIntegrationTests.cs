@@ -3,6 +3,7 @@ using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Health;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -54,8 +55,11 @@ public class ConfigManagerHealthIntegrationTests
 
         configManager.Initialize();
 
-        // Give it a moment for the observable to emit
-        await Task.Delay(50);
+        // Wait for the observable to emit health update
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => healthUpdates.Count >= 1,
+            timeout: TimeSpan.FromSeconds(2),
+            description: "initial health update emission");
 
         Assert.True(healthUpdates.Count >= 1);
         

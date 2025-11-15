@@ -2,6 +2,7 @@ using System.Reactive.Subjects;
 using Cocoar.Configuration.Providers;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.Core;
 
@@ -32,7 +33,11 @@ public class ConfigManagerOrchestrationTests
         Assert.Equal(1, initialConfig!.Count);
 
         behaviorSubject.OnNext(changedJson);
-        await Task.Delay(400);
+
+        // Wait for the configuration to update using condition-based waiting
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => manager.GetConfig<TestConfig>()?.Count == 2,
+            description: "configuration Count to update to 2");
 
         var updatedConfig = manager.GetConfig<TestConfig>();
         Assert.NotNull(updatedConfig);

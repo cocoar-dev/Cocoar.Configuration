@@ -47,7 +47,6 @@ class Program
             setup.Secrets()
                 .UseCertificateFromFile(certPath, certPassword)
                 .WithKeyId("dev-secrets")
-                .Build()
         ]).Initialize();
 
         // Retrieve configuration

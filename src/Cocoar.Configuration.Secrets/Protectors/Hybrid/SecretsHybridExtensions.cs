@@ -1,4 +1,5 @@
 using Cocoar.Capabilities;
+using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Secrets.Core;
 using Cocoar.Configuration.X509Encryption;
@@ -20,7 +21,7 @@ public static class SecretsHybridExtensions
     public static CertificateSetupBuilder UseCertificateFromFile(this SecretsBuilder builder, string pfxPath, string? password = null)
     {
         EnsureContributorRegistered(SecretsBuilder.GetComposerFor(builder));
-        return new(builder, SecretsBuilder.GetComposerFor(builder), pfxPath, password);
+        return new(SecretsBuilder.GetCapabilityScopeFor(builder), builder, SecretsBuilder.GetComposerFor(builder), pfxPath, password);
     }
 
     /// <summary>
@@ -68,7 +69,7 @@ public static class SecretsHybridExtensions
     }
 }
 
-public sealed class CertificateSetupBuilder
+public sealed class CertificateSetupBuilder: SetupDefinition
 {
     private readonly SecretsBuilder _setup;
     private readonly Composer? _composer;
@@ -77,7 +78,7 @@ public sealed class CertificateSetupBuilder
     private string _keyId = "hybrid-encryption";
     private readonly List<string> _additionalKids = new();
 
-    internal CertificateSetupBuilder(SecretsBuilder setup, Composer? composer, string pfxPath, string? password)
+    internal CertificateSetupBuilder(ConfigManagerCapabilityScope capabilityScope, SecretsBuilder setup, Composer? composer, string pfxPath, string? password) : base(capabilityScope)
     {
         _setup = setup;
         _composer = composer;
@@ -100,7 +101,7 @@ public sealed class CertificateSetupBuilder
         return this;
     }
 
-    public SecretsBuilder Build()
+    internal override SetupDefinition Build()
     {
         _composer?.Add(new CertificateProtectorConfig
         {

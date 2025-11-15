@@ -6,6 +6,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Rules;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -37,11 +38,14 @@ public class ConfigManagerHealthCancellationTests
         var provider = SlowCancellableProvider.LastCreatedInstance!; // Created during InitializeAsync
 
         provider.TriggerChange(new { Seq = 1 });
-        await Task.Delay(40); // allow first fetch to start
+        await Task.Delay(40); // Small delay to ensure first fetch starts before cancellation
         provider.TriggerChange(new { Seq = 2 });
 
-        // Wait long enough for the second fetch to complete (first should have been cancelled)
-        await Task.Delay(400);
+        // Wait for the second fetch to complete (first should have been cancelled)
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => healthEmissions.Count > baselineCount || healthService.Snapshot.OverallStatus == HealthStatus.Healthy,
+            timeout: TimeSpan.FromSeconds(2),
+            description: "health update after cancellation scenario");
 
         var delta = healthEmissions.Count - baselineCount;
         Assert.InRange(delta, 0, 1);

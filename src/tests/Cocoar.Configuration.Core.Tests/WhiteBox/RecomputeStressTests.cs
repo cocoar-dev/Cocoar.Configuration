@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Providers;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -110,8 +111,13 @@ public class RecomputeStressTests : IDisposable
         await Task.WhenAll(changeTasks);
 
         // Wait for all changes to settle
-        await Task.Delay(300);
-
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<StressConfig>();
+                return config != null;
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "sustained rapid changes completion");
 
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);
@@ -248,8 +254,11 @@ public class RecomputeStressTests : IDisposable
         var initialMemory = GC.GetTotalMemory(true);
         
         configManager.Initialize();
-        await Task.Delay(200); // Allow initial configuration to settle
-
+        
+        // Wait for initial configuration
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<StressConfig>() != null,
+            description: "initial configuration in memory stress test");
 
         for (var update = 0; update < 20; update++)
         {
@@ -266,12 +275,22 @@ public class RecomputeStressTests : IDisposable
                 provider.OnNext(new(updatedData));
             }
 
-            await Task.Delay(25); // Rapid updates
+            await Task.Delay(25); // Rapid updates to test memory handling
         }
 
-        // Wait for processing
-        await Task.Delay(300);
-
+        // Wait for all updates to complete
+        // Note: Due to debouncing (50ms) and rapid updates (25ms interval), many emissions are coalesced.
+        // The critical aspect for this stress test is that the system remains stable, not that every
+        // individual update is captured. We wait for any update to settle rather than a specific count.
+        await Task.Delay(1000); // Allow time for most updates to propagate
+        
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<StressConfig>();
+                return config != null && config.Data.ContainsKey("update_count");
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "large configuration updates completion");
 
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);

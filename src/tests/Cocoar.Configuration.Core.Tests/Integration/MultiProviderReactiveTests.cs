@@ -199,8 +199,8 @@ public class MultiProviderReactiveTests
 
         subject.OnNext(reorderedJson);
         
-        // Wait a bit to ensure no additional emission occurs
-        await Task.Delay(300);
+        // Wait beyond debounce window to ensure no spurious emissions
+        await Task.Delay(150); // Wait longer than debounce (100ms) to ensure stable
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         
@@ -244,8 +244,8 @@ public class MultiProviderReactiveTests
 
         subject.OnNext(formattedJson);
         
-        // Wait a bit to ensure no additional emission occurs
-        await Task.Delay(300);
+        // Wait beyond debounce window to ensure no spurious emissions
+        await Task.Delay(150); // Wait longer than debounce (100ms) to ensure stable
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         

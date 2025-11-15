@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Providers;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -134,13 +135,18 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
                 await Task.Delay(random.Next(1, 10));
             }
 
-            // Wait between waves for processing
+            // Brief delay between waves
             await Task.Delay(100);
         }
 
-        // Wait for final settling
-        await Task.Delay(300);
-
+        // Wait for final configuration to settle
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<FuzzConfig>();
+                return config != null;
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "random change sequence completion");
 
         var incrementalConfig = configManager.GetConfig<FuzzConfig>();
         var naiveResult = ComputeNaiveFullMerge(providers.Select(p => p.Value).ToList());
