@@ -17,9 +17,6 @@ public class CommandLineParserDebugTests
         
         var result = await provider.FetchConfigurationBytesAsync(queryOptions);
         
-        var jsonString = result.ToJsonElement().GetRawText();
-        System.Console.WriteLine($"JSON Result: {jsonString}");
-        
         Assert.True(result.ToJsonElement().TryGetProperty("host", out var hostProp) || result.ToJsonElement().TryGetProperty("Host", out hostProp));
         Assert.Equal("localhost", hostProp.GetString());
     }

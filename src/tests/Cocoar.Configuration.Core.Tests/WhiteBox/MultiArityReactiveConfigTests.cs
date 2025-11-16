@@ -94,7 +94,8 @@ public class MultiArityReactiveConfigTests
         subjB.OnNext(new() {Name="x"});
         
         // Wait for debounce window to pass - should still have no emissions
-        await Task.Delay(200);
+        // Using a small wait here since we're verifying NO emission happens
+        await Task.Delay(200); // Keep this one - verifying absence of emission after debounce
 
         Assert.Empty(emissions);
     }

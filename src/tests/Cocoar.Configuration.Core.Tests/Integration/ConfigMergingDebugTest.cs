@@ -60,10 +60,6 @@ public class ConfigMergingDebugTest
         var configManager = new ConfigManager(rules).Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
-        // Debug: Let's see what we actually get
-        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-        Console.WriteLine($"Merged config: {json}");
-
         // Expected flattened merge:
         // Rule 0: Name=Static, Value=100, Sub.Property=StaticProp, Sub.Number=50
         // Rule 1: Name=Observable, Sub.Property=ObservableProp  

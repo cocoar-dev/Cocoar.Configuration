@@ -127,7 +127,10 @@ public class MultiProviderPerformanceTests
         var manager = new ConfigManager(new[] { staticRule, observableRule }, null, NullLogger.Instance, Factory, debounceMilliseconds: 50)
             .Initialize();
 
-        await Task.Delay(200);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => fetchCount > 0,
+            timeout: TimeSpan.FromSeconds(1),
+            description: "StaticJsonProvider to be fetched during initialization");
         var initialFetchCount = fetchCount;
 
         Assert.True(initialFetchCount > 0, "StaticJsonProvider should have been fetched during initialization");
@@ -139,9 +142,12 @@ public class MultiProviderPerformanceTests
         Assert.True(initialConfig.Settings.ReadOnly); // From Static
         Assert.True(initialConfig.Settings.Dynamic); // From Observable
 
-        subject.OnNext("""{"Name": "UpdatedObservable", "Priority": 300, "Settings": {"Dynamic": false, "NewField": "Added"}}""");
+        subject.OnNext("""{ "Name": "UpdatedObservable", "Priority": 300, "Settings": {"Dynamic": false, "NewField": "Added"}}}""");
 
-        await Task.Delay(200);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => manager.GetConfig<TestConfig>()?.Name == "UpdatedObservable",
+            timeout: TimeSpan.FromSeconds(1),
+            description: "observable update to propagate");
 
         Assert.Equal(initialFetchCount, fetchCount);
 
@@ -197,7 +203,10 @@ public class MultiProviderPerformanceTests
         var manager = new ConfigManager(new[] { staticRule, obs1Rule, obs2Rule }, null, NullLogger.Instance, Factory, debounceMilliseconds: 100)
             .Initialize();
 
-        await Task.Delay(200);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => manager.GetConfig<TestConfig>()?.Name == "Observable2",
+            timeout: TimeSpan.FromSeconds(1),
+            description: "initial configuration to be ready");
         var initialStaticCount = staticRecomputeCount;
 
     var initialConfig = manager.GetConfig<TestConfig>();
@@ -219,9 +228,12 @@ public class MultiProviderPerformanceTests
         subject1.OnNext("""{"Name": "FinalRapid1", "Priority": 175, "Settings": {"Feature1": true, "NewProp1": "FinalValue1"}}""");
         await Task.Delay(10);
         
-        subject2.OnNext("""{"Name": "FinalRapid2", "Priority": 275, "Settings": {"Feature2": true, "NewProp2": "FinalValue2"}}""");
+        subject2.OnNext("""{ "Name": "FinalRapid2", "Priority": 275, "Settings": {"Feature2": true, "NewProp2": "FinalValue2"}}}""");
         
-        await Task.Delay(250);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => manager.GetConfig<TestConfig>()?.Name == "FinalRapid2",
+            timeout: TimeSpan.FromSeconds(1),
+            description: "final rapid changes to propagate");
         
     var finalConfig = manager.GetConfig<TestConfig>();
     Assert.NotNull(finalConfig);
@@ -280,7 +292,10 @@ public class MultiProviderPerformanceTests
         var manager = new ConfigManager(new[] { staticRule, observableRule }, null, NullLogger.Instance, Factory, debounceMilliseconds: 50)
             .Initialize();
 
-        await Task.Delay(150);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => manager.GetConfig<TestConfig>()?.Name == "InitialValue",
+            timeout: TimeSpan.FromSeconds(1),
+            description: "initial configuration from observable provider");
         
     var initialConfig = manager.GetConfig<TestConfig>();
     Assert.NotNull(initialConfig);
