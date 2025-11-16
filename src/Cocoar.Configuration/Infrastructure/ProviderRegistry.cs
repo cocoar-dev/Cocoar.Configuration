@@ -5,6 +5,24 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Infrastructure;
 
+internal static partial class ProviderRegistryLog
+{
+    [LoggerMessage(EventId = 1000, Level = LogLevel.Debug, Message = "ProviderRegistry: created non-reusable {Provider} (null key)")]
+    public static partial void ProviderCreatedNonReusable(this ILogger logger, string Provider);
+
+    [LoggerMessage(EventId = 1001, Level = LogLevel.Debug, Message = "ProviderRegistry: created {Provider} with key {Key}")]
+    public static partial void ProviderCreatedWithKey(this ILogger logger, string Provider, string Key);
+
+    [LoggerMessage(EventId = 1002, Level = LogLevel.Debug, Message = "ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}")]
+    public static partial void ProviderAcquire(this ILogger logger, string Provider, string Key, int RefCount);
+
+    [LoggerMessage(EventId = 1003, Level = LogLevel.Debug, Message = "ProviderRegistry: release {Provider} {Key} -> RefCount={RefCount}")]
+    public static partial void ProviderRelease(this ILogger logger, string Provider, string Key, int RefCount);
+
+    [LoggerMessage(EventId = 1004, Level = LogLevel.Debug, Message = "ProviderRegistry: disposing {Provider} {Key}")]
+    public static partial void ProviderDisposing(this ILogger logger, string Provider, string Key);
+}
+
 internal sealed class ProviderRegistry(
     ILogger? logger = null,
     bool enableDiagnostics = false,
@@ -81,7 +99,7 @@ internal sealed class ProviderRegistry(
             var provider = CreateProvider(providerType, options);
             if (enableDiagnostics)
             {
-                _logger.LogDebug("ProviderRegistry: created non-reusable {Provider} (null key)", providerType.Name);
+                _logger.ProviderCreatedNonReusable(providerType.Name);
             }
 
             var nonReusableEntry = new Entry
@@ -105,7 +123,7 @@ internal sealed class ProviderRegistry(
             };
             if (enableDiagnostics)
             {
-                _logger.LogDebug("ProviderRegistry: created {Provider} with key {Key}", providerType.Name, key);
+                _logger.ProviderCreatedWithKey(providerType.Name, key);
             }
 
             return created;
@@ -113,7 +131,7 @@ internal sealed class ProviderRegistry(
         var newCount = isNewEntry ? 1 : Interlocked.Increment(ref entry.RefCount);
         if (enableDiagnostics)
         {
-            _logger.LogDebug("ProviderRegistry: acquire {Provider} {Key} -> RefCount={RefCount}", providerType.Name, key, newCount);
+            _logger.ProviderAcquire(providerType.Name, key, newCount);
         }
 
         return ProviderHandle.Create(this, id, entry);
@@ -124,7 +142,7 @@ internal sealed class ProviderRegistry(
         var count = Interlocked.Decrement(ref entry.RefCount);
         if (enableDiagnostics)
         {
-            _logger.LogDebug("ProviderRegistry: release {Provider} {Key} -> RefCount={RefCount}", id.type.Name, id.key, count);
+            _logger.ProviderRelease(id.type.Name, id.key, count);
         }
 
         if (count != 0)
@@ -144,7 +162,7 @@ internal sealed class ProviderRegistry(
 
         if (enableDiagnostics)
         {
-            _logger.LogDebug("ProviderRegistry: disposing {Provider} {Key}", id.type.Name, id.key);
+            _logger.ProviderDisposing(id.type.Name, id.key);
         }
 
         Safety.DisposeQuietly(disp);

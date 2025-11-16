@@ -39,15 +39,8 @@ public class ConfigRule(
             concreteType,
             options)
     {
-        if (providerOptions is null)
-        {
-            throw new ArgumentNullException(nameof(providerOptions));
-        }
-
-        if (queryOptions is null)
-        {
-            throw new ArgumentNullException(nameof(queryOptions));
-        }
+        ArgumentNullException.ThrowIfNull(providerOptions);
+        ArgumentNullException.ThrowIfNull(queryOptions);
     }
 
     /// <summary>

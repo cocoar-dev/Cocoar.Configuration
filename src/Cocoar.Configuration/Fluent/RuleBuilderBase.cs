@@ -5,12 +5,12 @@ namespace Cocoar.Configuration.Fluent;
 public abstract class RuleBuilderBase<TBuilder>
     where TBuilder : RuleBuilderBase<TBuilder>
 {
-    protected bool IsRequired;
-    protected Func<IConfigurationAccessor, bool>? UseWhen;
-    protected Type? ConcreteType;
-    protected string? MountPath;
-    protected string? SelectPath;
-    protected string? Name;
+    protected bool IsRequired { get; set; }
+    protected Func<IConfigurationAccessor, bool>? UseWhen { get; set; }
+    protected Type? ConcreteType { get; set; }
+    protected string? MountPath { get; set; }
+    protected string? SelectPath { get; set; }
+    protected string? Name { get; set; }
 
     public TBuilder Required(bool value = true)
     {

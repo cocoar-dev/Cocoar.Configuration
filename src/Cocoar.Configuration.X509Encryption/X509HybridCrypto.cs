@@ -143,6 +143,6 @@ public sealed class X509HybridCrypto
         if (!File.Exists(pfxPath))
             throw new FileNotFoundException($"Certificate file not found: {pfxPath}", pfxPath);
 
-        return new X509Certificate2(pfxPath, password, X509KeyStorageFlags.Exportable);
+        return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, password, X509KeyStorageFlags.Exportable);
     }
 }

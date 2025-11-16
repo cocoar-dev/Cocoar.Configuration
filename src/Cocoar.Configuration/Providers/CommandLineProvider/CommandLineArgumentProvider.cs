@@ -47,7 +47,7 @@ public sealed class CommandLineArgumentProvider(CommandLineProviderOptions optio
             string? matchedPrefix = null;
             foreach (var prefix in switchPrefixes)
             {
-                if (arg.StartsWith(prefix))
+                if (arg.StartsWith(prefix, StringComparison.Ordinal))
                 {
                     matchedPrefix = prefix;
                     break;
@@ -86,7 +86,7 @@ public sealed class CommandLineArgumentProvider(CommandLineProviderOptions optio
     {
         foreach (var prefix in prefixes)
         {
-            if (arg.StartsWith(prefix))
+            if (arg.StartsWith(prefix, StringComparison.Ordinal))
             {
                 return true;
             }

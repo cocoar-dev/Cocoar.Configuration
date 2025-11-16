@@ -64,7 +64,8 @@ internal static class ConvertCertCommand
             var outputPassword = parseResult.GetValue(outputPasswordOption);
             var format = parseResult.GetValue(formatOption);
             var overwrite = parseResult.GetValue(overwriteOption);
-            return ExecuteAsync(input, output, inputPassword, outputPassword, format, overwrite).GetAwaiter().GetResult();
+            // inputOption and outputOption have Required = true; formatOption has DefaultValueFactory
+            return ExecuteAsync(input!, output!, inputPassword, outputPassword, format!, overwrite).GetAwaiter().GetResult();
         });
 
         return command;
@@ -123,7 +124,7 @@ internal static class ConvertCertCommand
                 else
                 {
                     // PFX → PFX: password change or removal
-                    cert = new X509Certificate2(input, inputPassword, X509KeyStorageFlags.Exportable);
+                    cert = X509CertificateLoader.LoadPkcs12FromFile(input, inputPassword, X509KeyStorageFlags.Exportable);
                     var exportBytes = cert.Export(X509ContentType.Pfx, outputPassword);
                     File.WriteAllBytes(output, exportBytes);
                 }

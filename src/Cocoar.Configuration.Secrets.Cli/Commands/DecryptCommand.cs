@@ -8,6 +8,12 @@ namespace Cocoar.Configuration.Secrets.Cli.Commands;
 
 internal static class DecryptCommand
 {
+    private static readonly JsonSerializerOptions IndentedJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     public static Command Create()
     {
         var command = new Command("decrypt", "Decrypt an encrypted value from a JSON file");
@@ -60,7 +66,8 @@ internal static class DecryptCommand
                 var cert = parseResult.GetValue(certOption);
                 var password = parseResult.GetValue(passwordOption);
                 var replace = parseResult.GetValue(replaceOption);
-                DecryptAsync(file, path, cert, password, replace).GetAwaiter().GetResult();
+                // fileOption, pathOption, certOption have Required = true
+                DecryptAsync(file!, path!, cert!, password, replace).GetAwaiter().GetResult();
                 return 0;
             }
             catch (Exception ex)
@@ -117,13 +124,7 @@ internal static class DecryptCommand
             // Replace encrypted value with plaintext in JSON file
             SetPlaintextAtPath(rootObject, propertyPath, plaintext);
 
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-
-            var updatedJson = JsonSerializer.Serialize(rootObject, options);
+            var updatedJson = JsonSerializer.Serialize(rootObject, IndentedJsonOptions);
             await File.WriteAllTextAsync(jsonFile.FullName, updatedJson, Encoding.UTF8);
 
             Console.WriteLine($"✓ Successfully decrypted value at '{propertyPath}' and replaced in file");

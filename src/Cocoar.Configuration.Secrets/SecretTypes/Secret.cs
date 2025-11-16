@@ -35,8 +35,7 @@ public sealed class Secret<T> : IDisposable
 
     public SecretLease<T> Open()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(Secret<T>));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         ValidatePlaintextAccess();
 
@@ -101,7 +100,7 @@ public sealed class Secret<T> : IDisposable
         return protector.UnprotectInternal(envelope, env.Kid);
     }
 
-    private SecretLease<T> DeserializeAndCreateLease(byte[] bytes, bool needsCleanup)
+    private static SecretLease<T> DeserializeAndCreateLease(byte[] bytes, bool needsCleanup)
     {
         // Special handling for byte[] type
         if (typeof(T) == typeof(byte[]))

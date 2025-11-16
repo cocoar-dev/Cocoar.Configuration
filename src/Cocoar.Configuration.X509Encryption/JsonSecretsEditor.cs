@@ -11,6 +11,12 @@ namespace Cocoar.Configuration.X509Encryption;
 /// </summary>
 public static class JsonSecretsEditor
 {
+    private static readonly JsonSerializerOptions IndentedJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     /// <summary>
     /// Encrypts a value and sets it at the specified property path in a JSON file.
     /// </summary>
@@ -76,13 +82,7 @@ public static class JsonSecretsEditor
         SetValueAtPath(rootObject, propertyPath, envelope, kid);
 
         // Write back to file with nice formatting
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
-
-        var updatedJson = JsonSerializer.Serialize(rootObject, options);
+        var updatedJson = JsonSerializer.Serialize(rootObject, IndentedJsonOptions);
         await File.WriteAllTextAsync(jsonFilePath, updatedJson, Encoding.UTF8);
 
         return !fileExists; // Return true if we created the file
@@ -136,13 +136,7 @@ public static class JsonSecretsEditor
         SetValueAtPath(rootObject, propertyPath, envelope, kid);
 
         // Write back to file
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
-
-        var updatedJson = JsonSerializer.Serialize(rootObject, options);
+        var updatedJson = JsonSerializer.Serialize(rootObject, IndentedJsonOptions);
         await File.WriteAllTextAsync(jsonFilePath, updatedJson, Encoding.UTF8);
 
         return false; // File already existed
@@ -234,13 +228,7 @@ public static class JsonSecretsEditor
         SetValueAtPath(rootObject, propertyPath, newEnvelope, kidToUse);
 
         // Write back to file
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
-
-        var updatedJson = JsonSerializer.Serialize(rootObject, options);
+        var updatedJson = JsonSerializer.Serialize(rootObject, IndentedJsonOptions);
         await File.WriteAllTextAsync(jsonFilePath, updatedJson, Encoding.UTF8);
     }
 

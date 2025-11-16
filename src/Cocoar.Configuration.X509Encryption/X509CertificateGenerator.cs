@@ -202,7 +202,7 @@ public static class X509CertificateGenerator
             throw new IOException($"Private key file already exists: {keyPath}. Use overwrite=true to replace.");
 
         // Load PFX with private key
-        var cert = new X509Certificate2(pfxPath, pfxPassword, X509KeyStorageFlags.Exportable);
+        var cert = X509CertificateLoader.LoadPkcs12FromFile(pfxPath, pfxPassword, X509KeyStorageFlags.Exportable);
 
         if (!cert.HasPrivateKey)
         {

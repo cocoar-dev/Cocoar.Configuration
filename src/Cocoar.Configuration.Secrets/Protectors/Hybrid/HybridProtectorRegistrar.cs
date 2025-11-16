@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Cocoar.Configuration.Core;
@@ -90,7 +91,7 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
         RegisterProtector(protector);
     }
 
-    private void ValidateCertificateStructure(CertificateProtectorConfig config)
+    private static void ValidateCertificateStructure(CertificateProtectorConfig config)
     {
         // Skip validation for single-kid mode
         if (config.ForceSingleKid != null)
@@ -116,10 +117,10 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
             }
         }
 
-        if (violations.Any())
+        if (violations.Count > 0)
         {
             var errorMsg = new StringBuilder();
-            errorMsg.AppendLine($"Certificate folder structure violates MaxKidDepth={config.MaxKidDepth}.");
+            errorMsg.AppendLine(CultureInfo.InvariantCulture, $"Certificate folder structure violates MaxKidDepth={config.MaxKidDepth}.");
             errorMsg.AppendLine();
             errorMsg.AppendLine("The following certificates are too deeply nested:");
             errorMsg.AppendLine();
@@ -128,12 +129,12 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
                 errorMsg.AppendLine(violation);
             }
             errorMsg.AppendLine();
-            errorMsg.AppendLine($"With MaxKidDepth={config.MaxKidDepth}, certificates must be:");
+            errorMsg.AppendLine(CultureInfo.InvariantCulture, $"With MaxKidDepth={config.MaxKidDepth}, certificates must be:");
             errorMsg.AppendLine("  • Directly in BasePath (depth 0, fallback certificates)");
             errorMsg.AppendLine("  • In immediate child folders (depth 1, kid folders)");
             if (config.MaxKidDepth > 1)
             {
-                errorMsg.AppendLine($"  • Up to depth {config.MaxKidDepth} within kid folders (depth 1+{config.MaxKidDepth} total)");
+                errorMsg.AppendLine(CultureInfo.InvariantCulture, $"  • Up to depth {config.MaxKidDepth} within kid folders (depth 1+{config.MaxKidDepth} total)");
             }
             errorMsg.AppendLine();
             errorMsg.AppendLine("Expected structure:");
@@ -168,6 +169,11 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
 /// </summary>
 internal sealed class SingleKidProtectorWrapper : IRuntimeSecretEncryptor
 {
+    private static readonly System.Text.Json.JsonSerializerOptions EnvelopeDeserializationOptions = new()
+    {
+        Converters = { new Cocoar.Configuration.Secrets.Converters.Base64UrlByteArrayConverter() }
+    };
+
     private readonly CertificateInventory _inventory;
     private readonly HashSet<string> _acceptedKids;
 
@@ -214,9 +220,6 @@ internal sealed class SingleKidProtectorWrapper : IRuntimeSecretEncryptor
 
     public IEncryptedEnvelope DeserializeEnvelope(string json)
     {
-        return System.Text.Json.JsonSerializer.Deserialize<HybridEnvelope>(json, new System.Text.Json.JsonSerializerOptions
-        {
-            Converters = { new Cocoar.Configuration.Secrets.Converters.Base64UrlByteArrayConverter() }
-        })!;
+        return System.Text.Json.JsonSerializer.Deserialize<HybridEnvelope>(json, EnvelopeDeserializationOptions)!;
     }
 }

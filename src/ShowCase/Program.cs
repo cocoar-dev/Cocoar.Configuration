@@ -33,7 +33,10 @@ public class Program
         app.MapGet("/creds", (StartUpConfiguration conf) =>
         {
             var secret = conf.MySecret.Open().Value;
-            int.TryParse(secret, out var secretValue);
+            if (!int.TryParse(secret, out var secretValue))
+            {
+                return $"Invalid secret format: expected integer, got '{secret}'";
+            }
             var networkCredsConfig = conf.Credentials.Open().Value;
             var networkCreds = networkCredsConfig.ToNetworkCredential();
             return $"Username: {networkCreds.UserName}, Domain: {networkCreds.Domain}, Password Length: {networkCreds.Password.Length}";

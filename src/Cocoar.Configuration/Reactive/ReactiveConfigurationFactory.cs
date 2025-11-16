@@ -5,6 +5,18 @@ using Cocoar.Configuration.Infrastructure;
 
 namespace Cocoar.Configuration.Reactive;
 
+internal static partial class ReactiveConfigurationFactoryLog
+{
+    [LoggerMessage(EventId = 6400, Level = LogLevel.Warning, Message = "Failed to locate GetReactiveConfig for type {Type}")]
+    public static partial void MissingGetReactiveConfig(this ILogger logger, Type Type);
+
+    [LoggerMessage(EventId = 6401, Level = LogLevel.Warning, Message = "Failed to locate GetConfig for type {Type}")]
+    public static partial void MissingGetConfig(this ILogger logger, Type Type);
+
+    [LoggerMessage(EventId = 6402, Level = LogLevel.Warning, Message = "Failed to prime reactive configuration for tuple element {Type}")]
+    public static partial void PrimeReactiveConfigFailed(this ILogger logger, Exception exception, Type Type);
+}
+
 internal class ReactiveConfigurationFactory(
     ReactiveConfigManager reactiveConfigManager,
     List<ConfigRule> rules,
@@ -23,7 +35,7 @@ internal class ReactiveConfigurationFactory(
     }
 
     private static bool IsValueTupleType(Type t) => 
-        t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple");
+        t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal);
 
     private object CreateTupleReactiveConfig(Type tupleType)
     {
@@ -69,7 +81,7 @@ internal class ReactiveConfigurationFactory(
                     .MakeGenericMethod(et);
                 if (reactiveMethod == null)
                 {
-                    logger.LogWarning("Failed to locate GetReactiveConfig for type {Type}", et);
+                    logger.MissingGetReactiveConfig(et);
                     continue;
                 }
 
@@ -78,7 +90,7 @@ internal class ReactiveConfigurationFactory(
                     .MakeGenericMethod(et);
                 if (accessorMethod == null)
                 {
-                    logger.LogWarning("Failed to locate GetConfig for type {Type}", et);
+                    logger.MissingGetConfig(et);
                     continue;
                 }
 
@@ -89,7 +101,7 @@ internal class ReactiveConfigurationFactory(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to prime reactive configuration for tuple element {Type}", et);
+                logger.PrimeReactiveConfigFailed(ex, et);
             }
         }
 
@@ -99,7 +111,7 @@ internal class ReactiveConfigurationFactory(
 
     private static IEnumerable<Type> FlattenTuple(Type t)
     {
-        if (!(t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple")))
+        if (!(t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal)))
         {
             yield break;
         }
@@ -107,7 +119,7 @@ internal class ReactiveConfigurationFactory(
         var fields = t.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
         foreach (var f in fields)
         {
-            if (f is { Name: "Rest", FieldType.FullName: not null } && f.FieldType.FullName.StartsWith("System.ValueTuple"))
+            if (f is { Name: "Rest", FieldType.FullName: not null } && f.FieldType.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal))
             {
                 foreach (var inner in FlattenTuple(f.FieldType))
                 {

@@ -60,19 +60,19 @@ internal static class CertInfoCommand
             {
                 try
                 {
-                    cert = new X509Certificate2(input, password, X509KeyStorageFlags.Exportable);
+                    cert = X509CertificateLoader.LoadPkcs12FromFile(input, password, X509KeyStorageFlags.Exportable);
                     isPasswordProtected = true;
                 }
                 catch
                 {
-                    cert = new X509Certificate2(input, (string?)null, X509KeyStorageFlags.Exportable);
+                    cert = X509CertificateLoader.LoadPkcs12FromFile(input, null, X509KeyStorageFlags.Exportable);
                 }
             }
             else
             {
                 try
                 {
-                    cert = new X509Certificate2(input, (string?)null, X509KeyStorageFlags.Exportable);
+                    cert = X509CertificateLoader.LoadPkcs12FromFile(input, null, X509KeyStorageFlags.Exportable);
                 }
                 catch (CryptographicException ex)
                 {
@@ -133,19 +133,24 @@ internal static class CertInfoCommand
                 Console.WriteLine("🔑 Key Information");
                 Console.ResetColor();
                 
-                if (cert.PublicKey.Key is RSA rsa)
+                var rsa = cert.GetRSAPublicKey();
+                if (rsa is not null)
                 {
                     Console.WriteLine($"   Algorithm:     RSA");
                     Console.WriteLine($"   Key Size:      {rsa.KeySize} bits");
                 }
-                else if (cert.PublicKey.Key is ECDsa ecdsa)
-                {
-                    Console.WriteLine($"   Algorithm:     ECDSA");
-                    Console.WriteLine($"   Key Size:      {ecdsa.KeySize} bits");
-                }
                 else
                 {
-                    Console.WriteLine($"   Algorithm:     {cert.PublicKey.Oid.FriendlyName}");
+                    var ecdsa = cert.GetECDsaPublicKey();
+                    if (ecdsa is not null)
+                    {
+                        Console.WriteLine($"   Algorithm:     ECDSA");
+                        Console.WriteLine($"   Key Size:      {ecdsa.KeySize} bits");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   Algorithm:     {cert.PublicKey.Oid.FriendlyName}");
+                    }
                 }
 
                 Console.WriteLine($"   Has Private Key: {(cert.HasPrivateKey ? "✓ Yes" : "✗ No")}");

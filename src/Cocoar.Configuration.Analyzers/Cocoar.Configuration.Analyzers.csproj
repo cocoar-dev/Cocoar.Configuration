@@ -10,10 +10,18 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Required for analyzer projects to satisfy RS1036 -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Cocoar.Configuration.Analyzers.Tests" />
+  </ItemGroup>
+
+  <!-- Analyzer release tracking files to satisfy RS2008 -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 
   <PropertyGroup>

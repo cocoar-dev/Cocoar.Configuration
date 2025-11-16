@@ -47,7 +47,7 @@ internal sealed class CertificateInventory : IDisposable
             .Watch(_folderPath);
         
         // Apply file filters - v2.1.0 supports multiple patterns via .WithFilter()
-        if (_searchPattern.Contains(";"))
+        if (_searchPattern.Contains(';'))
         {
             // Multiple patterns (semicolon-separated) - add each separately
             var patterns = _searchPattern.Split(';', StringSplitOptions.RemoveEmptyEntries);
@@ -304,7 +304,7 @@ internal sealed class CertificateInventory : IDisposable
         envelope.WrappedKey.CopyTo(hashInput, envelope.Ciphertext.Length + envelope.Iv.Length);
         envelope.Tag.CopyTo(hashInput, envelope.Ciphertext.Length + envelope.Iv.Length + envelope.WrappedKey.Length);
         
-        var hash = sha.ComputeHash(hashInput);
+        var hash = SHA256.HashData(hashInput);
         return Convert.ToBase64String(hash);
     }
     
@@ -338,12 +338,12 @@ internal sealed class CertificateInventory : IDisposable
         }
     }
     
-    private IEnumerable<string> DiscoverCertificates()
+    private HashSet<string> DiscoverCertificates()
     {
         var discoveredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         
         // Determine patterns to search
-        var patterns = _searchPattern.Contains(";")
+        var patterns = _searchPattern.Contains(';')
             ? _searchPattern.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim()).ToArray()
             : _searchPattern == "*" || _searchPattern == "*.*"
                 ? new[] { "*.pfx", "*.p12", "*.pem", "*.crt", "*.cer" }

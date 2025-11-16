@@ -8,6 +8,27 @@ using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
+internal static partial class ConfigurationEngineLog
+{
+    [LoggerMessage(EventId = 2000, Level = LogLevel.Error, Message = "ConfigManager initialization failed")]
+    public static partial void InitializationFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 2001, Level = LogLevel.Error, Message = "Runtime recompute failed - preserving current configuration")]
+    public static partial void RuntimeRecomputeFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 2002, Level = LogLevel.Debug, Message = "Recompute started")]
+    public static partial void RecomputeStarted(this ILogger logger);
+
+    [LoggerMessage(EventId = 2003, Level = LogLevel.Debug, Message = "Recompute cancelled")]
+    public static partial void RecomputeCancelled(this ILogger logger);
+
+    [LoggerMessage(EventId = 2004, Level = LogLevel.Debug, Message = "Recompute finished")]
+    public static partial void RecomputeFinished(this ILogger logger);
+
+    [LoggerMessage(EventId = 2005, Level = LogLevel.Error, Message = "Recompute failed from change trigger")]
+    public static partial void RecomputeFailedFromChange(this ILogger logger, Exception exception);
+}
+
 /// <summary>
 /// Central engine for configuration computation and change management.
 /// Handles initialization, recomputation, task scheduling, and change subscriptions.
@@ -55,7 +76,7 @@ internal class ConfigurationEngine : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "ConfigManager initialization failed");
+            _logger.InitializationFailed(ex);
             _state.ReportFailedRecompute(0, ex);
             throw;
         }
@@ -88,7 +109,7 @@ internal class ConfigurationEngine : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Runtime recompute failed - preserving current configuration");
+                    _logger.RuntimeRecomputeFailed(ex);
                     _state.ReportFailedRecompute(startIndex, ex);
                 }
             }, cts.Token);
@@ -107,14 +128,14 @@ internal class ConfigurationEngine : IDisposable
         _recomputeSemaphore.Wait(cancellationToken);
         try
         {
-            _logger.LogDebug("Recompute started");
+            _logger.RecomputeStarted();
             try
             {
                 RecomputeAllConfigurations(ruleManagers, configAccessor, startIndex, cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                _logger.LogDebug("Recompute cancelled");
+                _logger.RecomputeCancelled();
                 _state.RollbackUpdate();
                 throw;
             }
@@ -125,7 +146,7 @@ internal class ConfigurationEngine : IDisposable
             }
             finally
             {
-                _logger.LogDebug("Recompute finished");
+                _logger.RecomputeFinished();
             }
         }
         finally
@@ -146,14 +167,14 @@ internal class ConfigurationEngine : IDisposable
         await _recomputeSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            _logger.LogDebug("Recompute started");
+            _logger.RecomputeStarted();
             try
             {
                 await RecomputeAllConfigurationsAsync(ruleManagers, configAccessor, startIndex, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                _logger.LogDebug("Recompute cancelled");
+                _logger.RecomputeCancelled();
                 _state.RollbackUpdate();
                 throw;
             }
@@ -164,7 +185,7 @@ internal class ConfigurationEngine : IDisposable
             }
             finally
             {
-                _logger.LogDebug("Recompute finished");
+                _logger.RecomputeFinished();
             }
         }
         finally
@@ -211,7 +232,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void RestorePrefixContributions(
-        IReadOnlyList<RuleManager> orderedManagers,
+        List<RuleManager> orderedManagers,
         int startIndex,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
         CancellationToken cancellationToken)
@@ -239,7 +260,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void RecomputeSuffix(
-        IReadOnlyList<RuleManager> orderedManagers,
+        List<RuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -257,7 +278,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private async Task RecomputeSuffixAsync(
-        IReadOnlyList<RuleManager> orderedManagers,
+        List<RuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -355,7 +376,7 @@ internal class ConfigurationEngine : IDisposable
                 }
                 catch (Exception ex) 
                 { 
-                    _logger.LogError(ex, "Recompute failed from change trigger"); 
+                    _logger.RecomputeFailedFromChange(ex); 
                 }
             });
             _changeSubscriptions.Add(subscription);

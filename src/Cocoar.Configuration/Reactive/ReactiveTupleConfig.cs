@@ -8,6 +8,21 @@ using Cocoar.Configuration.Core;
 namespace Cocoar.Configuration.Reactive;
 
 
+internal static partial class ReactiveTupleConfigLog
+{
+    [LoggerMessage(EventId = 6100, Level = LogLevel.Warning, Message = "Tuple reactive config stream error ignored to keep alive for {TupleType}")]
+    public static partial void TupleStreamErrorIgnored(this ILogger logger, Exception exception, string TupleType);
+
+    [LoggerMessage(EventId = 6101, Level = LogLevel.Warning, Message = "Failed to build CurrentValue for tuple {TupleType}")]
+    public static partial void BuildCurrentValueFailed(this ILogger logger, Exception exception, string TupleType);
+
+    [LoggerMessage(EventId = 6102, Level = LogLevel.Debug, Message = "Tuple pass alignment discrepancy for {TupleType}: got {IncomingPass} expected {CurrentPass}")]
+    public static partial void TuplePassAlignmentDiscrepancy(this ILogger logger, string TupleType, long IncomingPass, long CurrentPass);
+
+    [LoggerMessage(EventId = 6103, Level = LogLevel.Warning, Message = "Failed building tuple emission for {TupleType}")]
+    public static partial void BuildTupleEmissionFailed(this ILogger logger, Exception exception, string TupleType);
+}
+
 internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDisposable where TTuple : struct
 {
     private readonly ILogger _logger;
@@ -53,7 +68,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
         _observable = merged
             .Catch<TTuple, Exception>(ex =>
             {
-                _logger.LogWarning(ex, "Tuple reactive config stream error ignored to keep alive for {TupleType}", typeof(TTuple).Name);
+                _logger.TupleStreamErrorIgnored(ex, typeof(TTuple).Name);
                 return Observable.Empty<TTuple>();
             })
             .Retry()
@@ -81,7 +96,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to build CurrentValue for tuple {TupleType}", typeof(TTuple).Name);
+                _logger.BuildCurrentValueFailed(ex, typeof(TTuple).Name);
                 return default;
             }
         }
@@ -138,7 +153,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
                     }
                     else if (env.PassId != currentPassId)
                     {
-                        _logger.LogDebug("Tuple pass alignment discrepancy for {TupleType}: got {IncomingPass} expected {CurrentPass}", typeof(TTuple).Name, env.PassId, currentPassId);
+                        _logger.TuplePassAlignmentDiscrepancy(typeof(TTuple).Name, env.PassId, currentPassId);
                         Reset(env.PassId);
                     }
 
@@ -165,7 +180,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogWarning(ex, "Failed building tuple emission for {TupleType}", typeof(TTuple).Name);
+                                _logger.BuildTupleEmissionFailed(ex, typeof(TTuple).Name);
                             }
                         }
                         currentPassId = -1;
@@ -227,7 +242,7 @@ internal static class TupleShapeCache
         }
     }
 
-    private static bool IsValueTuple(Type t) => t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple");
+    private static bool IsValueTuple(Type t) => t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal);
 
     private static Func<object?[], object> CompileBuilder(Type[] elements)
     {

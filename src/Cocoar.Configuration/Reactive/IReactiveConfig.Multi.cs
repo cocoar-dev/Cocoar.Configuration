@@ -4,6 +4,21 @@ using Microsoft.Extensions.Logging;
 namespace Cocoar.Configuration.Reactive;
 
 
+internal static partial class ReactiveCohortLog
+{
+    [LoggerMessage(EventId = 6300, Level = LogLevel.Warning, Message = "Cohort<T1,T2> stream error ignored to keep alive")]
+    public static partial void CohortT1T2StreamError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 6301, Level = LogLevel.Warning, Message = "Cohort<T1,T2,T3> stream error ignored to keep alive")]
+    public static partial void CohortT1T2T3StreamError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 6302, Level = LogLevel.Warning, Message = "Cohort<T1..T4> stream error ignored to keep alive")]
+    public static partial void CohortT1ToT4StreamError(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 6303, Level = LogLevel.Warning, Message = "Cohort<T1..T5> stream error ignored to keep alive")]
+    public static partial void CohortT1ToT5StreamError(this ILogger logger, Exception exception);
+}
+
 public interface IReactiveConfig<T1, T2> : IObservable<(T1, T2)>
 {
     (T1, T2) Current { get; }
@@ -43,7 +58,7 @@ internal sealed class ReactiveCohort<T1, T2> : IReactiveConfig<T1, T2>, IDisposa
             .Select(t => (t.e1.Value, t.e2.Value))
             .Catch<(T1, T2), Exception>(ex =>
             {
-                logger.LogWarning(ex, "Cohort<T1,T2> stream error ignored to keep alive");
+                logger.CohortT1T2StreamError(ex);
                 return Observable.Empty<(T1, T2)>();
             })
             .Retry()
@@ -78,7 +93,7 @@ internal sealed class ReactiveCohort<T1, T2, T3> : IReactiveConfig<T1, T2, T3>, 
             .Select(t => (t.a.Value, t.b.Value, t.c.Value))
             .Catch<(T1, T2, T3), Exception>(ex =>
             {
-                logger.LogWarning(ex, "Cohort<T1,T2,T3> stream error ignored to keep alive");
+                logger.CohortT1T2T3StreamError(ex);
                 return Observable.Empty<(T1, T2, T3)>();
             })
             .Retry()
@@ -115,7 +130,7 @@ internal sealed class ReactiveCohort<T1, T2, T3, T4> : IReactiveConfig<T1, T2, T
             .Select(t => (t.a.Value, t.b.Value, t.c.Value, t.d.Value))
             .Catch<(T1, T2, T3, T4), Exception>(ex =>
             {
-                logger.LogWarning(ex, "Cohort<T1..T4> stream error ignored to keep alive");
+                logger.CohortT1ToT4StreamError(ex);
                 return Observable.Empty<(T1, T2, T3, T4)>();
             })
             .Retry()
@@ -154,7 +169,7 @@ internal sealed class ReactiveCohort<T1, T2, T3, T4, T5> : IReactiveConfig<T1, T
             .Select(t => (t.a.Value, t.b.Value, t.c.Value, t.d.Value, t.e.Value))
             .Catch<(T1, T2, T3, T4, T5), Exception>(ex =>
             {
-                logger.LogWarning(ex, "Cohort<T1..T5> stream error ignored to keep alive");
+                logger.CohortT1ToT5StreamError(ex);
                 return Observable.Empty<(T1, T2, T3, T4, T5)>();
             })
             .Retry()

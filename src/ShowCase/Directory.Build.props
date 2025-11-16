@@ -2,12 +2,12 @@
   <!-- Import parent Directory.Build.props to inherit all global settings -->
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
 
-  <!-- Examples should never be packaged as NuGet packages -->
+  <!-- ShowCase should never be packaged as NuGet packages -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     
-    <!-- Suppress code analysis warnings for example projects -->
-    <!-- Examples are for demonstration and learning, not production quality standards -->
+    <!-- Suppress code analysis warnings for ShowCase project -->
+    <!-- ShowCase is for demonstration purposes, not production quality standards -->
     <NoWarn>$(NoWarn);CA1707;CA1816;CA1822;CA1852;CA1310;CA1305;CA1861;CA1836;CA1805;CA1001;CA1869;CA1845;CA1847;CA1850;CA1848;CA1510;CA1513;CA1860;CA1862;CA1854;CA1859;CA1826;CA2201;CS0618;CS8604;CS8625;CS1570;SYSLIB0057;SYSLIB0027</NoWarn>
   </PropertyGroup>
 </Project>

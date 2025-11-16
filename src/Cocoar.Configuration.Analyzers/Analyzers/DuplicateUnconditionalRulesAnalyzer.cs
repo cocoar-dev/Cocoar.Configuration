@@ -41,7 +41,7 @@ public class DuplicateUnconditionalRulesAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess == null)
@@ -53,7 +53,7 @@ public class DuplicateUnconditionalRulesAnalyzer : DiagnosticAnalyzer
         return methodSymbol?.Name == "AddCocoarConfiguration";
     }
 
-    private void AnalyzeDuplicates(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
+    private static void AnalyzeDuplicates(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         // Group rules by configuration type
         var rulesByType = new Dictionary<string, List<RuleInfo>>();
@@ -69,12 +69,13 @@ public class DuplicateUnconditionalRulesAnalyzer : DiagnosticAnalyzer
             }
 
             var typeName = ruleInfo.ConfigurationType.ToDisplayString();
-            if (!rulesByType.ContainsKey(typeName))
+            if (!rulesByType.TryGetValue(typeName, out var list))
             {
-                rulesByType[typeName] = new List<RuleInfo>();
+                list = new List<RuleInfo>();
+                rulesByType[typeName] = list;
             }
 
-            rulesByType[typeName].Add(ruleInfo);
+            list.Add(ruleInfo);
         }
 
         // Check each type for duplicate unconditional rules
@@ -105,7 +106,7 @@ public class DuplicateUnconditionalRulesAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         // Look for .For<T>() pattern
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
@@ -142,7 +143,7 @@ public class DuplicateUnconditionalRulesAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    private bool HasWhenCondition(InvocationExpressionSyntax invocation)
+    private static bool HasWhenCondition(InvocationExpressionSyntax invocation)
     {
         // Traverse up the chain looking for .When()
         var parent = invocation.Parent;

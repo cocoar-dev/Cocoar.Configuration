@@ -14,7 +14,9 @@ public sealed class RulesBuilder
     /// </summary>
     /// <typeparam name="T">The configuration type this rule will populate.</typeparam>
     /// <returns>A typed rule builder for specifying the configuration source.</returns>
+#pragma warning disable CA1822 // Mark members as static - intentionally instance method for fluent API consistency
     public TypedRuleBuilder<T> For<T>() => new();
+#pragma warning restore CA1822
 }
 
 /// <summary>

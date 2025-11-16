@@ -37,7 +37,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess == null)
@@ -58,7 +58,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private void AnalyzeRuleOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
+    private static void AnalyzeRuleOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         var configuredTypes = new HashSet<string>();
         
@@ -92,7 +92,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess?.Name.Identifier.Text != "For")
@@ -124,7 +124,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    private List<string> ExtractDependencies(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static List<string> ExtractDependencies(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var dependencies = new List<string>();
 
@@ -159,7 +159,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         return dependencies;
     }
 
-    private List<string> ExtractGetRequiredConfigTypes(SimpleLambdaExpressionSyntax lambda, SemanticModel semanticModel)
+    private static List<string> ExtractGetRequiredConfigTypes(SimpleLambdaExpressionSyntax lambda, SemanticModel semanticModel)
     {
         var types = new List<string>();
 

@@ -17,6 +17,27 @@ public interface IReactiveConfig<out T> : IObservable<T>
     T CurrentValue { get; }
 }
 
+internal static partial class ReactiveConfigLog
+{
+    [LoggerMessage(EventId = 6200, Level = LogLevel.Warning, Message = "Error occurred in reactive config observable for type {Type}. The error will be ignored to keep the stream alive.")]
+    public static partial void ReactiveObservableError(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6201, Level = LogLevel.Warning, Message = "Error getting current value for configuration type {Type}. Returning default value.")]
+    public static partial void GetCurrentValueError(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6202, Level = LogLevel.Warning, Message = "Error in subscriber callback for configuration type {Type}. The error will be ignored to keep the stream alive.")]
+    public static partial void SubscriberCallbackError(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6203, Level = LogLevel.Error, Message = "Unexpected error in reactive config stream for type {Type}.")]
+    public static partial void ReactiveStreamUnexpectedError(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6204, Level = LogLevel.Warning, Message = "Error in subscriber OnCompleted for configuration type {Type}.")]
+    public static partial void SubscriberCompletedError(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6205, Level = LogLevel.Error, Message = "Error creating subscription for configuration type {Type}.")]
+    public static partial void CreateSubscriptionError(this ILogger logger, Exception exception, Type Type);
+}
+
 
 internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
 {
@@ -35,9 +56,7 @@ internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
             .AsObservable()
             .Catch<T, Exception>(ex =>
             {
-                _logger.LogWarning(ex, 
-                    "Error occurred in reactive config observable for type {Type}. " +
-                    "The error will be ignored to keep the stream alive.", typeof(T));
+                _logger.ReactiveObservableError(ex, typeof(T));
                 return Observable.Empty<T>();
             })
             .Retry()
@@ -55,9 +74,7 @@ internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, 
-                    "Error getting current value for configuration type {Type}. Returning default value.", 
-                    typeof(T));
+                _logger.GetCurrentValueError(ex, typeof(T));
                 return default!;
             }
         }
@@ -76,15 +93,12 @@ internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, 
-                            "Error in subscriber callback for configuration type {Type}. " +
-                            "The error will be ignored to keep the stream alive.", typeof(T));
+                        _logger.SubscriberCallbackError(ex, typeof(T));
                     }
                 },
                 onError: error =>
                 {
-                    _logger.LogError(error, 
-                        "Unexpected error in reactive config stream for type {Type}.", typeof(T));
+                    _logger.ReactiveStreamUnexpectedError(error, typeof(T));
                 },
                 onCompleted: () =>
                 {
@@ -94,16 +108,14 @@ internal sealed class ReactiveConfig<T> : IReactiveConfig<T>
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, 
-                            "Error in subscriber OnCompleted for configuration type {Type}.", typeof(T));
+                        _logger.SubscriberCompletedError(ex, typeof(T));
                     }
                 }
             );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, 
-                "Error creating subscription for configuration type {Type}.", typeof(T));
+            _logger.CreateSubscriptionError(ex, typeof(T));
             
             return System.Reactive.Disposables.Disposable.Empty;
         }

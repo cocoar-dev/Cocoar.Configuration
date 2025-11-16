@@ -122,7 +122,7 @@ internal sealed class SecureBytes : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(SecureBytes));
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     public void Dispose()
