@@ -4,6 +4,12 @@ using Cocoar.Configuration.Utilities;
 
 namespace Cocoar.Configuration.Infrastructure;
 
+internal static partial class ChangeSubscriptionManagerLog
+{
+    [LoggerMessage(EventId = 4100, Level = LogLevel.Error, Message = "Recompute failed from change trigger")]
+    public static partial void RecomputeFailedFromChange(this ILogger logger, Exception exception);
+}
+
 internal class ChangeSubscriptionManager(ILogger logger) : IDisposable
 {
     private readonly List<IDisposable> _changeSubscriptions = new();
@@ -26,7 +32,7 @@ internal class ChangeSubscriptionManager(ILogger logger) : IDisposable
             var subscription = rm.Changes.Subscribe(_ =>
             {
                 try { coalescer.Signal(idx); }
-                catch (Exception ex) { logger.LogError(ex, "Recompute failed from change trigger"); }
+                catch (Exception ex) { logger.RecomputeFailedFromChange(ex); }
             });
             _changeSubscriptions.Add(subscription);
         }

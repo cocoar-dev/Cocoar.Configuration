@@ -11,6 +11,18 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Rules;
 
+internal static partial class RuleManagerLog
+{
+    [LoggerMessage(EventId = 5000, Level = LogLevel.Warning, Message = "Selection path '{SelectPath}' failed; skipping optional rule.")]
+    public static partial void OptionalSelectPathFailed(this ILogger logger, Exception exception, string SelectPath);
+
+    [LoggerMessage(EventId = 5001, Level = LogLevel.Error, Message = "Required rule failed: {Provider}->{Config}")]
+    public static partial void RequiredRuleFailed(this ILogger logger, Exception exception, string Provider, string Config);
+
+    [LoggerMessage(EventId = 5002, Level = LogLevel.Warning, Message = "Optional rule failed and will be skipped: {Provider}->{Config}")]
+    public static partial void OptionalRuleFailed(this ILogger logger, Exception exception, string Provider, string Config);
+}
+
 /// <summary>
 /// Coordinates rule execution: provider lifecycle, query management, caching, and change tracking.
 /// Delegates caching to TransformCache and subscriptions to ChangeSubscription.
@@ -205,7 +217,7 @@ internal sealed class RuleManager : IDisposable
             throw new InvalidOperationException($"Selection path '{selectPath}' failed for provider {_rule.ProviderType.Name}", ex);
         }
 
-        _logger.LogWarning(ex, "Selection path '{SelectPath}' failed; skipping optional rule.", selectPath);
+        _logger.OptionalSelectPathFailed(ex, selectPath);
         LastOutcome = RuleExecutionOutcome.Skipped;
         return false;
     }
@@ -217,11 +229,11 @@ internal sealed class RuleManager : IDisposable
 
         if (Required)
         {
-            _logger.LogError(ex, "Required rule failed: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+            _logger.RequiredRuleFailed(ex, _rule.ProviderType.Name, _rule.ConcreteType.Name);
             throw new InvalidOperationException($"Required rule failed for {_rule.ProviderType.Name} → {_rule.ConcreteType.Name}", ex);
         }
 
-        _logger.LogWarning(ex, "Optional rule failed and will be skipped: {Provider}->{Config}", _rule.ProviderType.Name, _rule.ConcreteType.Name);
+        _logger.OptionalRuleFailed(ex, _rule.ProviderType.Name, _rule.ConcreteType.Name);
         return SkipResult();
     }
 
@@ -257,9 +269,8 @@ internal sealed class RuleManager : IDisposable
             var select = string.IsNullOrWhiteSpace(options?.SelectPath) ? string.Empty : options!.SelectPath!;
             var mount = string.IsNullOrWhiteSpace(options?.MountPath) ? string.Empty : options!.MountPath!;
             var input = select + "|" + mount;
-            using var sha = SHA256.Create();
             var bytes = System.Text.Encoding.UTF8.GetBytes(input);
-            var hash = sha.ComputeHash(bytes);
+            var hash = SHA256.HashData(bytes);
             return Convert.ToHexString(hash);
         }
         catch

@@ -2,6 +2,15 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Infrastructure;
 
+internal static partial class RecomputeCoalescerLog
+{
+    [LoggerMessage(EventId = 4000, Level = LogLevel.Error, Message = "Recompute failed from initial debounce trigger")]
+    public static partial void InitialDebounceFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 4001, Level = LogLevel.Error, Message = "Recompute failed from trailing trigger")]
+    public static partial void TrailingTriggerFailed(this ILogger logger, Exception exception);
+}
+
 /// <summary>
 /// Coalesces many incoming change signals into minimal recompute invocations while
 /// preserving earliest-index semantics and providing an initial debounce plus trailing pass.
@@ -15,7 +24,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
     private int _earliestPending = int.MaxValue;
     private int _earliestDuringRun = int.MaxValue;
     // 0 = false, 1 = true. Int is used (not bool) to support Interlocked.Exchange/CompareExchange atomics.
-    private int _running = 0;
+    private int _running;
 
     private System.Timers.Timer? _trailingTimer;
     private System.Timers.Timer? _initialTimer; // One-shot timer for initial debounce.
@@ -96,7 +105,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Recompute failed from initial debounce trigger");
+                    logger.InitialDebounceFailed(ex);
                 }
                 finally
                 {
@@ -146,7 +155,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
                     }
                     catch (Exception ex)
                     {
-                        logger.LogError(ex, "Recompute failed from trailing trigger");
+                        logger.TrailingTriggerFailed(ex);
                     }
                     finally
                     {

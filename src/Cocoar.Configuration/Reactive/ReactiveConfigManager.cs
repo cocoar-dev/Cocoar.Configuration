@@ -15,6 +15,27 @@ using Cocoar.Configuration.Utilities;
 namespace Cocoar.Configuration.Reactive;
 
 
+internal static partial class ReactiveConfigManagerLog
+{
+    [LoggerMessage(EventId = 6000, Level = LogLevel.Information, Message = "Recreating dead observable for configuration type {Type}")]
+    public static partial void RecreatingDeadObservable(this ILogger logger, Type Type);
+
+    [LoggerMessage(EventId = 6001, Level = LogLevel.Warning, Message = "Failed to get initial config for type {Type}, using default value")]
+    public static partial void GetInitialConfigFailed(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6002, Level = LogLevel.Warning, Message = "Failed to get current config for type {Type} during notification, skipping update")]
+    public static partial void GetCurrentConfigFailed(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6003, Level = LogLevel.Warning, Message = "Failed change emission for type {Type}")]
+    public static partial void ChangeEmissionFailed(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6004, Level = LogLevel.Warning, Message = "Failed per-pass emission for type {Type}")]
+    public static partial void PerPassEmissionFailed(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6005, Level = LogLevel.Warning, Message = "Failed to dispose configuration observable")]
+    public static partial void DisposeObservableFailed(this ILogger logger, Exception exception);
+}
+
 internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bindingRegistry) : IDisposable
 {
     private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -50,7 +71,7 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
                     return existing;
                 }
                 
-                _logger.LogInformation("Recreating dead observable for configuration type {Type}", type);
+                _logger.RecreatingDeadObservable(type);
                 return CreateBehaviorSubject(configAccessor);
             });
 
@@ -88,7 +109,7 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get initial config for type {Type}, using default value", typeof(T));
+            _logger.GetInitialConfigFailed(ex, typeof(T));
             initialValue = default(T)!;
         }
 
@@ -124,7 +145,7 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to get current config for type {Type} during notification, skipping update", type);
+                _logger.GetCurrentConfigFailed(ex, type);
                 continue;
             }
 
@@ -147,14 +168,14 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Failed change emission for type {Type}", type);
+                            _logger.ChangeEmissionFailed(ex, type);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed change emission for type {Type}", type);
+                _logger.ChangeEmissionFailed(ex, type);
             }
 
             try
@@ -167,7 +188,7 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed per-pass emission for type {Type}", type);
+                _logger.PerPassEmissionFailed(ex, type);
             }
         }
     }
@@ -219,7 +240,7 @@ internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bin
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to dispose configuration observable");
+                _logger.DisposeObservableFailed(ex);
             }
         }
 

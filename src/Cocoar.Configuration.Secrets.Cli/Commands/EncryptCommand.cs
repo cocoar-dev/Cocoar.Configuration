@@ -75,7 +75,8 @@ internal static class EncryptCommand
                 var password = parseResult.GetValue(passwordOption);
                 var kid = parseResult.GetValue(kidOption);
                 var create = parseResult.GetValue(createOption);
-                EncryptValueAsync(file, path, value, cert, password, kid, create).GetAwaiter().GetResult();
+                // fileOption, pathOption, certOption have Required = true; kidOption has DefaultValueFactory
+                EncryptValueAsync(file!, path!, value, cert!, password, kid!, create).GetAwaiter().GetResult();
                 return 0;
             }
             catch (Exception ex)

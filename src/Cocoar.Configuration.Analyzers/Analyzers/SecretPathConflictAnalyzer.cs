@@ -43,7 +43,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess == null)
@@ -55,7 +55,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         return methodSymbol?.Name == "AddCocoarConfiguration";
     }
 
-    private void AnalyzeRules(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
+    private static void AnalyzeRules(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         // Look for rule.For<T>() calls
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
@@ -75,7 +75,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         DetectPathConflicts(rules, context);
     }
 
-    private RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         // Look for .For<T>() pattern
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
@@ -113,7 +113,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    private string? ExtractSelectPath(InvocationExpressionSyntax invocation)
+    private static string? ExtractSelectPath(InvocationExpressionSyntax invocation)
     {
         // Look for .Select("path") in the chain
         var parent = invocation.Parent;
@@ -137,7 +137,7 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private void DetectPathConflicts(List<RuleInfo> rules, SyntaxNodeAnalysisContext context)
+    private static void DetectPathConflicts(List<RuleInfo> rules, SyntaxNodeAnalysisContext context)
     {
         // Group rules by configuration type
         var rulesByType = rules.GroupBy(r => r.ConfigurationType.ToDisplayString());
@@ -176,14 +176,14 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool HasSecretProperties(ITypeSymbol typeSymbol)
+    private static bool HasSecretProperties(ITypeSymbol typeSymbol)
     {
         // Check if type has any properties of type Secret<T>
         var members = typeSymbol.GetMembers().OfType<IPropertySymbol>();
         return members.Any(p => IsSecretType(p.Type));
     }
 
-    private bool IsSecretType(ITypeSymbol typeSymbol)
+    private static bool IsSecretType(ITypeSymbol typeSymbol)
     {
         // Check if type is Secret<T> from Cocoar.Configuration.Secrets
         if (typeSymbol is not INamedTypeSymbol namedType)
@@ -192,10 +192,10 @@ public class SecretPathConflictAnalyzer : DiagnosticAnalyzer
         }
 
         return namedType.Name == "Secret" && 
-               namedType.ContainingNamespace?.ToDisplayString().StartsWith("Cocoar.Configuration") == true;
+               namedType.ContainingNamespace?.ToDisplayString().StartsWith("Cocoar.Configuration", StringComparison.Ordinal) == true;
     }
 
-    private string? FindConflictingSecretProperty(ITypeSymbol typeSymbol, string selectPath)
+    private static string? FindConflictingSecretProperty(ITypeSymbol typeSymbol, string selectPath)
     {
         // Simple path matching - look for properties with Secret<T> type
         var properties = typeSymbol.GetMembers().OfType<IPropertySymbol>();

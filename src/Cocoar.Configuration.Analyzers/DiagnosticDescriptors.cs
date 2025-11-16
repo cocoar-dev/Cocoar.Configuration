@@ -58,7 +58,7 @@ internal static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor ConfigurationAccessorTypeSafety = new(
         id: "COCFG004",
         title: "Configuration accessor type safety violation",
-        messageFormat: "Property '{0}' does not exist on type '{1}'.",
+        messageFormat: "Property '{0}' does not exist on type '{1}'",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,

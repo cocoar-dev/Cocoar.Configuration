@@ -71,7 +71,8 @@ internal static class GenerateCertCommand
             var validYears = parseResult.GetValue(validYearsOption);
             var keySize = parseResult.GetValue(keySizeOption);
             var overwrite = parseResult.GetValue(overwriteOption);
-            return ExecuteAsync(output, password, format, subject, validYears, keySize, overwrite).GetAwaiter().GetResult();
+            // outputOption has Required = true; formatOption, subjectOption have DefaultValueFactory
+            return ExecuteAsync(output!, password, format!, subject!, validYears, keySize, overwrite).GetAwaiter().GetResult();
         });
 
         return command;
@@ -96,7 +97,7 @@ internal static class GenerateCertCommand
                 _ => throw new ArgumentException($"Invalid format '{format}'. Use 'pfx', 'pem', or 'auto'.")
             };
 
-            if (format.ToLowerInvariant() != "auto")
+            if (!string.Equals(format, "auto", StringComparison.OrdinalIgnoreCase))
             {
                 var inferredFormat = DetectFormat(output);
                 if (certFormat != inferredFormat)

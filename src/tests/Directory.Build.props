@@ -5,5 +5,18 @@
   <!-- Test projects should never be packaged as NuGet packages -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <!-- Suppress test-specific analyzer warnings that don't apply to test code quality standards -->
+    <!-- CA1707: Test method naming with underscores (standard xUnit convention) -->
+    <!-- CA1816: Dispose pattern in test fixtures -->
+    <!-- CA1822: Static method suggestions in test helpers -->
+    <!-- CA1852: Sealed type suggestions for test types -->
+    <!-- CA1310: String comparison culture in tests -->
+    <!-- CA1305: Format provider in test diagnostics -->
+    <!-- CA1861: Static readonly arrays in tests -->
+    <!-- CA1836: IsEmpty vs Count in tests -->
+    <!-- CA1805: Explicit default initialization in tests -->
+    <!-- CA1001: Disposable ownership in test providers -->
+    <!-- CA1869: JsonSerializerOptions in test utilities -->
+    <NoWarn>$(NoWarn);CA1707;CA1816;CA1822;CA1852;CA1310;CA1305;CA1861;CA1836;CA1805;CA1001;CA1869;CS0618;CS8625</NoWarn>
   </PropertyGroup>
 </Project>

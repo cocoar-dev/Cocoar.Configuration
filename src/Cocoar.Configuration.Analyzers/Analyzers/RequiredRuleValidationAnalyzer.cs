@@ -41,7 +41,7 @@ public class RequiredRuleValidationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess == null)
@@ -53,7 +53,7 @@ public class RequiredRuleValidationAnalyzer : DiagnosticAnalyzer
         return methodSymbol?.Name == "AddCocoarConfiguration";
     }
 
-    private void AnalyzeRequiredRules(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
+    private static void AnalyzeRequiredRules(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         // Look for rule chains that include .Required()
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
@@ -90,7 +90,7 @@ public class RequiredRuleValidationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private RequiredRuleInfo? ExtractRequiredRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static RequiredRuleInfo? ExtractRequiredRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         // Look for .Required() calls
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;

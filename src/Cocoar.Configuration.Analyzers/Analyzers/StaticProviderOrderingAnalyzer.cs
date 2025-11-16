@@ -41,7 +41,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
         var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
         if (memberAccess == null)
@@ -53,7 +53,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         return methodSymbol?.Name == "AddCocoarConfiguration";
     }
 
-    private void AnalyzeProviderOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
+    private static void AnalyzeProviderOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         var rules = new List<(bool isStatic, Location location)>();
         
@@ -91,7 +91,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private (bool isStatic, Location location)? ExtractProviderInfo(InvocationExpressionSyntax invocation)
+    private static (bool isStatic, Location location)? ExtractProviderInfo(InvocationExpressionSyntax invocation)
     {
         // Look for provider methods in the chain
         var parent = invocation;
@@ -118,7 +118,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private bool IsProviderMethod(string methodName)
+    private static bool IsProviderMethod(string methodName)
     {
         return methodName is "FromFile" 
             or "FromEnvironment" 

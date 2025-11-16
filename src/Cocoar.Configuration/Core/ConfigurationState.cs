@@ -196,7 +196,7 @@ internal class ConfigurationState : IDisposable
                     }
                     break;
                 case RuleManager.RuleExecutionOutcome.Failed:
-                    var ex = rm.LastFailureException ?? new Exception("FAILED");
+                    var ex = rm.LastFailureException ?? new InvalidOperationException("Rule failed without exception details");
                     updated = prev.WithStatus(RuleResultStatus.Down, now, MapException(ex), ShortMessage(ex));
                     if (rm.Required)
                     {

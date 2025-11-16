@@ -16,11 +16,14 @@ using Examples.TupleReactiveExample;
 // The /update endpoint simulates a change to one config type; the tuple stream emits
 // at most once per recompute pass with aligned values.
 
+// Cache array to avoid repeated allocations
+var defaultFlags = new[] { "Alpha", "Beta" };
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Subjects to simulate runtime changes (Observable provider emits these)
 var appSubject = new System.Reactive.Subjects.BehaviorSubject<AppSettings>(new AppSettings { Message = "Hello World", Counter = 0 });
-var flagsSubject = new System.Reactive.Subjects.BehaviorSubject<FeatureFlags>(new FeatureFlags { Flags = new [] { "Alpha", "Beta" } });
+var flagsSubject = new System.Reactive.Subjects.BehaviorSubject<FeatureFlags>(new FeatureFlags { Flags = defaultFlags });
 
 // Define configuration rules using observable providers for dynamic types and static JSON for logging
 builder.Services.AddCocoarConfiguration(rule => [

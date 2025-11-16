@@ -20,6 +20,8 @@ public class ApiConfiguration
 
 public static class Program
 {
+    private static readonly string[] DefaultAllowedRegions = ["us-east-1", "eu-west-1"];
+
     public static void Main(string[] args)
     {
         var services = new ServiceCollection();
@@ -33,7 +35,7 @@ public static class Program
             {
                 EnableNewDashboard = true,
                 EnableBetaFeatures = false,
-                AllowedRegions = new[] { "us-east-1", "eu-west-1" }
+                AllowedRegions = DefaultAllowedRegions
             })
 
         ]);

@@ -171,8 +171,7 @@ internal sealed class TransformCache : IDisposable
     {
         try
         {
-            using var sha = SHA256.Create();
-            var hash = sha.ComputeHash(transformedBytes);
+            var hash = SHA256.HashData(transformedBytes);
             return Convert.ToHexString(hash);
         }
         catch

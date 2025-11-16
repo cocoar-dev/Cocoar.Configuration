@@ -7,7 +7,7 @@ namespace Cocoar.Configuration.Configure;
 
 
 public abstract class SetupDefinition(ConfigManagerCapabilityScope capabilityScope) {
-    protected readonly ConfigManagerCapabilityScope CapabilityScope = capabilityScope;
+    protected ConfigManagerCapabilityScope CapabilityScope { get; } = capabilityScope;
     internal abstract SetupDefinition Build();
 
     public static ConfigManagerCapabilityScope GetCapabilityScopeFor(SetupDefinition builder) => builder.CapabilityScope;

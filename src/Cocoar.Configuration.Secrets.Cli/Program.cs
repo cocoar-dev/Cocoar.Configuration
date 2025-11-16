@@ -3,7 +3,7 @@ using Cocoar.Configuration.Secrets.Cli.Commands;
 
 namespace Cocoar.Configuration.Secrets.Cli;
 
-internal class Program
+internal sealed class Program
 {
     static int Main(string[] args)
     {
