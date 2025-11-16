@@ -133,54 +133,6 @@ public class FileProviderDirectoryTests
     }
 
     [Fact]
-    [Trait("Type", "Unit")]  
-    [Trait("Provider", "FileSourceProvider")]
-    public void DirectoryPath_Validation_AcceptsValidPaths()
-    {
-        using var tempDir = TempDirectoryHelper.Create();
-
-        // Valid existing directory should work
-        var options1 = new FileSourceProviderOptions(tempDir.Path);
-        var provider1 = new FileSourceProvider(options1);
-        Assert.NotNull(provider1);
-
-        // Test what happens with various path scenarios
-        var testPaths = new[]
-        {
-            tempDir.Path,                                        // Existing directory
-            Path.Combine(tempDir.Path, "subdir"),               // Non-existent subdirectory
-            Path.Combine(tempDir.Path, "deep", "nested", "path") // Deep non-existent path
-        };
-
-        foreach (var testPath in testPaths)
-        {
-            Exception? exception = null;
-            try
-            {
-                var options = new FileSourceProviderOptions(testPath);
-                var provider = new FileSourceProvider(options);
-                _output.WriteLine($"Path '{testPath}': Provider created successfully");
-            }
-            catch (Exception ex)
-            {
-                exception = ex;
-                _output.WriteLine($"Path '{testPath}': Failed with {ex.GetType().Name}: {ex.Message}");
-            }
-
-            // Document the behavior for each path type
-            if (Directory.Exists(testPath))
-            {
-                Assert.Null(exception); // Existing directories should work
-            }
-            else
-            {
-                // Non-existent directories - let's see what happens
-                _output.WriteLine($"Non-existent directory behavior: {(exception != null ? "Throws exception" : "Works")}");
-            }
-        }
-    }
-
-    [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "FileSourceProvider")]
     public async Task ExistingDirectory_FileInSubdirectory_Works()

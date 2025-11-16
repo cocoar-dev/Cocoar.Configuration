@@ -114,7 +114,10 @@ public class AdvancedCancellationTests : IDisposable
         configManager.Initialize();
 
         // Wait for initial state
-        await Task.Delay(150);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<CancellationConfig>() != null,
+            timeout: TimeSpan.FromSeconds(1),
+            description: "initial configuration load");
 
 
         // This should cause multiple cancellations as earlier indices arrive
@@ -128,7 +131,13 @@ public class AdvancedCancellationTests : IDisposable
         }
 
         // Wait for all changes to settle
-        await Task.Delay(500);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<CancellationConfig>();
+                return config != null && config.Status.Contains("wave-2");
+            },
+            timeout: TimeSpan.FromSeconds(2),
+            description: "all provider waves to complete");
 
 
         var finalConfig = configManager.GetConfig<CancellationConfig>();
@@ -164,7 +173,10 @@ public class AdvancedCancellationTests : IDisposable
         using var subscription = reactive.Subscribe(_ => Interlocked.Increment(ref emissionCount));
 
         // Wait for initial emission
-        await Task.Delay(100);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissionCount > 0,
+            timeout: TimeSpan.FromSeconds(1),
+            description: "initial observable emission");
         var initialEmissions = emissionCount;
 
 
@@ -176,7 +188,13 @@ public class AdvancedCancellationTests : IDisposable
         }
 
         // Wait for debouncing to complete
-        await Task.Delay(200);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<CancellationConfig>();
+                return config != null && config.Value == changeCount;
+            },
+            timeout: TimeSpan.FromSeconds(2),
+            description: "debouncing to complete and final value to propagate");
 
 
         var finalEmissions = emissionCount - initialEmissions;

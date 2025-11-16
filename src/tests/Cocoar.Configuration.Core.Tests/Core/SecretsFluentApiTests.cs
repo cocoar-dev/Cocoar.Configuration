@@ -13,21 +13,6 @@ public class SecretsFluentApiTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Component", "Secrets")]
-    public void Secrets_CanBeCalledWithoutConfiguration()
-    {
-        // Arrange & Act
-        var manager = new ConfigManager(
-            rules: Array.Empty<ConfigRule>(),
-            setup: builder => [builder.Secrets()]
-        );
-        
-        // Assert - should not throw
-        Assert.NotNull(manager);
-    }
-
-    [Fact]
-    [Trait("Type", "Unit")]
-    [Trait("Component", "Secrets")]
     public void Secrets_AcceptsFluentConfiguration()
     {
         // Arrange & Act

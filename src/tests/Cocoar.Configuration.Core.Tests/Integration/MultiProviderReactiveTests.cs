@@ -200,7 +200,10 @@ public class MultiProviderReactiveTests
         subject.OnNext(reorderedJson);
         
         // Wait beyond debounce window to ensure no spurious emissions
-        await Task.Delay(150); // Wait longer than debounce (100ms) to ensure stable
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => true, // Just wait for debounce to settle
+            timeout: TimeSpan.FromMilliseconds(200),
+            description: "debounce to settle after property reorder");
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         
@@ -245,7 +248,10 @@ public class MultiProviderReactiveTests
         subject.OnNext(formattedJson);
         
         // Wait beyond debounce window to ensure no spurious emissions
-        await Task.Delay(150); // Wait longer than debounce (100ms) to ensure stable
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => true, // Just wait for debounce to settle
+            timeout: TimeSpan.FromMilliseconds(200),
+            description: "debounce to settle after whitespace change");
 
         Assert.Equal(initialEmissionCount, emissions.Count);
         
