@@ -16,7 +16,6 @@ This document covers the complete secrets API available after calling `setup.Sec
 2. [Certificate-Based Decryption](#certificate-based-decryption)
    - [UseCertificateFromFile](#usecertificatefromfile)
    - [UseCertificatesFromFolder](#UseCertificatesFromFolder)
-   - [UseSelfSignedCertificate](#useselfsignedcertificate)
 3. [Custom Decryptors](#custom-decryptors)
 4. [Secret Data Types](#secret-data-types)
 5. [Complete API Reference](#complete-api-reference)
@@ -294,39 +293,6 @@ setup.Secrets()
 
 ---
 
-### UseSelfSignedCertificate
-
-Configures X.509 certificate-based hybrid encryption using a self-signed certificate stored in a PFX file. If the file doesn't exist, a new self-signed certificate will be created and saved.
-
-```csharp
-public SecretsBuilder UseSelfSignedCertificate(
-    string pfxPath, 
-    string password, 
-    string? keyId = null,
-    string? subjectName = null)
-```
-
-**Parameters:**
-- `pfxPath` - Path to the PFX file (created if missing)
-- `password` - Password for the PFX file
-- `keyId` - Optional key identifier (default: `"hybrid-encryption"`)
-- `subjectName` - Subject name for the certificate (default: `"CN=Cocoar Configuration Dev Secrets"`)
-
-**Use Case:** Simple development setup with persistent encryption across app restarts.
-
-**Example:**
-```csharp
-setup.Secrets()
-    .UseSelfSignedCertificate("secrets.pfx", "DevPassword123", keyId: "dev-cert")
-```
-
-**Behavior:**
-- First run: Creates `secrets.pfx` with new self-signed certificate
-- Subsequent runs: Loads existing certificate from `secrets.pfx`
-- Secrets encrypted on first run can be decrypted on subsequent runs
-
----
-
 ## Custom Decryptors
 
 For advanced scenarios like Azure Key Vault, AWS KMS, or Hardware Security Modules.
@@ -488,17 +454,9 @@ public static class SecretsHybridExtensions
         this SecretsBuilder builder,
         string basePath,
         Func<CertificateContext, string[]>? passwordProvider = null,
-        string searchPattern = "*.pfx",
+        string searchPattern = "*",
         int cacheDurationSeconds = 30,
         IComparer<FileInfo>? certificateComparer = null);
-
-    // Self-signed certificate (creates if missing)
-    public static SecretsBuilder UseSelfSignedCertificate(
-        this SecretsBuilder builder,
-        string pfxPath, 
-        string password, 
-        string? keyId = null,
-        string? subjectName = null);
 }
 ```
 

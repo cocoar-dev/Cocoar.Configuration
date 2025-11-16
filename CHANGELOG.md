@@ -15,7 +15,8 @@
 
 **NEW: Cocoar.Configuration.Secrets.Cli Tool**
 - Command-line tool for managing encrypted secrets in JSON configuration files
-- Commands: `generate-cert`, `convert-cert`, `encrypt`, `decrypt`, `cert-info`
+- Commands: `generate-cert`, `convert-cert`, `encrypt`, `decrypt`
+- Note: `cert-info` command is planned for future release
 
 **NEW: Cocoar.Configuration.Analyzers Package**
 - Roslyn analyzers for compile-time configuration validation

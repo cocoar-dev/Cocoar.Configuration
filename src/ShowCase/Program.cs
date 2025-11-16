@@ -26,9 +26,8 @@ public class Program
         app.MapGet("/", () => "Hello World!");
 
 
-        app.MapGet("/creds", ([FromServices]IConfigurationAccessor configurationAccessor) =>
+        app.MapGet("/creds", (StartUpConfiguration conf) =>
         {
-            var conf = configurationAccessor.GetRequiredConfig<StartUpConfiguration>();
             var secret = conf.MySecret.Open().Value;
             int.TryParse(secret, out var secretValue);
             var networkCredsConfig = conf.Credentials.Open().Value;

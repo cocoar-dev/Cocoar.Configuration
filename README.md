@@ -334,10 +334,7 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 | Reactive Configuration | [Reactive Config](docs/reactive-config.md) |
 | Health Monitoring | [Health Monitoring](docs/health-monitoring.md) |
 | Secrets & Memory Safety | [Secrets API Reference](docs/secrets-api-reference.md) |
-| Secret Protectors | [Secret Protectors](docs/secret-protectors.md) |
 | Secrets Usage Examples | [Usage Examples](docs/secrets-usage-examples.md) |
-| Secure Bytes | [Secure Bytes](docs/secure-bytes.md) |
-| Secure Data Transfer | [Secure Data Transfer](docs/secure-data-transfer.md) |
 | Certificate Caching | [Intelligent Certificate Caching](docs/intelligent-certificate-caching.md) |
 | Provider Guidance | [Provider Guidance](docs/provider-guidance.md) |
 | Migration from v2.x | [Migration Guide v2→v3](docs/migration-v2-to-v3.md) |

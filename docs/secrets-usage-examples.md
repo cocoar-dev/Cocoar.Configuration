@@ -2,62 +2,52 @@
 
 ## Core Principle
 
-**All `Secret*` properties are ALWAYS encrypted.** There is no option to disable encryption for secrets. If you use `SecretString` or `SecretBytes` in your config type, the system will automatically encrypt those values when storing them.
+**Secrets are decrypted on-demand only.** The Secrets system expects pre-encrypted envelopes in configuration. Use the `cocoar-secrets` CLI tool or external encryption systems (Azure Key Vault, AWS Secrets Manager, HashiCorp Vault) to encrypt secrets before they reach your application.
 
 ## Production Usage (File-Based Certificate)
 
-**Recommended for production**: Uses a PFX file that persists across app restarts, allowing you to decrypt previously encrypted secrets.
+**Recommended for production**: Uses a PFX file for decrypting pre-encrypted secrets.
 
 ```csharp
 var manager = new ConfigManager(rules, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate(
-            pfxPath: "config/secrets.pfx",
-            password: "YourSecurePassword123!",
-            keyId: "my-app-cert")
+        .UseCertificateFromFile("config/secrets.pfx", "YourSecurePassword123!")
+        .WithKeyId("my-app-cert")
 ]).Initialize();
 ```
 
 **How it works:**
-1. **First run**: If `secrets.pfx` doesn't exist, a new self-signed certificate is created and saved
-2. **Subsequent runs**: The same certificate is loaded from the file
-3. **Encryption**: All `Secret*` properties are automatically encrypted with the certificate's public key
-4. **Decryption**: Secrets are decrypted on-demand when you call `.Open()` using the certificate's private key
+1. **Encryption** (external): Use `cocoar-secrets encrypt` CLI tool or CI/CD pipeline to pre-encrypt secrets
+2. **Configuration**: Pre-encrypted envelopes are stored in JSON files
+3. **Decryption** (runtime): Secrets are decrypted on-demand when you call `.Open()` using the certificate's private key
 
 **Important:** 
-- If you delete the PFX file, all previously encrypted secrets become unreadable
+- Certificate must exist - no auto-creation in production
 - Store the PFX file securely and back it up
 - Use a strong password
 - Add the PFX file to `.gitignore` to avoid committing it
+- Secrets must be pre-encrypted with matching `kid` (key identifier)
 
-## Testing Usage (Ephemeral Certificate)
+## Development Usage with Auto-Generated Certificate
 
-**For unit tests**: Use temporary PFX files in the temp directory with cleanup.
+**For development/testing**: Auto-create certificate if it doesn't exist.
 
 ```csharp
-var kid = $"test-{Guid.NewGuid():N}";
-var pfxPath = Path.Combine(Path.GetTempPath(), $"{kid}.pfx");
-
-try
-{
-    var manager = new ConfigManager(rules, setup => [
-        setup.Secrets()
-            .UseSelfSignedCertificate(pfxPath, "TestPassword123!", kid)
-    ]).Initialize();
-    
-    // Your test logic
-}
-finally
-{
-    if (File.Exists(pfxPath))
-        File.Delete(pfxPath);
-}
+var manager = new ConfigManager(rules, setup => [
+    setup.Secrets()
+        .UseCertificateFromFile("config/dev-secrets.pfx", "DevPassword123!")
+        .CreateSelfSignedIfNotExist("CN=My App Dev Secrets")
+        .WithKeyId("dev-cert")
+]).Initialize();
 ```
 
 **Benefits:**
-- Each test gets a unique certificate
-- Proper cleanup prevents test pollution
-- Can test pre-encrypted envelope scenarios by reusing the same PFX file
+- First run auto-creates the certificate
+- Subsequent runs reuse the same certificate
+- Enables local development without manual cert generation
+- Secrets encrypted with this cert can be decrypted across restarts
+
+**Note:** For quick throwaway tests, manually generate using `X509CertificateGenerator.GenerateAndSave()` before creating ConfigManager.
 
 ## Multiple Managers with Separate Certificates
 
@@ -67,17 +57,19 @@ Each manager can have its own certificate file:
 // Manager 1 - App A
 var managerA = new ConfigManager(rulesA, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate("config/app-a-secrets.pfx", "PasswordA", "app-a-cert")
+        .UseCertificateFromFile("config/app-a-secrets.pfx", "PasswordA")
+        .WithKeyId("app-a-cert")
 ]).Initialize();
 
 // Manager 2 - App B
 var managerB = new ConfigManager(rulesB, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate("config/app-b-secrets.pfx", "PasswordB", "app-b-cert")
+        .UseCertificateFromFile("config/app-b-secrets.pfx", "PasswordB")
+        .WithKeyId("app-b-cert")
 ]).Initialize();
 ```
 
-**Result**: Each manager has completely isolated encryption keys.
+**Result**: Each manager has completely isolated decryption keys.
 
 ## Sharing Certificates Across Managers
 
@@ -89,72 +81,87 @@ var sharedPassword = "SharedPassword123!";
 
 var manager1 = new ConfigManager(rules1, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate(sharedPfx, sharedPassword, "shared-cert")
+        .UseCertificateFromFile(sharedPfx, sharedPassword)
+        .WithKeyId("shared-cert")
 ]).Initialize();
 
 var manager2 = new ConfigManager(rules2, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate(sharedPfx, sharedPassword, "shared-cert")
+        .UseCertificateFromFile(sharedPfx, sharedPassword)
+        .WithKeyId("shared-cert")
 ]).Initialize();
 ```
 
-**Result**: Both managers can encrypt and decrypt each other's secrets.
+**Result**: Both managers can decrypt secrets encrypted with the same certificate.
 
-## Using Existing PFX File
+## Using Existing PFX File (Production Pattern)
 
-If you already have a PFX certificate (won't create a new one):
+Standard approach when certificate already exists:
 
 ```csharp
 var manager = new ConfigManager(rules, setup => [
     setup.Secrets()
-        .UseCertificateFromFile(
-            pfxPath: "existing-cert.pfx",
-            password: "ExistingPassword",
-            keyId: "existing-cert")
+        .UseCertificateFromFile("existing-cert.pfx", "ExistingPassword")
+        .WithKeyId("existing-cert")
 ]).Initialize();
 ```
 
-**Note**: This will throw an exception if the file doesn't exist.
+**Note**: This will throw an exception if the file doesn't exist (fails fast for production safety).
 
-## Customizing Certificate Subject Name
+## Certificate Discovery from Folder
 
-When creating a new certificate, you can specify the subject name:
+For advanced scenarios with multiple certificates or certificate rotation:
 
 ```csharp
 var manager = new ConfigManager(rules, setup => [
     setup.Secrets()
-        .UseSelfSignedCertificate(
-            pfxPath: "config/secrets.pfx",
-            password: "Password123!",
-            keyId: "my-cert",
-            subjectName: "CN=My Application Secrets, O=MyCompany, C=US")
+        .UseCertificatesFromFolder(
+            basePath: "certs",
+            passwordProvider: ctx => new[] { "Password123!" },
+            searchPattern: "*.pfx",
+            cacheDurationSeconds: 30)
 ]).Initialize();
 ```
 
-## Configuration with Multiple Protectors
+**Features:**
+- Supports kid-based subdirectories: `certs/{kid}/certificate.pfx`
+- Automatic certificate caching with configurable duration
+- Multiple certificate formats (PFX, PEM)
+- See [Intelligent Certificate Caching](intelligent-certificate-caching.md) for details
 
-You can register multiple protectors (last one becomes default for writing):
+## Configuration with Multiple Protectors (Certificate Rotation)
+
+You can register multiple protectors for seamless certificate rotation:
 
 ```csharp
 var manager = new ConfigManager(rules, setup => [
     setup.Secrets()
-        // Old certificate (for reading old secrets)
-        .UseCertificateFromFile("config/old-cert.pfx", "OldPassword", "old-cert")
-        // New certificate (for writing new secrets)
-        .UseSelfSignedCertificate("config/new-cert.pfx", "NewPassword", "new-cert")
+        // Old certificate (for reading legacy secrets)
+        .UseCertificateFromFile("config/old-cert.pfx", "OldPassword")
+        .WithKeyId("old-cert")
+        .Build()
+        // New certificate (for reading current secrets)
+        .UseCertificateFromFile("config/new-cert.pfx", "NewPassword")
+        .WithKeyId("new-cert")
 ]).Initialize();
 ```
 
-**Result**: Can decrypt secrets encrypted with either certificate, but new secrets use the new certificate.
+**Result**: Can decrypt secrets encrypted with either certificate.
 
-## How Automatic Encryption Works
+**Certificate Rotation Strategy:**
+1. Generate new certificate with new `kid`
+2. Register both old and new certificates (as shown above)
+3. Re-encrypt secrets using new certificate (`cocoar-secrets encrypt` with new cert)
+4. After transition period, remove old certificate configuration
 
-When you use `SecretString` or `SecretBytes` in your configuration type:
+## How Pre-Encrypted Secrets Work
 
-1. **Plain text input** → System detects it's a `Secret*` property
-2. **Automatic encryption** → Wraps the value in an encrypted envelope using the configured protector
-3. **Storage** → Encrypted envelope is stored (never plain text)
-4. **Retrieval** → You call `.Open()` on the secret to decrypt it on-demand
+When you use `Secret<T>` in your configuration type:
+
+1. **Encryption (external)** → Use `cocoar-secrets` CLI or external system to pre-encrypt secrets
+2. **Storage** → Encrypted envelopes are stored in JSON files with `_cocoar_secret` marker
+3. **Loading** → ConfigManager recognizes the envelope format and stores it as-is
+4. **Decryption (on-demand)** → You call `.Open()` on the secret to decrypt it only when needed
 
 **Example:**
 
@@ -162,24 +169,34 @@ When you use `SecretString` or `SecretBytes` in your configuration type:
 public class AppConfig
 {
     public string Username { get; init; } = string.Empty;
-    public SecretString Password { get; init; } = SecretString.Empty;  // ALWAYS encrypted
+    public Secret<string> Password { get; init; }  // Pre-encrypted in JSON
 }
 
-// Input JSON (plain text)
-// { "Username": "admin", "Password": "secret123" }
-
-// After encryption (what's actually stored)
-// { "Username": "admin", "Password": { "__cocoar_secret__": "v1", "alg": "RSA-OAEP-256+A256GCM", "kid": "...", "ct": "...", ... } }
+// Input JSON (after encryption with cocoar-secrets CLI)
+// {
+//   "Username": "admin",
+//   "Password": {
+//     "_cocoar_secret": "v1",
+//     "alg": "RSA-OAEP-AES256-GCM",
+//     "kid": "my-cert",
+//     "iv": "...",
+//     "ct": "...",
+//     "tag": "...",
+//     "wk": "..."
+//   }
+// }
 
 // Usage
 var config = manager.GetRequiredConfig<AppConfig>();
-Console.WriteLine(config.Username);  // "admin" - plain text, no protection needed
+Console.WriteLine(config.Username);  // "admin" - plain text
 using var passwordLease = config.Password.Open();  // Decrypts on-demand
-Console.WriteLine(passwordLease.Value);  // "secret123" - decrypted
+Console.WriteLine(passwordLease.Value);  // "secret123" - decrypted plaintext
+// Memory automatically zeroized after 'using' block
 ```
 
 **Key Points:**
-- No way to disable encryption for `Secret*` properties
-- Encryption happens automatically during configuration processing
+- Secrets must be pre-encrypted using `cocoar-secrets` CLI tool or external encryption system
+- ConfigManager never encrypts - only decrypts pre-encrypted envelopes
 - Decryption happens on-demand when you call `.Open()`
-- Plain text values are never persisted for `Secret*` properties
+- Encrypted envelopes are identified by `_cocoar_secret` marker and matching `kid` (key identifier)
+- Use `using` statement to ensure automatic memory cleanup
