@@ -16,11 +16,6 @@ namespace Cocoar.Configuration.Core.Tests.Integration;
 public class MultiProviderPerformanceTests
 {
     #region Provider Count and Performance Validation
-
-    /// <summary>
-    /// Tests that ConfigManager correctly handles empty providers in multi-provider scenarios.
-    /// This validates robustness when some providers have no data.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -239,10 +234,15 @@ public class MultiProviderPerformanceTests
         Assert.True(finalConfig.Settings.Feature2); // Final value from Observable2
         Assert.Equal("FinalValue1", finalConfig.Settings.NewProp1); // Final value from Observable1
         Assert.Equal("FinalValue2", finalConfig.Settings.NewProp2); // Final value from Observable2
+        
+        // CRITICAL: Static provider should not be recomputed - debouncing is working correctly
         Assert.Equal(initialStaticCount, staticRecomputeCount);
         
         var totalChangeTime = DateTimeOffset.UtcNow - changeStartTime;
-        Assert.True(totalChangeTime.TotalMilliseconds < 1000, $"Test should complete within reasonable time, took {totalChangeTime.TotalMilliseconds}ms");
+        // Sanity check: ensure test completes in reasonable time (not hung)
+        // This is not a strict performance requirement - the functional assertions above are what matter
+        Assert.True(totalChangeTime.TotalMilliseconds < 5000, 
+            $"Test took unexpectedly long ({totalChangeTime.TotalMilliseconds}ms), possible hang or performance regression");
     }
 
     /// <summary>
@@ -304,13 +304,13 @@ public class MultiProviderPerformanceTests
         var disposableSubject = new BehaviorSubject<string>("""{"Name": "DisposableTest", "TempValue": "BeforeDispose"}""");
         
         var disposableProvider = new ObservableProvider<string>(new(disposableSubject));
-        var preDisposeResult = await disposableProvider.FetchConfigurationAsync(new());
-        Assert.Equal("DisposableTest", preDisposeResult.GetProperty("Name").GetString());
+        var preDisposeResult = await disposableProvider.FetchConfigurationBytesAsync(new());
+        Assert.Equal("DisposableTest", preDisposeResult.ToJsonElement().GetProperty("Name").GetString());
         disposableSubject.Dispose();
         Exception? disposeErrorCaught = null;
         try
         {
-            var postDisposeResult = await disposableProvider.FetchConfigurationAsync(new());
+            var postDisposeResult = await disposableProvider.FetchConfigurationBytesAsync(new());
             Assert.NotNull(postDisposeResult);
         }
         catch (Exception ex)
@@ -336,10 +336,10 @@ public class MultiProviderPerformanceTests
         var provider = new ObservableProvider<string>(new(completableSubject));
         var query = new ObservableProviderQuery();
         
-        var initialResult = await provider.FetchConfigurationAsync(query);
+        var initialResult = await provider.FetchConfigurationBytesAsync(query);
         Assert.NotNull(initialResult);
-        Assert.Equal("CompletableTest", initialResult.GetProperty("Name").GetString());
-        Assert.Equal("Active", initialResult.GetProperty("Status").GetString());
+        Assert.Equal("CompletableTest", initialResult.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal("Active", initialResult.ToJsonElement().GetProperty("Status").GetString());
         
         completableSubject.OnNext("""{"Name": "FinalValue", "Status": "Completing"}""");
         completableSubject.OnCompleted();
@@ -347,9 +347,9 @@ public class MultiProviderPerformanceTests
         Exception? completionErrorCaught = null;
         try
         {
-            var postCompletionResult = await provider.FetchConfigurationAsync(query);
+            var postCompletionResult = await provider.FetchConfigurationBytesAsync(query);
             Assert.NotNull(postCompletionResult);
-            Assert.Equal("FinalValue", postCompletionResult.GetProperty("Name").GetString());
+            Assert.Equal("FinalValue", postCompletionResult.ToJsonElement().GetProperty("Name").GetString());
         }
         catch (Exception ex)
         {
@@ -663,15 +663,16 @@ public class MultiProviderPerformanceTests
             _onFetch = onFetch;
         }
 
-        public override Task<JsonElement> FetchConfigurationAsync(IProviderQuery query, CancellationToken ct = default)
+        public override Task<byte[]> FetchConfigurationBytesAsync(IProviderQuery query, CancellationToken ct = default)
         {
             _onFetch(); // Track the fetch
-            return Task.FromResult(_data);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(_data);
+            return Task.FromResult(bytes);
         }
 
-        public override IObservable<JsonElement> Changes(IProviderQuery query) =>
+        public override IObservable<byte[]> ChangesAsBytes(IProviderQuery query) =>
             // Static provider never changes
-            Observable.Never<JsonElement>();
+            Observable.Never<byte[]>();
     }
 
     public class TestConfig

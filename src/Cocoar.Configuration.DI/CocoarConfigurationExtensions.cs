@@ -27,12 +27,21 @@ public static class CocoarConfigurationExtensions
         // Register the health service
         services.AddSingleton<IConfigurationHealthService>(sp => sp.GetRequiredService<ConfigManager>().GetHealthService());
 
-        // Use the existing SetupDefinition instances from the ConfigManager
+        // Collect all types that should be registered
+        var typesToRegister = new HashSet<Type>();
+        
+        // 1. Auto-register all types from rules (restores pre-SetupBuilder behavior)
+        foreach (var rule in configManager.Rules)
+        {
+            typesToRegister.Add(rule.ConcreteType);
+        }
+        
+        // 2. Process explicit SetupDefinitions for customization
+        var serviceRegistrationInfos = new Dictionary<Type, ServiceRegistrationInfo>();
         var configSpecs = configManager.SetupDefinitions;
         
         if (configSpecs.Count > 0)
         {
-            var serviceRegistrationInfos = new Dictionary<Type, ServiceRegistrationInfo>();
             foreach (var spec in configSpecs)
             {
                 // Get the capability bag from the registry using the ConfigureSpec as key
@@ -50,11 +59,23 @@ public static class CocoarConfigurationExtensions
                 {
                     ProcessExposedType(serviceRegistrationInfos, exposedCapability!, bag);
                 }
-
             }
-
-            ProcessServiceRegistration(services, serviceRegistrationInfos);
         }
+        
+        // 3. Auto-register types from rules that don't have explicit setup definitions
+        foreach (var type in typesToRegister)
+        {
+            if (!serviceRegistrationInfos.ContainsKey(type))
+            {
+                serviceRegistrationInfos[type] = new ServiceRegistrationInfo
+                {
+                    Type = type,
+                    DisableDefault = false
+                };
+            }
+        }
+
+        ProcessServiceRegistration(services, serviceRegistrationInfos);
 
         return services;
     }

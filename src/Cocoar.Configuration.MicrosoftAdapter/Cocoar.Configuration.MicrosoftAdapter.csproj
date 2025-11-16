@@ -3,6 +3,8 @@
     <IsPackable>true</IsPackable>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <Description>Adapter for bridging Microsoft.Extensions.Configuration (IConfiguration) with Cocoar.Configuration, enabling gradual migration and coexistence with existing Microsoft configuration sources while leveraging reactive updates.</Description>
+    <PackageTags>configuration;microsoft-extensions;iconfiguration;adapter;bridge;migration;compatibility;interop</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />

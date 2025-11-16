@@ -7,7 +7,7 @@ namespace Cocoar.Configuration.Providers;
 public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptions options)
     : ConfigurationProvider<EnvironmentVariableProviderOptions, EnvironmentVariableProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(EnvironmentVariableProviderQueryOptions queryOptions,
+    public override Task<byte[]> FetchConfigurationBytesAsync(EnvironmentVariableProviderQueryOptions queryOptions,
         CancellationToken ct = default)
     {
         var prefix = queryOptions.EnvironmentPrefix;
@@ -32,11 +32,8 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
             }
         }
 
-        var json = JsonSerializer.Serialize(dict);
-        using var doc = JsonDocument.Parse(json);
-        var element = doc.RootElement.Clone();
-
-        return Task.FromResult(element);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(dict);
+        return Task.FromResult(bytes);
     }
 
     private static void AddToNestedDict(IDictionary<string, object?> dict, string key, object? value)
@@ -158,6 +155,6 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
         );
     }
 
-    public override IObservable<JsonElement> Changes(EnvironmentVariableProviderQueryOptions queryOptions)
-        => System.Reactive.Linq.Observable.Never<JsonElement>();
+    public override IObservable<byte[]> ChangesAsBytes(EnvironmentVariableProviderQueryOptions queryOptions)
+        => System.Reactive.Linq.Observable.Never<byte[]>();
 }

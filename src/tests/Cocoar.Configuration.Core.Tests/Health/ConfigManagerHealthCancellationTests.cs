@@ -6,6 +6,7 @@ using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Rules;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
 
@@ -37,11 +38,14 @@ public class ConfigManagerHealthCancellationTests
         var provider = SlowCancellableProvider.LastCreatedInstance!; // Created during InitializeAsync
 
         provider.TriggerChange(new { Seq = 1 });
-        await Task.Delay(40); // allow first fetch to start
+        await Task.Delay(40); // Small delay to ensure first fetch starts before cancellation
         provider.TriggerChange(new { Seq = 2 });
 
-        // Wait long enough for the second fetch to complete (first should have been cancelled)
-        await Task.Delay(400);
+        // Wait for the second fetch to complete (first should have been cancelled)
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => healthEmissions.Count > baselineCount || healthService.Snapshot.OverallStatus == HealthStatus.Healthy,
+            timeout: TimeSpan.FromSeconds(2),
+            description: "health update after cancellation scenario");
 
         var delta = healthEmissions.Count - baselineCount;
         Assert.InRange(delta, 0, 1);
@@ -59,7 +63,7 @@ public class ConfigManagerHealthCancellationTests
 /// </summary>
 internal sealed class SlowCancellableProvider : ConfigurationProvider<SlowCancellableProviderOptions, SlowCancellableProviderQueryOptions>
 {
-    private readonly Subject<JsonElement> _rawChanges = new();
+    private readonly Subject<byte[]> _rawChanges = new();
     private readonly int _delayMs;
 
     public static SlowCancellableProvider? LastCreatedInstance { get; private set; }
@@ -70,24 +74,26 @@ internal sealed class SlowCancellableProvider : ConfigurationProvider<SlowCancel
         LastCreatedInstance = this;
     }
 
-    public override async Task<JsonElement> FetchConfigurationAsync(SlowCancellableProviderQueryOptions query, CancellationToken ct = default)
+    public override async Task<byte[]> FetchConfigurationBytesAsync(SlowCancellableProviderQueryOptions query, CancellationToken ct = default)
     {
         // Simulate slow work
         await Task.Delay(_delayMs, ct);
-        return JsonDocument.Parse("{\"Result\":\"OK\"}").RootElement.Clone();
+        return System.Text.Encoding.UTF8.GetBytes("{\"Result\":\"OK\"}");
     }
 
-    public override IObservable<JsonElement> Changes(SlowCancellableProviderQueryOptions query) =>
-        // Project raw change payloads into dummy JsonElements (changes themselves are irrelevant; just triggers recompute)
+    public override IObservable<byte[]> ChangesAsBytes(SlowCancellableProviderQueryOptions query) =>
+        // Changes themselves are irrelevant; just triggers recompute
         _rawChanges.AsObservable();
 
     public void TriggerChange(object payload)
     {
-        var json = JsonSerializer.Serialize(payload);
-        using var doc = JsonDocument.Parse(json);
-        _rawChanges.OnNext(doc.RootElement.Clone());
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+        _rawChanges.OnNext(bytes);
     }
 }
 
 internal sealed record SlowCancellableProviderOptions(int DelayMs = 200) : IProviderConfiguration;
 internal sealed record SlowCancellableProviderQueryOptions() : IProviderQuery;
+
+
+

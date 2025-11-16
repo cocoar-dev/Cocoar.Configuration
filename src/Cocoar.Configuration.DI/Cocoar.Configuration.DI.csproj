@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-      <IsPackable>true</IsPackable>
-    </PropertyGroup>
-
-    <ItemGroup>
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Dependency injection integration for Cocoar.Configuration with Microsoft.Extensions.DependencyInjection. Fluent API for registering configuration types with customizable lifetimes (singleton, scoped, transient) and keyed services.</Description>
+    <PackageTags>configuration;dependency-injection;di;microsoft-extensions;fluent-api;service-registration;ioc;keyed-services</PackageTags>
+  </PropertyGroup>    <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
     </ItemGroup>
 

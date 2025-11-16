@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -165,7 +167,7 @@ public class ConfigurablePollingIntervalTests
         _output.WriteLine($"Testing with fast polling interval: {options.PollingInterval.TotalMilliseconds}ms");
         
         // Initial state - file doesn't exist, should throw
-        var initialException = await Record.ExceptionAsync(() => provider.FetchConfigurationAsync(query));
+        var initialException = await Record.ExceptionAsync(() => provider.FetchConfigurationBytesAsync(query));
         Assert.NotNull(initialException);
         _output.WriteLine("Initial fetch failed as expected (file doesn't exist)");
         
@@ -174,13 +176,20 @@ public class ConfigurablePollingIntervalTests
         System.IO.File.WriteAllText(configFile, testContent);
         _output.WriteLine("Created config file");
         
-        // With 100ms polling, we should detect the file within a reasonable time
-        // Wait a bit longer than polling interval to ensure detection
-        await Task.Delay(300);
-        
-        // Now fetch should succeed
-        var result = await provider.FetchConfigurationAsync(query);
-        Assert.True(result.TryGetProperty("test", out var testProp));
+        // Actively fetch until file appears (more deterministic than relying on change observable)
+        byte[]? resultBytes = null;
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                try {
+                    resultBytes = provider.FetchConfigurationBytesAsync(query).GetAwaiter().GetResult();
+                    var el = resultBytes.ToJsonElement();
+                    return el.TryGetProperty("test", out var tp) && tp.GetString() == "value";
+                } catch { return false; }
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "file detection via fetch");
+        var result = resultBytes!;
+        Assert.True(result.ToJsonElement().TryGetProperty("test", out var testProp));
         Assert.Equal("value", testProp.GetString());
         
         _output.WriteLine($"Successfully fetched config: {result}");

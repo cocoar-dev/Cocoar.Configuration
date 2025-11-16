@@ -12,7 +12,7 @@ public sealed class ConfigManagerHealthRecoveryTests
     {
         private static int _calls;
         public FlakyStaticProvider(DummyProviderOptions options) : base(options) { }
-        public override Task<System.Text.Json.JsonElement> FetchConfigurationAsync(DummyProviderQuery query, CancellationToken ct = default)
+        public override Task<byte[]> FetchConfigurationBytesAsync(DummyProviderQuery query, CancellationToken ct = default)
         {
             _calls++;
             if (_calls == 1)
@@ -21,10 +21,9 @@ public sealed class ConfigManagerHealthRecoveryTests
             }
 
             var json = """{"Name":"Ok","Value":42}""";
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            return Task.FromResult(doc.RootElement.Clone());
+            return Task.FromResult(System.Text.Encoding.UTF8.GetBytes(json));
         }
-        public override IObservable<System.Text.Json.JsonElement> Changes(DummyProviderQuery query) => System.Reactive.Linq.Observable.Never<System.Text.Json.JsonElement>();
+        public override IObservable<byte[]> ChangesAsBytes(DummyProviderQuery query) => System.Reactive.Linq.Observable.Never<byte[]>();
     }
 
     private sealed class DummyProviderOptions : IProviderConfiguration
@@ -67,3 +66,6 @@ public sealed class ConfigManagerHealthRecoveryTests
 
     public sealed class RecoveryConfig { public string Name { get; set; } = string.Empty; public int Value { get; set; } }
 }
+
+
+

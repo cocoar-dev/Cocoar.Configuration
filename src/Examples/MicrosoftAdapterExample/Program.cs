@@ -1,8 +1,9 @@
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.MicrosoftAdapter;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
+namespace Examples.MicrosoftAdapterExample;
 
 public class DatabaseSettings
 {

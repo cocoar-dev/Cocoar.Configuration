@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Providers;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -46,11 +47,6 @@ public class RecomputeStressTests : IDisposable
     private void TrackForDisposal(IDisposable disposable) => _disposables.Add(disposable);
 
     public record StressConfig(Dictionary<string, object> Data);
-
-    /// <summary>
-    /// Tests sustained rapid changes from multiple providers.
-    /// This validates debouncing, coalescing, and resource management under realistic load.
-    /// </summary>
     [Fact]
     public async Task SustainedRapidChanges_MaintainsStabilityAndCorrectness()
     {
@@ -115,8 +111,13 @@ public class RecomputeStressTests : IDisposable
         await Task.WhenAll(changeTasks);
 
         // Wait for all changes to settle
-        await Task.Delay(300);
-
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<StressConfig>();
+                return config != null;
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "sustained rapid changes completion");
 
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);
@@ -132,11 +133,6 @@ public class RecomputeStressTests : IDisposable
         Assert.True(memoryIncrease < 10_000_000, 
             $"Memory increase too large: {memoryIncrease} bytes. Possible memory leak.");
     }
-
-    /// <summary>
-    /// Tests overlapping debounce windows with complex change patterns.
-    /// Validates that debouncing logic works correctly when changes arrive faster than debounce intervals.
-    /// </summary>
     [Fact]
     public async Task OverlappingDebounceWindows_CoalesceCorrectly()
     {
@@ -220,11 +216,6 @@ public class RecomputeStressTests : IDisposable
         var burstCounter = ((JsonElement)finalConfig.Data["burst_counter"]).GetInt32();
         Assert.Equal(burstCount - 1, burstCounter); // Final burst (0-indexed)
     }
-
-    /// <summary>
-    /// Tests recompute engine behavior under memory pressure.
-    /// Validates that the system remains stable when processing large configurations.
-    /// </summary>
     [Fact]
     public async Task LargeConfigurationChanges_HandleMemoryPressureGracefully()
     {
@@ -263,8 +254,11 @@ public class RecomputeStressTests : IDisposable
         var initialMemory = GC.GetTotalMemory(true);
         
         configManager.Initialize();
-        await Task.Delay(200); // Allow initial configuration to settle
-
+        
+        // Wait for initial configuration
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<StressConfig>() != null,
+            description: "initial configuration in memory stress test");
 
         for (var update = 0; update < 20; update++)
         {
@@ -281,12 +275,22 @@ public class RecomputeStressTests : IDisposable
                 provider.OnNext(new(updatedData));
             }
 
-            await Task.Delay(25); // Rapid updates
+            await Task.Delay(25); // Rapid updates to test memory handling
         }
 
-        // Wait for processing
-        await Task.Delay(300);
-
+        // Wait for all updates to complete
+        // Note: Due to debouncing (50ms) and rapid updates (25ms interval), many emissions are coalesced.
+        // The critical aspect for this stress test is that the system remains stable, not that every
+        // individual update is captured. We wait for any update to settle rather than a specific count.
+        await Task.Delay(1000); // Allow time for most updates to propagate
+        
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<StressConfig>();
+                return config != null && config.Data.ContainsKey("update_count");
+            },
+            timeout: TimeSpan.FromSeconds(5),
+            description: "large configuration updates completion");
 
         var finalConfig = configManager.GetConfig<StressConfig>();
         var finalMemory = GC.GetTotalMemory(true);
@@ -305,11 +309,6 @@ public class RecomputeStressTests : IDisposable
         Assert.True(memoryIncrease < 100_000_000, 
             $"Memory increase excessive: {memoryIncrease} bytes. Possible memory issue.");
     }
-
-    /// <summary>
-    /// Tests that cancellation and cleanup work properly under stress conditions.
-    /// Validates that disposal doesn't cause issues even when changes are in flight.
-    /// </summary>
     [Fact]
     public async Task DisposalUnderStress_CleansUpProperly()
     {

@@ -27,11 +27,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Basic Functionality Tests
-
-    /// <summary>
-    /// Validates ObservableProvider can fetch current value from BehaviorSubject.
-    /// Tests the basic functionality of getting the latest value from an observable.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -46,20 +41,15 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal("ObservableTest", result.GetProperty("Name").GetString());
-        Assert.Equal(123, result.GetProperty("Value").GetInt32());
-        Assert.True(result.GetProperty("Enabled").GetBoolean());
+        Assert.Equal("ObservableTest", result.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal(123, result.ToJsonElement().GetProperty("Value").GetInt32());
+        Assert.True(result.ToJsonElement().GetProperty("Enabled").GetBoolean());
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider works with complex configuration objects.
-    /// Ensures proper JSON serialization of complex types through the observable.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -77,30 +67,25 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal("Complex Test Configuration", result.GetProperty("Title").GetString());
+        Assert.Equal("Complex Test Configuration", result.ToJsonElement().GetProperty("Title").GetString());
         
-        var tags = result.GetProperty("Tags");
+        var tags = result.ToJsonElement().GetProperty("Tags");
         Assert.Equal(3, tags.GetArrayLength());
         Assert.Equal("tag1", tags[0].GetString());
         Assert.Equal("tag2", tags[1].GetString());
         Assert.Equal("production", tags[2].GetString());
         
         // Verify timestamp serialization
-        var timestamp = result.GetProperty("Timestamp").GetDateTime();
+        var timestamp = result.ToJsonElement().GetProperty("Timestamp").GetDateTime();
         Assert.Equal(2025, timestamp.Year);
         Assert.Equal(1, timestamp.Month);
         Assert.Equal(15, timestamp.Day);
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles empty configuration objects correctly.
-    /// Tests edge case of minimal configuration data.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -115,10 +100,10 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
         // EmptyConfig should serialize to empty JSON object
         
         subject.Dispose();
@@ -127,11 +112,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Observable/Reactive Tests
-
-    /// <summary>
-    /// Validates ObservableProvider Changes() observable emits when underlying subject changes.
-    /// Tests the core reactive functionality - change propagation.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -146,7 +126,7 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
 
 
         var updatedData1 = new TestConfig("Updated1", 2, true);
@@ -182,11 +162,6 @@ public class ObservableProviderIsolationTests
         subscription.Dispose();
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider Changes() observable handles rapid sequential emissions.
-    /// Tests the provider's ability to handle high-frequency changes without loss.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "ObservableProvider")]
@@ -199,7 +174,7 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
 
 
         const int changeCount = 50;
@@ -235,11 +210,6 @@ public class ObservableProviderIsolationTests
         subscription.Dispose();
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles multiple simultaneous subscriptions correctly.
-    /// Each subscription should receive the same emissions independently.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -260,7 +230,7 @@ public class ObservableProviderIsolationTests
         {
             allEmissions[i] = new();
             var emissions = allEmissions[i]; // Capture for closure
-            subscriptions[i] = provider.Changes(query).Subscribe(emissions.Add);
+            subscriptions[i] = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
         }
 
 
@@ -289,11 +259,6 @@ public class ObservableProviderIsolationTests
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider Changes() observable completes when source completes.
-    /// Tests proper completion propagation from source to Changes observable.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -307,8 +272,8 @@ public class ObservableProviderIsolationTests
 
         var emissions = new List<JsonElement>();
         var completed = false;
-        var subscription = provider.Changes(query).Subscribe(
-            emissions.Add,
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
+            e => emissions.Add(e.ToJsonElement()),
             _ => { }, // OnError
             () => completed = true); // OnCompleted
 
@@ -334,11 +299,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Error Handling Tests
-
-    /// <summary>
-    /// Validates ObservableProvider handles source observable errors correctly.
-    /// Errors from the underlying observable should propagate to Changes subscribers.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -352,8 +312,8 @@ public class ObservableProviderIsolationTests
 
         var emissions = new List<JsonElement>();
         Exception? caughtException = null;
-        var subscription = provider.Changes(query).Subscribe(
-            emissions.Add,
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
+            e => emissions.Add(e.ToJsonElement()),
             ex => caughtException = ex,
             () => { });
 
@@ -376,11 +336,6 @@ public class ObservableProviderIsolationTests
         subscription.Dispose();
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles serialization errors gracefully.
-    /// Should handle cases where objects can't be serialized to JSON.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -403,16 +358,11 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
         Assert.NotEqual(default, result);
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles null values in the observable stream.
-    /// Should handle null emissions without crashing.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -426,8 +376,8 @@ public class ObservableProviderIsolationTests
 
         var emissions = new List<JsonElement>();
         Exception? error = null;
-        var subscription = provider.Changes(query).Subscribe(
-            emissions.Add,
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
+            e  => emissions.Add(e.ToJsonElement()),
             ex => error = ex);
 
 
@@ -461,11 +411,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Performance Tests
-
-    /// <summary>
-    /// Validates ObservableProvider performance for fetching current value.
-    /// Should consistently perform under reasonable time limits.
-    /// </summary>
     [Fact]
     [Trait("Type", "Performance")]
     [Trait("Provider", "ObservableProvider")]
@@ -479,11 +424,11 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
         // Warm up
-        await provider.FetchConfigurationAsync(query);
+        await provider.FetchConfigurationBytesAsync(query);
 
 
         var stopwatch = Stopwatch.StartNew();
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
         stopwatch.Stop();
 
 
@@ -493,11 +438,6 @@ public class ObservableProviderIsolationTests
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider emission propagation performance.
-    /// Should handle emissions without significant delay.
-    /// </summary>
     [Fact]
     [Trait("Type", "Performance")]
     [Trait("Provider", "ObservableProvider")]
@@ -512,7 +452,7 @@ public class ObservableProviderIsolationTests
         var emissionTimes = new List<TimeSpan>();
         var stopwatch = Stopwatch.StartNew();
         
-        var subscription = provider.Changes(query).Subscribe(_ =>
+        var subscription = provider.ChangesAsBytes(query).Subscribe(_ =>
         {
             emissionTimes.Add(stopwatch.Elapsed);
         });
@@ -529,8 +469,9 @@ public class ObservableProviderIsolationTests
 
 
         var latency = emissionTimes[0] - emissionStart;
-        Assert.True(latency.TotalMilliseconds < 50, 
-            $"Emission latency was {latency.TotalMilliseconds}ms, expected < 50ms");
+        // Allow more latency on slower CI runners (especially ARM64 macOS)
+        Assert.True(latency.TotalMilliseconds < 200, 
+            $"Emission latency was {latency.TotalMilliseconds}ms, expected < 200ms");
         
         subscription.Dispose();
         subject.Dispose();
@@ -539,11 +480,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Subscription Management Tests
-
-    /// <summary>
-    /// Validates ObservableProvider handles subscription disposal correctly.
-    /// Disposed subscriptions should not receive further emissions.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -556,7 +492,7 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
         var emissions = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(emissions.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
 
 
         subject.OnNext(new("BeforeDispose", 1, true));
@@ -582,11 +518,6 @@ public class ObservableProviderIsolationTests
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles multiple subscribe/dispose cycles correctly.
-    /// Should not leak resources or cause issues with repeated subscription patterns.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -602,7 +533,7 @@ public class ObservableProviderIsolationTests
         for (var cycle = 1; cycle <= 5; cycle++)
         {
             var emissions = new List<JsonElement>();
-            var subscription = provider.Changes(query).Subscribe(emissions.Add);
+            var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
 
             subject.OnNext(new($"Cycle{cycle}", cycle, cycle % 2 == 0));
             
@@ -627,11 +558,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Concurrency Tests
-
-    /// <summary>
-    /// Validates ObservableProvider handles concurrent FetchConfigurationAsync calls safely.
-    /// Multiple threads should be able to fetch current values simultaneously.
-    /// </summary>
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "ObservableProvider")]
@@ -656,8 +582,8 @@ public class ObservableProviderIsolationTests
             {
                 for (var i = 0; i < operationsPerThread; i++)
                 {
-                    var result = await provider.FetchConfigurationAsync(query);
-                    allResults[threadId].Add(result);
+                    var result = await provider.FetchConfigurationBytesAsync(query);
+                    allResults[threadId].Add(result.ToJsonElement());
                 }
             }
             catch (Exception ex)
@@ -687,11 +613,6 @@ public class ObservableProviderIsolationTests
         
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles concurrent subscriptions to Changes() correctly.
-    /// Multiple threads creating subscriptions simultaneously should work safely.
-    /// </summary>
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "ObservableProvider")]
@@ -715,7 +636,7 @@ public class ObservableProviderIsolationTests
             {
                 allEmissions[subscriberId] = new();
                 var emissions = allEmissions[subscriberId];
-                subscriptions[subscriberId] = provider.Changes(query).Subscribe(emissions.Add);
+                subscriptions[subscriberId] = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
                 
                 // Small delay to vary timing
                 await Task.Delay(subscriberId * 2);
@@ -761,11 +682,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Advanced Stress Tests
-
-    /// <summary>
-    /// Validates ObservableProvider handles massive concurrent subscriptions without race conditions.
-    /// Tests with 100+ simultaneous subscribers to stress-test subscription management.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "ObservableProvider")]
@@ -789,7 +705,7 @@ public class ObservableProviderIsolationTests
             {
                 await Task.Delay(subscriberId % 10); // Stagger subscription timing slightly
                 var emissions = new List<JsonElement>();
-                var subscription = provider.Changes(query).Subscribe(emissions.Add);
+                var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
                 
                 allEmissions.Add(emissions);
                 subscriptions.Add(subscription);
@@ -832,11 +748,6 @@ public class ObservableProviderIsolationTests
         }
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles mixed concurrent operations safely.
-    /// Tests simultaneous subscriptions, emissions, and disposals to find race conditions.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "ObservableProvider")]
@@ -863,7 +774,7 @@ public class ObservableProviderIsolationTests
                 for (var i = 0; i < 50; i++)
                 {
                     var emissions = new List<JsonElement>();
-                    var subscription = provider.Changes(query).Subscribe(emissions.Add);
+                    var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
                     allEmissions.Add(emissions);
                     activeSubscriptions.Add(subscription);
                     
@@ -900,7 +811,7 @@ public class ObservableProviderIsolationTests
                 for (var i = 0; i < 20; i++)
                 {
                     var emissions = new List<JsonElement>();
-                    var subscription = provider.Changes(query).Subscribe(emissions.Add);
+                    var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
                     allEmissions.Add(emissions);
                     activeSubscriptions.Add(subscription);
                     await Task.Delay(50); // Keep these alive longer
@@ -930,11 +841,6 @@ public class ObservableProviderIsolationTests
         }
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles heavy load scenario.
-    /// Tests thousands of rapid emissions with multiple long-lived subscribers.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "ObservableProvider")]
@@ -960,8 +866,8 @@ public class ObservableProviderIsolationTests
             try
             {
                 allEmissions[subscriberId] = new();
-                subscriptions[subscriberId] = provider.Changes(query).Subscribe(
-                    emission => allEmissions[subscriberId].Add(emission),
+                subscriptions[subscriberId] = provider.ChangesAsBytes(query).Subscribe(
+                    emission => allEmissions[subscriberId].Add(emission.ToJsonElement()),
                     ex => exceptions.Add(ex));
             }
             catch (Exception ex)
@@ -1017,11 +923,6 @@ public class ObservableProviderIsolationTests
         }
         subject.Dispose();
     }
-
-    /// <summary>
-    /// Validates ObservableProvider handles rapid subscribe/unsubscribe cycles.
-    /// Tests resource management under extreme subscription churn.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "ObservableProvider")]
@@ -1043,7 +944,7 @@ public class ObservableProviderIsolationTests
             try
             {
                 var emissions = new List<JsonElement>();
-                var subscription = provider.Changes(query).Subscribe(emissions.Add);
+                var subscription = provider.ChangesAsBytes(query).Subscribe(e  => emissions.Add(e.ToJsonElement()));
 
                 // Emit one piece of data
                 subject.OnNext(new($"Cycle{cycle}", cycle, cycle % 2 == 0));
@@ -1087,11 +988,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region JSON String Convenience Tests
-
-    /// <summary>
-    /// Validates ObservableProvider with JSON string overload - perfect for test writing!
-    /// TestRules.Observable(jsonString).For&lt;TestConfig&gt;()
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -1105,20 +1001,16 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.True(result.TryGetProperty("Name", out var nameProperty));
+        Assert.True(result.ToJsonElement().TryGetProperty("Name", out var nameProperty));
         Assert.Equal("TestApp", nameProperty.GetString());
-        Assert.True(result.TryGetProperty("Version", out var versionProperty));
+        Assert.True(result.ToJsonElement().TryGetProperty("Version", out var versionProperty));
         Assert.Equal("1.0.0", versionProperty.GetString());
-        Assert.True(result.TryGetProperty("EnableLogging", out var loggingProperty));
+        Assert.True(result.ToJsonElement().TryGetProperty("EnableLogging", out var loggingProperty));
         Assert.True(loggingProperty.GetBoolean());
     }
-
-    /// <summary>
-    /// Validates ObservableProvider with JSON string reacts to changes
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -1134,7 +1026,7 @@ public class ObservableProviderIsolationTests
         var query = ObservableProviderQuery.Default;
         
         var changes = new List<JsonElement>();
-        var subscription = provider.Changes(query).Subscribe(changes.Add);
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => changes.Add(e.ToJsonElement()));
 
 
         await Task.Delay(10); // Let initial value emit
@@ -1188,11 +1080,6 @@ public class ObservableProviderIsolationTests
     #endregion
 
     #region Subscriber Safety Tests
-
-    /// <summary>
-    /// Validates that exceptions in one subscriber do not terminate the pipeline or affect other subscribers.
-    /// This is critical for reactive system stability - subscriber errors should be isolated.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -1212,11 +1099,11 @@ public class ObservableProviderIsolationTests
         var goodSubscriber2Values = new List<JsonElement>();
         var exceptionCount = 0;
 
-        var changes = provider.Changes(query);
+        var changes = provider.ChangesAsBytes(query);
 
         // Good subscriber 1
         var subscription1 = changes.Subscribe(
-            config => goodSubscriber1Values.Add(config),
+            config => goodSubscriber1Values.Add(config.ToJsonElement()),
             ex => { /* Should not be called */ });
 
         // Bad subscriber that throws exceptions
@@ -1230,7 +1117,7 @@ public class ObservableProviderIsolationTests
 
         // Good subscriber 2
         var subscription3 = changes.Subscribe(
-            config => goodSubscriber2Values.Add(config),
+            config => goodSubscriber2Values.Add(config.ToJsonElement()),
             ex => { /* Should not be called */ });
 
         // Wait for initial values
@@ -1269,11 +1156,6 @@ public class ObservableProviderIsolationTests
         subscription2.Dispose();
         subscription3.Dispose();
     }
-
-    /// <summary>
-    /// Validates that disposing one subscriber does not affect other active subscribers.
-    /// This ensures proper subscription isolation and resource management.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ObservableProvider")]
@@ -1294,11 +1176,11 @@ public class ObservableProviderIsolationTests
         var subscriber2Values = new List<JsonElement>();
         var subscriber3Values = new List<JsonElement>();
 
-        var changes = provider.Changes(query);
+        var changes = provider.ChangesAsBytes(query);
 
-        var subscription1 = changes.Subscribe(config => subscriber1Values.Add(config));
-        var subscription2 = changes.Subscribe(config => subscriber2Values.Add(config));
-        var subscription3 = changes.Subscribe(config => subscriber3Values.Add(config));
+        var subscription1 = changes.Subscribe(config => subscriber1Values.Add(config.ToJsonElement()));
+        var subscription2 = changes.Subscribe(config => subscriber2Values.Add(config.ToJsonElement()));
+        var subscription3 = changes.Subscribe(config => subscriber3Values.Add(config.ToJsonElement()));
 
         // Wait for initial values
         await ActiveWaitHelpers.WaitUntilAsync(

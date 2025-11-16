@@ -1,15 +1,9 @@
-using Microsoft.Extensions.Logging.Abstractions;
-using Cocoar.Configuration.Core.Tests.TestUtilities;
-
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cocoar.Configuration.Core.Tests.Managers;
 
-/// <summary>
-/// Tests error handling behavior for ConfigManager with required vs optional rules.
-/// Validates that required rule failures crash the application during initialization,
-/// while optional rule failures are gracefully skipped.
-/// </summary>
 public class ConfigManagerErrorHandlingTests : IDisposable
 {
     private readonly List<IDisposable> _disposables = new();
@@ -40,11 +34,6 @@ public class ConfigManagerErrorHandlingTests : IDisposable
         public string Name { get; set; } = string.Empty;
         public int Value { get; set; }
     }
-
-    /// <summary>
-    /// Tests that required rule failures cause ConfigManager initialization to throw.
-    /// This validates the fail-fast behavior for critical configuration dependencies.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -67,16 +56,11 @@ public class ConfigManagerErrorHandlingTests : IDisposable
 
 
         var exception = Assert.Throws<InvalidOperationException>(() => configManager.Initialize());
-        
+
         // Verify exception message contains provider information
         Assert.Contains("Required rule failed", exception.Message);
         Assert.Contains("FailableProvider", exception.Message);
     }
-
-    /// <summary>
-    /// Tests that ConfigManager skips optional rules that fail and continues processing other rules.
-    /// This validates that optional rule failures don't break the entire configuration.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -86,7 +70,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     {
 
         var successData = """{"Name": "Success", "Value": 42}""";
-        
+
         var rules = new List<ConfigRule>
         {
             // First rule: Optional and will fail - should be skipped
@@ -116,11 +100,6 @@ public class ConfigManagerErrorHandlingTests : IDisposable
         Assert.Equal("Success", config.Name);
         Assert.Equal(42, config.Value);
     }
-
-    /// <summary>
-    /// Tests mixed scenarios where required rules succeed but optional rules fail.
-    /// Validates that required rule data takes precedence over optional failures.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -130,7 +109,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     {
 
         var requiredData = """{"Name": "Required", "Value": 100}""";
-        
+
         var rules = new List<ConfigRule>
         {
             // First rule: Required and will succeed - should be used
@@ -160,11 +139,6 @@ public class ConfigManagerErrorHandlingTests : IDisposable
         Assert.Equal("Required", config.Name);
         Assert.Equal(100, config.Value);
     }
-
-    /// <summary>
-    /// Tests that multiple optional rule failures are all skipped gracefully.
-    /// Validates robust error handling when multiple rules fail.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -174,7 +148,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
     {
 
         var successData = """{"Name": "OnlySuccess", "Value": 999}""";
-        
+
         var rules = new List<ConfigRule>
         {
             // Multiple optional rules that will fail
@@ -183,7 +157,7 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 new(true, "First failure"),
                 typeof(TestConfig),
                 new(Required: false)),
-            
+
             ConfigRule.Create<FailableProvider, FailableProviderOptions, FailableProviderQuery>(
                 FailableProviderOptions.QueryControlled("""{"Name": "Fail2"}"""),
                 new(true, "Second failure"),

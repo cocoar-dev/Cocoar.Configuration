@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -40,9 +42,9 @@ public class FileProviderMultiQueryTests
         var emissions2 = new List<JsonElement>();
         var emissions3 = new List<JsonElement>();
 
-        var subscription1 = provider.Changes(query1).Subscribe(emissions1.Add);
-        var subscription2 = provider.Changes(query2).Subscribe(emissions2.Add);
-        var subscription3 = provider.Changes(query3).Subscribe(emissions3.Add);
+        var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
+        var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
+        var subscription3 = provider.ChangesAsBytes(query3).Subscribe(e => emissions3.Add(e.ToJsonElement()));
 
         try
         {
@@ -54,11 +56,17 @@ public class FileProviderMultiQueryTests
                 file1.WriteJson(new { file = 1, value = i });
                 file2.WriteJson(new { file = 2, value = i });
                 file3.WriteJson(new { file = 3, value = i });
-                await Task.Delay(10); // Faster than debounce window
+                await Task.Delay(10); // Rapid writes to test debouncing
             }
 
-            // Wait for all debouncing to settle
-            await Task.Delay(300);
+            // Wait for all file changes to be detected and for final debounced values to arrive
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions1.Count > 0 && emissions2.Count > 0 && emissions3.Count > 0 &&
+                      emissions1[^1].GetProperty("value").GetInt32() == changeCount &&
+                      emissions2[^1].GetProperty("value").GetInt32() == changeCount &&
+                      emissions3[^1].GetProperty("value").GetInt32() == changeCount,
+                timeout: TimeSpan.FromSeconds(3),
+                description: "final debounced values for all files");
 
             _output.WriteLine($"File 1: made {changeCount} changes, received {emissions1.Count} emissions");
             _output.WriteLine($"File 2: made {changeCount} changes, received {emissions2.Count} emissions");
@@ -110,8 +118,8 @@ public class FileProviderMultiQueryTests
         var emissions1 = new List<JsonElement>();
         var emissions2 = new List<JsonElement>();
 
-        var subscription1 = provider.Changes(query1).Subscribe(emissions1.Add);
-        var subscription2 = provider.Changes(query2).Subscribe(emissions2.Add);
+        var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
+        var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
 
         try
         {
@@ -119,10 +127,16 @@ public class FileProviderMultiQueryTests
             for (var i = 1; i <= 5; i++)
             {
                 file.WriteJson(new { shared = true, value = i });
-                await Task.Delay(50);
+                await Task.Delay(50); // Spaced writes
             }
 
-            await Task.Delay(100);
+            // Wait for both queries to have their final value
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions1.Count > 0 && emissions2.Count > 0 &&
+                      emissions1[^1].GetProperty("value").GetInt32() == 5 &&
+                      emissions2[^1].GetProperty("value").GetInt32() == 5,
+                timeout: TimeSpan.FromSeconds(2),
+                description: "shared file final value for both queries");
 
             _output.WriteLine($"Query 1: {emissions1.Count} emissions");
             _output.WriteLine($"Query 2: {emissions2.Count} emissions");
@@ -162,8 +176,8 @@ public class FileProviderMultiQueryTests
         var emissionsFast = new List<JsonElement>();
         var emissionsSlow = new List<JsonElement>();
 
-        var subscriptionFast = provider.Changes(queryFast).Subscribe(emissionsFast.Add);
-        var subscriptionSlow = provider.Changes(querySlow).Subscribe(emissionsSlow.Add);
+        var subscriptionFast = provider.ChangesAsBytes(queryFast).Subscribe(e => emissionsFast.Add(e.ToJsonElement()));
+        var subscriptionSlow = provider.ChangesAsBytes(querySlow).Subscribe(e => emissionsSlow.Add(e.ToJsonElement()));
 
         try
         {
@@ -171,11 +185,16 @@ public class FileProviderMultiQueryTests
             for (var i = 1; i <= 10; i++)
             {
                 file.WriteJson(new { value = i });
-                await Task.Delay(10); // Faster than both debounce windows
+                await Task.Delay(10); // Rapid writes to test differential debouncing
             }
 
-            // Wait for all debouncing to complete
-            await Task.Delay(200);
+            // Wait for final debounced values to arrive
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissionsFast.Count > 0 && emissionsSlow.Count > 0 &&
+                      emissionsFast[^1].GetProperty("value").GetInt32() == 10 &&
+                      emissionsSlow[^1].GetProperty("value").GetInt32() == 10,
+                timeout: TimeSpan.FromSeconds(2),
+                description: "final debounced values for both queries");
 
             _output.WriteLine($"Fast query (20ms debounce): {emissionsFast.Count} emissions");
             _output.WriteLine($"Slow query (100ms debounce): {emissionsSlow.Count} emissions");

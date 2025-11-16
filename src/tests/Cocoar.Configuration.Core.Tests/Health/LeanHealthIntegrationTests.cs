@@ -122,12 +122,13 @@ internal sealed record SimpleStaticProviderQuery() : IProviderQuery;
 internal sealed class SimpleStaticProvider : ConfigurationProvider<SimpleStaticProviderOptions, SimpleStaticProviderQuery>
 {
     public SimpleStaticProvider(SimpleStaticProviderOptions options) : base(options){}
-    public override Task<JsonElement> FetchConfigurationAsync(SimpleStaticProviderQuery query, CancellationToken ct = default)
+    public override Task<byte[]> FetchConfigurationBytesAsync(SimpleStaticProviderQuery query, CancellationToken ct = default)
     {
         using var doc = JsonDocument.Parse(ProviderOptions.Json);
-        return Task.FromResult(doc.RootElement.Clone());
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(doc.RootElement.Clone());
+        return Task.FromResult(bytes);
     }
-    public override IObservable<JsonElement> Changes(SimpleStaticProviderQuery query) => System.Reactive.Linq.Observable.Empty<JsonElement>();
+    public override IObservable<byte[]> ChangesAsBytes(SimpleStaticProviderQuery query) => System.Reactive.Linq.Observable.Empty<byte[]>();
 }
 
 internal sealed record FailingProviderOptions(Exception Ex) : IProviderConfiguration;
@@ -135,7 +136,10 @@ internal sealed record FailingProviderQuery() : IProviderQuery;
 internal sealed class FailingProvider : ConfigurationProvider<FailingProviderOptions, FailingProviderQuery>
 {
     public FailingProvider(FailingProviderOptions options) : base(options){}
-    public override Task<JsonElement> FetchConfigurationAsync(FailingProviderQuery query, CancellationToken ct = default)
-        => Task.FromException<JsonElement>(ProviderOptions.Ex);
-    public override IObservable<JsonElement> Changes(FailingProviderQuery query) => System.Reactive.Linq.Observable.Empty<JsonElement>();
+    public override Task<byte[]> FetchConfigurationBytesAsync(FailingProviderQuery query, CancellationToken ct = default)
+        => Task.FromException<byte[]>(ProviderOptions.Ex);
+    public override IObservable<byte[]> ChangesAsBytes(FailingProviderQuery query) => System.Reactive.Linq.Observable.Empty<byte[]>();
 }
+
+
+

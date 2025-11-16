@@ -2,6 +2,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.Http;
@@ -21,7 +23,7 @@ public class HttpProviderBattleTests : IDisposable
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "HttpPollingProvider")]
-    public async Task FetchConfigurationAsync_Returns_CachedValue_OnSecondCall()
+    public async Task FetchConfigurationAsync_PerformsHttpOnEveryCall()
     {
 
         var callCount = 0;
@@ -38,13 +40,12 @@ public class HttpProviderBattleTests : IDisposable
         var query = new HttpPollingProviderQueryOptions("/api/config");
 
 
-        var first = await provider.FetchConfigurationAsync(query);
-        var second = await provider.FetchConfigurationAsync(query);
+    var first = await provider.FetchConfigurationBytesAsync(query);
+    var second = await provider.FetchConfigurationBytesAsync(query);
 
-
-        Assert.Equal(1, first.GetProperty("CallCount").GetInt32());
-        Assert.Equal(1, second.GetProperty("CallCount").GetInt32());
-        Assert.Equal(1, callCount); // Only called once
+    Assert.Equal(1, first.ToJsonElement().GetProperty("CallCount").GetInt32());
+    Assert.Equal(2, second.ToJsonElement().GetProperty("CallCount").GetInt32());
+    Assert.Equal(2, callCount); // Called for each fetch
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public class HttpProviderBattleTests : IDisposable
 
 
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => provider.FetchConfigurationAsync(query));
+            () => provider.FetchConfigurationBytesAsync(query));
     }
 
     [Fact]
@@ -75,11 +76,12 @@ public class HttpProviderBattleTests : IDisposable
         var provider = CreateProvider(handler);
         var query = new HttpPollingProviderQueryOptions("/api/config");
 
-
-        var exception = await Assert.ThrowsAnyAsync<Exception>(
-            () => provider.FetchConfigurationAsync(query));
-        
-        Assert.Contains("invalid", exception.Message.ToLower());
+        // Provider is byte-only and does not validate JSON; fetching should not throw.
+        var bytes = await provider.FetchConfigurationBytesAsync(query);
+        // Converting to JsonElement in tests returns empty object on malformed JSON
+        var element = bytes.ToJsonElement();
+        Assert.Equal(JsonValueKind.Object, element.ValueKind);
+        Assert.False(element.EnumerateObject().Any());
     }
 
     [Fact]
@@ -107,7 +109,7 @@ public class HttpProviderBattleTests : IDisposable
             });
 
 
-        await provider.FetchConfigurationAsync(query);
+        await provider.FetchConfigurationBytesAsync(query);
 
 
         Assert.NotNull(capturedRequest);
@@ -137,7 +139,7 @@ public class HttpProviderBattleTests : IDisposable
         _disposables.Add(provider);
         
         var query = new HttpPollingProviderQueryOptions("/v1/config");
-        _ = provider.FetchConfigurationAsync(query);
+        _ = provider.FetchConfigurationBytesAsync(query);
 
 
         Assert.Equal("https://api.example.com/v1/config", capturedUri?.ToString());
@@ -165,7 +167,7 @@ public class HttpProviderBattleTests : IDisposable
 
 
         var query = new HttpPollingProviderQueryOptions("https://other.example.com/config");
-        _ = provider.FetchConfigurationAsync(query);
+        _ = provider.FetchConfigurationBytesAsync(query);
 
 
         Assert.Equal("https://other.example.com/config", capturedUri?.ToString());
@@ -176,18 +178,21 @@ public class HttpProviderBattleTests : IDisposable
     [Trait("Provider", "HttpPollingProvider")]
     public async Task Changes_DoesNotEmit_OnException()
     {
-
+        // Use a very high threshold so we don't emit the sentinel during this short test window
         var handler = new ExceptionHandler(new HttpRequestException("Network error"));
-        var provider = CreateProvider(handler, TimeSpan.FromMilliseconds(50));
+        var provider = new HttpPollingProvider(
+            new("https://example.com", TimeSpan.FromMilliseconds(50), int.MaxValue, handler));
+        _disposables.Add(provider);
         var query = new HttpPollingProviderQueryOptions("/api/config");
 
 
         var emissions = new List<JsonElement>();
-        using var subscription = provider.Changes(query)
-            .Subscribe(element => emissions.Add(element));
+        using var subscription = provider.ChangesAsBytes(query)
+            .Subscribe(element => emissions.Add(element.ToJsonElement()));
 
-        // wait for several poll attempts
-        await Task.Delay(200);
+        // Wait for several poll attempts (at 50ms interval, 500ms = ~10 polls)
+        // This validates that exceptions don't emit until sentinel threshold is reached
+        await Task.Delay(500);
 
 
         Assert.Empty(emissions);
@@ -196,15 +201,39 @@ public class HttpProviderBattleTests : IDisposable
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "HttpPollingProvider")]
-    public async Task Changes_OnlyEmits_WhenContentChanges()
+    public async Task Changes_EmitsSentinel_AfterConsecutiveFailures()
+    {
+        var handler = new ExceptionHandler(new HttpRequestException("Network error"));
+        var provider = new HttpPollingProvider(
+            new("https://example.com", TimeSpan.FromMilliseconds(30), 3, handler));
+        _disposables.Add(provider);
+        var query = new HttpPollingProviderQueryOptions("/api/config");
+
+        var emissionCount = 0;
+        using var subscription = provider.ChangesAsBytes(query)
+            .Subscribe(_ => Interlocked.Increment(ref emissionCount));
+
+        // Wait for sentinel emission after 3 consecutive failures
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissionCount >= 1,
+            timeout: TimeSpan.FromSeconds(5),
+            description: "sentinel emission after consecutive failures");
+
+        Assert.True(emissionCount >= 1);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "HttpPollingProvider")]
+    public async Task Changes_Emits_OnEveryPollInterval()
     {
 
         var responses = new Queue<HttpResponseMessage>(new[]
         {
-            CreateJsonResponse("{ \"Value\": 1 }"),  // first poll
-            CreateJsonResponse("{ \"Value\": 1 }"),  // same content - should not emit
-            CreateJsonResponse("{ \"Value\": 2 }"),  // changed content - should emit
-            CreateJsonResponse("{ \"Value\": 2 }"),  // same again - should not emit
+            CreateJsonResponse("{ \"Value\": 1 }"),
+            CreateJsonResponse("{ \"Value\": 1 }"),
+            CreateJsonResponse("{ \"Value\": 2 }"),
+            CreateJsonResponse("{ \"Value\": 2 }"),
         });
         var handler = new QueueHandler(responses);
         var provider = CreateProvider(handler, TimeSpan.FromMilliseconds(80));
@@ -212,22 +241,25 @@ public class HttpProviderBattleTests : IDisposable
 
 
         var emissions = new List<JsonElement>();
-        using var subscription = provider.Changes(query)
-            .Subscribe(element => emissions.Add(element));
+        using var subscription = provider.ChangesAsBytes(query)
+            .Subscribe(element => emissions.Add(element.ToJsonElement()));
 
-        // wait for several poll cycles
-        await Task.Delay(400);
+    await ActiveWaitHelpers.WaitUntilAsync(
+        () => emissions.Any(e => e.GetProperty("Value").GetInt32() == 1) &&
+              emissions.Any(e => e.GetProperty("Value").GetInt32() == 2),
+        timeout: TimeSpan.FromSeconds(3),
+        description: "emissions to contain both 1 and 2");
 
-
-        Assert.Equal(2, emissions.Count);
-        Assert.Equal(1, emissions[0].GetProperty("Value").GetInt32());
-        Assert.Equal(2, emissions[1].GetProperty("Value").GetInt32());
+    // should emit on each successful poll (we don't assert exact count due to timing)
+    Assert.True(emissions.Count >= 2);
+    Assert.Contains(emissions, e => e.GetProperty("Value").GetInt32() == 1);
+    Assert.Contains(emissions, e => e.GetProperty("Value").GetInt32() == 2);
     }
 
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "HttpPollingProvider")]
-    public async Task Changes_DifferentQueries_UseDifferentCache()
+    public async Task Changes_DifferentQueries_EmitIndependently()
     {
 
         var handler = new RequestCapturingHandler(req =>
@@ -243,17 +275,18 @@ public class HttpProviderBattleTests : IDisposable
 
 
         JsonElement? emission1 = null, emission2 = null;
-        using var sub1 = provider.Changes(query1).Subscribe(e => emission1 = e);
-        using var sub2 = provider.Changes(query2).Subscribe(e => emission2 = e);
+        using var sub1 = provider.ChangesAsBytes(query1).Subscribe(e => emission1 = e.ToJsonElement());
+        using var sub2 = provider.ChangesAsBytes(query2).Subscribe(e => emission2 = e.ToJsonElement());
 
-        // wait for polls
-        await Task.Delay(200);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emission1 != null && emission2 != null,
+            timeout: TimeSpan.FromSeconds(2),
+            description: "both queries to emit");
 
-
-        Assert.NotNull(emission1);
-        Assert.NotNull(emission2);
-        Assert.Equal(1, emission1.Value.GetProperty("Value").GetInt32());
-        Assert.Equal(2, emission2.Value.GetProperty("Value").GetInt32());
+    Assert.NotNull(emission1);
+    Assert.NotNull(emission2);
+    Assert.Equal(1, emission1.Value.GetProperty("Value").GetInt32());
+    Assert.Equal(2, emission2.Value.GetProperty("Value").GetInt32());
     }
 
     [Fact]

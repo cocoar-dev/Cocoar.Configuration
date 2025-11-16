@@ -7,15 +7,21 @@ namespace Cocoar.Configuration.Providers;
 public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     : ConfigurationProvider<StaticJsonProviderOptions, StaticJsonProviderQueryOptions>(options)
 {
-    public override Task<JsonElement> FetchConfigurationAsync(StaticJsonProviderQueryOptions query,
-        CancellationToken ct = default)
+    private readonly byte[] _cachedBytes = SerializeToBytes(options.Value);
+
+    private static byte[] SerializeToBytes(JsonElement value)
     {
-        var json = ProviderOptions.Value.ValueKind == JsonValueKind.Undefined
-            ? JsonDocument.Parse("{}").RootElement
-            : ProviderOptions.Value;
-        return Task.FromResult(json);
+        return value.ValueKind == JsonValueKind.Undefined
+            ? "{}"u8.ToArray()
+            : JsonSerializer.SerializeToUtf8Bytes(value);
     }
 
-    public override IObservable<JsonElement> Changes(StaticJsonProviderQueryOptions queryOptions)
-        => Observable.Empty<JsonElement>();
+    public override Task<byte[]> FetchConfigurationBytesAsync(StaticJsonProviderQueryOptions query,
+        CancellationToken ct = default)
+    {
+        return Task.FromResult(_cachedBytes);
+    }
+
+    public override IObservable<byte[]> ChangesAsBytes(StaticJsonProviderQueryOptions queryOptions)
+        => Observable.Empty<byte[]>();
 }

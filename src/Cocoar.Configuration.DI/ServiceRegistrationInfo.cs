@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cocoar.Configuration.DI;
 public class ServiceRegistrationInfo
 {
-    public Type Type { get; set; }
+    public required Type Type { get; set; }
     public bool DisableDefault { get; set; }
     
 

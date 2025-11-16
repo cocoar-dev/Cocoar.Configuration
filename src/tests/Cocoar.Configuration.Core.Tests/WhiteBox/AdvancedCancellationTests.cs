@@ -3,6 +3,7 @@ using System.Reactive.Subjects;
 using Cocoar.Configuration.Rules;
 
 using Cocoar.Configuration.Core.Tests.Helpers;
+using Cocoar.Configuration.Core.Tests.TestUtilities;
 
 namespace Cocoar.Configuration.Core.Tests.WhiteBox;
 
@@ -63,18 +64,24 @@ public class AdvancedCancellationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        // Wait for initial state
-        await Task.Delay(100);
-
+        // Wait for initial configuration
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<CancellationConfig>() != null,
+            description: "initial configuration load");
 
         subject3.OnNext(new("provider-3", 1, "changed"));
-        await Task.Delay(10);
+        await Task.Delay(10); // Small delay between rapid changes
         subject2.OnNext(new("provider-2", 1, "changed"));
-        await Task.Delay(10);
+        await Task.Delay(10); // Small delay between rapid changes
         subject1.OnNext(new("provider-1", 1, "changed"));
 
-        // Wait for processing to complete
-        await Task.Delay(200);
+        // Wait for all changes to be processed
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                var config = configManager.GetConfig<CancellationConfig>();
+                return config != null && config.Value == 1;
+            },
+            description: "multi-provider changes completion");
 
 
         var finalConfig = configManager.GetConfig<CancellationConfig>();
@@ -82,11 +89,6 @@ public class AdvancedCancellationTests : IDisposable
         Assert.Equal("changed", finalConfig.Status);
         Assert.Equal(1, finalConfig.Value);
     }
-
-    /// <summary>
-    /// Tests rapid overlapping changes that should trigger multiple cancellations.
-    /// Validates that the system handles chaotic change scenarios gracefully.
-    /// </summary>
     [Fact]
     public async Task RapidOverlappingChanges_HandlesCancellationsChaotically()
     {
@@ -136,11 +138,6 @@ public class AdvancedCancellationTests : IDisposable
         Assert.True(finalConfig.Status.Contains("wave-2"), 
             $"Config should reflect final wave changes, got status: {finalConfig.Status}");
     }
-
-    /// <summary>
-    /// Tests behavior under very high frequency changes to validate debouncing and coalescing.
-    /// Ensures the system doesn't become overwhelmed by rapid-fire configuration updates.
-    /// </summary>
     [Fact]
     public async Task HighFrequencyChanges_DebounceAndCoalesceCorrectly()
     {

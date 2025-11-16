@@ -3,45 +3,68 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
+using Cocoar.FileSystem;
 
 namespace Cocoar.Configuration.Providers;
 
 public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProviderOptions, FileSourceProviderQueryOptions>, IDisposable
 {
-    private readonly ConcurrentDictionary<string, JsonElement> _fileCache = new();
-    private readonly ConcurrentDictionary<string, IObservable<JsonElement>> _changeStreams = new();
+    private readonly ConcurrentDictionary<string, IObservable<byte[]>> _changeBytesStreams = new();
     
     private readonly Subject<FileSystemChange> _changeSubject = new();
-    private readonly Timer _pollingTimer;
-    private FileSystemWatcher? _fileSystemWatcher;
-    private bool _isPolling;
-    private readonly Lock _lockObj = new();
+    private readonly ResilientFileSystemMonitor _monitor;
+    private readonly CancellationTokenSource _cts = new();
     private bool _disposed;
 
     public FileSourceProvider(FileSourceProviderOptions options) : base(options)
     {
-        _pollingTimer = new(PollingCallback, null, Timeout.Infinite, Timeout.Infinite);
+        _monitor = ResilientFileSystemMonitor
+            .Watch(options.Directory, "*")
+            .WithPollingFallback(options.PollingInterval)
+            .Build();
         
-        StartMonitoring();
+        // Fire-and-forget background task for event processing - errors logged internally
+        _ = Task.Run(async () => await ProcessFileSystemEventsAsync(_cts.Token).ConfigureAwait(false));
     }
 
-    public override Task<JsonElement> FetchConfigurationAsync(FileSourceProviderQueryOptions queryOptions,
+    private async Task ProcessFileSystemEventsAsync(CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var evt in _monitor.Events.ReadAllAsync(ct).ConfigureAwait(false))
+            {
+                var changeType = evt.Kind switch
+                {
+                    FileSystemEventKind.Created => FileSystemChangeType.Created,
+                    FileSystemEventKind.Changed => FileSystemChangeType.Changed,
+                    FileSystemEventKind.Deleted => FileSystemChangeType.Deleted,
+                    FileSystemEventKind.Renamed => FileSystemChangeType.Renamed,
+                    _ => (FileSystemChangeType?)null
+                };
+
+                if (changeType.HasValue)
+                {
+                    _changeSubject.OnNext(new(changeType.Value, evt.FullPath, evt.OldFullPath));
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public override Task<byte[]> FetchConfigurationBytesAsync(FileSourceProviderQueryOptions queryOptions,
         CancellationToken ct = default)
     {
         var filename = queryOptions.Filename;
-        if (!_fileCache.TryGetValue(filename, out var value))
-        {
-            value = LoadFile(filename);
-            _fileCache[filename] = value;
-        }
-
-        return Task.FromResult(value);
+        var bytes = LoadFileBytes(filename);
+        return Task.FromResult(bytes);
     }
 
-    public override IObservable<JsonElement> Changes(FileSourceProviderQueryOptions queryOptions)
+    public override IObservable<byte[]> ChangesAsBytes(FileSourceProviderQueryOptions queryOptions)
     {
         var filename = queryOptions.Filename;
-        return _changeStreams.GetOrAdd(filename, fn =>
+        return _changeBytesStreams.GetOrAdd(filename, fn =>
             _changeSubject.AsObservable()
                 .Where(ev => Path.GetFileName(ev.Path).Equals(fn, StringComparison.OrdinalIgnoreCase) ||
                              (ev.OldPath != null && Path.GetFileName(ev.OldPath)
@@ -50,164 +73,34 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
                 .Let(stream => queryOptions.DebounceTime is { } d && d > TimeSpan.Zero ? stream.Throttle(d) : stream)
                 .Select(_ =>
                 {
-                    JsonElement newValue;
+                    byte[] newBytes;
                     try
                     {
-                        newValue = LoadFile(fn);
+                        newBytes = LoadFileBytes(fn);
                     }
                     catch
                     {
-                        // Avoid faulting the change stream; emit empty object instead
-                        newValue = JsonDocument.Parse("{}").RootElement;
+                        newBytes = "{}"u8.ToArray();
                     }
-
-                    _fileCache[fn] = newValue;
-                    return newValue;
+                    return newBytes;
                 })
                 .Publish()
                 .RefCount()
         );
     }
 
-    private void StartMonitoring()
+    private byte[] LoadFileBytes(string filename)
     {
-        lock (_lockObj)
+        var fullPath = Path.GetFullPath(Path.Combine(ProviderOptions.Directory, filename));
+        
+        // Prevent path traversal attacks - ensure resolved path is within configured directory
+        var baseDir = Path.GetFullPath(ProviderOptions.Directory);
+        if (!fullPath.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (Directory.Exists(ProviderOptions.Directory))
-            {
-                StartFileSystemWatcher();
-            }
-            else
-            {
-                StartPolling();
-            }
+            throw new UnauthorizedAccessException(
+                $"Path traversal detected: filename '{filename}' resolves outside configured directory. " +
+                $"Resolved: {fullPath}, Expected base: {baseDir}");
         }
-    }
-
-    private void StartFileSystemWatcher()
-    {
-        lock (_lockObj)
-        {
-            if (_disposed || _fileSystemWatcher != null)
-            {
-                return;
-            }
-
-            try
-            {
-                _fileSystemWatcher = new(ProviderOptions.Directory, "*")
-                {
-                    IncludeSubdirectories = false,
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.CreationTime,
-                    EnableRaisingEvents = true
-                };
-
-                _fileSystemWatcher.Created += OnFileSystemEvent;
-                _fileSystemWatcher.Changed += OnFileSystemEvent;
-                _fileSystemWatcher.Deleted += OnFileSystemEvent;
-                _fileSystemWatcher.Renamed += OnFileSystemRenamed;
-
-                _fileSystemWatcher.Error += OnFileSystemWatcherError;
-
-                _isPolling = false;
-                _pollingTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            }
-            catch (Exception)
-            {
-                _fileSystemWatcher?.Dispose();
-                _fileSystemWatcher = null;
-                StartPolling();
-            }
-        }
-    }
-
-    private void StartPolling()
-    {
-        lock (_lockObj)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            StopFileSystemWatcher();
-            _isPolling = true;
-            
-            _pollingTimer.Change(TimeSpan.Zero, ProviderOptions.PollingInterval);
-        }
-    }
-
-    private void PollingCallback(object? state)
-    {
-        lock (_lockObj)
-        {
-            if (_disposed || !_isPolling)
-            {
-                return;
-            }
-
-            if (Directory.Exists(ProviderOptions.Directory))
-            {
-                // Directory now exists! Switch to FileSystemWatcher
-                StartFileSystemWatcher();
-            }
-        }
-    }
-
-    private void OnFileSystemWatcherError(object sender, ErrorEventArgs e)
-    {
-        lock (_lockObj)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            // Log the error for diagnostics
-            // Console.WriteLine($"FileSystemWatcher error: {e.GetException()}");
-            
-            StartPolling();
-        }
-    }
-
-    private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
-    {
-        _changeSubject.OnNext(new(
-            e.ChangeType switch
-            {
-                WatcherChangeTypes.Created => FileSystemChangeType.Created,
-                WatcherChangeTypes.Changed => FileSystemChangeType.Changed,
-                WatcherChangeTypes.Deleted => FileSystemChangeType.Deleted,
-                _ => FileSystemChangeType.Changed
-            },
-            e.FullPath
-        ));
-    }
-
-    private void OnFileSystemRenamed(object sender, RenamedEventArgs e)
-    {
-        _changeSubject.OnNext(new(
-            FileSystemChangeType.Renamed,
-            e.FullPath,
-            e.OldFullPath
-        ));
-    }
-
-    private void StopFileSystemWatcher()
-    {
-        _fileSystemWatcher?.Dispose();
-        _fileSystemWatcher = null;
-    }
-
-
-    private JsonElement LoadFile(string filename)
-    {
-        var fullPath = Path.Combine(ProviderOptions.Directory, filename);
         
         // Throw specific exceptions so ConfigManager can handle Required vs Optional rules appropriately
         if (!Directory.Exists(ProviderOptions.Directory))
@@ -224,32 +117,22 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
                 $"If this file is created later at runtime, mark the rule as Optional.", fullPath);
         }
 
-        string json;
-        // FileShare.ReadWrite allows other processes to write while we're reading - 
-        // important for hot reload scenarios where a deployment might update the file
-        using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-        using (var reader = new StreamReader(stream))
-        {
-            json = reader.ReadToEnd();
-        }
-        
-        return JsonDocument.Parse(json).RootElement.Clone();
+        // Use FileReader for secure file reading with shared access and BOM handling
+        return FileReader.ReadAllBytes(fullPath, stripUtf8Bom: true);
     }
 
     public void Dispose()
     {
-        lock (_lockObj)
+        if (_disposed)
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-
-            StopFileSystemWatcher();
-            _pollingTimer?.Dispose();
-            _changeSubject?.Dispose();
+            return;
         }
+
+        _disposed = true;
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _monitor?.Dispose();
+        _changeSubject?.Dispose();
     }
 }

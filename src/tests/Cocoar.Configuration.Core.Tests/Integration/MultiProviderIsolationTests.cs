@@ -4,11 +4,6 @@ using Cocoar.Configuration.Core.Tests.TestUtilities;
 using static Cocoar.Configuration.Core.Tests.Integration.MultiProviderTestModels;
 
 namespace Cocoar.Configuration.Core.Tests.Integration;
-
-/// <summary>
-/// Tests for provider isolation and type merging edge cases in ConfigManager.
-/// Validates independent reactive configs and configuration path selection/mounting.
-/// </summary>
 [Trait("Category", "Integration")]
 [Trait("Component", "ConfigManager")]
 public class MultiProviderIsolationTests
@@ -16,12 +11,6 @@ public class MultiProviderIsolationTests
     #region Provider Isolation Regression Tests
 
     #region Provider Isolation Regression Tests
-
-    /// <summary>
-    /// Validates that multiple rules from the same ObservableProvider source remain properly isolated.
-    /// This prevents cross-rule bleed regression where changes to one rule affect another rule
-    /// from the same observable source.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -132,14 +121,12 @@ public class MultiProviderIsolationTests
 
         var baselineEmissions = emissions.Count;
         subject3.OnNext("""{"Rule3Value": 101}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject2.OnNext("""{"Rule2Value": 11}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject3.OnNext("""{"Rule3Value": 102}""");
-        await Task.Delay(10);
+        await Task.Delay(10); // Small interval between rapid changes
         subject1.OnNext("""{"Rule1Value": 2}""");
-
-        await Task.Delay(100);
 
         // Wait for all waves to complete - expect at least one emission after baseline
         await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count > baselineEmissions, 
@@ -185,11 +172,7 @@ public class MultiProviderIsolationTests
     [Trait("Provider", "ConfigManager")]
     public async Task ConfigManager_EmissionMinimalityProof_FewerEmissionsThanChanges()
     {
-
-        var rawChangeCount = 0;
         var subject = new BehaviorSubject<string>("""{"Value": 0, "Timestamp": "initial"}""");
-        
-        var rawChangeTracker = subject.Subscribe(_ => Interlocked.Increment(ref rawChangeCount));
 
         var configManager = new ConfigManager(rules => [
             // Single observable rule to isolate emission behavior
@@ -205,7 +188,6 @@ public class MultiProviderIsolationTests
             timeout: TimeSpan.FromMilliseconds(500),
             description: "initial emission");
 
-        var baselineRawChanges = rawChangeCount;
         var baselineEmissions = emissions.Count;
 
         const int TOTAL_CHANGES = 10;
@@ -213,22 +195,22 @@ public class MultiProviderIsolationTests
         for (var i = 1; i <= TOTAL_CHANGES; i++)
         {
             subject.OnNext($$$"""{"Value": {{{i}}}, "Timestamp": "change_{{{i}}}"}""");
-            await Task.Delay(2); // 2ms between changes = 20ms total (less than 50ms debounce)
+            await Task.Delay(2); // 2ms between changes to test debouncing (20ms total < 50ms debounce)
         }
-
-        await Task.Delay(100);
         
-        await ActiveWaitHelpers.WaitUntilAsync(() => emissions.Count > baselineEmissions, 
-            timeout: TimeSpan.FromMilliseconds(500),
-            description: "debounced emissions completion");
+        // Wait for debouncing to complete and final value to arrive
+        await ActiveWaitHelpers.WaitUntilAsync(() => 
+            emissions.Count > baselineEmissions && 
+            emissions.Last().ContainsKey("Value") &&
+            ((JsonElement)emissions.Last()["Value"]).GetInt32() == TOTAL_CHANGES, 
+            timeout: TimeSpan.FromSeconds(1),
+            description: "final debounced value arrival");
 
-        // Calculate deltas
-        var actualRawChanges = rawChangeCount - baselineRawChanges;
         var actualEmissions = emissions.Count - baselineEmissions;
 
-        Assert.Equal(TOTAL_CHANGES, actualRawChanges);
-        Assert.True(actualEmissions < actualRawChanges, 
-            $"EMISSION MINIMALITY FAILED: Expected emissions ({actualEmissions}) to be less than raw changes ({actualRawChanges})");
+        // We explicitly pushed TOTAL_CHANGES updates, so emissions should be fewer
+        Assert.True(actualEmissions < TOTAL_CHANGES, 
+            $"EMISSION MINIMALITY FAILED: Expected emissions ({actualEmissions}) to be less than raw changes ({TOTAL_CHANGES})");
 
         var finalConfig = emissions.Last();
         Assert.True(finalConfig.ContainsKey("Value"));
@@ -236,11 +218,10 @@ public class MultiProviderIsolationTests
         Assert.Equal(TOTAL_CHANGES, finalValue); // Final value should be 10 (last change)
 
         // Performance assertion: Significant emission reduction (at least 2:1 ratio)
-        var emissionReductionRatio = (double)actualRawChanges / actualEmissions;
+        var emissionReductionRatio = (double)TOTAL_CHANGES / actualEmissions;
         Assert.True(emissionReductionRatio >= 2.0, 
-            $"Expected significant emission reduction (ΓëÑ2:1), got {emissionReductionRatio:F2}:1");
+            $"Expected significant emission reduction (≥2:1), got {emissionReductionRatio:F2}:1");
         subscription.Dispose();
-        rawChangeTracker.Dispose();
     }
 
     #endregion
@@ -250,11 +231,6 @@ public class MultiProviderIsolationTests
     #region Type Merging Edge Cases
 
     #region MEDIUM Priority Tests - Type Merging Edge Cases
-
-    /// <summary>
-    /// Tests that when merging object vs scalar values, the last rule wins and completely replaces the value.
-    /// This validates that there's no attempt to merge incompatible types - clean replacement semantics.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -290,11 +266,6 @@ public class MultiProviderIsolationTests
 
         Assert.Equal("simple-connection-string", config.Database);
     }
-
-    /// <summary>
-    /// Tests that when merging array vs object values, the last rule wins and completely replaces the value.
-    /// Arrays are not merged element-wise; they follow last-write-wins semantics like all other values.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -331,11 +302,6 @@ public class MultiProviderIsolationTests
         Assert.Equal("newValue", config.Settings.Primary);
         Assert.Equal("anotherValue", config.Settings.Secondary);
     }
-
-    /// <summary>
-    /// Tests that null values use System.Text.Json default deserialization behavior.
-    /// Validates current null handling: null strings become null, null value types become default(T).
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -377,11 +343,6 @@ public class MultiProviderIsolationTests
         Assert.False(config.Enabled);               // bool: null ΓåÆ false
         Assert.Equal(95.5, config.Score, 1);       // Score not overridden, keeps original value
     }
-
-    /// <summary>
-    /// Tests that GetConfig() returns a stable snapshot during live reactive updates.
-    /// The snapshot API should be isolated from ongoing observable changes until the next debounced emission.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -429,11 +390,6 @@ public class MultiProviderIsolationTests
     Assert.Equal(300, finalSnapshot.Value);
         observable.Dispose();
     }
-
-    /// <summary>
-    /// Tests that Select with empty/non-existent selection contributes nothing to the final configuration.
-    /// Edge case: selecting non-existent paths should result in no contribution to the final configuration.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -463,11 +419,6 @@ public class MultiProviderIsolationTests
 
         Assert.Equal("present", config.DefaultValue);
         Assert.Null(config.MountedSection);    }
-
-    /// <summary>
-    /// Tests that flattened key merging is order-independent and produces structurally equivalent JSON.
-    /// Property order in source JSON should not affect the final merged configuration structure.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "ConfigManager")]
@@ -532,3 +483,4 @@ public class MultiProviderIsolationTests
 
     #endregion
 }
+

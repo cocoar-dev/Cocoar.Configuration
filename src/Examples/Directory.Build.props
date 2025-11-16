@@ -1,9 +1,9 @@
 <Project>
+  <!-- Import parent Directory.Build.props to inherit all global settings -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+
+  <!-- Examples should never be packaged as NuGet packages -->
   <PropertyGroup>
-    <EnableNETAnalyzers>false</EnableNETAnalyzers>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(IsExampleProject)' == 'true'">
-    <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 </Project>

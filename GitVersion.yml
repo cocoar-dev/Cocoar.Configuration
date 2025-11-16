@@ -11,8 +11,8 @@ branches:
     label: rc
 
   feature:
-    regex: ^(feature|bugfix|fix)[/-]
-    label: useBranchName
+    regex: ^(feature|bugfix|fix)[/-](?<BranchName>.+)
+    label: '{BranchName}'
 
   hotfix:
     regex: ^hotfix[/-]

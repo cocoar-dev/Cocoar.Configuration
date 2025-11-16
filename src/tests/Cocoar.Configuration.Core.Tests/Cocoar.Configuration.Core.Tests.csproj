@@ -21,6 +21,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.Secrets\Cocoar.Configuration.Secrets.csproj" />
+    <!-- X509Encryption is private to Secrets package, but tests need direct access -->
+    <ProjectReference Include="..\..\Cocoar.Configuration.X509Encryption\Cocoar.Configuration.X509Encryption.csproj" />
   </ItemGroup>
 
   <ItemGroup>

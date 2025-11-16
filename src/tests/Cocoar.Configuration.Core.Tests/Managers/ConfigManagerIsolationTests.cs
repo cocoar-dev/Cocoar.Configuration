@@ -493,9 +493,8 @@ public class ConfigManagerIsolationTests : IDisposable
 
         observable1.OnNext(new() { ConnectionString = "rule1-updated", Timeout = 15 });
         
-        // Wait a bit for any recomputation
-        await Task.Delay(100);
-
+        // Allow time for recomputation
+        await Task.Delay(50);
 
         var afterRule1Update = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(afterRule1Update);
@@ -672,6 +671,11 @@ public class ConfigManagerIsolationTests : IDisposable
 
         // Initial state - last rule should win
         var initialResult = configManager.GetConfig<DatabaseConfig>();
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => configManager.GetConfig<DatabaseConfig>()?.ConnectionString == $"rule-{numRules - 1}-initial",
+            timeout: TimeSpan.FromSeconds(3),
+            description: "initial last rule resolution");
+        initialResult = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(initialResult);
         Assert.Equal($"rule-{numRules - 1}-initial", initialResult.ConnectionString);
 
@@ -697,9 +701,10 @@ public class ConfigManagerIsolationTests : IDisposable
         await ActiveWaitHelpers.WaitUntilAsync(
             () => {
                 var config = configManager.GetConfig<DatabaseConfig>();
-                return config?.ConnectionString?.StartsWith($"rule-{numRules - 1}-change-") == true;
+                return config?.ConnectionString?.StartsWith($"rule-{numRules - 1}-change-10") == true;
             },
-            timeout: TimeSpan.FromSeconds(5));
+            timeout: TimeSpan.FromSeconds(8),
+            description: "final last rule winning after all 10 changes" );
 
 
         var finalConfig = configManager.GetConfig<DatabaseConfig>();

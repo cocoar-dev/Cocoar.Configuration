@@ -23,11 +23,6 @@ public class StaticJsonProviderIsolationTests
     #endregion
 
     #region Basic Functionality Tests
-
-    /// <summary>
-    /// Validates StaticJsonProvider can fetch configuration from a simple JSON string.
-    /// Tests the most basic functionality - JSON string deserialization to configuration object.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -41,18 +36,13 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal("TestApp", result.GetProperty("Name").GetString());
-        Assert.Equal(42, result.GetProperty("Value").GetInt32());
-        Assert.True(result.GetProperty("Enabled").GetBoolean());
+        Assert.Equal("TestApp", result.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal(42, result.ToJsonElement().GetProperty("Value").GetInt32());
+        Assert.True(result.ToJsonElement().GetProperty("Enabled").GetBoolean());
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider works with complex nested JSON structures.
-    /// Ensures proper handling of nested objects and arrays.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -75,23 +65,18 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal("Complex Configuration", result.GetProperty("Title").GetString());
-        Assert.Equal(10, result.GetProperty("Settings").GetProperty("Priority").GetInt32());
+        Assert.Equal("Complex Configuration", result.ToJsonElement().GetProperty("Title").GetString());
+        Assert.Equal(10, result.ToJsonElement().GetProperty("Settings").GetProperty("Priority").GetInt32());
         
-        var tags = result.GetProperty("Settings").GetProperty("Tags");
+        var tags = result.ToJsonElement().GetProperty("Settings").GetProperty("Tags");
         Assert.Equal(3, tags.GetArrayLength());
         Assert.Equal("production", tags[0].GetString());
         Assert.Equal("critical", tags[1].GetString());
         Assert.Equal("monitored", tags[2].GetString());
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles empty JSON objects correctly.
-    /// This is important for default configurations and edge cases.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -105,17 +90,12 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal(JsonValueKind.Object, result.ValueKind);
-        Assert.Empty(result.EnumerateObject());
+        Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
+        Assert.Empty(result.ToJsonElement().EnumerateObject());
     }
-
-    /// <summary>
-    /// Validates that multiple calls to FetchConfigurationAsync return identical data.
-    /// StaticJsonProvider should be deterministic and consistent.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -129,25 +109,20 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result1 = await provider.FetchConfigurationAsync(query);
-        var result2 = await provider.FetchConfigurationAsync(query);
-        var result3 = await provider.FetchConfigurationAsync(query);
+        var result1 = await provider.FetchConfigurationBytesAsync(query);
+        var result2 = await provider.FetchConfigurationBytesAsync(query);
+        var result3 = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal(result1.GetProperty("Name").GetString(), result2.GetProperty("Name").GetString());
-        Assert.Equal(result1.GetProperty("Name").GetString(), result3.GetProperty("Name").GetString());
-        Assert.Equal(result1.GetProperty("Value").GetInt32(), result2.GetProperty("Value").GetInt32());
-        Assert.Equal(result1.GetProperty("Value").GetInt32(), result3.GetProperty("Value").GetInt32());
+        Assert.Equal(result1.ToJsonElement().GetProperty("Name").GetString(), result2.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal(result1.ToJsonElement().GetProperty("Name").GetString(), result3.ToJsonElement().GetProperty("Name").GetString());
+        Assert.Equal(result1.ToJsonElement().GetProperty("Value").GetInt32(), result2.ToJsonElement().GetProperty("Value").GetInt32());
+        Assert.Equal(result1.ToJsonElement().GetProperty("Value").GetInt32(), result3.ToJsonElement().GetProperty("Value").GetInt32());
     }
 
     #endregion
 
     #region Error Handling Tests
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles malformed JSON appropriately during construction.
-    /// Should fail fast with clear error messages.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -161,11 +136,6 @@ public class StaticJsonProviderIsolationTests
             using var document = JsonDocument.Parse(malformedJson);
         });
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles null values in JSON gracefully.
-    /// This is a common scenario in configuration management.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -179,18 +149,13 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal(JsonValueKind.Null, result.GetProperty("Name").ValueKind);
-        Assert.Equal(42, result.GetProperty("Value").GetInt32());
-        Assert.Equal(JsonValueKind.Null, result.GetProperty("OptionalField").ValueKind);
+        Assert.Equal(JsonValueKind.Null, result.ToJsonElement().GetProperty("Name").ValueKind);
+        Assert.Equal(42, result.ToJsonElement().GetProperty("Value").GetInt32());
+        Assert.Equal(JsonValueKind.Null, result.ToJsonElement().GetProperty("OptionalField").ValueKind);
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles different JSON data types correctly.
-    /// Tests string, number, boolean, array, object, and null types.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -214,26 +179,21 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        Assert.Equal("hello", result.GetProperty("stringValue").GetString());
-        Assert.Equal(42, result.GetProperty("intValue").GetInt32());
-        Assert.Equal(3.14, result.GetProperty("floatValue").GetDouble(), 2);
-        Assert.True(result.GetProperty("boolValue").GetBoolean());
-        Assert.Equal(3, result.GetProperty("arrayValue").GetArrayLength());
-        Assert.Equal("data", result.GetProperty("objectValue").GetProperty("nested").GetString());
-        Assert.Equal(JsonValueKind.Null, result.GetProperty("nullValue").ValueKind);
+        Assert.Equal("hello", result.ToJsonElement().GetProperty("stringValue").GetString());
+        Assert.Equal(42, result.ToJsonElement().GetProperty("intValue").GetInt32());
+        Assert.Equal(3.14, result.ToJsonElement().GetProperty("floatValue").GetDouble(), 2);
+        Assert.True(result.ToJsonElement().GetProperty("boolValue").GetBoolean());
+        Assert.Equal(3, result.ToJsonElement().GetProperty("arrayValue").GetArrayLength());
+        Assert.Equal("data", result.ToJsonElement().GetProperty("objectValue").GetProperty("nested").GetString());
+        Assert.Equal(JsonValueKind.Null, result.ToJsonElement().GetProperty("nullValue").ValueKind);
     }
 
     #endregion
 
     #region Observable/Reactive Tests
-
-    /// <summary>
-    /// Validates that StaticJsonProvider.Changes() returns empty observable as expected.
-    /// Static providers should never emit change notifications.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -250,8 +210,7 @@ public class StaticJsonProviderIsolationTests
         var completed = false;
 
 
-        var subscription = provider.Changes(query).Subscribe(
-            emissions.Add,
+        var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()),
             _ => { }, // OnError
             () => completed = true); // OnCompleted
 
@@ -267,11 +226,6 @@ public class StaticJsonProviderIsolationTests
         
         subscription.Dispose();
     }
-
-    /// <summary>
-    /// Validates that StaticJsonProvider Changes observable completes immediately.
-    /// This behavior should be consistent and deterministic.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -286,7 +240,7 @@ public class StaticJsonProviderIsolationTests
 
 
         await ObservableTestHelpers.WaitForCompletionAsync(
-            provider.Changes(query),
+            provider.ChangesAsBytes(query),
             timeout: TimeSpan.FromSeconds(1),
             description: "StaticJsonProvider Changes completion");
     }
@@ -294,11 +248,6 @@ public class StaticJsonProviderIsolationTests
     #endregion
 
     #region Performance Tests
-
-    /// <summary>
-    /// Validates StaticJsonProvider performance for single configuration reads.
-    /// Should consistently perform under 1ms for deterministic operations.
-    /// </summary>
     [Fact]
     [Trait("Type", "Performance")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -312,11 +261,11 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
         // Warm up
-        await provider.FetchConfigurationAsync(query);
+        await provider.FetchConfigurationBytesAsync(query);
 
 
         var stopwatch = Stopwatch.StartNew();
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
         stopwatch.Stop();
 
 
@@ -324,11 +273,6 @@ public class StaticJsonProviderIsolationTests
         Assert.True(stopwatch.ElapsedMilliseconds < 1, 
             $"StaticJsonProvider read took {stopwatch.ElapsedMilliseconds}ms, expected < 1ms");
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider performance for 1000 consecutive reads.
-    /// Should maintain consistent performance without degradation.
-    /// </summary>
     [Fact]
     [Trait("Type", "Stress")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -345,7 +289,7 @@ public class StaticJsonProviderIsolationTests
         var stopwatch = Stopwatch.StartNew();
         for (var i = 0; i < 1000; i++)
         {
-            var result = await provider.FetchConfigurationAsync(query);
+            var result = await provider.FetchConfigurationBytesAsync(query);
             Assert.NotEqual(default, result); // Minimal validation to ensure work is done
         }
         stopwatch.Stop();
@@ -358,11 +302,6 @@ public class StaticJsonProviderIsolationTests
     #endregion
 
     #region Concurrency Testing
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles concurrent access safely.
-    /// Multiple threads should be able to read simultaneously without race conditions.
-    /// </summary>
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -388,8 +327,8 @@ public class StaticJsonProviderIsolationTests
             {
                 for (var i = 0; i < operationsPerThread; i++)
                 {
-                    var result = await provider.FetchConfigurationAsync(query);
-                    results[threadId].Add(result);
+                    var result = await provider.FetchConfigurationBytesAsync(query);
+                    results[threadId].Add(result.ToJsonElement());
                 }
             }
             catch (Exception ex)
@@ -419,11 +358,6 @@ public class StaticJsonProviderIsolationTests
             }
         }
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider concurrent Changes() observable subscriptions.
-    /// Multiple subscribers should get consistent empty observables without interference.
-    /// </summary>
     [Fact]
     [Trait("Type", "Concurrency")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -447,7 +381,7 @@ public class StaticJsonProviderIsolationTests
         for (var i = 0; i < subscriberCount; i++)
         {
             var subscriberId = i; // Capture for closure
-            subscriptions[i] = provider.Changes(query).Subscribe(
+            subscriptions[i] = provider.ChangesAsBytes(query).Subscribe(
                 _ => Interlocked.Increment(ref emissionCounts[subscriberId]),
                 _ => { }, // OnError
                 () => 
@@ -475,11 +409,6 @@ public class StaticJsonProviderIsolationTests
     #endregion
 
     #region Factory Function Tests (Rule Creation)
-
-    /// <summary>
-    /// Validates fluent API rule creation with JsonElement.
-    /// Tests the builder pattern for creating configuration rules.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -497,11 +426,6 @@ public class StaticJsonProviderIsolationTests
         Assert.Equal("Test", config!.Name);
         Assert.Equal(789, config.Value);
     }
-
-    /// <summary>
-    /// Validates fluent API with JSON string.
-    /// Tests the overload that accepts JSON strings directly.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -517,11 +441,6 @@ public class StaticJsonProviderIsolationTests
         
         Assert.NotNull(config);
     }
-
-    /// <summary>
-    /// Validates fluent API with required flag.
-    /// Tests the builder pattern with required configuration option.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -537,11 +456,6 @@ public class StaticJsonProviderIsolationTests
         
         Assert.True(health.Rules[0].Required);
     }
-
-    /// <summary>
-    /// Validates ConfigRule creation with useWhen condition.
-    /// Tests conditional rule creation functionality.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -562,11 +476,6 @@ public class StaticJsonProviderIsolationTests
     #endregion
 
     #region Edge Cases and Boundary Tests
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles very large JSON documents efficiently.
-    /// Tests boundary conditions for memory usage and performance.
-    /// </summary>
     [Fact]
     [Trait("Type", "Performance")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -589,20 +498,15 @@ public class StaticJsonProviderIsolationTests
 
 
         var stopwatch = Stopwatch.StartNew();
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
         stopwatch.Stop();
 
 
         Assert.NotEqual(default, result);
-        Assert.True(result.EnumerateObject().Count() >= 1000);
+        Assert.True(result.ToJsonElement().EnumerateObject().Count() >= 1000);
         Assert.True(stopwatch.ElapsedMilliseconds < 10, 
             $"Large JSON fetch took {stopwatch.ElapsedMilliseconds}ms, expected < 10ms");
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider handles deeply nested JSON structures.
-    /// Tests boundary conditions for JSON parsing depth.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -642,10 +546,10 @@ public class StaticJsonProviderIsolationTests
         var query = new StaticJsonProviderQueryOptions();
 
 
-        var result = await provider.FetchConfigurationAsync(query);
+        var result = await provider.FetchConfigurationBytesAsync(query);
 
 
-        var deepValue = result.GetProperty("Level1")
+        var deepValue = result.ToJsonElement().GetProperty("Level1")
             .GetProperty("Level2")
             .GetProperty("Level3")
             .GetProperty("Level4")
@@ -659,11 +563,6 @@ public class StaticJsonProviderIsolationTests
         Assert.Equal("Found at level 10!", deepValue.GetProperty("DeepValue").GetString());
         Assert.Equal(42, deepValue.GetProperty("DeepNumber").GetInt32());
     }
-
-    /// <summary>
-    /// Validates StaticJsonProvider with cancellation tokens.
-    /// Should handle cancellation gracefully even though operations are synchronous.
-    /// </summary>
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "StaticJsonProvider")]
@@ -679,17 +578,17 @@ public class StaticJsonProviderIsolationTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
 
-        var result = await provider.FetchConfigurationAsync(query, cancellationTokenSource.Token);
+        var result = await provider.FetchConfigurationBytesAsync(query, cancellationTokenSource.Token);
 
 
-        Assert.True(result.GetProperty("Cancellable").GetBoolean());
+        Assert.True(result.ToJsonElement().GetProperty("Cancellable").GetBoolean());
 
 
         cancellationTokenSource.Cancel();
-        var result2 = await provider.FetchConfigurationAsync(query, cancellationTokenSource.Token);
+        var result2 = await provider.FetchConfigurationBytesAsync(query, cancellationTokenSource.Token);
         
 
-        Assert.True(result2.GetProperty("Cancellable").GetBoolean());
+        Assert.True(result2.ToJsonElement().GetProperty("Cancellable").GetBoolean());
     }
 
     #endregion

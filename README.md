@@ -33,12 +33,13 @@ It is. `AppSettings` is now injectable — and automatically updates when config
 dotnet add package Cocoar.Configuration
 dotnet add package Cocoar.Configuration.AspNetCore
 
-# Optional providers:
+# Optional features:
+dotnet add package Cocoar.Configuration.Secrets
 dotnet add package Cocoar.Configuration.HttpPolling
 dotnet add package Cocoar.Configuration.MicrosoftAdapter
 ```
 
-**Links:** [Cocoar.Configuration](https://www.nuget.org/packages/Cocoar.Configuration) · [AspNetCore](https://www.nuget.org/packages/Cocoar.Configuration.AspNetCore) · [HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling) · [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter)
+**Links:** [Cocoar.Configuration](https://www.nuget.org/packages/Cocoar.Configuration) · [AspNetCore](https://www.nuget.org/packages/Cocoar.Configuration.AspNetCore) · [Secrets](https://www.nuget.org/packages/Cocoar.Configuration.Secrets) · [HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling) · [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter)
 
 ---
 
@@ -53,6 +54,7 @@ Microsoft's `IConfiguration` works, but configuration deserves better. Here's wh
 * **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
 * **Interface deserialization** – Support for interface-typed properties in config classes with explicit mapping.
 * **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
+* **✨ Compile-time validation** – Roslyn analyzers catch configuration errors while you code with red squiggles, automatic quick fixes, and CI/CD integration. Zero runtime cost. See [Analyzer Documentation](src/Cocoar.Configuration.Analyzers/README.md) for details on diagnostics (COCFG001-006).
 
 **DI Lifetimes:** Concrete config types are registered as **Scoped** (stable snapshot per request), while `IReactiveConfig<T>` is **Singleton** (continuous live updates). These defaults can be customized via the `setup` parameter.
 
@@ -299,7 +301,7 @@ builder.Services.AddCocoarConfiguration(rule => [
 * **File** – JSON files with automatic change detection and reload
 * **Environment Variables** – Prefix-based with hierarchical mapping (`__` for nesting)
 * **Command-Line Arguments** – POSIX-style parsing with prefix support and nested configuration
-* **HTTP Polling** – Remote config with caching and change detection ([Cocoar.Configuration.HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling))
+* **HTTP Polling** – Remote config with polling; providers emit bytes and central dedup avoids churn ([Cocoar.Configuration.HttpPolling](https://www.nuget.org/packages/Cocoar.Configuration.HttpPolling))
 * **Microsoft Adapter** – Bridge existing `IConfiguration` sources ([Cocoar.Configuration.MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter))
 * **Static/Observable** – In-memory for testing and development
 
@@ -318,6 +320,8 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 | [TupleReactiveExample](src/Examples/TupleReactiveExample) | Atomic multi-config snapshots |
 | [HttpPollingExample](src/Examples/HttpPollingExample) | Remote HTTP config polling |
 | [MicrosoftAdapterExample](src/Examples/MicrosoftAdapterExample) | Integrate existing `IConfiguration` sources |
+| [SecretsBasicExample](src/Examples/SecretsBasicExample) | Memory-safe secret handling with `Secret<T>` |
+| [SecretsCertificateExample](src/Examples/SecretsCertificateExample) | Pre-encrypted secrets with X.509 certificates |
 
 [View all examples →](src/Examples/README.md)
 
@@ -327,14 +331,12 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 
 | Topic | Link |
 |-------|------|
-| Getting Started | [Quickstart Guide](docs/QUICKSTART.md) |
-| Architecture & How It Works | [Architecture](docs/ARCHITECTURE.md) |
-| Provider Details | [Providers](docs/PROVIDERS.md) |
 | Reactive Configuration | [Reactive Config](docs/reactive-config.md) |
 | Health Monitoring | [Health Monitoring](docs/health-monitoring.md) |
-| Interface Binding | [Binding](docs/BINDING.md) |
-| Migration from v2.x | [Migration Guide](docs/migration-v2-to-v3.md) |
-| Advanced Scenarios | [Deep Dive](docs/DEEP_DIVE.md) |
+| Intelligent Certificate Caching | [Certificate Caching](src/Cocoar.Configuration.Secrets/intelligent-certificate-caching.md) |
+| Provider Guidance | [Provider Guidance](docs/provider-guidance.md) |
+| Migration from v2.x | [Migration Guide v2→v3](docs/migration-v2-to-v3.md) |
+| Migration from v1.x | [Migration Guide v1→v2](docs/migration-v1-to-v2.md) |
 
 ---
 
@@ -363,10 +365,29 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Security
 
-* Don't commit secrets to config files
-* Use environment variables or secure providers for sensitive data
+### Secrets Management
+
+For sensitive configuration data, use **Cocoar.Configuration.Secrets**:
+* Memory-safe `Secret<T>` type with automatic zeroization
+* Pre-encrypted envelope support (secrets encrypted at rest)
+* X.509 certificate-based hybrid encryption (RSA-OAEP + AES-GCM-256)
+* On-demand decryption via `Secret<T>.Open()` with controlled exposure windows
+* See [Secrets README](src/Cocoar.Configuration.Secrets/README.md) for library documentation and [CLI tools](src/Cocoar.Configuration.Secrets.Cli/README.md) for certificate management
+
+### General Best Practices
+
+* Use pre-encrypted secrets in configuration files (via Secrets package)
+* Use environment variables for non-sensitive overrides
 * Enable TLS/HTTPS for remote config endpoints
 * Consider Azure Key Vault or similar via the Microsoft Adapter
+
+### Runtime Security Posture
+
+* Byte-only pipeline below the orchestrator: providers and RuleManager handle UTF-8 bytes, not strings
+* Single parse point in the Configuration Orchestrator; no user-data strings are created below this layer
+* Centralized dedup in RuleManager using SHA-256 over transformed bytes; avoids unnecessary recompute/IO
+* Secure in-memory handling: transformed bytes are owned and zeroized on replace/dispose
+* Behavior is unchanged for consumers in success paths; improved health signaling during sustained provider failures
 
 ---
 

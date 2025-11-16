@@ -3,11 +3,14 @@ using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Configure;
 
-public abstract class SetupDefinition(CapabilityScope capabilityScope) {
-    protected readonly CapabilityScope CapabilityScope = capabilityScope;
+
+
+
+public abstract class SetupDefinition(ConfigManagerCapabilityScope capabilityScope) {
+    protected readonly ConfigManagerCapabilityScope CapabilityScope = capabilityScope;
     internal abstract SetupDefinition Build();
 
-    public static CapabilityScope GetCapabilityScopeFor(SetupDefinition builder) => builder.CapabilityScope;
+    public static ConfigManagerCapabilityScope GetCapabilityScopeFor(SetupDefinition builder) => builder.CapabilityScope;
 
     public static Composer GetComposer(SetupDefinition builder) =>
         GetCapabilityScopeFor(builder).Composers.GetRequired(builder);
@@ -17,9 +20,9 @@ public abstract class SetupDefinition(CapabilityScope capabilityScope) {
 /// Configures how types are registered in the DI container.
 /// All concrete types are Scoped by default. Use ConcreteType&lt;T&gt;().ExposeAs&lt;IInterface&gt;() to inject via interfaces.
 /// </summary>
-public sealed class SetupBuilder(CapabilityScope capabilityScope)
+public sealed class SetupBuilder(ConfigManagerCapabilityScope capabilityScope)
 {
-    private readonly CapabilityScope _capabilityScope = capabilityScope;
+    private readonly ConfigManagerCapabilityScope _capabilityScope = capabilityScope;
 
     public Guid Id { get; } = Guid.NewGuid();
 
@@ -36,5 +39,5 @@ public sealed class SetupBuilder(CapabilityScope capabilityScope)
     /// </summary>
     public InterfaceTypeSetup<TInterface> Interface<TInterface>() where TInterface : class => new(_capabilityScope);
 
-    public static CapabilityScope GetCapabilityScopeFor(SetupBuilder builder) => builder._capabilityScope;
+    public static ConfigManagerCapabilityScope GetCapabilityScopeFor(SetupBuilder builder) => builder._capabilityScope;
 }

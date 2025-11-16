@@ -1,9 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Core;
-// using Cocoar.Configuration.Configure; // no longer needed
-// using Cocoar.Capabilities; // no longer needed
-// using Cocoar.Capabilities.Extensions; // no longer needed
 using Cocoar.Configuration.Infrastructure;
 
 namespace Cocoar.Configuration.Reactive;

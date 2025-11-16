@@ -1,19 +1,26 @@
+using System.Text.Json;
 using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Rules;
+using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
-internal class ConfigurationHealthTracker
+/// <summary>
+/// Central state management for configurations and health monitoring.
+/// Combines configuration storage (repository) with health tracking.
+/// </summary>
+internal class ConfigurationState : IDisposable
 {
+    private volatile Dictionary<Type, MutableJsonObject> _configs = new();
+    private volatile Dictionary<Type, MutableJsonObject>? _pendingConfigurations;
     private readonly List<RuleManager> _ruleManagers;
     private readonly ConfigurationHealthService _healthService;
     private long _healthSequence;
     private long _configVersion;
 
-    public ConfigurationHealthTracker(List<RuleManager> ruleManagers, List<ConfigRule> rules)
+    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules)
     {
         _ruleManagers = ruleManagers;
-
         var initialEntries = rules.Select((r, i) => new RuleHealthEntry(
             index: i,
             name: r.Options?.Name,
@@ -35,7 +42,95 @@ internal class ConfigurationHealthTracker
 
         _healthService = new(initialSnapshot);
     }
+    /// <summary>
+    /// Gets the current configuration dictionary (or pending if available).
+    /// Thread-safe access to avoid race conditions.
+    /// </summary>
+    public Dictionary<Type, MutableJsonObject> CurrentConfigurations
+    {
+        get
+        {
+            // Capture volatile field once to avoid torn reads
+            var pending = _pendingConfigurations;
+            return pending ?? _configs;
+        }
+    }
 
+    public void BeginUpdate()
+    {
+        _pendingConfigurations = new();
+    }
+
+    public void UpdateConfiguration(Type type, MutableJsonObject value)
+    {
+        if (_pendingConfigurations == null)
+        {
+            throw new InvalidOperationException("Must call BeginUpdate() before updating configurations");
+        }
+
+        _pendingConfigurations[type] = value;
+    }
+
+    public void CommitUpdate(Dictionary<Type, MutableJsonObject> finalConfigurations)
+    {
+        _configs = finalConfigurations;
+        _pendingConfigurations = null;
+    }
+
+    public void RollbackUpdate()
+    {
+        _pendingConfigurations = null;
+    }
+
+    public Type? FindRegistration<T>() => FindRegistration(typeof(T));
+
+    /// <summary>
+    /// Finds a configuration registration by concrete type.
+    /// Thread-safe to avoid race conditions.
+    /// </summary>
+    public Type? FindRegistration(Type type)
+    {
+        var currentConfigs = CurrentConfigurations;
+        return currentConfigs.ContainsKey(type) ? type : null;
+    }
+
+    public bool TryGetConfiguration<T>(out MutableJsonObject? value) => TryGetConfiguration(typeof(T), out value);
+
+    /// <summary>
+    /// Tries to get a configuration value by type.
+    /// Thread-safe to avoid race conditions with volatile fields.
+    /// </summary>
+    public bool TryGetConfiguration(Type type, out MutableJsonObject? value)
+    {
+        var foundType = FindRegistration(type);
+        if (foundType != null)
+        {
+            var currentConfigs = CurrentConfigurations;
+            if (currentConfigs.TryGetValue(foundType, out value))
+            {
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
+    }
+
+    public JsonElement? GetConfigurationAsJson(Type type)
+    {
+        var currentConfigs = CurrentConfigurations;
+        if (currentConfigs.TryGetValue(type, out var value))
+        {
+            byte[] bytes;
+            lock (value)
+            {
+                bytes = MutableJsonDocument.ToUtf8Bytes(value);
+            }
+            using var doc = JsonDocument.Parse(bytes);
+            return doc.RootElement.Clone();
+        }
+        return null;
+    }
     public IConfigurationHealthService GetHealthService() => _healthService;
 
     public void ReportSuccessfulRecompute(int startIndex)
@@ -93,14 +188,12 @@ internal class ConfigurationHealthTracker
                     break;
                 case RuleManager.RuleExecutionOutcome.Up:
                     updated = prev.Status != RuleResultStatus.Up ? prev.WithStatus(RuleResultStatus.Up, now) : prev;
-
                     break;
                 case RuleManager.RuleExecutionOutcome.Skipped:
                     if (prev.Status != RuleResultStatus.Skipped)
                     {
                         updated = prev.WithStatus(RuleResultStatus.Skipped, now);
                     }
-
                     break;
                 case RuleManager.RuleExecutionOutcome.Failed:
                     var ex = rm.LastFailureException ?? new Exception("FAILED");
@@ -109,7 +202,6 @@ internal class ConfigurationHealthTracker
                     {
                         encounteredRequiredFailure = true;
                     }
-
                     break;
             }
 
@@ -167,5 +259,6 @@ internal class ConfigurationHealthTracker
     public void Dispose()
     {
         _healthService.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

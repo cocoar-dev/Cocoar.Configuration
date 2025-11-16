@@ -1,12 +1,7 @@
-using Cocoar.Configuration;
-using Cocoar.Configuration.Configure;
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.DI; // AddCocoarConfiguration IServiceCollection extension
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Reactive; // StaticJson / Observable provider DSL extensions
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Cocoar.Configuration.Reactive;
+using Examples.TupleReactiveExample;
 
 // Example: Demonstrates tuple-based reactive configuration snapshots with arbitrary arity
 // and interface exposure eligibility guard.
@@ -34,7 +29,7 @@ builder.Services.AddCocoarConfiguration(rule => [
     rule.For<LoggingConfig>().FromStaticJson("{ \"Level\": \"Info\" }")
 ], setup => [
     setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
-    ]);
+]);
 
 var app = builder.Build();
 
@@ -94,23 +89,25 @@ app.MapPost("/update", () =>
 
 app.Run();
 
-// Types
-public sealed class AppSettings : IAppSettings
-{
-    public string Message { get; set; } = "";
-    public int Counter { get; set; }
-}
-public interface IAppSettings
-{
-    string Message { get; }
-    int Counter { get; }
-}
-public sealed class FeatureFlags
-{
-    public string[] Flags { get; set; } = Array.Empty<string>();
-}
-public sealed class LoggingConfig
-{
-    public string Level { get; set; } = "Info";
-}
+namespace Examples.TupleReactiveExample
+{ // Types
+    public sealed class AppSettings : IAppSettings
+    {
+        public string Message { get; set; } = "";
+        public int Counter { get; set; }
+    }
+    public interface IAppSettings
+    {
+        string Message { get; }
+        int Counter { get; }
+    }
+    public sealed class FeatureFlags
+    {
+        public string[] Flags { get; set; } = Array.Empty<string>();
+    }
+    public sealed class LoggingConfig
+    {
+        public string Level { get; set; } = "Info";
+    }
 // public interface IUnexposed { } // Example of an unexposed interface that would fail eligibility
+}

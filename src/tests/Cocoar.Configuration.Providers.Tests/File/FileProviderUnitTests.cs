@@ -2,6 +2,7 @@ using System.Text.Json;
 using Xunit;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Cocoar.Configuration.Rules;
 
 namespace Cocoar.Configuration.Providers.Tests.File;

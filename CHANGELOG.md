@@ -1,5 +1,62 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+**NEW: Cocoar.Configuration.Secrets Package**
+- `Secret<T>` type for type-safe secret handling with automatic memory zeroing
+- Hybrid encryption using RSA key wrapping + AES-GCM for envelope-based secrets
+- X.509 certificate-based encryption with **password-less certificates** (industry standard)
+  - Security model: File permissions (`chmod 600`) + full-disk encryption (BitLocker/LUKS/FileVault)
+  - Follows nginx, PostgreSQL, Kubernetes, Docker patterns
+  - No password bootstrapping problem
+- Flexible folder-based key management with certificate inventory
+- Support for key identifiers (kid) for multi-tenant scenarios
+- Configurable certificate ordering and subdirectory search depth
+- Seamless JSON deserialization support via custom converters
+- Works with primitives, complex types, collections, and nested objects
+
+**NEW: Cocoar.Configuration.Secrets.Cli Tool**
+- Command-line tool for managing encrypted secrets in JSON configuration files
+- **`generate-cert`**: Generate self-signed certificates (PFX or PEM format)
+  - Password-less by default (password optional for legacy compatibility)
+  - Smart format detection from file extension (`.pfx`, `.crt`, `.cer`, `.pem`)
+- **`convert-cert`**: Convert between certificate formats and remove passwords
+  - Supports PFX↔PEM conversion with automatic format detection
+  - Output password optional - defaults to password-less (industry standard)
+  - Provides platform-specific file permission guidance
+  - Unified tool for format conversion and password removal
+- **`cert-info`**: Display detailed certificate information
+  - Shows validity, key size, password status
+  - Detects password-protected vs password-less certificates
+  - Validates certificate thumbprints for conversion verification
+- **`encrypt`**: Encrypt plaintext values in JSON files
+- **`decrypt`**: Decrypt encrypted values from JSON files
+
+**NEW: Cocoar.Configuration.Analyzers Package**
+- Roslyn analyzers for compile-time configuration validation
+- **COCFG001**: Detects secret path conflicts (non-secret properties with same path as secret properties)
+- **COCFG002**: Validates rule dependency ordering (prevents accessing config types not yet loaded)
+- **COCFG003**: Warns about required rules referencing potentially missing resources
+- **COCFG004**: Enforces type safety in configuration accessors
+- **COCFG005**: Identifies duplicate unconditional rules for the same type
+- **COCFG006**: Suggests optimal ordering for static/seed rules vs dynamic rules
+- Includes code fix provider for automatic rule reordering (COCFG002)
+
+### Changed
+
+**BREAKING: Provider contract refactored to use byte[] instead of JsonElement**
+- `FetchConfigurationAsync` → `FetchConfigurationBytesAsync` (returns `byte[]`)
+- `Changes` → `ChangesAsBytes` (emits `byte[]`)
+- Improves performance by avoiding intermediate JsonElement conversions
+- All built-in providers updated (File, Http, Environment, CommandLine, MicrosoftAdapter, etc.)
+- Public ConfigManager API unchanged - byte[] conversion handled internally
+
+### Notes
+- The provider contract change is internal - consuming applications are not affected
+- Password-less certificates are the recommended approach (industry standard: nginx, PostgreSQL, Kubernetes, Docker)
+
 ## [3.3.0] - 2025-10-23
 
 ### Added

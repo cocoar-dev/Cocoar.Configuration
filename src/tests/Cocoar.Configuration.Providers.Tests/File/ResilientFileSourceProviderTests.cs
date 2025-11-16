@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Cocoar.Configuration.Providers.Tests.Helpers;
+using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -46,11 +48,11 @@ public class ResilientFileSourceProviderTests
         var emissions = new List<JsonElement>();
         var errors = new List<Exception>();
         
-        var subscription = provider.Changes(query).Subscribe(
+        var subscription = provider.ChangesAsBytes(query).Subscribe(
             onNext: emission => 
             {
-                emissions.Add(emission);
-                _output.WriteLine($"📩 Change emission: version={GetVersion(emission)}, enabled={GetEnabled(emission)}");
+                emissions.Add(emission.ToJsonElement());
+                _output.WriteLine($"📩 Change emission: version={GetVersion(emission.ToJsonElement())}, enabled={GetEnabled(emission.ToJsonElement())}");
             },
             onError: ex => 
             {
@@ -62,26 +64,37 @@ public class ResilientFileSourceProviderTests
         await Task.Delay(200); // Let FileSystemWatcher initialize
         
         // Test initial FetchConfigurationAsync
-        var initialConfig = await provider.FetchConfigurationAsync(query);
-        _output.WriteLine($"✅ Initial config fetch: version={GetVersion(initialConfig)}");
+        var initialConfig = await provider.FetchConfigurationBytesAsync(query);
+        _output.WriteLine($"✅ Initial config fetch: version={GetVersion(initialConfig.ToJsonElement())}");
         
         // === PHASE 2: Modify file (FileSystemWatcher should detect) ===
         _output.WriteLine("Phase 2: Modifying file to test FileSystemWatcher");
         System.IO.File.WriteAllText(configFile, "{ \"version\": 2, \"enabled\": false }");
         
-        await Task.Delay(300);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > 0,
+            timeout: TimeSpan.FromSeconds(3),
+            description: "detect initial modification");
         var emissionsAfterModify = emissions.Count;
         
         // === PHASE 3: Delete directory ===
         _output.WriteLine("Phase 3: Deleting directory - should trigger Error event and polling fallback");
         Directory.Delete(featureDir, recursive: true);
         
-        await Task.Delay(500); // Wait for Error event to trigger polling
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                try {
+                    provider.FetchConfigurationBytesAsync(query).GetAwaiter().GetResult();
+                    return false; // still able to fetch
+                } catch (DirectoryNotFoundException) { return true; } catch { return false; }
+            },
+            timeout: TimeSpan.FromSeconds(8),
+            description: "fetch failing with DirectoryNotFoundException after deletion");
         
         // Test FetchConfigurationAsync during polling (should throw)
         try
         {
-            var configDuringPolling = await provider.FetchConfigurationAsync(query);
+            var configDuringPolling = await provider.FetchConfigurationBytesAsync(query);
             _output.WriteLine("⚠️ Unexpected: FetchConfigurationAsync succeeded during polling");
         }
         catch (DirectoryNotFoundException ex)
@@ -98,13 +111,22 @@ public class ResilientFileSourceProviderTests
         Directory.CreateDirectory(featureDir);
         System.IO.File.WriteAllText(configFile, "{ \"version\": 3, \"enabled\": true, \"recovered\": true }");
         
-        await Task.Delay(12000); // Wait for polling cycle (10 seconds + buffer)
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => {
+                try {
+                    var cfg = provider.FetchConfigurationBytesAsync(query).GetAwaiter().GetResult();
+                    var el = cfg.ToJsonElement();
+                    return GetRecovered(el);
+                } catch { return false; }
+            },
+            timeout: TimeSpan.FromSeconds(15),
+            description: "recovery after directory recreation");
         
         // Test FetchConfigurationAsync after recovery
         try
         {
-            var recoveredConfig = await provider.FetchConfigurationAsync(query);
-            _output.WriteLine($"✅ Recovery config fetch: version={GetVersion(recoveredConfig)}, recovered={GetRecovered(recoveredConfig)}");
+            var recoveredConfig = await provider.FetchConfigurationBytesAsync(query);
+            _output.WriteLine($"✅ Recovery config fetch: version={GetVersion(recoveredConfig.ToJsonElement())}, recovered={GetRecovered(recoveredConfig.ToJsonElement())}");
         }
         catch (Exception ex)
         {
@@ -115,7 +137,10 @@ public class ResilientFileSourceProviderTests
         _output.WriteLine("Phase 5: Testing recovered FileSystemWatcher with file modification");
         System.IO.File.WriteAllText(configFile, "{ \"version\": 4, \"enabled\": false, \"test\": \"final\" }");
         
-        await Task.Delay(500);
+        await ActiveWaitHelpers.WaitUntilAsync(
+            () => emissions.Count > emissionsAfterModify,
+            timeout: TimeSpan.FromSeconds(5),
+            description: "post-recovery modification detected");
         
         var finalEmissions = emissions.Count;
         
@@ -166,13 +191,13 @@ public class ResilientFileSourceProviderTests
         var options = new FileSourceProviderOptions(nonExistentDir);
         using var provider = new FileSourceProvider(options);
         
-        // Provider should start in polling mode since directory doesn't exist
-        await Task.Delay(100);
+        // Allow brief moment for provider initialization
+        await Task.Delay(10);
         
         // Test FetchConfigurationAsync behavior
         try
         {
-            var config = await provider.FetchConfigurationAsync(query);
+            var config = await provider.FetchConfigurationBytesAsync(query);
             _output.WriteLine("❌ PROBLEM: FetchConfigurationAsync should have thrown for non-existent directory");
         }
         catch (DirectoryNotFoundException ex)

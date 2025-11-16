@@ -1,9 +1,8 @@
-using Cocoar.Configuration;
 using Cocoar.Configuration.AspNetCore;
-using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers;
+
+namespace Examples.AspNetCoreExample;
 
 public interface IAppSettings
 {

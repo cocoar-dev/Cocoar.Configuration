@@ -1,0 +1,9 @@
+<Project>
+  <!-- Import parent Directory.Build.props to inherit all global settings -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\'))" />
+
+  <!-- Test projects should never be packaged as NuGet packages -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

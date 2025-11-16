@@ -1,12 +1,15 @@
 using System.Text.Json;
 using Cocoar.Configuration.Infrastructure;
+using Cocoar.Capabilities;
 using Cocoar.Configuration.Utilities;
+using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
-internal class ConfigurationAccessor(ConfigurationRepository repository, ExposureRegistry bindingRegistry)
+internal class ConfigurationAccessor(ConfigurationState state, ExposureRegistry bindingRegistry, ConfigManagerCapabilityScope capabilityScope)
     : IConfigurationAccessor
 {
+    private readonly ConfigManagerCapabilityScope _capabilityScope = capabilityScope;
     public T? GetConfig<T>() => (T?)ResolveConfig(typeof(T));
 
     public bool TryGetConfig<T>(out T? value)
@@ -47,7 +50,7 @@ internal class ConfigurationAccessor(ConfigurationRepository repository, Exposur
         return value;
     }
 
-    public JsonElement? GetConfigAsJson(Type type) => repository.GetConfigurationAsJson(type);
+    public JsonElement? GetConfigAsJson(Type type) => state.GetConfigurationAsJson(type);
 
     private object? ResolveConfig(Type requestedType)
     {
@@ -69,18 +72,27 @@ internal class ConfigurationAccessor(ConfigurationRepository repository, Exposur
     {
         value = null;
 
-        if (!repository.TryGetConfiguration(type, out var jsonElement))
+        if (!state.TryGetConfiguration(type, out var mutableJsonObject) || mutableJsonObject == null)
         {
             return false;
         }
 
-        var registration = repository.FindRegistration(type);
+        var registration = state.FindRegistration(type);
         if (registration == null)
         {
             return false;
         }
-
-        value = ConfigurationDeserializer.Deserialize(jsonElement, registration, bindingRegistry.DeserializationMap);
+        // Lock on the mutableJsonObject to prevent concurrent modification during serialization
+        byte[] bytes;
+        lock (mutableJsonObject)
+        {
+            bytes = MutableJsonDocument.ToUtf8Bytes(mutableJsonObject);
+        }
+        
+        using var doc = JsonDocument.Parse(bytes);
+        var jsonElement = doc.RootElement.Clone();
+        value = ConfigurationDeserializer.Deserialize(jsonElement, registration, bindingRegistry.DeserializationMap, _capabilityScope);
         return true;
     }
+    
 }

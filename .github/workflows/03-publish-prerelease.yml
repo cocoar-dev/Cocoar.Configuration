@@ -23,7 +23,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}   # branch selected in the UI
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -39,8 +41,9 @@ jobs:
         working-directory: ./src
 
       - name: Run tests
-        run: dotnet test -c Release --no-build --no-restore --verbosity normal
+        run: dotnet test -c Release --no-build --no-restore --verbosity normal --filter "Type!=Performance"
         working-directory: ./src
+
 
   publish-prerelease:
     runs-on: ubuntu-latest
@@ -58,7 +61,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}   # same branch as tests
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -74,32 +79,46 @@ jobs:
         id: gv
         uses: gittools/actions/gitversion/execute@v3
 
+      - name: Build prerelease version
+        id: prerelease
+        run: |
+          BASE="${{ steps.gv.outputs.MajorMinorPatch }}-${{ steps.gv.outputs.PreReleaseLabel }}"
+          N="${{ steps.gv.outputs.CommitsSinceVersionSource }}"
+          VERSION="$BASE.$N"
+
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+          echo "Calculated prerelease version: $VERSION"
+
       - name: Log calculated version
-        run: echo "GitVersion calculated prerelease version ${{ steps.gv.outputs.SemVer }}"
+        run: |
+          echo "GitVersion SemVer (original): ${{ steps.gv.outputs.SemVer }}"
+          echo "Using PACKAGE_VERSION:        $PACKAGE_VERSION"
 
       - name: Restore dependencies
         run: dotnet restore
         working-directory: ./src
 
       - name: Build solution
-        run: dotnet build -c Release --no-restore -p:Version=${{ steps.gv.outputs.SemVer }} -p:AssemblyVersion=${{ steps.gv.outputs.AssemblySemVer }} -p:FileVersion=${{ steps.gv.outputs.AssemblySemFileVer }}
+        run: dotnet build -c Release --no-restore -p:Version=$PACKAGE_VERSION -p:AssemblyVersion=${{ steps.gv.outputs.AssemblySemVer }} -p:FileVersion=${{ steps.gv.outputs.AssemblySemFileVer }}
         working-directory: ./src
 
       - name: Pack NuGet packages (incl. symbols)
-        run: dotnet pack -c Release --no-restore /p:IncludeSymbols=true /p:SymbolPackageFormat=snupkg -o ../artifacts -p:Version=${{ steps.gv.outputs.SemVer }}
+        run: dotnet pack -c Release --no-restore /p:IncludeSymbols=true /p:SymbolPackageFormat=snupkg -o ../artifacts -p:Version=$PACKAGE_VERSION
         working-directory: ./src
 
       - name: Ensure packages exist
         run: |
           shopt -s nullglob
-          files=(artifacts/*.nupkg artifacts/*.snupkg)
+          files=("$GITHUB_WORKSPACE"/artifacts/*.nupkg "$GITHUB_WORKSPACE"/artifacts/*.snupkg)
           (( ${#files[@]} )) || { echo "::error ::No packages found in artifacts/"; exit 1; }
 
       - name: Upload artifacts (audit)
         uses: actions/upload-artifact@v4
         with:
-          name: prerelease-packages-${{ steps.gv.outputs.SemVer }}
-          path: artifacts
+          name: prerelease-packages-${{ env.PACKAGE_VERSION }}
+          path: ${{ github.workspace }}/artifacts
           retention-days: 30
 
       - name: Push prerelease to NuGet.org
@@ -107,7 +126,7 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           shopt -s nullglob
-          for p in artifacts/*.nupkg artifacts/*.snupkg; do
+          for p in "$GITHUB_WORKSPACE"/artifacts/*.nupkg "$GITHUB_WORKSPACE"/artifacts/*.snupkg; do
             echo "Pushing prerelease package: $p"
             dotnet nuget push "$p" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
           done

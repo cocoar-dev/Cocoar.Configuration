@@ -373,5 +373,5 @@ dist/
 /output
 .DS_Store
 
-/local
+local/
 .local/

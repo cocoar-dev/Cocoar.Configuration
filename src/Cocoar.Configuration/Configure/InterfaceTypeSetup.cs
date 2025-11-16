@@ -1,4 +1,5 @@
 using Cocoar.Capabilities;
+using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Configure;
 
@@ -11,7 +12,7 @@ public sealed class InterfaceTypeSetup<TInterface> : SetupDefinition where TInte
 {
     public Guid Id { get; } = Guid.NewGuid();
     
-    internal InterfaceTypeSetup(CapabilityScope capabilityScope) : base(capabilityScope)
+    internal InterfaceTypeSetup(ConfigManagerCapabilityScope capabilityScope) : base(capabilityScope)
     {
         var interfaceType = typeof(TInterface);
         if (!interfaceType.IsInterface)
@@ -20,7 +21,7 @@ public sealed class InterfaceTypeSetup<TInterface> : SetupDefinition where TInte
                 $"{interfaceType.Name} isn't an interface. Interface<T>() requires T to be an interface type.");
         }
 
-        capabilityScope.For(this).WithPrimary(
+        capabilityScope.Compose(this).WithPrimary(
             new InterfaceTypePrimary<SetupDefinition>(interfaceType));
     }
 

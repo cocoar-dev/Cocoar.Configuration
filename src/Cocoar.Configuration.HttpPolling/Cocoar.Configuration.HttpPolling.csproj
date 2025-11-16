@@ -4,6 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Description>HTTP polling provider for Cocoar.Configuration enabling remote configuration sources with configurable polling intervals, automatic retries, and failure sentinel values for resilient distributed configuration management.</Description>
+    <PackageTags>configuration;http;polling;remote-config;distributed;resilience;retry;sentinel;http-client</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
