@@ -18,15 +18,16 @@ internal static class GenerateCertCommand
 
         var passwordOption = new Option<string?>("--password")
         {
-            Description = "Password for PFX file (required for --format pfx)"
+            Description = "Password for PFX file (optional; recommended to omit for password-less certificates protected by file permissions)"
         };
         passwordOption.Aliases.Add("-pwd");
 
         var formatOption = new Option<string>("--format")
         {
-            Description = "Output format: pfx (default), pem, or auto",
-            DefaultValueFactory = _ => "pfx"
+            Description = "Output format: pfx, pem, or auto (infer from file extension, default)",
+            DefaultValueFactory = _ => "auto"
         };
+        formatOption.Aliases.Add("-fmt");
 
         var subjectOption = new Option<string>("--subject")
         {
@@ -87,7 +88,6 @@ internal static class GenerateCertCommand
     {
         try
         {
-            // Determine format
             var certFormat = format.ToLowerInvariant() switch
             {
                 "pfx" => CertificateFormat.Pfx,
@@ -96,22 +96,33 @@ internal static class GenerateCertCommand
                 _ => throw new ArgumentException($"Invalid format '{format}'. Use 'pfx', 'pem', or 'auto'.")
             };
 
-            // Validate password for PFX
-            if (certFormat == CertificateFormat.Pfx && string.IsNullOrWhiteSpace(password))
+            if (format.ToLowerInvariant() != "auto")
             {
-                Console.Error.WriteLine("❌ Error: --password is required for PFX format");
-                return Task.FromResult(1);
+                var inferredFormat = DetectFormat(output);
+                if (certFormat != inferredFormat)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠️  Warning: Output file extension suggests {inferredFormat} but --format specifies {certFormat}");
+                    Console.ResetColor();
+                }
             }
 
-            // Generate certificate
+            // Password-less by default for security
             using var cert = certFormat == CertificateFormat.Pfx
-                ? X509CertificateGenerator.GenerateAndSavePfx(output, password!, subject, validYears, keySize, overwrite)
+                ? X509CertificateGenerator.GenerateAndSavePfx(output, password, subject, validYears, keySize, overwrite)
                 : X509CertificateGenerator.GenerateAndSavePem(output, null, subject, validYears, keySize, overwrite);
 
-            // Display success
             if (certFormat == CertificateFormat.Pfx)
             {
                 Console.WriteLine($"✓ Certificate generated (PFX): {output}");
+                if (string.IsNullOrWhiteSpace(password))
+                {
+                    Console.WriteLine("  ⚠️  Password-less certificate - protect with file permissions!");
+                    if (OperatingSystem.IsWindows())
+                        Console.WriteLine("     Windows: icacls cert.pfx /inheritance:r /grant:r \"YourUser:(R)\"");
+                    else
+                        Console.WriteLine("     Linux/macOS: chmod 600 cert.pfx && chown app-user cert.pfx");
+                }
             }
             else
             {
@@ -119,6 +130,11 @@ internal static class GenerateCertCommand
                 Console.WriteLine($"✓ Certificate generated (PEM):");
                 Console.WriteLine($"  Certificate: {output}");
                 Console.WriteLine($"  Private Key: {keyPath}");
+                Console.WriteLine("  ⚠️  Protect private key with file permissions!");
+                if (OperatingSystem.IsWindows())
+                    Console.WriteLine("     Windows: icacls {keyPath} /inheritance:r /grant:r \"YourUser:(R)\"");
+                else
+                    Console.WriteLine("     Linux/macOS: chmod 600 {keyPath} && chown app-user {keyPath}");
             }
 
             Console.WriteLine($"  Subject: {cert.Subject}");

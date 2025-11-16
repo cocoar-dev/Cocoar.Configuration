@@ -69,14 +69,13 @@ public static class X509CertificateGenerator
     /// <exception cref="IOException">If file exists and overwrite is false.</exception>
     public static X509Certificate2 GenerateAndSavePfx(
         string outputPath,
-        string password,
+        string? password,
         string subject,
         int validYears = 1,
         int keySize = 2048,
         bool overwrite = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
 
         if (File.Exists(outputPath) && !overwrite)
             throw new IOException($"File already exists: {outputPath}. Use overwrite=true to replace.");

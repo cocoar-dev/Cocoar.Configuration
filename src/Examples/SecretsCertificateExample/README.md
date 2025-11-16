@@ -8,7 +8,6 @@
 - ✅ Certificate rotation with `UseCertificatesFromFolder`
 - ✅ Key identifier (Kid) management and backward compatibility
 - ✅ Certificate caching strategies for security/performance trade-offs
-- ✅ Self-signed certificate creation for development
 
 ## Quick Start
 
@@ -20,13 +19,18 @@ dotnet run --project Examples\SecretsCertificateExample\SecretsCertificateExampl
 
 ### Development Setup
 
+First, generate a certificate using the CLI:
+```bash
+cocoar-secrets generate-cert -o certs/dev.pfx
+```
+
+Then configure the manager:
 ```csharp
 var manager = new ConfigManager(rule => [
     rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
 ], setup => [
     setup.Secrets()
-        .UseCertificateFromFile("certs/dev.pfx", "DevPassword")
-        .CreateSelfSignedIfNotExist("CN=MyApp Dev")
+        .UseCertificateFromFile("certs/dev.pfx")
         .WithKeyId("dev-secrets")
         .Build()
 ]).Initialize();
@@ -42,12 +46,11 @@ var manager = new ConfigManager(rule => [
     // Uses kid-based folders: C:\certs\prod\production-secrets\*.pfx
     setup.Secrets()
         .UseCertificatesFromFolder(@"C:\certs\prod", 
-            passwordProvider: ctx => new[] { Environment.GetEnvironmentVariable("CERT_PASSWORD") ?? "" },
             cacheDurationSeconds: 30),
     
     // Legacy support for old Kids
     setup.Secrets()
-        .UseCertificateFromFile("certs/legacy.pfx", "password")
+        .UseCertificateFromFile("certs/legacy.pfx")
         .WithKeyId("hybrid-encryption")
         .WithAdditionalKeyId("prod-v1")  // Backward compatibility
         .Build()
@@ -64,21 +67,18 @@ var manager = new ConfigManager(rule => [
     // Folder structure: C:\certs\pci\pci-data\*.pfx
     setup.Secrets()
         .UseCertificatesFromFolder(@"C:\certs\pci", 
-            passwordProvider: ctx => new[] { "password" },
             cacheDurationSeconds: 0),  // Maximum security
     
     // API keys - balanced 30-second cache
     // Folder structure: C:\certs\api\api-keys\*.pfx
     setup.Secrets()
         .UseCertificatesFromFolder(@"C:\certs\api", 
-            passwordProvider: ctx => new[] { "password" },
             cacheDurationSeconds: 30),
     
     // Feature flags - 1-hour cache for performance
     // Folder structure: C:\certs\config\feature-flags\*.pfx
     setup.Secrets()
         .UseCertificatesFromFolder(@"C:\certs\config", 
-            passwordProvider: ctx => new[] { "password" },
             cacheDurationSeconds: 3600)
 ]).Initialize();
 ```
@@ -163,6 +163,5 @@ Your `appsettings.json` must contain pre-encrypted envelopes:
 
 ## See Also
 
-- [Intelligent Certificate Caching](../../../docs/intelligent-certificate-caching.md) - Deep dive into caching architecture
-- [Secrets API Reference](../../../docs/secrets-api-reference.md) - Complete API documentation
-- [Secure Data Transfer](../../../docs/secure-data-transfer.md) - Best practices
+- [Intelligent Certificate Caching](../../Cocoar.Configuration.Secrets/intelligent-certificate-caching.md) - Deep dive into caching architecture
+- [Secrets CLI](../../Cocoar.Configuration.Secrets.Cli/README.md) - Command-line encryption/decryption tools

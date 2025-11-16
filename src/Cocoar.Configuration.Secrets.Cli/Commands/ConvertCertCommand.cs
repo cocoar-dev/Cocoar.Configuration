@@ -32,7 +32,7 @@ internal static class ConvertCertCommand
 
         var outputPasswordOption = new Option<string?>("--output-password")
         {
-            Description = "Password for output PFX file (required when converting to PFX)"
+            Description = "Password for output PFX file (optional; omit for password-less PFX)"
         };
         outputPasswordOption.Aliases.Add("--opass");
 
@@ -80,7 +80,6 @@ internal static class ConvertCertCommand
     {
         try
         {
-            // Detect formats
             var inputFormat = DetectFormat(input);
             var outputFormat = format.ToLowerInvariant() switch
             {
@@ -90,20 +89,10 @@ internal static class ConvertCertCommand
                 _ => throw new ArgumentException($"Invalid format '{format}'. Use 'pfx', 'pem', or 'auto'.")
             };
 
-            // Validate passwords
-            if (inputFormat == CertificateFormat.Pfx && string.IsNullOrWhiteSpace(inputPassword))
-            {
-                Console.Error.WriteLine("❌ Error: --input-password is required when converting from PFX");
-                return Task.FromResult(1);
-            }
+            // Input password optional - will try loading without password if not provided
+            // Output password optional - password-less by default
+            var useOutputPassword = !string.IsNullOrWhiteSpace(outputPassword);
 
-            if (outputFormat == CertificateFormat.Pfx && string.IsNullOrWhiteSpace(outputPassword))
-            {
-                Console.Error.WriteLine("❌ Error: --output-password is required when converting to PFX");
-                return Task.FromResult(1);
-            }
-
-            // Check for overwrite
             if (!overwrite)
             {
                 if (outputFormat == CertificateFormat.Pfx && File.Exists(output))
@@ -122,15 +111,22 @@ internal static class ConvertCertCommand
                 }
             }
 
-            // Load input certificate
             X509Certificate2 cert;
             if (inputFormat == CertificateFormat.Pfx)
             {
                 Console.WriteLine($"Loading PFX: {input}");
-                var keyPath = outputFormat == CertificateFormat.Pem ? Path.ChangeExtension(output, ".key") : null;
-                cert = outputFormat == CertificateFormat.Pem
-                    ? X509CertificateGenerator.ConvertPfxToPem(input, inputPassword!, output, keyPath, overwrite)
-                    : throw new InvalidOperationException("Cannot convert PFX to PFX. Use same format.");
+                if (outputFormat == CertificateFormat.Pem)
+                {
+                    var keyPath = Path.ChangeExtension(output, ".key");
+                    cert = X509CertificateGenerator.ConvertPfxToPem(input, inputPassword!, output, keyPath, overwrite);
+                }
+                else
+                {
+                    // PFX → PFX: password change or removal
+                    cert = new X509Certificate2(input, inputPassword, X509KeyStorageFlags.Exportable);
+                    var exportBytes = cert.Export(X509ContentType.Pfx, outputPassword);
+                    File.WriteAllBytes(output, exportBytes);
+                }
             }
             else
             {
@@ -140,12 +136,20 @@ internal static class ConvertCertCommand
                     : throw new InvalidOperationException("Cannot convert PEM to PEM. Use same format.");
             }
 
-            // Display success
             try
             {
                 if (outputFormat == CertificateFormat.Pfx)
                 {
-                    Console.WriteLine($"✓ Certificate converted to PFX: {output}");
+                    var passwordStatus = useOutputPassword ? "password-protected" : "password-less";
+                    Console.WriteLine($"✓ Certificate converted to PFX ({passwordStatus}): {output}");
+                    if (!useOutputPassword)
+                    {
+                        Console.WriteLine("  ⚠️  Protect with file permissions!");
+                        if (OperatingSystem.IsWindows())
+                            Console.WriteLine("     Windows: icacls cert.pfx /inheritance:r /grant:r \"YourUser:(R)\"");
+                        else
+                            Console.WriteLine("     Linux/macOS: chmod 600 cert.pfx && chown app-user cert.pfx");
+                    }
                 }
                 else
                 {
@@ -153,6 +157,11 @@ internal static class ConvertCertCommand
                     Console.WriteLine($"✓ Certificate converted to PEM:");
                     Console.WriteLine($"  Certificate: {output}");
                     Console.WriteLine($"  Private Key: {keyPath}");
+                    Console.WriteLine("  ⚠️  Protect private key with file permissions!");
+                    if (OperatingSystem.IsWindows())
+                        Console.WriteLine("     Windows: icacls {keyPath} /inheritance:r /grant:r \"YourUser:(R)\"");
+                    else
+                        Console.WriteLine("     Linux/macOS: chmod 600 {keyPath} && chown app-user {keyPath}");
                 }
 
                 Console.WriteLine($"  Subject: {cert.Subject}");

@@ -1,111 +1,56 @@
-# Secrets Basic Example# Secrets Basic Example
+# Secrets Basic Example
 
+**Pre-Encrypted Secrets** - Demonstrates secure secret handling with encrypted envelopes.
 
+## What This Example Demonstrates
 
-**Pre-Encrypted Secrets** - Demonstrates secure secret handling with encrypted envelopes.**Zero-configuration AutoProtect** - The simplest way to use secrets in Cocoar Configuration.
+- ✅ Loading pre-encrypted secrets from configuration files
+- ✅ Password-less certificate-based decryption setup
+- ✅ Proper `SecretLease` usage with `using` statements
+- ✅ Memory zeroization for security
+- ✅ `Secret<T>` for any JSON-serializable type
 
+## Quick Start
 
-
-## What This Example Demonstrates## What This Example Demonstrates
-
-
-
-- ✅ Loading pre-encrypted secrets from configuration files- ✅ Zero-config setup - just call `setup.Secrets()`
-
-- ✅ Certificate-based decryption setup- ✅ AutoProtect automatically creates a self-signed certificate
-
-- ✅ Proper `SecretLease` usage with `using` statements- ✅ Plain-text secrets from JSON encrypted in-memory
-
-- ✅ Memory zeroization for security- ✅ Proper `SecretLease` usage with `using` statements
-
-- ✅ `Secret<T>` for any JSON-serializable type- ✅ Memory zeroization for security
-
-
-
-## Quick Start## Quick Start
-
-
-
-```bash```bash
-
-dotnet run --project Examples\SecretsBasicExample\SecretsBasicExample.csprojdotnet run --project Examples\SecretsBasicExample\SecretsBasicExample.csproj
-
-``````
-
-
-
-## Key Code Snippet## Key Code Snippet
-
-
-
-```csharp```csharp
-
-var manager = new ConfigManager(rule => [var manager = new ConfigManager(rule => [
-
-    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
-
-], setup => [], setup => [
-
-    setup.Secrets()    setup.Secrets()  // That's it! AutoProtect handles everything
-
-        .UseCertificateFromFile("secrets.pfx", "DevPassword")]).Initialize();
-
-        .WithKeyId("dev-secrets")
-
-        .Build()var config = manager.GetConfig<AppConfig>();
-
-]).Initialize();
-
-// Access secrets securely
-
-var config = manager.GetConfig<AppConfig>();using (var lease = config.Database.ApiKey.Open())
-
-{
-
-// Access secrets securely    var key = lease.Value;  // Use the secret
-
-using (var lease = config.Database.ApiKey.Open())    // ... use it with APIs, database connections, etc.
-
-{}
-
-    var key = lease.Value;  // Use the secret// Memory automatically zeroized after 'using' block
-
-    // ... use it with APIs, database connections, etc.```
-
-}
-
-// Memory automatically zeroized after 'using' block## What Happens Under the Hood
-
+```bash
+dotnet run --project Examples\SecretsBasicExample\SecretsBasicExample.csproj
 ```
 
-1. AutoProtect creates a self-signed certificate: `CN=Cocoar.Configuration.AutoProtect`
+## Key Code Snippet
 
-## Configuration File Example2. Certificate stored in: `CurrentUser\My` certificate store
+```csharp
+var manager = new ConfigManager(rule => [
+    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
+], setup => [
+    setup.Secrets()
+        .UseCertificateFromFile("secrets.pfx")  // Password-less certificate
+        .WithKeyId("dev-secrets")
+]).Initialize();
 
-3. Plain-text secrets from JSON are encrypted in-memory (NOT written to disk)
+var config = manager.GetConfig<AppConfig>();
 
-Your `appsettings.json` must contain pre-encrypted envelopes:4. Secrets shown as `***` when printed
+// Access secrets securely
+using (var lease = config.Database.ApiKey.Open())
+{
+    var key = lease.Value;  // Use the secret
+    // ... use it with APIs, database connections, etc.
+}
+// Memory automatically zeroized after 'using' block
+```
 
-5. Memory zeroized when `SecretLease` is disposed
+## Configuration File Example
+
+Your `appsettings.json` must contain pre-encrypted envelopes:
 
 ```json
-
-{## Use Case
-
+{
   "Database": {
-
-    "ApiKey": {**Development & Testing** - Minimal setup, maximum convenience. No certificate management needed!
-
+    "ApiKey": {
       "_cocoar_secret": "v1",
-
-      "kid": "dev-secrets",## See Also
-
+      "kid": "dev-secrets",
       "alg": "RSA-OAEP-AES256-GCM",
-
-      "type": "utf8",- [SecretsCertificateExample](../SecretsCertificateExample/) - Production setup with certificate-based decryption
-
-      "createdAt": "2024-11-01T12:34:56Z",- [Secrets API Reference](../../../docs/secrets-api-reference.md) - Complete API documentation
-
+      "type": "utf8",
+      "createdAt": "2024-11-01T12:34:56Z",
       "iv": "AbCdEf...",
       "ct": "XyZ123...",
       "tag": "DeF456...",
@@ -133,6 +78,8 @@ Your `appsettings.json` must contain pre-encrypted envelopes:4. Secrets shown as
 
 **Plaintext detection** - If you accidentally provide plaintext secrets instead of envelopes, `Secret<T>.Open()` will throw `InvalidOperationException` with a clear error message.
 
+**Password-less certificates** - Certificates are protected by file permissions (`chmod 600` on Linux/macOS, NTFS permissions on Windows) and full-disk encryption (BitLocker/LUKS/FileVault).
+
 ## Use Case
 
 **All environments** - Development, staging, and production all use pre-encrypted envelopes for consistent security.
@@ -140,4 +87,5 @@ Your `appsettings.json` must contain pre-encrypted envelopes:4. Secrets shown as
 ## See Also
 
 - [SecretsCertificateExample](../SecretsCertificateExample/) - Advanced certificate management
-- [Secrets API Reference](../../../docs/secrets-api-reference.md) - Complete API documentation
+- [Secrets CLI](../../Cocoar.Configuration.Secrets.Cli/README.md) - Command-line encryption/decryption tools
+

@@ -39,7 +39,7 @@ public class SecretsFluentApiTests
             // Generate certificate explicitly
             X509CertificateGenerator.GenerateAndSave(
                 pfxPath,
-                "TestPassword123!",
+                null,  // Password-less certificate
                 "CN=Test Certificate",
                 validYears: 1,
                 keySize: 2048);
@@ -48,7 +48,7 @@ public class SecretsFluentApiTests
                 rules: Array.Empty<ConfigRule>(),
                 setup: builder => [
                     builder.Secrets()
-                        .UseCertificateFromFile(pfxPath, "TestPassword123!")
+                        .UseCertificateFromFile(pfxPath)
                         .WithKeyId(kid)
                         .Build()
                 ]
@@ -82,7 +82,7 @@ public class SecretsFluentApiTests
             // Generate certificate explicitly
             X509CertificateGenerator.GenerateAndSave(
                 pfxPath,
-                "TestPassword123!",
+                null,  // Password-less certificate
                 "CN=Test Certificate",
                 validYears: 1,
                 keySize: 2048);
@@ -91,7 +91,7 @@ public class SecretsFluentApiTests
                 rules: Array.Empty<ConfigRule>(),
                 setup: builder => [
                     builder.Secrets()
-                        .UseCertificateFromFile(pfxPath, "TestPassword123!")
+                        .UseCertificateFromFile(pfxPath)
                         .WithKeyId(kid)
                         .Build()
                 ]
@@ -136,14 +136,14 @@ public class SecretsFluentApiTests
             // Generate certificates explicitly
             X509CertificateGenerator.GenerateAndSave(
                 pfxPath1,
-                "TestPassword123!",
+                null,  // Password-less certificate
                 "CN=Test Certificate 1",
                 validYears: 1,
                 keySize: 2048);
             
             X509CertificateGenerator.GenerateAndSave(
                 pfxPath2,
-                "TestPassword123!",
+                null,  // Password-less certificate
                 "CN=Test Certificate 2",
                 validYears: 1,
                 keySize: 2048);
@@ -153,7 +153,7 @@ public class SecretsFluentApiTests
                 rules: Array.Empty<ConfigRule>(),
                 setup: builder => [
                     builder.Secrets()
-                        .UseCertificateFromFile(pfxPath1, "TestPassword123!")
+                        .UseCertificateFromFile(pfxPath1)
                         .WithKeyId(kid1)
                         .Build()
                 ]
@@ -163,7 +163,7 @@ public class SecretsFluentApiTests
                 rules: Array.Empty<ConfigRule>(),
                 setup: builder => [
                     builder.Secrets()
-                        .UseCertificateFromFile(pfxPath2, "TestPassword123!")
+                        .UseCertificateFromFile(pfxPath2)
                         .WithKeyId(kid2)
                         .Build()
                 ]

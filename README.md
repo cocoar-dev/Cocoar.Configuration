@@ -333,9 +333,7 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 |-------|------|
 | Reactive Configuration | [Reactive Config](docs/reactive-config.md) |
 | Health Monitoring | [Health Monitoring](docs/health-monitoring.md) |
-| Secrets & Memory Safety | [Secrets API Reference](docs/secrets-api-reference.md) |
-| Secrets Usage Examples | [Usage Examples](docs/secrets-usage-examples.md) |
-| Certificate Caching | [Intelligent Certificate Caching](docs/intelligent-certificate-caching.md) |
+| Intelligent Certificate Caching | [Certificate Caching](src/Cocoar.Configuration.Secrets/intelligent-certificate-caching.md) |
 | Provider Guidance | [Provider Guidance](docs/provider-guidance.md) |
 | Migration from v2.x | [Migration Guide v2→v3](docs/migration-v2-to-v3.md) |
 | Migration from v1.x | [Migration Guide v1→v2](docs/migration-v1-to-v2.md) |
@@ -374,7 +372,7 @@ For sensitive configuration data, use **Cocoar.Configuration.Secrets**:
 * Pre-encrypted envelope support (secrets encrypted at rest)
 * X.509 certificate-based hybrid encryption (RSA-OAEP + AES-GCM-256)
 * On-demand decryption via `Secret<T>.Open()` with controlled exposure windows
-* See [Secrets documentation](docs/secrets-api-reference.md) for details
+* See [Secrets README](src/Cocoar.Configuration.Secrets/README.md) for library documentation and [CLI tools](src/Cocoar.Configuration.Secrets.Cli/README.md) for certificate management
 
 ### General Best Practices
 

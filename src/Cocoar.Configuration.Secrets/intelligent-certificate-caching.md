@@ -21,7 +21,6 @@ var manager = new ConfigManager(
     {
         setup.Secrets()
             .UseCertificatesFromFolder(@"C:\certs", 
-                passwordProvider: ctx => new[] { "SecurePass123" },
                 cacheDurationSeconds: 30)  // 30 seconds (default)
     });
 ```
@@ -51,14 +50,12 @@ var manager = new ConfigManager(
 // Folder structure: C:\certs\pci\pci-data\*.pfx
 setup.Secrets()
     .UseCertificatesFromFolder(@"C:\certs\pci", 
-        passwordProvider: ctx => new[] { "password" },
         cacheDurationSeconds: 0);
 
 // Standard secrets - balanced 30-second cache
 // Folder structure: C:\certs\api\api-keys\*.pfx
 setup.Secrets()
     .UseCertificatesFromFolder(@"C:\certs\api", 
-        passwordProvider: ctx => new[] { "password" },
         cacheDurationSeconds: 30);
 ```
 
@@ -104,5 +101,5 @@ setup.Secrets()
 
 ## See Also
 
-- [Secrets Library](../src/Cocoar.Configuration.Secrets/README.md) - Runtime library and architecture
-- [Secrets CLI](../src/Cocoar.Configuration.Secrets.Cli/README.md) - Command-line tools
+- [Secrets Library](README.md) - Runtime library and architecture
+- [Secrets CLI](../Cocoar.Configuration.Secrets.Cli/README.md) - Command-line tools

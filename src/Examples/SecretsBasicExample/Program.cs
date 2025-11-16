@@ -28,12 +28,11 @@ class Program
 
         // Generate self-signed certificate explicitly for this demo
         var certPath = Path.Combine(Path.GetTempPath(), "cocoar-secrets-demo.pfx");
-        var certPassword = "DevPassword123!";
         
-        // Explicit certificate generation
+        // Explicit certificate generation (password-less)
         X509CertificateGenerator.GenerateAndSave(
             certPath,
-            certPassword,
+            null,  // Password-less certificate
             "CN=Dev Secrets",
             validYears: 1,
             keySize: 2048,
@@ -45,7 +44,7 @@ class Program
         ], setup => [
             // Load certificate explicitly (no auto-creation)
             setup.Secrets()
-                .UseCertificateFromFile(certPath, certPassword)
+                .UseCertificateFromFile(certPath)
                 .WithKeyId("dev-secrets")
         ]).Initialize();
 

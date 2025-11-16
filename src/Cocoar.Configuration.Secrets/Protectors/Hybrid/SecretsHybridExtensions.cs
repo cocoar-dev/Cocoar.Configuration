@@ -18,21 +18,33 @@ public static class SecretsHybridExtensions
         }
     }
 
-    public static CertificateSetupBuilder UseCertificateFromFile(this SecretsBuilder builder, string pfxPath, string? password = null)
+    /// <summary>
+    /// Registers a single certificate file for hybrid encryption/decryption.
+    /// Certificate must be password-less and protected by file system permissions.
+    /// </summary>
+    /// <param name="builder">The secrets builder.</param>
+    /// <param name="pfxPath">Path to the certificate file (PFX or PEM).</param>
+    /// <remarks>
+    /// Best practice: Use password-less certificates protected by file permissions (chmod 600 on Linux/macOS, ACLs on Windows).
+    /// If you have a password-protected certificate, use 'cocoar-secrets convert-cert' CLI command to convert it.
+    /// </remarks>
+    public static CertificateSetupBuilder UseCertificateFromFile(this SecretsBuilder builder, string pfxPath)
     {
         EnsureContributorRegistered(SecretsBuilder.GetComposerFor(builder));
-        return new(SecretsBuilder.GetCapabilityScopeFor(builder), builder, SecretsBuilder.GetComposerFor(builder), pfxPath, password);
+        return new(SecretsBuilder.GetCapabilityScopeFor(builder), builder, SecretsBuilder.GetComposerFor(builder), pfxPath);
     }
 
     /// <summary>
     /// Registers certificates from a folder for hybrid encryption/decryption.
     /// Supports multiple certificate formats:
-    /// - PKCS#12: .pfx, .p12 (password-protected archives)
+    /// - PKCS#12: .pfx, .p12 (password-less archives)
     /// - PEM: .pem, .crt, .cer (requires matching .key file with same base name)
+    /// 
+    /// All certificates must be password-less and protected by file system permissions.
+    /// Supports kid-based subdirectories for multi-tenant scenarios: basePath/{kid}/cert.pfx
     /// </summary>
     /// <param name="builder">The secrets builder.</param>
     /// <param name="basePath">Path to folder containing certificates.</param>
-    /// <param name="passwordProvider">Optional function to provide passwords for encrypted certificates (PKCS#12 only).</param>
     /// <param name="searchPattern">
     /// File pattern to search for certificates. Default "*" searches all supported formats.
     /// Examples:
@@ -44,10 +56,16 @@ public static class SecretsHybridExtensions
     /// </param>
     /// <param name="cacheDurationSeconds">How long to cache loaded certificates (default: 30 seconds).</param>
     /// <param name="certificateComparer">Optional comparer for certificate selection order.</param>
+    /// <remarks>
+    /// Best practice: Use password-less certificates protected by file permissions.
+    /// - Linux/macOS: chmod 600 cert.pfx &amp;&amp; chown app-user cert.pfx
+    /// - Windows: icacls cert.pfx /inheritance:r /grant:r "AppUser:(R)"
+    /// 
+    /// If you have password-protected certificates, use 'cocoar-secrets convert-cert' CLI command to convert them.
+    /// </remarks>
     public static SecretsBuilder UseCertificatesFromFolder(
         this SecretsBuilder builder,
         string basePath,
-        Func<CertificateContext, string[]>? passwordProvider = null,
         string searchPattern = "*",
         int cacheDurationSeconds = 30,
         IComparer<FileInfo>? certificateComparer = null)
@@ -60,7 +78,7 @@ public static class SecretsHybridExtensions
             BasePath = basePath,
             SearchPattern = searchPattern,
             ForceSingleKid = null,  // Multi-Kid mode
-            PasswordProvider = passwordProvider,
+            PasswordProvider = null,  // Password-less only
             CacheDurationSeconds = cacheDurationSeconds,
             CertificateComparer = certificateComparer
         });
@@ -74,16 +92,14 @@ public sealed class CertificateSetupBuilder: SetupDefinition
     private readonly SecretsBuilder _setup;
     private readonly Composer? _composer;
     private readonly string _pfxPath;
-    private readonly string? _password;
     private string _keyId = "hybrid-encryption";
     private readonly List<string> _additionalKids = new();
 
-    internal CertificateSetupBuilder(ConfigManagerCapabilityScope capabilityScope, SecretsBuilder setup, Composer? composer, string pfxPath, string? password) : base(capabilityScope)
+    internal CertificateSetupBuilder(ConfigManagerCapabilityScope capabilityScope, SecretsBuilder setup, Composer? composer, string pfxPath) : base(capabilityScope)
     {
         _setup = setup;
         _composer = composer;
         _pfxPath = pfxPath;
-        _password = password;
     }
 
     public CertificateSetupBuilder WithKeyId(string keyId)
@@ -114,7 +130,7 @@ public sealed class CertificateSetupBuilder: SetupDefinition
             SearchPattern = Path.GetFileName(fullPath) ?? "*.pfx",
             ForceSingleKid = _keyId,
             AdditionalKids = _additionalKids.Count > 0 ? _additionalKids.ToArray() : null,
-            Password = _password
+            Password = null  // Password-less only
         });
         return _setup;
     }

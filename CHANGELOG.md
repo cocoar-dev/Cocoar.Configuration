@@ -4,19 +4,35 @@
 
 ### Added
 
-**NEW: Cocoar.Configuration.Secrets Package**
+**NEW: Cocoar.Configuration.Secrets Package** (Alpha)
 - `Secret<T>` type for type-safe secret handling with automatic memory zeroing
 - Hybrid encryption using RSA key wrapping + AES-GCM for envelope-based secrets
-- X.509 certificate-based encryption with flexible folder-based key management
+- X.509 certificate-based encryption with **password-less certificates** (industry standard)
+  - Security model: File permissions (`chmod 600`) + full-disk encryption (BitLocker/LUKS/FileVault)
+  - Follows nginx, PostgreSQL, Kubernetes, Docker patterns
+  - No password bootstrapping problem
+- Flexible folder-based key management with certificate inventory
 - Support for key identifiers (kid) for multi-tenant scenarios
-- Certificate inventory with configurable ordering and subdirectory search depth
+- Configurable certificate ordering and subdirectory search depth
 - Seamless JSON deserialization support via custom converters
 - Works with primitives, complex types, collections, and nested objects
 
-**NEW: Cocoar.Configuration.Secrets.Cli Tool**
+**NEW: Cocoar.Configuration.Secrets.Cli Tool** (Alpha)
 - Command-line tool for managing encrypted secrets in JSON configuration files
-- Commands: `generate-cert`, `convert-cert`, `encrypt`, `decrypt`
-- Note: `cert-info` command is planned for future release
+- **`generate-cert`**: Generate self-signed certificates (PFX or PEM format)
+  - Password-less by default (password optional for legacy compatibility)
+  - Smart format detection from file extension (`.pfx`, `.crt`, `.cer`, `.pem`)
+- **`convert-cert`**: Convert between certificate formats and remove passwords
+  - Supports PFX↔PEM conversion with automatic format detection
+  - Output password optional - defaults to password-less (industry standard)
+  - Provides platform-specific file permission guidance
+  - Unified tool for format conversion and password removal
+- **`cert-info`**: Display detailed certificate information
+  - Shows validity, key size, password status
+  - Detects password-protected vs password-less certificates
+  - Validates certificate thumbprints for conversion verification
+- **`encrypt`**: Encrypt plaintext values in JSON files
+- **`decrypt`**: Decrypt encrypted values from JSON files
 
 **NEW: Cocoar.Configuration.Analyzers Package**
 - Roslyn analyzers for compile-time configuration validation
@@ -39,7 +55,8 @@
 
 ### Notes
 - The provider contract change is internal - consuming applications are not affected
-- Secrets package is fully additive with no breaking changes to core library
+- Secrets package is in alpha - API may evolve before stable release
+- Password-less certificates are the recommended approach (industry standard: nginx, PostgreSQL, Kubernetes, Docker)
 
 ## [3.3.0] - 2025-10-23
 

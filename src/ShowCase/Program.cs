@@ -17,7 +17,11 @@ public class Program
                 rule.For<StartUpConfiguration>().FromFile("config.json").Select("Startup"),
                 rule.For<StartUpConfiguration>().FromEnvironment(),
             ], setup => [
-                setup.Secrets().UseCertificatesFromFolder("certs", (c) => [c.Config.GetRequiredConfig<StartUpConfiguration>().CertPassword])
+                // Password-less certificates - protected by file permissions only
+                setup.Secrets().UseCertificatesFromFolder("certs")
+                
+                // Or with password (if needed):
+                // setup.Secrets().UseCertificatesFromFolder("certs", (c) => [c.Config.GetRequiredConfig<StartUpConfiguration>().CertPassword])
             ]
         );
 

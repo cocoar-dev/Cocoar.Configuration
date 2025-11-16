@@ -34,13 +34,12 @@ class Program
         Console.WriteLine("🔧 DEVELOPMENT SCENARIO");
         Console.WriteLine("   Pre-encrypted secrets with explicit certificate\n");
 
-        // Generate a self-signed certificate for development explicitly
+        // Generate a password-less self-signed certificate for development explicitly
         var devCertPath = Path.Combine(Path.GetTempPath(), "cocoar-dev-demo.pfx");
-        var devCertPassword = "DevPassword123!";
         
         X509CertificateGenerator.GenerateAndSave(
             devCertPath,
-            devCertPassword,
+            null,  // Password-less certificate
             "CN=Dev Secrets",
             validYears: 1,
             keySize: 2048,
@@ -51,7 +50,7 @@ class Program
         ], setup => [
             // Development: Load certificate explicitly
             setup.Secrets()
-                .UseCertificateFromFile(devCertPath, devCertPassword)
+                .UseCertificateFromFile(devCertPath)
                 .WithKeyId("dev-secrets")
         ]).Initialize();
 
@@ -83,14 +82,13 @@ class Program
         Console.WriteLine("🏭 PRODUCTION SCENARIO");
         Console.WriteLine("   Pre-encrypted secrets from CI/CD pipeline\n");
 
-        // Generate a self-signed certificate for demonstration
-        // In real production, you'd use: .UseCertificateFromFile("certs/prod.pfx", Environment.GetEnvironmentVariable("CERT_PASSWORD"))
+        // Generate a password-less self-signed certificate for demonstration
+        // In real production, you'd use: .UseCertificateFromFile("certs/prod.pfx")
         var prodCertPath = Path.Combine(Path.GetTempPath(), "cocoar-prod-demo.pfx");
-        var prodCertPassword = "ProdPassword123!";
         
         X509CertificateGenerator.GenerateAndSave(
             prodCertPath,
-            prodCertPassword,
+            null,  // Password-less certificate
             "CN=Production Secrets",
             validYears: 1,
             keySize: 2048,
@@ -101,7 +99,7 @@ class Program
         ], setup => [
             // Production: Decrypt pre-encrypted secrets with explicit certificate
             setup.Secrets()
-                .UseCertificateFromFile(prodCertPath, prodCertPassword)
+                .UseCertificateFromFile(prodCertPath)
                 .WithKeyId("prod-secrets")
         ]).Initialize();
 
