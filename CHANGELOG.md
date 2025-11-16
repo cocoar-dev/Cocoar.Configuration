@@ -4,7 +4,7 @@
 
 ### Added
 
-**NEW: Cocoar.Configuration.Secrets Package** (Alpha)
+**NEW: Cocoar.Configuration.Secrets Package**
 - `Secret<T>` type for type-safe secret handling with automatic memory zeroing
 - Hybrid encryption using RSA key wrapping + AES-GCM for envelope-based secrets
 - X.509 certificate-based encryption with **password-less certificates** (industry standard)
@@ -17,7 +17,7 @@
 - Seamless JSON deserialization support via custom converters
 - Works with primitives, complex types, collections, and nested objects
 
-**NEW: Cocoar.Configuration.Secrets.Cli Tool** (Alpha)
+**NEW: Cocoar.Configuration.Secrets.Cli Tool**
 - Command-line tool for managing encrypted secrets in JSON configuration files
 - **`generate-cert`**: Generate self-signed certificates (PFX or PEM format)
   - Password-less by default (password optional for legacy compatibility)
@@ -55,7 +55,6 @@
 
 ### Notes
 - The provider contract change is internal - consuming applications are not affected
-- Secrets package is in alpha - API may evolve before stable release
 - Password-less certificates are the recommended approach (industry standard: nginx, PostgreSQL, Kubernetes, Docker)
 
 ## [3.3.0] - 2025-10-23
