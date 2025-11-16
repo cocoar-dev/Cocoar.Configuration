@@ -28,7 +28,10 @@ internal sealed class CertificateInventory : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(searchPattern);
         
-        _folderPath = Path.GetFullPath(folderPath);
+        // Resolve relative paths relative to the application directory, not the working directory
+        _folderPath = Path.IsPathRooted(folderPath) 
+            ? Path.GetFullPath(folderPath)
+            : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, folderPath));
         _searchPattern = searchPattern;
         _kid = kid;
         _configAccessor = configAccessor;
@@ -80,6 +83,7 @@ internal sealed class CertificateInventory : IDisposable
             .OnCreated(OnFileSystemChanged)
             .OnDeleted(OnFileSystemDeleted)
             .OnChanged(OnFileSystemChanged)
+            .OnRenamed(OnFileSystemRenamed)
             .Build();
     }
     
@@ -384,6 +388,13 @@ internal sealed class CertificateInventory : IDisposable
     
     private void OnFileSystemChanged(object? sender, FileSystemEventArgs e)
     {
+        // Refresh on file create, change, or rename
+        RefreshInventory();
+    }
+    
+    private void OnFileSystemRenamed(object? sender, RenamedEventArgs e)
+    {
+        // Folder or file rename - refresh inventory to discover new paths
         RefreshInventory();
     }
     

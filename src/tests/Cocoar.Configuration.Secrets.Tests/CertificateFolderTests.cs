@@ -148,6 +148,120 @@ public class CertificateFolderTests : IDisposable
         }
     }
 
+    [Fact]
+    public void MissingFolder_DoesNotThrow_OnInitialize()
+    {
+        var missingFolder = Path.Combine(Path.GetTempPath(), "cocoar-missing-" + Guid.NewGuid());
+        // Intentionally NOT creating the folder
+
+        // Should not throw when creating inventory for a missing folder
+        var inventory = new CertificateInventory(missingFolder, "*.pfx", null, null, _ => [_password], 30, includeSubdirectories: -1);
+        var protector = new X509HybridFolderSecretProtector(inventory);
+
+        // Protector creation should succeed
+        Assert.NotNull(protector);
+        
+        inventory.Dispose();
+    }
+
+    [Fact]
+    public void MissingFolder_ThrowsOnDecrypt()
+    {
+        var missingFolder = Path.Combine(Path.GetTempPath(), "cocoar-missing-" + Guid.NewGuid());
+        // Intentionally NOT creating the folder
+
+        // Create a valid envelope with a cert from elsewhere
+        var otherCertPath = Path.Combine(Path.GetTempPath(), "other-" + Guid.NewGuid() + ".pfx");
+        var otherCert = GenerateTestCert(otherCertPath, "CN=Other");
+
+        try
+        {
+            var inventory = new CertificateInventory(missingFolder, "*.pfx", null, null, _ => [_password], 30, includeSubdirectories: -1);
+            var protector = new X509HybridFolderSecretProtector(inventory);
+
+            var envelope = CreateTestEnvelope(otherCert);
+
+            // Should fail during decryption, not during setup
+            var ex = Assert.Throws<SecretDecryptionException>(() => protector.Unprotect(envelope, "pci"));
+            Assert.Contains("Failed to decrypt secret with kid 'pci'", ex.Message);
+            
+            inventory.Dispose();
+        }
+        finally
+        {
+            otherCert.Dispose();
+            if (File.Exists(otherCertPath))
+                File.Delete(otherCertPath);
+        }
+    }
+
+    [Fact]
+    public async Task FolderRename_DetectsNewCertificates()
+    {
+        // Cocoar.FileSystem 2.2.0+ properly detects folder renames containing matching files.
+        // This test validates atomic folder swaps for certificate rotation (e.g., kid1 → kid2).
+        
+        var kid1Folder = Path.Combine(_tempBasePath, "kid1");
+        Directory.CreateDirectory(kid1Folder);
+        var certPath = Path.Combine(kid1Folder, "cert.pfx");
+        var cert = GenerateTestCert(certPath, "CN=Kid1");
+
+        try
+        {
+            var inventory = new CertificateInventory(_tempBasePath, "*.pfx", null, null, _ => [_password], 30, includeSubdirectories: -1);
+            var protector = new X509HybridFolderSecretProtector(inventory);
+
+            var envelope = CreateTestEnvelope(cert);
+
+            // Initial decrypt with kid1 should work
+            var plaintext1 = protector.Unprotect(envelope, "kid1");
+            Assert.Equal("test-secret", System.Text.Encoding.UTF8.GetString(plaintext1));
+
+            // Atomically rename folder from kid1 to kid2 (simulating key rotation)
+            var kid2Folder = Path.Combine(_tempBasePath, "kid2");
+            Directory.Move(kid1Folder, kid2Folder);
+
+            // Wait for file watcher to detect the folder rename
+            // Use active polling to ensure the inventory has updated
+            var deadline = DateTime.UtcNow.AddSeconds(3);
+            var detected = false;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    var plaintext = protector.Unprotect(envelope, "kid2");
+                    if (System.Text.Encoding.UTF8.GetString(plaintext) == "test-secret")
+                    {
+                        detected = true;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // Not yet detected, continue waiting
+                }
+                await Task.Delay(50);
+            }
+
+            Assert.True(detected, "File watcher did not detect folder rename within 3 seconds");
+
+            // Verify kid2 works after folder rename
+            var plaintext2 = protector.Unprotect(envelope, "kid2");
+            Assert.Equal("test-secret", System.Text.Encoding.UTF8.GetString(plaintext2));
+            
+            // Verify kid1 no longer works (folder was renamed, not copied)
+            var ex = Assert.Throws<SecretDecryptionException>(() => protector.Unprotect(envelope, "kid1"));
+            Assert.Contains("kid1", ex.Message);
+            Assert.Contains("No certificate in kid folder", ex.InnerException?.Message ?? "");
+            
+            inventory.Dispose();
+        }
+        finally
+        {
+            cert.Dispose();
+        }
+    }
+
     private static HybridEnvelope CreateTestEnvelope(X509Certificate2 cert)
     {
         var plaintext = System.Text.Encoding.UTF8.GetBytes("test-secret");

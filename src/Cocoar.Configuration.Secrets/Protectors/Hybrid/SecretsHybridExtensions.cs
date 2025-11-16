@@ -103,10 +103,15 @@ public sealed class CertificateSetupBuilder: SetupDefinition
 
     internal override SetupDefinition Build()
     {
+        // Resolve path relative to application directory
+        var fullPath = Path.IsPathRooted(_pfxPath)
+            ? _pfxPath
+            : Path.Combine(AppContext.BaseDirectory, _pfxPath);
+        
         _composer?.Add(new CertificateProtectorConfig
         {
-            BasePath = Path.GetDirectoryName(_pfxPath) ?? ".",
-            SearchPattern = Path.GetFileName(_pfxPath) ?? "*.pfx",
+            BasePath = Path.GetDirectoryName(fullPath) ?? AppContext.BaseDirectory,
+            SearchPattern = Path.GetFileName(fullPath) ?? "*.pfx",
             ForceSingleKid = _keyId,
             AdditionalKids = _additionalKids.Count > 0 ? _additionalKids.ToArray() : null,
             Password = _password

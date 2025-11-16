@@ -4,8 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Cocoar.Capabilities" Version="1.2.0" />
-    <PackageVersion Include="Cocoar.FileSystem" Version="2.1.0" />
-    <PackageVersion Include="Cocoar.Json.Mutable" Version="0.1.0-alpha.9" />
+    <PackageVersion Include="Cocoar.FileSystem" Version="2.2.0" />
+    <PackageVersion Include="Cocoar.Json.Mutable" Version="1.0.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -24,6 +24,7 @@
     <PackageVersion Include="Microsoft.Reactive.Testing" Version="6.1.0" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>

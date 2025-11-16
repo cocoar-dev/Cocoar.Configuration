@@ -32,11 +32,6 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
     /// </summary>
     public void ApplyCertificateProtector(CertificateProtectorConfig config)
     {
-        if (!Directory.Exists(config.BasePath))
-        {
-            throw new DirectoryNotFoundException($"Certificate base path not found: '{config.BasePath}'");
-        }
-
         // Validate structure before proceeding
         ValidateCertificateStructure(config);
 
