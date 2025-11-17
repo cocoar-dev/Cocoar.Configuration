@@ -54,6 +54,7 @@ Microsoft's `IConfiguration` works, but configuration deserves better. Here's wh
 * **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
 * **Interface deserialization** – Support for interface-typed properties in config classes with explicit mapping.
 * **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
+* **Memory-safe secrets** – `Secret<T>` with automatic zeroization and pre-encrypted envelope support.
 * **✨ Compile-time validation** – Roslyn analyzers catch configuration errors while you code with red squiggles, automatic quick fixes, and CI/CD integration. Zero runtime cost. See [Analyzer Documentation](src/Cocoar.Configuration.Analyzers/README.md) for details on diagnostics (COCFG001-006).
 
 **DI Lifetimes:** Concrete config types are registered as **Scoped** (stable snapshot per request), while `IReactiveConfig<T>` is **Singleton** (continuous live updates). These defaults can be customized via the `setup` parameter.
@@ -307,6 +308,38 @@ builder.Services.AddCocoarConfiguration(rule => [
 
 ---
 
+## Secrets Management
+
+**Cocoar.Configuration.Secrets** provides memory-safe handling of sensitive configuration data — a unique capability in open-source configuration libraries:
+
+* **`Secret<T>` type** – Automatic zeroization of sensitive data in memory
+* **Pre-encrypted envelope support** – Secrets encrypted at rest in configuration files
+* **X.509 certificate-based hybrid encryption** – RSA-OAEP + AES-GCM-256 for strong protection
+* **On-demand decryption** – `Secret<T>.Open()` provides controlled exposure windows
+* **CLI tools** – Certificate management and secret encryption workflows
+
+```csharp
+// Configuration with encrypted secrets
+public class AppSettings
+{
+    public string AppName { get; set; }
+    public Secret<DatabaseCredentials> DatabaseSecret { get; set; }
+}
+
+// Use secrets safely
+using var exposed = settings.DatabaseSecret.Open();
+var connectionString = BuildConnectionString(exposed.Value);
+// Secret automatically zeroized when disposed
+```
+
+**Resources:**
+* [Secrets Library Documentation](src/Cocoar.Configuration.Secrets/README.md) – API reference and patterns
+* [CLI Tools Guide](src/Cocoar.Configuration.Secrets.Cli/README.md) – Certificate management and encryption
+* [Basic Secrets Example](src/Examples/SecretsBasicExample) – Memory-safe secret handling
+* [Certificate Secrets Example](src/Examples/SecretsCertificateExample) – Pre-encrypted secrets workflow
+
+---
+
 ## Examples
 
 Explore real-world scenarios in the [examples](src/Examples/) directory:
@@ -365,23 +398,16 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Security
 
-### Secrets Management
+To report security vulnerabilities, see [SECURITY.md](SECURITY.md).
 
-For sensitive configuration data, use **Cocoar.Configuration.Secrets**:
-* Memory-safe `Secret<T>` type with automatic zeroization
-* Pre-encrypted envelope support (secrets encrypted at rest)
-* X.509 certificate-based hybrid encryption (RSA-OAEP + AES-GCM-256)
-* On-demand decryption via `Secret<T>.Open()` with controlled exposure windows
-* See [Secrets README](src/Cocoar.Configuration.Secrets/README.md) for library documentation and [CLI tools](src/Cocoar.Configuration.Secrets.Cli/README.md) for certificate management
+**Best Practices:**
+* Use **Cocoar.Configuration.Secrets** for sensitive configuration data (see Secrets Management section above)
+* Enable TLS/HTTPS for remote configuration endpoints
+* Avoid logging decrypted secrets or sensitive configuration values
+* Use environment variables or Azure Key Vault (via Microsoft Adapter) for deployment-specific secrets
+* Regularly rotate certificates used for secret encryption
 
-### General Best Practices
-
-* Use pre-encrypted secrets in configuration files (via Secrets package)
-* Use environment variables for non-sensitive overrides
-* Enable TLS/HTTPS for remote config endpoints
-* Consider Azure Key Vault or similar via the Microsoft Adapter
-
-### Runtime Security Posture
+**Runtime Security Posture:**
 
 * Byte-only pipeline below the orchestrator: providers and RuleManager handle UTF-8 bytes, not strings
 * Single parse point in the Configuration Orchestrator; no user-data strings are created below this layer
