@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [4.0.0] - 2026-01-08
 
 ### Added
 
@@ -13,7 +13,8 @@
 - Comprehensive documentation in [Testing Overrides](docs/testing-overrides-quickref.md)
 - Example project demonstrating usage patterns
 
-**NEW: Cocoar.Configuration.Secrets Package**
+**NEW: Cocoar.Configuration.Secrets Package [BETA]**
+⚠️ **Beta Feature**: API may change in future releases based on feedback. Production-ready but subject to refinement.
 - `Secret<T>` type for type-safe secret handling with automatic memory zeroing
 - Hybrid encryption using RSA key wrapping + AES-GCM for envelope-based secrets
 - X.509 certificate-based encryption with **password-less certificates** (industry standard)
@@ -25,7 +26,8 @@
 - Configurable certificate ordering and subdirectory search depth
 - Seamless JSON deserialization support via custom converters
 - Works with primitives, complex types, collections, and nested objects
-
+ [BETA]**
+⚠️ **Beta Feature**: CLI commands and options may evolve based on feedback.
 **NEW: Cocoar.Configuration.Secrets.Cli Tool**
 - Command-line tool for managing encrypted secrets in JSON configuration files
 - **`generate-cert`**: Generate self-signed certificates (PFX or PEM format)
@@ -64,6 +66,7 @@
 
 ### Notes
 - The provider contract change is internal - consuming applications are not affected
+- **Secrets feature is in beta**: While production-ready, the API may evolve based on real-world usage and feedback
 - Password-less certificates are the recommended approach (industry standard: nginx, PostgreSQL, Kubernetes, Docker)
 
 ## [3.3.0] - 2025-10-23
