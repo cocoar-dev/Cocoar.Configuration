@@ -54,7 +54,7 @@ Microsoft's `IConfiguration` works, but configuration deserves better. Here's wh
 * **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
 * **Interface deserialization** – Support for interface-typed properties in config classes with explicit mapping.
 * **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
-* **Memory-safe secrets [BETA]** – `Secret<T>` with automatic zeroization and pre-encrypted envelope support.
+* **Memory-safe secrets [Developer Preview]** – `Secret<T>` with automatic zeroization and pre-encrypted envelope support.
 * **First-class testing support** – Override configuration in integration tests with zero ceremony using `CocoarTestConfiguration`. Works with direct instantiation, DI, AspNetCore, and WebApplicationFactory. See [Testing Documentation](docs/testing-overrides-quickref.md).
 * **Compile-time validation** – Roslyn analyzers catch configuration errors while you code with red squiggles, automatic quick fixes, and CI/CD integration. Zero runtime cost. See [Analyzer Documentation](src/Cocoar.Configuration.Analyzers/README.md) for details on diagnostics (COCFG001-006).
 
@@ -309,9 +309,9 @@ builder.Services.AddCocoarConfiguration(rule => [
 
 ---
 
-## Secrets Management [BETA]
+## Secrets Management [Developer Preview]
 
-⚠️ **Beta Feature**: API may change in future releases based on feedback. Production-ready but subject to refinement.
+⚠️ **Developer Preview**: API may change in future releases based on feedback. Production-ready but subject to refinement.
 
 **Cocoar.Configuration.Secrets** provides memory-safe handling of sensitive configuration data — a unique capability in open-source configuration libraries:
 
