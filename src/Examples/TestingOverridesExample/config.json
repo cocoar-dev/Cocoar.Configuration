@@ -1,0 +1,10 @@
+{
+  "Database": {
+    "ConnectionString": "Server=production-db;Database=MyApp;",
+    "MaxConnections": 100
+  },
+  "Api": {
+    "BaseUrl": "https://api.production.example.com",
+    "ApiKey": "prod-api-key-12345"
+  }
+}
