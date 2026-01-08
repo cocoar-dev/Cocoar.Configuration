@@ -107,8 +107,8 @@ jobs:
       - name: Ensure packages exist
         run: |
           shopt -s nullglob
-          files=(artifacts/*.nupkg artifacts/*.snupkg)
-          (( ${#files[@]} )) || { echo "::error ::No packages found in artifacts/"; exit 1; }
+          files=(../artifacts/*.nupkg ../artifacts/*.snupkg)
+          (( ${#files[@]} )) || { echo "::error ::No packages found in ../artifacts/"; exit 1; }
 
       - name: Upload artifacts (audit)
         uses: actions/upload-artifact@v4
@@ -122,8 +122,8 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           shopt -s nullglob
-          for p in artifacts/*.nupkg artifacts/*.snupkg; do
+          for p in ../artifacts/*.nupkg ../artifacts/*.snupkg; do
             dotnet nuget push "$p" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
           done
-    
+
 
