@@ -1,10 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## [4.0.0] - 2026-01-08
 
 ### Added
 
-**NEW: Cocoar.Configuration.Secrets Package**
+**NEW: Testing Configuration Overrides**
+- `CocoarTestConfiguration` API for overriding configuration in integration tests
+- Two modes: `ReplaceAllRules()` (skip original rules) and `AppendTestRules()` (last-write-wins merging)
+- Uses `AsyncLocal<T>` for automatic test isolation across parallel tests
+- Works universally with direct `ConfigManager` instantiation, DI, AspNetCore, and `WebApplicationFactory`
+- Zero application code changes required - detection happens in ConfigManager constructors
+- Comprehensive documentation in [Testing Overrides](docs/testing-overrides-quickref.md)
+- Example project demonstrating usage patterns
+
+**NEW: Cocoar.Configuration.Secrets Package [Developer Preview]**
+⚠️ **Developer Preview**: API may change in future releases based on feedback. Production-ready but subject to refinement.
 - `Secret<T>` type for type-safe secret handling with automatic memory zeroing
 - Hybrid encryption using RSA key wrapping + AES-GCM for envelope-based secrets
 - X.509 certificate-based encryption with **password-less certificates** (industry standard)
@@ -16,7 +26,8 @@
 - Configurable certificate ordering and subdirectory search depth
 - Seamless JSON deserialization support via custom converters
 - Works with primitives, complex types, collections, and nested objects
-
+ [Developer Preview]**
+⚠️ **Developer Preview**: CLI commands and options may evolve based on feedback.
 **NEW: Cocoar.Configuration.Secrets.Cli Tool**
 - Command-line tool for managing encrypted secrets in JSON configuration files
 - **`generate-cert`**: Generate self-signed certificates (PFX or PEM format)
@@ -55,6 +66,7 @@
 
 ### Notes
 - The provider contract change is internal - consuming applications are not affected
+- **Secrets feature is in Developer Preview**: While production-ready, the API may evolve based on real-world usage and feedback
 - Password-less certificates are the recommended approach (industry standard: nginx, PostgreSQL, Kubernetes, Docker)
 
 ## [3.3.0] - 2025-10-23
@@ -63,13 +75,13 @@
 - **Rule Naming**: New `.Named("name")` fluent API for adding human-readable names to rules
   - Example: `rule.For<DbConfig>().FromFile("db.json").Named("Primary Database")`
   - Names appear in health snapshots for better observability in dashboards and logs
-  
+
 - **Enhanced Health Monitoring**: Expanded `RuleHealthEntry` with additional metadata
   - `Name` - Optional rule name (set via `.Named()`)
   - `ProviderType` - Name of the provider type used by the rule
   - `ConfigType` - Name of the configuration type being loaded
   - `Skipped` status - New `RuleResultStatus.Skipped` for rules skipped by `.When()` conditions
-  
+
 - **Health Summary Metrics**: New `Skipped` count in `Summary` for tracking conditional rules
   - Complements existing `Total`, `RequiredFailed`, `OptionalFailed` counters
 
@@ -143,7 +155,7 @@ builder.AddCocoarConfiguration(rule => [
     rule.For<AppSettings>().FromEnvironment()
 ], setup => [
     setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>(),
-    
+
     // Map interface properties to concrete types
     setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
 ]);
@@ -187,7 +199,7 @@ builder.AddCocoarConfiguration(rule => [
 builder.AddCocoarConfiguration(rule => [
     rule.File("config.json").Select("App").For<AppSettings>(),
     rule.Environment("APP_").For<AppSettings>(),
-    
+
     // Conditional rule (old signature)
     rule.File("premium.json")
         .When(() => isPremium)
@@ -200,7 +212,7 @@ builder.AddCocoarConfiguration(rule => [
 builder.AddCocoarConfiguration(rule => [
     rule.For<AppSettings>().FromFile("config.json").Select("App"),
     rule.For<AppSettings>().FromEnvironment("APP_"),
-    
+
     // Conditional rule (new signature with accessor)
     rule.For<PremiumFeatures>().FromFile("premium.json")
         .When(accessor => accessor.GetRequiredConfig<TenantSettings>().Tier == "Premium")
@@ -261,7 +273,7 @@ This marks the first stable release of Cocoar.Configuration with production-read
 - **Comprehensive Test Suite**: **204 automated tests** covering core functionality, providers, edge cases, and stress scenarios
 - **Health Monitoring System**: Complete health monitoring with `IConfigurationHealthService`, health snapshots, and experimental metrics export hooks
 - **Reactive Configuration**: Auto-registered `IReactiveConfig<T>` for every configuration type in dependency injection
-- **Enhanced Documentation**: 
+- **Enhanced Documentation**:
   - Streamlined README with practical examples and accurate feature descriptions
   - Dedicated health monitoring guide (`docs/health-monitoring.md`)
   - Reactive configuration guide (`docs/reactive-config.md`)
@@ -281,7 +293,7 @@ This marks the first stable release of Cocoar.Configuration with production-read
 - **Documentation Structure**: Consolidated scattered documentation into focused, practical guides
 
 ### Quality & Reliability
-- **204 comprehensive tests** ensuring stability across all components and failure scenarios  
+- **204 comprehensive tests** ensuring stability across all components and failure scenarios
 - **Production-tested patterns** validated through extensive integration and stress testing
 - **Error-resilient implementations** with proper failure handling and recovery mechanisms
 - **Continuous integration** ensuring every change maintains stability and correctness

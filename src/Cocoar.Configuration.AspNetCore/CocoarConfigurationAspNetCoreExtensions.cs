@@ -16,6 +16,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
 
     /// <summary>
     /// Adds Cocoar configuration to the WebApplicationBuilder using a function-based rule API.
+    /// Test configuration overrides are automatically applied via ConfigManager when CocoarTestConfiguration is active.
     /// </summary>
     public static WebApplicationBuilder AddCocoarConfiguration(
         this WebApplicationBuilder builder,
@@ -24,17 +25,14 @@ public static class CocoarConfigurationAspNetCoreExtensions
         ILogger? logger = null,
         int debounceMilliseconds = 300)
     {
-        var rulesBuilder = new RulesBuilder();
-        var ruleList = rule(rulesBuilder);
-        
-        var configManager = new ConfigManager(ruleList, configure, logger, debounceMilliseconds: debounceMilliseconds);
+        var configManager = new ConfigManager(rule, configure, logger, debounceMilliseconds: debounceMilliseconds);
         configManager.Initialize();
 
         builder.Services.AddCocoarConfiguration(configManager);
 
         // Attach ConfigManager as a capability to the WebApplicationBuilder
         _capabilityScope.Compose(builder).Add(configManager).Build();
-        
+
         return builder;
     }
 
@@ -43,14 +41,11 @@ public static class CocoarConfigurationAspNetCoreExtensions
         ConfigManager configManager)
     {
         builder.Services.AddCocoarConfiguration(configManager);
-
-        // Attach ConfigManager as a capability to the WebApplicationBuilder
         _capabilityScope.Compose(builder).Add(configManager).Build();
-        
+
         return builder;
     }
 
     public static ConfigManager GetCocoarConfigManager(this WebApplicationBuilder builder)
         => _capabilityScope.Compositions.GetRequired(builder).GetRequiredFirst<ConfigManager>();
-
 }

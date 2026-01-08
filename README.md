@@ -9,10 +9,10 @@
 ---
 > **📖 Articles & Deep Dives**
 >
-> • [Reactive, Strongly-Typed Configuration in .NET: Introducing Cocoar.Configuration v3.0 (Part 1)](https://dev.to/bwi/reactive-strongly-typed-configuration-in-net-introducing-cocoarconfiguration-v30-3gbn)  
->   Learn how v3.0 simplifies configuration management with zero-ceremony DI, atomic multi-config updates, and reactive patterns.  
+> • [Reactive, Strongly-Typed Configuration in .NET: Introducing Cocoar.Configuration v3.0 (Part 1)](https://dev.to/bwi/reactive-strongly-typed-configuration-in-net-introducing-cocoarconfiguration-v30-3gbn)
+>   Learn how v3.0 simplifies configuration management with zero-ceremony DI, atomic multi-config updates, and reactive patterns.
 >
-> • [Config-Aware Rules in .NET — The Power Feature of Cocoar.Configuration (Part 2)](https://dev.to/bwi/config-aware-rules-in-net-the-power-feature-of-cocoarconfiguration-part-2-2ibk)  
+> • [Config-Aware Rules in .NET — The Power Feature of Cocoar.Configuration (Part 2)](https://dev.to/bwi/config-aware-rules-in-net-the-power-feature-of-cocoarconfiguration-part-2-2ibk)
 >   Dive deeper into **atomic recompute**, **required vs optional rules**, and **config-aware conditional logic** for dynamic, tenant-aware setups.
 ---
 
@@ -54,8 +54,9 @@ Microsoft's `IConfiguration` works, but configuration deserves better. Here's wh
 * **Explicit layering** – Rules execute in order, last write wins. No hidden merge logic.
 * **Interface deserialization** – Support for interface-typed properties in config classes with explicit mapping.
 * **Built-in health monitoring** – Track provider status and config changes with `IConfigurationHealthService`.
-* **Memory-safe secrets** – `Secret<T>` with automatic zeroization and pre-encrypted envelope support.
-* **✨ Compile-time validation** – Roslyn analyzers catch configuration errors while you code with red squiggles, automatic quick fixes, and CI/CD integration. Zero runtime cost. See [Analyzer Documentation](src/Cocoar.Configuration.Analyzers/README.md) for details on diagnostics (COCFG001-006).
+* **Memory-safe secrets [Developer Preview]** – `Secret<T>` with automatic zeroization and pre-encrypted envelope support.
+* **First-class testing support** – Override configuration in integration tests with zero ceremony using `CocoarTestConfiguration`. Works with direct instantiation, DI, AspNetCore, and WebApplicationFactory. See [Testing Documentation](docs/testing-overrides-quickref.md).
+* **Compile-time validation** – Roslyn analyzers catch configuration errors while you code with red squiggles, automatic quick fixes, and CI/CD integration. Zero runtime cost. See [Analyzer Documentation](src/Cocoar.Configuration.Analyzers/README.md) for details on diagnostics (COCFG001-006).
 
 **DI Lifetimes:** Concrete config types are registered as **Scoped** (stable snapshot per request), while `IReactiveConfig<T>` is **Singleton** (continuous live updates). These defaults can be customized via the `setup` parameter.
 
@@ -109,7 +110,7 @@ builder.Services.AddCocoarConfiguration(rule => [
 var app = builder.Build();
 
 // Direct injection - just use your POCO
-app.MapGet("/api/status", (AppSettings settings) => 
+app.MapGet("/api/status", (AppSettings settings) =>
     new { settings.Version, settings.FeatureFlags });
 
 app.Run();
@@ -120,11 +121,11 @@ app.Run();
 public class CacheWarmer : BackgroundService
 {
     private readonly IReactiveConfig<AppSettings> _config;
-    
+
     public CacheWarmer(IReactiveConfig<AppSettings> config)
     {
         _config = config;
-        
+
         // Subscribe once - rebuild cache when settings change
         _config.Subscribe(newSettings =>
         {
@@ -132,7 +133,7 @@ public class CacheWarmer : BackgroundService
             RebuildCache(newSettings);
         });
     }
-    
+
     protected override Task ExecuteAsync(CancellationToken stoppingToken) => Task.CompletedTask;
 }
 ```
@@ -142,11 +143,11 @@ public class CacheWarmer : BackgroundService
 public class ConfigHub : Hub
 {
     private readonly IReactiveConfig<(AppSettings App, DatabaseConfig Db)> _configs;
-    
+
     public ConfigHub(IReactiveConfig<(AppSettings App, DatabaseConfig Db)> configs)
     {
         _configs = configs;
-        
+
         // Stream config changes to connected clients - always atomic
         _configs.Subscribe(async tuple =>
         {
@@ -172,7 +173,7 @@ builder.Services.AddCocoarConfiguration(rule => [
 // Rules execute in order - last write wins
 ```
 
-**Environment variable mapping:**  
+**Environment variable mapping:**
 Hierarchical keys use `__` (double underscore):
 ```bash
 APP_Database__Host=localhost
@@ -180,14 +181,14 @@ APP_Database__Port=5432
 # Maps to: AppSettings.Database.Host and AppSettings.Database.Port
 ```
 
-**Command-line argument mapping:**  
+**Command-line argument mapping:**
 Hierarchical keys use `:` or `__`:
 ```bash
 dotnet run --Database:Host=localhost --Database:Port=5432 --Verbose
 # Maps to: AppSettings.Database.Host, AppSettings.Database.Port, and AppSettings.Verbose (true)
 ```
 
-**Flexible switch prefixes for command-line arguments:**  
+**Flexible switch prefixes for command-line arguments:**
 Use any prefix style (`--`, `-`, `/`, `@`, `#`, `%`) - even multiple at once:
 ```csharp
 // Single custom prefix
@@ -207,7 +208,7 @@ dotnet run --host=localhost -port=8080 /verbose
 invoke.exe @target=server #issue=123 %env=prod
 ```
 
-**Prefix filtering for command-line arguments:**  
+**Prefix filtering for command-line arguments:**
 Map arguments to specific configuration types:
 ```csharp
 builder.Services.AddCocoarConfiguration(rule => [
@@ -308,7 +309,9 @@ builder.Services.AddCocoarConfiguration(rule => [
 
 ---
 
-## Secrets Management
+## Secrets Management [Developer Preview]
+
+⚠️ **Developer Preview**: API may change in future releases based on feedback. Production-ready but subject to refinement.
 
 **Cocoar.Configuration.Secrets** provides memory-safe handling of sensitive configuration data — a unique capability in open-source configuration libraries:
 
@@ -366,6 +369,7 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 |-------|------|
 | Reactive Configuration | [Reactive Config](docs/reactive-config.md) |
 | Health Monitoring | [Health Monitoring](docs/health-monitoring.md) |
+| Testing with Configuration Overrides | [Testing Overrides](docs/testing-overrides-quickref.md) |
 | Intelligent Certificate Caching | [Certificate Caching](src/Cocoar.Configuration.Secrets/intelligent-certificate-caching.md) |
 | Provider Guidance | [Provider Guidance](docs/provider-guidance.md) |
 | Migration from v2.x | [Migration Guide v2→v3](docs/migration-v2-to-v3.md) |
@@ -375,14 +379,31 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 
 ## Testing
 
-Over 200 automated tests covering:
+Cocoar.Configuration provides first-class testing support with `CocoarTestConfiguration`:
+
+```csharp
+[Fact]
+public async Task TestWithOverriddenConfig()
+{
+    // Set test configuration BEFORE creating WebApplicationFactory
+    CocoarTestConfiguration.ReplaceAllRules(rule => [
+        rule.For<DbConfig>().FromStatic(_ => testDbConfig)
+    ]);
+
+    await using var factory = new WebApplicationFactory<Program>();
+    // Original rules are skipped - only test rules execute
+}
+```
+
+**Over 200 automated tests** covering:
 * Configuration layering and rule execution
 * Reactive updates and atomic snapshots
 * Provider reliability and failover
 * Concurrent access and race conditions
 * Health monitoring and status tracking
+* Test configuration overrides and isolation
 
-See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for details.
+See the [Testing Guide](src/tests/Cocoar.Configuration.Core.Tests/TESTING_GUIDE.md) for implementation details and [Testing Overrides Documentation](docs/testing-overrides-quickref.md) for integration testing patterns.
 
 ---
 

@@ -23,23 +23,23 @@ public static class CocoarConfigurationExtensions
         services.ThrowIfAlreadyRegistered();
         services.AddSingleton(configManager);
         services.AddSingleton<IConfigurationAccessor>(sp => sp.GetRequiredService<ConfigManager>());
-        
+
         // Register the health service
         services.AddSingleton<IConfigurationHealthService>(sp => sp.GetRequiredService<ConfigManager>().GetHealthService());
 
         // Collect all types that should be registered
         var typesToRegister = new HashSet<Type>();
-        
+
         // 1. Auto-register all types from rules (restores pre-SetupBuilder behavior)
         foreach (var rule in configManager.Rules)
         {
             typesToRegister.Add(rule.ConcreteType);
         }
-        
+
         // 2. Process explicit SetupDefinitions for customization
         var serviceRegistrationInfos = new Dictionary<Type, ServiceRegistrationInfo>();
         var configSpecs = configManager.SetupDefinitions;
-        
+
         if (configSpecs.Count > 0)
         {
             foreach (var spec in configSpecs)
@@ -61,7 +61,7 @@ public static class CocoarConfigurationExtensions
                 }
             }
         }
-        
+
         // 3. Auto-register types from rules that don't have explicit setup definitions
         foreach (var type in typesToRegister)
         {
@@ -82,6 +82,7 @@ public static class CocoarConfigurationExtensions
 
     /// <summary>
     /// Adds Cocoar configuration to the service collection using a function-based rule API.
+    /// Test configuration overrides are automatically applied via ConfigManager when CocoarTestConfiguration is active.
     /// </summary>
     public static IServiceCollection AddCocoarConfiguration(
         this IServiceCollection services,
@@ -92,10 +93,7 @@ public static class CocoarConfigurationExtensions
     {
         services.ThrowIfAlreadyRegistered();
 
-        var rulesBuilder = new RulesBuilder();
-        var ruleList = rule(rulesBuilder);
-
-        var configManager = new ConfigManager(ruleList, setup, logger, debounceMilliseconds: debounceMilliseconds);
+        var configManager = new ConfigManager(rule, setup, logger, debounceMilliseconds: debounceMilliseconds);
         configManager.Initialize();
 
         services.AddCocoarConfiguration(configManager);
@@ -192,7 +190,7 @@ public static class CocoarConfigurationExtensions
                 {
                     services.Add(new(serviceType, serviceKey, (sp, _) => sp.GetRequiredService<ConfigManager>().GetConfig(serviceType)!, serviceLifetime));
                 }
-                
+
             }
 
             var reactiveType = typeof(IReactiveConfig<>).MakeGenericType(serviceType);

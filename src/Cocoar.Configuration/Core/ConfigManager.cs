@@ -2,6 +2,7 @@ using System.Text.Json;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Testing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Cocoar.Configuration.Providers.Abstractions;
@@ -32,17 +33,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     /// <summary>
     /// Creates a new ConfigManager with a function-based rules builder.
+    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
     /// </summary>
     public ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
         var rulesBuilder = new RulesBuilder();
-        _rules = rules(rulesBuilder).ToList();
+        var configuredRules = rules(rulesBuilder);
+
+        // Apply test configuration overrides if present
+        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
 
         _capabilityScope = new ConfigManagerCapabilityScope(this);
-
-        // Create global Owner composer for cross-cutting capabilities (e.g., Secrets)
         _capabilityScope.Owner.Compose();
-        
+
         _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
@@ -60,16 +63,18 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     /// <summary>
     /// Creates a new ConfigManager with a pre-built list of rules.
+    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
     /// </summary>
     public ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
     {
-        _rules = rules.ToList();
+        var configuredRules = rules.ToArray();
+
+        // Apply test configuration overrides if present
+        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
 
         _capabilityScope = new ConfigManagerCapabilityScope(this);
-
-        // Create global Owner composer for cross-cutting capabilities (e.g., Secrets)
         _capabilityScope.Owner.Compose();
-        
+
         _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
@@ -103,7 +108,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             _capabilityScope.Owner.TryGetComposer(out var composer);
             composer?.Build();
             _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
-            
+
             _engine.InitializeAndCompute(
                 _rules,
                 _ruleManagers,
@@ -127,7 +132,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public IConfigurationHealthService GetHealthService() => _state.GetHealthService();
 
-    internal void ScheduleRecompute(int startIndex) => 
+    internal void ScheduleRecompute(int startIndex) =>
         _engine.ScheduleRecompute(_ruleManagers, this, _reactiveConfigManager, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
@@ -146,5 +151,28 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _ruleManagers.Clear();
         _initialized = false;
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Applies test configuration overrides from AsyncLocal context if present.
+    /// Supports both Replace (skip all configured rules) and Append (merge test rules at end) modes.
+    /// </summary>
+    private static ConfigRule[] ApplyTestConfigurationOverrides(ConfigRule[] configuredRules)
+    {
+        var testContext = CocoarTestConfiguration.Current;
+        if (testContext == null)
+        {
+            return configuredRules;
+        }
+
+        var testRulesBuilder = new RulesBuilder();
+        var testRules = testContext.Rules(testRulesBuilder);
+
+        return testContext.Mode switch
+        {
+            TestConfigurationMode.Replace => testRules,
+            TestConfigurationMode.Append => configuredRules.Concat(testRules).ToArray(),
+            _ => configuredRules
+        };
     }
 }
