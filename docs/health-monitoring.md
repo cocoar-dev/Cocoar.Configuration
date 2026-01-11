@@ -62,12 +62,23 @@ Each `RuleHealthEntry` tracks:
 * `Index`, `Name?`, `Required`
 * `Status` (`Up`/`Down`/`Skipped`/`Unknown`)
   - `Up`: Rule executed successfully
-  - `Down`: Rule failed to execute
+  - `Down`: Rule failed to execute (provider threw exception)
   - `Skipped`: Rule was skipped due to `.When()` condition returning false
   - `Unknown`: Rule has not been evaluated yet
 * `LastSuccessUtc`, `LastFailureUtc`, `FailureCount`
   - **`FailureCount`** is cumulative and persistent - it increments on each failure but **never automatically resets**. This provides historical reliability metrics and enables threshold-based alerting.
 * `ErrorCode?`, `ErrorMessage?` (short, provider‑specific mapping)
+
+**Important: Optional Rule Behavior**
+
+When an **optional rule fails** (provider throws exception, Select path missing, etc.):
+- The rule status is marked as `Down` in health monitoring
+- An empty JSON object `{}` is contributed to the configuration
+- The resulting config type gets C# property defaults
+- `LastFailureException` contains the original exception for debugging
+- Application continues running with defaults while source is unavailable
+
+This design separates **data flow** (always contributes data) from **health monitoring** (tracks issues separately), enabling graceful degradation while maintaining full observability.
 
 The `Summary` provides aggregated counts:
 * `Total`: Total number of rules
@@ -105,27 +116,27 @@ app.MapGet("/health", (ConfigManager manager) =>
 Access `health.Snapshot` directly to expose metrics:
 
 ```csharp
-app.MapGet("/metrics", (IConfigurationHealthService health) => 
+app.MapGet("/metrics", (IConfigurationHealthService health) =>
 {
     var s = health.Snapshot;
     var sb = new StringBuilder();
-    
+
     sb.Append("# HELP cocoar_config_health_status Overall health (0=Unknown,1=Healthy,2=Degraded,3=Unhealthy)\n");
     sb.Append("# TYPE cocoar_config_health_status gauge\n");
     sb.Append($"cocoar_config_health_status {(int)s.OverallStatus}\n\n");
-    
+
     sb.Append("# HELP cocoar_config_required_failures Required rules that failed\n");
     sb.Append("# TYPE cocoar_config_required_failures gauge\n");
     sb.Append($"cocoar_config_required_failures {s.Summary.RequiredFailed}\n\n");
-    
+
     sb.Append("# HELP cocoar_config_optional_failures Optional rules that failed\n");
     sb.Append("# TYPE cocoar_config_optional_failures gauge\n");
     sb.Append($"cocoar_config_optional_failures {s.Summary.OptionalFailed}\n\n");
-    
+
     sb.Append("# HELP cocoar_config_version Configuration version counter\n");
     sb.Append("# TYPE cocoar_config_version counter\n");
     sb.Append($"cocoar_config_version {s.ConfigVersion}\n");
-    
+
     return Results.Text(sb.ToString(), "text/plain; charset=utf-8");
 });
 ```
@@ -158,7 +169,17 @@ health.SnapshotStream.Subscribe(snapshot => {
 
 ## Where Do Snapshots Come From?
 
-`ConfigManager` publishes a new snapshot **after every recompute**. On runtime failures, it **preserves the last good configuration**, logs the error, and publishes a snapshot reflecting the failure (without bumping `ConfigVersion`).
+`ConfigManager` publishes a new snapshot **after every recompute**.
+
+**For required rules:**
+On runtime failures, the system **preserves the last good configuration** for all types, logs the error, rolls back the recompute, and publishes a snapshot reflecting the failure (without bumping `ConfigVersion`). Health status becomes `Unhealthy`.
+
+**For optional rules:**
+On runtime failures, the rule contributes an empty JSON object `{}` (resulting in C# defaults), the recompute continues, and a snapshot is published with that rule marked as `Down` and status `Degraded`. The `ConfigVersion` increments because a recompute completed successfully (even though one or more optional rules failed). Consumers receive a valid configuration with defaults while health monitoring tracks the degraded state.
+
+This design separates:
+- **Data flow**: Always produces valid configuration (even if defaults)
+- **Health monitoring**: Tracks source availability and failures separately
 
 ---
 
@@ -219,11 +240,11 @@ builder.AddCocoarConfiguration(rule => [
         .FromFile("db.json")
         .Required()
         .Named("Primary Database"),
-    
+
     rule.For<CacheConfig>()
         .FromFile("cache.json")
         .Named("Redis Cache"),
-    
+
     rule.For<ApiConfig>()
         .FromEnvironment("API_")
         .Named("API Settings")

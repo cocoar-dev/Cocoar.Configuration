@@ -224,12 +224,38 @@ dotnet run --app_host=localhost --db_connectionstring="Server=localhost"
 
 ### Required vs Optional Rules
 ```csharp
-// Required - fails fast if missing
+// Required - fails fast if missing, rolls back entire recompute
 rule.For<CoreSettings>().FromFile("required.json").Required()
 
-// Optional - graceful degradation at runtime (default)
+// Optional - graceful degradation (default)
+// Returns empty object with C# defaults on failure, tracks failure in health
 rule.For<OptionalSettings>().FromFile("optional.json")
 ```
+
+**Behavior:**
+- **Required rules**: Provider failures cause the entire recompute to roll back, preserving all previous configurations. Health status becomes `Unhealthy`.
+- **Optional rules**: Provider failures return an empty JSON object `{}`, configuration gets C# property defaults, and the failure is tracked via health monitoring with status `Degraded`. The application continues running with defaults while the source is unavailable.
+
+**Example - Optional rule with missing file:**
+```csharp
+public class FeatureConfig
+{
+    public bool EnableNewUI { get; set; } = false;  // C# default
+    public int MaxItems { get; set; } = 10;          // C# default
+}
+
+rule.For<FeatureConfig>().FromFile("features.json")  // File doesn't exist
+
+var config = manager.GetConfig<FeatureConfig>();
+// config is NOT null - returns instance with defaults (EnableNewUI=false, MaxItems=10)
+// Health status is Degraded, LastFailureException tracks FileNotFoundException
+```
+
+This enables **graceful degradation** - your application continues with safe defaults while monitoring alerts on the health status change.
+
+**GetConfig vs GetRequiredConfig:**
+- `GetConfig<T>()` returns configuration if rules are defined for type `T`, never null when rules exist (returns empty object with defaults on first-time failures)
+- `GetRequiredConfig<T>()` throws if **no rules are defined** for type `T` - it's a static configuration check, not a runtime availability check. Use this in config-aware rules to ensure dependent configuration is properly defined.
 
 ### Conditional Rules
 ```csharp

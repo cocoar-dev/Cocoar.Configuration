@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **Provider consistency bug**: Optional rules now consistently return empty objects with C# defaults when sources are unavailable, instead of inconsistently returning null. This fixes a bug where source-based providers (File, HTTP) behaved differently than collection-based providers (Environment, CommandLine). See [ADR-003](docs/adr/ADR-003-provider-consistency-empty-objects.md) for details.
+  - All providers now return `{}` on failure, resulting in configuration objects with C# property defaults
+  - Failures are tracked via health monitoring with `Degraded` status
+  - Eliminates need for workarounds like adding fake `FromEnvironment()` rules
+  - `GetConfig<T>()` never returns null when rules are defined for type T
+  - `GetRequiredConfig<T>()` now explicitly checks for rule definitions (static check), not runtime availability
+
+### Changed
+- Removed internal `include` flag from `RuleManager.ComputeAsync()` return type - now returns `ReadOnlyMemory<byte>?` where `null` means skip (When condition false), simplifying the API and making the decision point clearer in the recompute cycle
+
 ## [4.0.0] - 2026-01-08
 
 ### Added
