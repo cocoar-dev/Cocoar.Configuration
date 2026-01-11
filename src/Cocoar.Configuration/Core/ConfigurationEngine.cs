@@ -39,7 +39,7 @@ internal class ConfigurationEngine : IDisposable
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _recomputeSemaphore = new(1, 1);
     private readonly Lock _recomputeGate = new();
-    
+
     private CancellationTokenSource? _recomputeCts;
     private Task? _currentRecomputeTask;
     private bool _disposed;
@@ -71,7 +71,7 @@ internal class ConfigurationEngine : IDisposable
         {
             RecomputeAllConfigurationsSafe(ruleManagers, configAccessor);
             CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
-            
+
             _state.ReportSuccessfulRecompute(0);
         }
         catch (Exception ex)
@@ -271,9 +271,9 @@ internal class ConfigurationEngine : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var ruleManager = orderedManagers[i];
-            var (include, bytes) = ruleManager.ComputeAsync(configAccessor, cancellationToken).GetAwaiter().GetResult();
-            
-            ProcessRuleResult(ruleManager, include, bytes, mergedConfigs);
+            var bytes = ruleManager.ComputeAsync(configAccessor, cancellationToken).GetAwaiter().GetResult();
+
+            ProcessRuleResult(ruleManager, bytes, mergedConfigs);
         }
     }
 
@@ -289,19 +289,18 @@ internal class ConfigurationEngine : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var ruleManager = orderedManagers[i];
-            var (include, bytes) = await ruleManager.ComputeAsync(configAccessor, cancellationToken).ConfigureAwait(false);
-            
-            ProcessRuleResult(ruleManager, include, bytes, mergedConfigs);
+            var bytes = await ruleManager.ComputeAsync(configAccessor, cancellationToken).ConfigureAwait(false);
+
+            ProcessRuleResult(ruleManager, bytes, mergedConfigs);
         }
     }
 
     private void ProcessRuleResult(
         RuleManager ruleManager,
-        bool include,
-        ReadOnlyMemory<byte> bytes,
+        ReadOnlyMemory<byte>? bytes,
         Dictionary<Type, MutableJsonObject> mergedConfigs)
     {
-        if (!include)
+        if (!bytes.HasValue)
         {
             ruleManager.LastJsonContribution = null;
             return;
@@ -310,12 +309,12 @@ internal class ConfigurationEngine : IDisposable
         MutableJsonObject newContribution;
         try
         {
-            var node = MutableJsonDocument.Parse(bytes.Span);
+            var node = MutableJsonDocument.Parse(bytes.Value.Span);
             if (node is not MutableJsonObject obj)
             {
                 throw new JsonException($"Expected JSON object for configuration type {ruleManager.TypeDefinition.Name}, got {node.Kind}");
             }
-            
+
             newContribution = obj;
         }
         catch (Exception ex) when (ex is JsonException || ex is FormatException)
@@ -329,7 +328,7 @@ internal class ConfigurationEngine : IDisposable
         }
 
         var mergedConfig = GetOrCreateMergedConfig(mergedConfigs, ruleManager.TypeDefinition);
-        
+
         // Lock on mergedConfig to prevent readers from serializing while we're merging
         lock (mergedConfig)
         {
@@ -359,7 +358,7 @@ internal class ConfigurationEngine : IDisposable
         int debounceMilliseconds)
     {
         DisposeAllSubscriptions();
-        
+
         var list = ruleManagers.ToList();
         var coalescer = new RecomputeCoalescer(_logger, recomputeFromIndexCallback, debounceMilliseconds, 40);
         _changeSubscriptions.Add(coalescer);
@@ -370,13 +369,13 @@ internal class ConfigurationEngine : IDisposable
             var rm = list[i];
             var subscription = rm.Changes.Subscribe(_ =>
             {
-                try 
-                { 
-                    coalescer.Signal(idx); 
+                try
+                {
+                    coalescer.Signal(idx);
                 }
-                catch (Exception ex) 
-                { 
-                    _logger.RecomputeFailedFromChange(ex); 
+                catch (Exception ex)
+                {
+                    _logger.RecomputeFailedFromChange(ex);
                 }
             });
             _changeSubscriptions.Add(subscription);

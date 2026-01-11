@@ -32,10 +32,10 @@ internal sealed class RuleManager : IDisposable
     private readonly ConfigRule _rule;
     private readonly ILogger _logger;
     private readonly ProviderRegistry _registry;
-    
+
     private readonly TransformCache _cache = new();
     private readonly ChangeSubscription _changeSubscription = new();
-    
+
     private ProviderRegistry.ProviderHandle? _providerHandle;
     private ConfigurationProvider? _provider;
     private string? _providerKey;
@@ -69,13 +69,13 @@ internal sealed class RuleManager : IDisposable
         _registry = registry;
     }
 
-    public async Task<(bool include, ReadOnlyMemory<byte> bytes)> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
+    public async Task<ReadOnlyMemory<byte>?> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
     {
         LastFailureException = null;
 
         if (ShouldSkipViaUseWhen(accessor))
         {
-            return SkipResult();
+            return null;  // Skip rule - When condition is false
         }
 
         var providerOptions = _rule.ResolveProviderOptions(accessor);
@@ -91,27 +91,27 @@ internal sealed class RuleManager : IDisposable
             if (_cache.HasValidCache)
             {
                 LastOutcome = RuleExecutionOutcome.Up;
-                return (include: true, bytes: _cache.GetCachedBytes());
+                return _cache.GetCachedBytes();
             }
             if (_cache.CanReuseWithoutFetch)
             {
                 _cache.MarkClean();
                 LastOutcome = RuleExecutionOutcome.Up;
-                return (include: true, bytes: _cache.GetCachedBytes());
+                return _cache.GetCachedBytes();
             }
             var bytesMemory = await _provider!.FetchConfigurationBytesAsync(queryOptions, ct).ConfigureAwait(false);
 
             try
             {
                 var transformedBytes = JsonTransform.SelectAndMount(bytesMemory, _rule.Options?.SelectPath, _rule.Options?.MountPath);
-                
+
                 _cache.StoreTransformedBytes(transformedBytes);
             }
             catch (KeyNotFoundException ex)
             {
                 if (!HandleSelectFailure(_rule.Options?.SelectPath ?? string.Empty, ex))
                 {
-                    return SkipResult();
+                    return EmptyObjectResult();  // Optional rule: return empty object
                 }
                 throw; // Required path: HandleSelectFailure throws
             }
@@ -123,9 +123,9 @@ internal sealed class RuleManager : IDisposable
                     CryptographicOperations.ZeroMemory(bytesMemory);
                 }
             }
-            
+
             LastOutcome = RuleExecutionOutcome.Up;
-            return (include: true, bytes: _cache.GetCachedBytes());
+            return _cache.GetCachedBytes();
         }
         catch (Exception ex)
         {
@@ -169,7 +169,7 @@ internal sealed class RuleManager : IDisposable
         }
 
         var newQueryKey = ComputeQueryKey(queryOptions);
-        
+
         bool subscriptionChanged = _changeSubscription.EnsureSubscription(
             _provider,
             queryOptions,
@@ -185,7 +185,7 @@ internal sealed class RuleManager : IDisposable
     private void RebuildProvider(IProviderConfiguration providerOptions, string? providerKey)
     {
         _changeSubscription.Reset();
-        
+
         if (_providerHandle is not null)
         {
             Safety.DisposeQuietly(_providerHandle);
@@ -195,7 +195,7 @@ internal sealed class RuleManager : IDisposable
         _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
         _provider = _providerHandle.Provider;
         _providerKey = providerKey;
-        
+
         LastSelectionHash = null;
         _cache.Invalidate();
     }
@@ -203,7 +203,7 @@ internal sealed class RuleManager : IDisposable
     private void ProcessProviderChangeBytes(byte[] bytesMemory)
     {
         bool changed = _cache.ProcessProviderChange(bytesMemory, _rule.Options?.SelectPath, _rule.Options?.MountPath);
-        
+
         if (changed)
         {
             _changeSubscription.PublishChangeSafely();
@@ -218,11 +218,12 @@ internal sealed class RuleManager : IDisposable
         }
 
         _logger.OptionalSelectPathFailed(ex, selectPath);
-        LastOutcome = RuleExecutionOutcome.Skipped;
+        LastOutcome = RuleExecutionOutcome.Failed;
+        LastFailureException = ex;
         return false;
     }
 
-    private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
+    private ReadOnlyMemory<byte> HandleFailure(Exception ex)
     {
         LastOutcome = RuleExecutionOutcome.Failed;
         LastFailureException = ex;
@@ -234,23 +235,30 @@ internal sealed class RuleManager : IDisposable
         }
 
         _logger.OptionalRuleFailed(ex, _rule.ProviderType.Name, _rule.ConcreteType.Name);
-        return SkipResult();
+        return EmptyObjectResult();
     }
 
-    private static (bool include, ReadOnlyMemory<byte> bytes) SkipResult() => (include: false, bytes: default);
+    /// <summary>
+    /// Returns empty JSON object - used when optional rules fail but should still contribute empty data.
+    /// Health monitoring tracks the failure via LastFailureException.
+    /// </summary>
+    private static ReadOnlyMemory<byte> EmptyObjectResult()
+    {
+        return "{}"u8.ToArray();
+    }
 
     private static string ComputeQueryKey(IProviderQuery query)
     {
         try
         {
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            
+
             var bufferWriter = new ArrayBufferWriter<byte>();
             using var writer = new Utf8JsonWriter(bufferWriter);
 
             JsonSerializer.Serialize(writer, query, query.GetType());
             writer.Flush();
-            
+
             var written = bufferWriter.WrittenSpan;
             hash.AppendData(written);
 
@@ -301,13 +309,13 @@ internal sealed class RuleManager : IDisposable
     {
         _changeSubscription.Dispose();
         _cache.Dispose();
-        
+
         if (_providerHandle is not null)
         {
             Safety.DisposeQuietly(_providerHandle);
             _providerHandle = null;
         }
-        
+
         _provider = null;
     }
 }
