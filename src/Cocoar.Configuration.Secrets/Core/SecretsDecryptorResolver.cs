@@ -28,6 +28,21 @@ internal sealed class SecretsDecryptorResolver
         {
             // Get available kids for better error message
             var availableKids = GetAvailableKids(allDecryptors);
+
+            // If no decryptors at all, provide setup guidance
+            if (!allDecryptors.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Cannot decrypt Secret with kid '{kid}': no certificates configured.\n\n" +
+                    "To fix, configure a certificate in your secrets setup:\n\n" +
+                    "  setup.Secrets()\n" +
+                    "      .UseCertificateFromFile(\"path/to/cert.pfx\")\n" +
+                    "      .WithKeyId(\"your-key-id\")\n\n" +
+                    "Or use a certificate folder:\n\n" +
+                    "  setup.Secrets()\n" +
+                    "      .UseCertificatesFromFolder(\"path/to/certs\")");
+            }
+
             throw SecretDecryptionException.KidNotFound(kid, "RSA-OAEP-AES256-GCM", availableKids);
         }
 

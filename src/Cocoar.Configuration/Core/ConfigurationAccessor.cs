@@ -3,13 +3,28 @@ using Cocoar.Configuration.Infrastructure;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
+using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Core;
 
-internal class ConfigurationAccessor(ConfigurationState state, ExposureRegistry bindingRegistry, ConfigManagerCapabilityScope capabilityScope)
-    : IConfigurationAccessor
+internal partial class ConfigurationAccessor : IConfigurationAccessor
 {
-    private readonly ConfigManagerCapabilityScope _capabilityScope = capabilityScope;
+    private readonly ConfigurationState _state;
+    private readonly ExposureRegistry _bindingRegistry;
+    private readonly ConfigManagerCapabilityScope _capabilityScope;
+    private readonly ILogger _logger;
+
+    public ConfigurationAccessor(
+        ConfigurationState state,
+        ExposureRegistry bindingRegistry,
+        ConfigManagerCapabilityScope capabilityScope,
+        ILogger logger)
+    {
+        _state = state;
+        _bindingRegistry = bindingRegistry;
+        _capabilityScope = capabilityScope;
+        _logger = logger;
+    }
     public T? GetConfig<T>() => (T?)ResolveConfig(typeof(T));
 
     public bool TryGetConfig<T>(out T? value)
@@ -50,7 +65,7 @@ internal class ConfigurationAccessor(ConfigurationState state, ExposureRegistry 
         return value;
     }
 
-    public JsonElement? GetConfigAsJson(Type type) => state.GetConfigurationAsJson(type);
+    public JsonElement? GetConfigAsJson(Type type) => _state.GetConfigurationAsJson(type);
 
     private object? ResolveConfig(Type requestedType)
     {
@@ -59,7 +74,7 @@ internal class ConfigurationAccessor(ConfigurationState state, ExposureRegistry 
             return value;
         }
 
-        if (bindingRegistry.TryGetConcreteType(requestedType, out var concreteType) &&
+        if (_bindingRegistry.TryGetConcreteType(requestedType, out var concreteType) &&
             TryResolveConfiguration(concreteType, out var concreteValue))
         {
             return concreteValue;
@@ -72,27 +87,46 @@ internal class ConfigurationAccessor(ConfigurationState state, ExposureRegistry 
     {
         value = null;
 
-        if (!state.TryGetConfiguration(type, out var mutableJsonObject) || mutableJsonObject == null)
+        if (!_state.TryGetConfiguration(type, out var mutableJsonObject) || mutableJsonObject == null)
         {
             return false;
         }
 
-        var registration = state.FindRegistration(type);
+        var registration = _state.FindRegistration(type);
         if (registration == null)
         {
             return false;
         }
-        // Lock on the mutableJsonObject to prevent concurrent modification during serialization
+
         byte[] bytes;
         lock (mutableJsonObject)
         {
             bytes = MutableJsonDocument.ToUtf8Bytes(mutableJsonObject);
         }
-        
+
         using var doc = JsonDocument.Parse(bytes);
         var jsonElement = doc.RootElement.Clone();
-        value = ConfigurationDeserializer.Deserialize(jsonElement, registration, bindingRegistry.DeserializationMap, _capabilityScope);
-        return true;
+
+        try
+        {
+            value = ConfigurationDeserializer.Deserialize(
+                jsonElement, registration, _bindingRegistry.DeserializationMap, _capabilityScope);
+            return value != null;
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or InvalidCastException)
+        {
+            var jsonPreview = jsonElement.ToString();
+            if (jsonPreview.Length > 500)
+            {
+                jsonPreview = jsonPreview[..500] + "...";
+            }
+            DeserializationFailed(_logger, ex, type.Name, jsonPreview);
+            return false;
+        }
     }
-    
+
+    [LoggerMessage(EventId = 5100, Level = LogLevel.Error,
+        Message = "Failed to deserialize configuration for {TypeName}. " +
+                  "This may be caused by missing 'required' properties or type mismatches. JSON: {JsonContent}")]
+    private static partial void DeserializationFailed(ILogger logger, Exception ex, string typeName, string jsonContent);
 }

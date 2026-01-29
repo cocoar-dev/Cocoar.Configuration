@@ -7,7 +7,7 @@ using Cocoar.Configuration.X509Encryption;
 
 namespace Cocoar.Configuration.Secrets.SecretTypes;
 
-public sealed class Secret<T> : IDisposable
+public sealed class Secret<T> : ISecret<T>
 {
     private byte[]? _plainBytes;
     private SecretEnvelopeWrapper? _envelope;
@@ -90,7 +90,17 @@ public sealed class Secret<T> : IDisposable
         if (_resolver is null)
         {
             throw new InvalidOperationException(
-                "Cannot decrypt secret: no resolver available. Ensure secrets are deserialized through ConfigManager.");
+                $"Cannot decrypt Secret<{typeof(T).Name}>: secrets infrastructure not configured.\n\n" +
+                "To fix, add secrets setup when creating ConfigManager:\n\n" +
+                "  var manager = new ConfigManager(\n" +
+                "      rules => [...],\n" +
+                "      setup => [setup.Secrets()]  // <-- Add this\n" +
+                "  );\n\n" +
+                "Or with DI:\n\n" +
+                "  services.AddCocoarConfiguration(\n" +
+                "      rules => [...],\n" +
+                "      setup => [setup.Secrets()]\n" +
+                "  );");
         }
 
         var protector = _resolver.ResolveForKid(env.Kid);

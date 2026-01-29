@@ -4,19 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Reactive;
 
-/// <summary>
-/// Provides reactive access to configuration snapshots.
-/// Emits new values whenever the underlying configuration changes, after debouncing and validation.
-/// </summary>
-public interface IReactiveConfig<out T> : IObservable<T>
-{
-    /// <summary>
-    /// Gets the most recent configuration snapshot.
-    /// Safe to call at any time - will not throw if configuration is temporarily unavailable.
-    /// </summary>
-    T CurrentValue { get; }
-}
-
 internal static partial class ReactiveConfigLog
 {
     [LoggerMessage(EventId = 6200, Level = LogLevel.Warning, Message = "Error occurred in reactive config observable for type {Type}. The error will be ignored to keep the stream alive.")]

@@ -9,6 +9,8 @@
     <StartupObject>Examples.TestingOverridesExample.Program</StartupObject>
   </PropertyGroup>
 
+  <!-- Tests are excluded from this project - they are documentation examples. -->
+  <!-- See tests in src/tests/Cocoar.Configuration.Core.Tests for runnable tests. -->
   <ItemGroup>
     <Compile Remove="Tests\**" />
     <Content Remove="Tests\**" />
