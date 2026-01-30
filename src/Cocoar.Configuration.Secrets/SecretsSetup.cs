@@ -4,6 +4,8 @@ using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Extensibility;
 using Cocoar.Configuration.Secrets.Converters;
 using Cocoar.Configuration.Secrets.Core;
+using Cocoar.Configuration.Secrets.Testing;
+using Cocoar.Configuration.Testing;
 using Cocoar.Configuration.X509Encryption;
 
 namespace Cocoar.Configuration.Secrets;
@@ -16,7 +18,13 @@ public sealed class SecretsBuilder : SetupDefinition
         : base(capabilityScope)
     {
         _composer = CapabilityScope.Owner.GetRequiredComposer();
-        
+
+        // Register test serialization if in test context
+        if (CocoarTestConfiguration.Current != null)
+        {
+            CocoarTestConfiguration.TestSerializerOptions ??= TestSecretSerialization.Options;
+        }
+
         if (!_composer.Has<ISerializerSetupCapability>())
         {
             _composer.AddAs<(IDeferredConfiguration, SecretsSetupDeferredConfiguration)>(

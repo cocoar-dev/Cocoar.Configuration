@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Testing;
 
 namespace Cocoar.Configuration.Providers;
 
@@ -35,9 +36,24 @@ public static class StaticRulesExtensions
     > FromStatic<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, T> factory)
     {
         return new(
-            cm => new(JsonSerializer.SerializeToElement(factory(cm)!)),
+            cm =>
+            {
+                var obj = factory(cm)!;
+                var options = GetSerializerOptions();
+                return new(JsonSerializer.SerializeToElement(obj, options));
+            },
             _ => new(),
             typeof(T)
         );
+    }
+
+    private static JsonSerializerOptions? GetSerializerOptions()
+    {
+        // Only use custom serialization in test context with registered options
+        if (CocoarTestConfiguration.Current != null)
+        {
+            return CocoarTestConfiguration.TestSerializerOptions;
+        }
+        return null;  // Use default serialization
     }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Rules;
@@ -158,6 +159,13 @@ public static class CocoarTestConfiguration
     /// Checks if test configuration is active in the current async context.
     /// </summary>
     public static bool IsActive => s_testContext.Value != null;
+
+    /// <summary>
+    /// Optional custom serializer options for test scenarios.
+    /// Set by extension packages (e.g., Cocoar.Configuration.Secrets) to handle
+    /// special types during FromStatic serialization.
+    /// </summary>
+    public static JsonSerializerOptions? TestSerializerOptions { get; set; }
 }
 
 /// <summary>
