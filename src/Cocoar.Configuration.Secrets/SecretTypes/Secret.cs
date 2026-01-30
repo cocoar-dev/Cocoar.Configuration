@@ -106,7 +106,7 @@ public sealed class Secret<T> : ISecret<T>
         var protector = _resolver.ResolveForKid(env.Kid);
         var envelopeJson = env.Data.GetRawText();
         var envelope = protector.DeserializeEnvelope(envelopeJson);
-        
+
         return protector.UnprotectInternal(envelope, env.Kid);
     }
 
@@ -152,7 +152,7 @@ public sealed class Secret<T> : ISecret<T>
             Array.Clear(bytes, 0, bytes.Length);
             _plainBytes = null;
         }
-        
+
         _envelope = null;
         _disposed = true;
     }
@@ -161,7 +161,7 @@ public sealed class Secret<T> : ISecret<T>
     /// Creates a Secret from plaintext value. For testing/development only.
     /// Use pre-encrypted envelopes in production.
     /// </summary>
-    internal static Secret<T> FromPlain(T value) => new(value, resolver: null, allowPlaintext: true);
+    public static Secret<T> FromPlain(T value) => new(value, resolver: null, allowPlaintext: true);
 
     internal static Secret<T> FromEnvelope(JsonElement element)
     {
