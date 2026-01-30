@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Secrets.SecretTypes;
 
 namespace Cocoar.Configuration.Secrets.Tests;
@@ -130,4 +132,107 @@ public class ISecretInterfaceTests
         public string? Name { get; init; }
         public int Value { get; init; }
     }
+
+    #region ISecret<T> Deserialization Tests
+
+    private record ConfigWithISecret
+    {
+        public string? Name { get; init; }
+        public ISecret<string>? Password { get; init; }
+        public ISecret<int>? ApiKey { get; init; }
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Component", "Secrets")]
+    public void ISecret_Property_DeserializesFromJson_WithAllowPlaintext()
+    {
+        // Arrange - Config class with ISecret<T> property (interface, not concrete)
+        var json = """{"Name":"TestApp","Password":"secret123"}""";
+
+        var manager = new ConfigManager(
+            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
+            setup => [setup.Secrets().AllowPlaintext()]
+        ).Initialize();
+
+        // Act
+        var config = manager.GetConfig<ConfigWithISecret>();
+
+        // Assert - ISecret<T> property deserializes to Secret<T> and works correctly
+        Assert.NotNull(config);
+        Assert.Equal("TestApp", config!.Name);
+        Assert.NotNull(config.Password);
+
+        using var lease = config.Password!.Open();
+        Assert.Equal("secret123", lease.Value);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Component", "Secrets")]
+    public void ISecret_Property_DeserializesNumericType()
+    {
+        // Arrange
+        var json = """{"Name":"Test","ApiKey":42}""";
+
+        var manager = new ConfigManager(
+            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
+            setup => [setup.Secrets().AllowPlaintext()]
+        ).Initialize();
+
+        // Act
+        var config = manager.GetConfig<ConfigWithISecret>();
+
+        // Assert
+        Assert.NotNull(config);
+        Assert.NotNull(config!.ApiKey);
+
+        using var lease = config.ApiKey!.Open();
+        Assert.Equal(42, lease.Value);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Component", "Secrets")]
+    public void ISecret_Property_WithoutAllowPlaintext_ThrowsOnOpen()
+    {
+        // Arrange - Default security behavior (no AllowPlaintext)
+        var json = """{"Name":"TestApp","Password":"secret123"}""";
+
+        var manager = new ConfigManager(
+            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
+            setup => [setup.Secrets()]
+        ).Initialize();
+
+        // Act
+        var config = manager.GetConfig<ConfigWithISecret>();
+
+        // Assert - Deserializes but Open() throws
+        Assert.NotNull(config);
+        Assert.NotNull(config!.Password);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => config.Password!.Open());
+        Assert.Contains("plaintext JSON instead of an encrypted envelope", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Component", "Secrets")]
+    public void ISecret_Property_ReturnsSecretInstance()
+    {
+        // Verify the deserialized value is actually a Secret<T> instance
+        var json = """{"Name":"Test","Password":"value"}""";
+
+        var manager = new ConfigManager(
+            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
+            setup => [setup.Secrets().AllowPlaintext()]
+        ).Initialize();
+
+        var config = manager.GetConfig<ConfigWithISecret>();
+
+        Assert.NotNull(config?.Password);
+        Assert.IsType<Secret<string>>(config!.Password);
+    }
+
+    #endregion
 }

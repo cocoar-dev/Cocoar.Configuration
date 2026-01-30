@@ -6,6 +6,30 @@ using Cocoar.Configuration.Secrets.SecretTypes;
 
 namespace Cocoar.Configuration.Secrets.Converters;
 
+/// <summary>
+/// JSON converter for ISecret&lt;T&gt; interface types.
+/// Deserializes to Secret&lt;T&gt; instances, enabling interface-typed properties in configuration classes.
+/// </summary>
+internal sealed class ISecretJsonConverter<T> : JsonConverter<ISecret<T>>
+{
+    private readonly SecretJsonConverter<T> _innerConverter;
+
+    public ISecretJsonConverter(ConfigManagerCapabilityScope scope)
+    {
+        _innerConverter = new SecretJsonConverter<T>(scope);
+    }
+
+    public override ISecret<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return _innerConverter.Read(ref reader, typeof(Secret<T>), options);
+    }
+
+    public override void Write(Utf8JsonWriter writer, ISecret<T> value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue("***");
+    }
+}
+
 internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
 {
     private readonly ConfigManagerCapabilityScope _scope;

@@ -19,13 +19,22 @@ internal sealed class SecretJsonConverterFactory : JsonConverterFactory
             return false;
 
         var genericTypeDef = typeToConvert.GetGenericTypeDefinition();
-        return genericTypeDef == typeof(SecretTypes.Secret<>);
+        return genericTypeDef == typeof(SecretTypes.Secret<>) ||
+               genericTypeDef == typeof(SecretTypes.ISecret<>);
     }
 
     public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
     {
+        var genericTypeDef = typeToConvert.GetGenericTypeDefinition();
         var valueType = typeToConvert.GetGenericArguments()[0];
-        var converterType = typeof(SecretJsonConverter<>).MakeGenericType(valueType);
-        return (JsonConverter?)Activator.CreateInstance(converterType, _scope);
+
+        if (genericTypeDef == typeof(SecretTypes.ISecret<>))
+        {
+            var converterType = typeof(ISecretJsonConverter<>).MakeGenericType(valueType);
+            return (JsonConverter?)Activator.CreateInstance(converterType, _scope);
+        }
+
+        var secretConverterType = typeof(SecretJsonConverter<>).MakeGenericType(valueType);
+        return (JsonConverter?)Activator.CreateInstance(secretConverterType, _scope);
     }
 }

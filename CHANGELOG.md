@@ -13,6 +13,7 @@
   - `ISecret<T>` - Interface representing a secret value that can be opened
   - `SecretLease<T>` - Struct providing controlled access to secret values with automatic cleanup
   - Enables code to work with secrets through interfaces for better testability and decoupling
+  - `ISecret<T>` properties in configuration classes automatically deserialize to `Secret<T>` instances
 
 **NEW: AllowPlaintext() for Secrets**
 - New `setup.Secrets().AllowPlaintext()` fluent API to conditionally allow plaintext JSON values to be deserialized into `Secret<T>` properties
