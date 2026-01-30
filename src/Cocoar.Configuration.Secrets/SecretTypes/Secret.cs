@@ -161,7 +161,7 @@ public sealed class Secret<T> : ISecret<T>
     /// Creates a Secret from plaintext value. For testing/development only.
     /// Use pre-encrypted envelopes in production.
     /// </summary>
-    public static Secret<T> FromPlain(T value) => new(value, resolver: null, allowPlaintext: true);
+    internal static Secret<T> FromPlain(T value) => new(value, resolver: null, allowPlaintext: true);
 
     internal static Secret<T> FromEnvelope(JsonElement element)
     {
@@ -172,3 +172,8 @@ public sealed class Secret<T> : ISecret<T>
     }
 }
 
+
+public static class Secret
+{
+    public static Secret<T> FromPlain<T>(T value) => Secret<T>.FromPlain(value);
+}
