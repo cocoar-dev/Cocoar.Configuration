@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Cocoar.Configuration.Abstractions\Cocoar.Configuration.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Cocoar.Capabilities" />
     <PackageReference Include="Cocoar.FileSystem" />
     <PackageReference Include="Cocoar.Json.Mutable" />

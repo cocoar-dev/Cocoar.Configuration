@@ -46,7 +46,9 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _capabilityScope = new ConfigManagerCapabilityScope(this);
         _capabilityScope.Owner.Compose();
 
-        _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
+        // Apply test setup overrides if present
+        var effectiveSetup = ApplyTestSetupOverrides(setup);
+        _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
@@ -54,7 +56,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
         var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
 
-        _accessor = new(_state, bindingRegistry, _capabilityScope);
+        _accessor = new(_state, bindingRegistry, _capabilityScope, logger);
         _reactiveConfigManager = new(logger, bindingRegistry);
         _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
 
@@ -75,7 +77,9 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _capabilityScope = new ConfigManagerCapabilityScope(this);
         _capabilityScope.Owner.Compose();
 
-        _setupDefinitions = setup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
+        // Apply test setup overrides if present
+        var effectiveSetup = ApplyTestSetupOverrides(setup);
+        _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
         logger ??= NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
@@ -83,7 +87,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
         var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
 
-        _accessor = new(_state, bindingRegistry, _capabilityScope);
+        _accessor = new(_state, bindingRegistry, _capabilityScope, logger);
         _reactiveConfigManager = new(logger, bindingRegistry);
         _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
 
@@ -173,6 +177,29 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
             TestConfigurationMode.Replace => testRules,
             TestConfigurationMode.Append => configuredRules.Concat(testRules).ToArray(),
             _ => configuredRules
+        };
+    }
+
+    /// <summary>
+    /// Applies test setup overrides from AsyncLocal context if present.
+    /// Test setup is always merged (appended) to configured setup, allowing test-specific
+    /// setup options like AllowPlaintext() to override configured settings.
+    /// </summary>
+    private static Func<SetupBuilder, SetupDefinition[]>? ApplyTestSetupOverrides(
+        Func<SetupBuilder, SetupDefinition[]>? configuredSetup)
+    {
+        var testContext = CocoarTestConfiguration.Current;
+        if (testContext?.Setup == null)
+        {
+            return configuredSetup;
+        }
+
+        // Merge: configured setup first, then test setup (last-write-wins for capabilities)
+        return builder =>
+        {
+            var configuredDefs = configuredSetup?.Invoke(builder) ?? [];
+            var testDefs = testContext.Setup(builder);
+            return [.. configuredDefs, .. testDefs];
         };
     }
 }

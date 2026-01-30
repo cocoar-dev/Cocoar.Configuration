@@ -10,7 +10,7 @@ public interface IConfigurationAccessor
 {
     T? GetConfig<T>();
     bool TryGetConfig<T>(out T? value);
-    
+
     /// <summary>
     /// Gets configuration, throwing if not found.
     /// Use this in rule factories when a dependent configuration must exist before the rule can execute.

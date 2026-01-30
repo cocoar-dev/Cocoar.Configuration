@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Added
+
+**NEW: Abstractions Packages**
+- `Cocoar.Configuration.Abstractions` - Lightweight package containing core interfaces for decoupled architecture
+  - `IConfigurationAccessor` - Interface for accessing configuration values
+  - `IReactiveConfig<T>` - Interface for reactive configuration (supports tuples for atomic multi-config updates)
+  - Enables libraries to depend on abstractions without taking a dependency on the full configuration implementation
+- `Cocoar.Configuration.Secrets.Abstractions` - Lightweight package containing secrets interfaces
+  - `ISecret<T>` - Interface representing a secret value that can be opened
+  - `SecretLease<T>` - Struct providing controlled access to secret values with automatic cleanup
+  - Enables code to work with secrets through interfaces for better testability and decoupling
+
+**NEW: AllowPlaintext() for Secrets**
+- New `setup.Secrets().AllowPlaintext()` fluent API to conditionally allow plaintext JSON values to be deserialized into `Secret<T>` properties
+- Useful for development and testing scenarios where encrypted envelopes are not available
+- **SECURITY WARNING**: Only enable in development/test environments; production should always use encrypted envelopes
+- Example: `setup => [setup.Secrets().AllowPlaintext(builder.Environment.IsDevelopment())]`
+
+**NEW: Testing Setup Overrides**
+- Extended `CocoarTestConfiguration` to support setup overrides in addition to rule overrides
+  - New `WithSetup()` method for setup-only overrides (keeps original rules)
+  - Optional `setup` parameter added to `ReplaceAllRules()`, `AppendTestRules()`, and `Apply()`
+  - `TestConfigurationContext.Replace()` and `Append()` factory methods now accept optional setup parameter
+  - Enables test-time setup options like `setup.Secrets().AllowPlaintext()` without modifying application code
+  - Setup overrides are always merged (appended) to configured setup, using last-write-wins for capabilities
+  - See [Testing Overrides Documentation](docs/testing-overrides-quickref.md) for usage patterns
+
+### Fixed
+- **Deserialization failure logging**: `GetConfig<T>()` now logs an error (EventId 5100) when deserialization fails due to missing `required` properties or type mismatches, instead of silently returning `null`. This helps diagnose configuration issues while maintaining backward-compatible behavior (still returns `null`, `GetRequiredConfig<T>()` still throws).
+
+### Changed
+- **Type Relocation with Forwarding**: Moved core interfaces to abstractions packages with type forwarding for full backward compatibility
+  - `IConfigurationAccessor` moved to `Cocoar.Configuration.Abstractions`
+  - `IReactiveConfig<T>` moved to `Cocoar.Configuration.Abstractions`
+  - `SecretLease<T>` moved to `Cocoar.Configuration.Secrets.Abstractions`
+  - Existing code continues to work unchanged via `[TypeForwardedTo]` attributes
+
 ## [4.1.0] - 2026-01-11
 
 ### Fixed

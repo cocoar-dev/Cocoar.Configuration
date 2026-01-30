@@ -76,6 +76,53 @@ public async Task TestWithPartialOverride()
 - Other configs can come from original sources (files, environment)
 - Partial testing scenarios
 
+### Option 3: Setup-Only Override
+
+```csharp
+[Fact]
+public async Task TestWithSetupOverride()
+{
+    // Override setup options only, keep original rules
+    CocoarTestConfiguration.WithSetup(setup => [
+        setup.Secrets().AllowPlaintext()
+    ]);
+
+    await using var factory = new WebApplicationFactory<Program>();
+    // Original rules execute, but setup includes test overrides
+}
+```
+
+**Use when:**
+- You need to enable test-specific capabilities (e.g., plaintext secrets)
+- Original rules should still execute
+- No rule changes needed
+
+### Option 4: Rules with Setup Override
+
+```csharp
+[Fact]
+public async Task TestWithRulesAndSetup()
+{
+    // Override both rules AND setup
+    CocoarTestConfiguration.ReplaceAllRules(
+        rule => [
+            rule.For<DbConfig>().FromStatic(_ => new DbConfig {
+                ConnectionString = testDb
+            })
+        ],
+        setup => [
+            setup.Secrets().AllowPlaintext()
+        ]);
+
+    await using var factory = new WebApplicationFactory<Program>();
+    // Test rules execute with test setup options
+}
+```
+
+**Use when:**
+- You need both rule overrides and setup overrides
+- Testing with plaintext secrets in test fixtures
+
 ## Running the Example
 
 ```bash
@@ -113,6 +160,70 @@ public void DirectConfigManagerTest()
     // config comes from test rules, not file
 }
 ```
+
+## Using Scope Pattern (Recommended)
+
+The methods now return a `TestConfigurationScope` that clears configuration when disposed:
+
+```csharp
+[Fact]
+public async Task TestWithScope()
+{
+    using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        rule.For<DbConfig>().FromStatic(_ => testConfig)
+    ]);
+
+    await using var factory = new WebApplicationFactory<Program>();
+    // Configuration automatically cleared when scope is disposed
+}
+```
+
+## Fixture-Based Pattern (Centralized Config)
+
+For test classes sharing the same configuration, use fixtures with `Apply()`:
+
+```csharp
+// Fixture holds the shared config context
+public class IntegrationTestFixture
+{
+    public TestConfigurationContext TestContext { get; } =
+        TestConfigurationContext.Replace(
+            rule => [
+                rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" }),
+                rule.For<ApiSettings>().FromStatic(_ => new ApiSettings { BaseUrl = "https://test.api" })
+            ],
+            setup => [
+                setup.Secrets().AllowPlaintext()  // Enable plaintext secrets for all tests
+            ]);
+}
+
+// Test class applies it in constructor
+public class MyTests : IClassFixture<IntegrationTestFixture>, IDisposable
+{
+    public MyTests(IntegrationTestFixture fixture)
+    {
+        // Bridge the async context gap
+        CocoarTestConfiguration.Apply(fixture.TestContext);
+    }
+
+    public void Dispose() => CocoarTestConfiguration.Clear();
+
+    [Fact]
+    public async Task Test1()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        // Uses fixture's config
+    }
+
+    [Fact]
+    public async Task Test2()
+    {
+        // Same config, no repetition
+    }
+}
+```
+
+**Why Apply()?** AsyncLocal flows within the same async context, but xUnit runs fixture setup and test methods in separate contexts. `Apply()` bridges this gap.
 
 ## Test Base Class Pattern
 

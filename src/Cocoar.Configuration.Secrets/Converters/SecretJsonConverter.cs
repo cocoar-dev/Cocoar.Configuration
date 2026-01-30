@@ -15,6 +15,14 @@ internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
         _scope = scope ?? throw new ArgumentNullException(nameof(scope));
     }
 
+    private bool GetAllowPlaintextSetting()
+    {
+        var composition = _scope.Owner.GetComposition();
+        var policies = composition?.GetAll<SecretsPolicy>().ToList();
+        var policy = policies is { Count: > 0 } ? policies[^1] : SecretsPolicy.Default;
+        return policy.AllowPlaintextSecrets;
+    }
+
     public override Secret<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var resolver = new SecretsDecryptorResolver(_scope);
@@ -39,7 +47,7 @@ internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
             {
                 throw new JsonException($"Failed to deserialize plain value for Secret<{typeof(T).Name}>");
             }
-            return new Secret<T>(plainValue, resolver);
+            return new Secret<T>(plainValue, resolver, allowPlaintext: GetAllowPlaintextSetting());
         }
 
         if (reader.TokenType == JsonTokenType.String ||
@@ -54,7 +62,7 @@ internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
             {
                 throw new JsonException($"Failed to deserialize plain value for Secret<{typeof(T).Name}>");
             }
-            return new Secret<T>(plainValue, resolver);
+            return new Secret<T>(plainValue, resolver, allowPlaintext: GetAllowPlaintextSetting());
         }
 
         throw new JsonException($"Unexpected token type '{reader.TokenType}' for Secret<{typeof(T).Name}>");

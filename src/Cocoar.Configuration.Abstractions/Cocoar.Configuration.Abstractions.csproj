@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Abstractions for Cocoar.Configuration. Reference this package to use IConfigurationAccessor and IReactiveConfig in library APIs without the full implementation.</Description>
+    <PackageTags>configuration;reactive;dotnet;abstractions;interfaces</PackageTags>
+  </PropertyGroup>
+
+  <!-- System.Text.Json is included in .NET 9.0, no PackageReference needed -->
+
+</Project>
