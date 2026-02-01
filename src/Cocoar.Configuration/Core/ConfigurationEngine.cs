@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using Cocoar.Capabilities;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Reactive;
@@ -27,6 +28,9 @@ internal static partial class ConfigurationEngineLog
 
     [LoggerMessage(EventId = 2005, Level = LogLevel.Error, Message = "Recompute failed from change trigger")]
     public static partial void RecomputeFailedFromChange(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 2006, Level = LogLevel.Information, Message = "Startup phase complete - switching to resilient mode")]
+    public static partial void StartupComplete(this ILogger logger);
 }
 
 /// <summary>
@@ -45,6 +49,10 @@ internal class ConfigurationEngine : IDisposable
     private bool _disposed;
     private readonly List<IDisposable> _changeSubscriptions = new();
 
+    // Context for deserialization
+    private ExposureRegistry? _bindingRegistry;
+    private ConfigManagerCapabilityScope? _capabilityScope;
+
     public ConfigurationEngine(ConfigurationState state, ILogger logger)
     {
         _state = state;
@@ -55,24 +63,39 @@ internal class ConfigurationEngine : IDisposable
 
     /// <summary>
     /// Initializes the configuration system: analyzes rules, creates managers, performs initial computation, and sets up subscriptions.
+    /// Throws ConfigurationDeserializationException if any deserialization fails during startup (fail-fast behavior).
     /// </summary>
     public void InitializeAndCompute(
         List<ConfigRule> rules,
         List<RuleManager> ruleManagers,
         ProviderRegistry providerRegistry,
         IConfigurationAccessor configAccessor,
+        ExposureRegistry bindingRegistry,
+        ConfigManagerCapabilityScope capabilityScope,
         Action<int> scheduleRecomputeCallback,
         int debounceMilliseconds)
     {
+        // Store context for runtime recomputes
+        _bindingRegistry = bindingRegistry;
+        _capabilityScope = capabilityScope;
+
+        // Initialize the backplane
+        _state.InitializeBackplane(bindingRegistry);
+
         ruleManagers.Clear();
         ruleManagers.AddRange(rules.Select(rule => new RuleManager(rule, _logger, providerRegistry)));
 
         try
         {
+            // During startup, deserialization failures throw
             RecomputeAllConfigurationsSafe(ruleManagers, configAccessor);
             CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
 
             _state.ReportSuccessfulRecompute(0);
+
+            // Mark startup complete - future failures will preserve last good config
+            _state.MarkStartupComplete();
+            _logger.StartupComplete();
         }
         catch (Exception ex)
         {
@@ -89,7 +112,6 @@ internal class ConfigurationEngine : IDisposable
     public void ScheduleRecompute(
         List<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
-        ReactiveConfigManager reactiveConfigManager,
         int startIndex)
     {
         lock (_recomputeGate)
@@ -102,7 +124,12 @@ internal class ConfigurationEngine : IDisposable
                 {
                     RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, cts.Token);
                     _state.ReportSuccessfulRecompute(startIndex);
-                    reactiveConfigManager.NotifyConfigurationObservers(configAccessor.GetConfig);
+
+                    // Report any deserialization failures to health service
+                    if (_state.LastDeserializationFailures.Count > 0)
+                    {
+                        _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -193,6 +220,7 @@ internal class ConfigurationEngine : IDisposable
             _recomputeSemaphore.Release();
         }
     }
+
     private void RecomputeAllConfigurations(
         IEnumerable<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
@@ -209,7 +237,17 @@ internal class ConfigurationEngine : IDisposable
         RecomputeSuffix(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        _state.CommitUpdate(mergedConfigs);
+
+        // Use new method with eager deserialization
+        if (_bindingRegistry != null && _capabilityScope != null)
+        {
+            _state.CommitUpdateWithDeserialization(mergedConfigs, _bindingRegistry, _capabilityScope);
+        }
+        else
+        {
+            // Fallback for tests or edge cases
+            _state.CommitUpdate(mergedConfigs);
+        }
     }
 
     private async Task RecomputeAllConfigurationsAsync(
@@ -228,7 +266,17 @@ internal class ConfigurationEngine : IDisposable
         await RecomputeSuffixAsync(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
-        _state.CommitUpdate(mergedConfigs);
+
+        // Use new method with eager deserialization
+        if (_bindingRegistry != null && _capabilityScope != null)
+        {
+            _state.CommitUpdateWithDeserialization(mergedConfigs, _bindingRegistry, _capabilityScope);
+        }
+        else
+        {
+            // Fallback for tests or edge cases
+            _state.CommitUpdate(mergedConfigs);
+        }
     }
 
     private void RestorePrefixContributions(

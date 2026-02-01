@@ -27,6 +27,8 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private readonly ConfigurationEngine _engine;
     private readonly ConfigurationState _state;
     private readonly ProviderRegistry _providerRegistry;
+    private readonly ExposureRegistry _bindingRegistry;
+    private readonly ILogger _logger;
     private readonly int _debounceMilliseconds;
 
     private volatile bool _initialized;
@@ -49,18 +51,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         // Apply test setup overrides if present
         var effectiveSetup = ApplyTestSetupOverrides(setup);
         _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
-        logger ??= NullLogger.Instance;
+        _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
-        _state = new ConfigurationState(_ruleManagers, _rules);
-        _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
-        var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
+        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
+        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
+        _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
 
-        _accessor = new(_state, bindingRegistry, _capabilityScope, logger);
-        _reactiveConfigManager = new(logger, bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
+        _accessor = new(_state, _bindingRegistry, _logger);
+        _accessor.SetCapabilityScope(_capabilityScope);
+        _reactiveConfigManager = new(_logger, _bindingRegistry);
+        _reactiveFactory = new(_reactiveConfigManager, _rules, _logger, this, _bindingRegistry);
 
-        _engine = new ConfigurationEngine(_state, logger);
+        _engine = new ConfigurationEngine(_state, _logger);
     }
 
     /// <summary>
@@ -80,18 +83,19 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         // Apply test setup overrides if present
         var effectiveSetup = ApplyTestSetupOverrides(setup);
         _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
-        logger ??= NullLogger.Instance;
+        _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
-        _state = new ConfigurationState(_ruleManagers, _rules);
-        _providerRegistry = new ProviderRegistry(logger, enableDiagnostics: false, factory: providerFactory);
-        var bindingRegistry = new ExposureRegistry(_setupDefinitions, logger, _capabilityScope);
+        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
+        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
+        _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
 
-        _accessor = new(_state, bindingRegistry, _capabilityScope, logger);
-        _reactiveConfigManager = new(logger, bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, logger, this, bindingRegistry);
+        _accessor = new(_state, _bindingRegistry, _logger);
+        _accessor.SetCapabilityScope(_capabilityScope);
+        _reactiveConfigManager = new(_logger, _bindingRegistry);
+        _reactiveFactory = new(_reactiveConfigManager, _rules, _logger, this, _bindingRegistry);
 
-        _engine = new ConfigurationEngine(_state, logger);
+        _engine = new ConfigurationEngine(_state, _logger);
     }
 
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
@@ -118,26 +122,39 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
                 _ruleManagers,
                 _providerRegistry,
                 this,
+                _bindingRegistry,
+                _capabilityScope,
                 ScheduleRecompute,
                 _debounceMilliseconds);
+
+            // Wire up the reactive config manager to use the backplane
+            _reactiveConfigManager.SetBackplane(_state.Backplane);
         }
         return this;
     }
 
-    public T? GetConfig<T>() => _accessor.GetConfig<T>();
+    public T GetConfig<T>() => _accessor.GetConfig<T>();
     public bool TryGetConfig<T>(out T? value) => _accessor.TryGetConfig(out value);
+
+#pragma warning disable CS0618 // Type or member is obsolete
     public T GetRequiredConfig<T>() => _accessor.GetRequiredConfig<T>();
-    public object? GetConfig(Type type) => _accessor.GetConfig(type);
+#pragma warning restore CS0618
+
+    public object GetConfig(Type type) => _accessor.GetConfig(type);
     public bool TryGetConfig(Type type, out object? value) => _accessor.TryGetConfig(type, out value);
+
+#pragma warning disable CS0618 // Type or member is obsolete
     public object GetRequiredConfig(Type type) => _accessor.GetRequiredConfig(type);
+#pragma warning restore CS0618
+
     public JsonElement? GetConfigAsJson(Type type) => _accessor.GetConfigAsJson(type);
 
-    public IReactiveConfig<T> GetReactiveConfig<T>() => _reactiveFactory.GetReactiveConfig(() => GetConfig<T>()!);
+    public IReactiveConfig<T> GetReactiveConfig<T>() => _reactiveFactory.GetReactiveConfig<T>(() => GetConfig<T>());
 
     public IConfigurationHealthService GetHealthService() => _state.GetHealthService();
 
     internal void ScheduleRecompute(int startIndex) =>
-        _engine.ScheduleRecompute(_ruleManagers, this, _reactiveConfigManager, startIndex);
+        _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 

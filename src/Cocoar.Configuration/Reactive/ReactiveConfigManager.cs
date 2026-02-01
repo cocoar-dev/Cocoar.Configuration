@@ -1,19 +1,11 @@
-using System;
-using System.Buffers;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Reactive.Subjects;
-using System.Linq.Expressions;
 using System.Reactive.Linq;
-using System.Security.Cryptography;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Reactive.Subjects;
+using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Infrastructure;
 using Microsoft.Extensions.Logging;
-using Cocoar.Configuration.Utilities;
 
 namespace Cocoar.Configuration.Reactive;
-
 
 internal static partial class ReactiveConfigManagerLog
 {
@@ -23,318 +15,98 @@ internal static partial class ReactiveConfigManagerLog
     [LoggerMessage(EventId = 6001, Level = LogLevel.Warning, Message = "Failed to get initial config for type {Type}, using default value")]
     public static partial void GetInitialConfigFailed(this ILogger logger, Exception exception, Type Type);
 
-    [LoggerMessage(EventId = 6002, Level = LogLevel.Warning, Message = "Failed to get current config for type {Type} during notification, skipping update")]
-    public static partial void GetCurrentConfigFailed(this ILogger logger, Exception exception, Type Type);
-
-    [LoggerMessage(EventId = 6003, Level = LogLevel.Warning, Message = "Failed change emission for type {Type}")]
-    public static partial void ChangeEmissionFailed(this ILogger logger, Exception exception, Type Type);
-
-    [LoggerMessage(EventId = 6004, Level = LogLevel.Warning, Message = "Failed per-pass emission for type {Type}")]
-    public static partial void PerPassEmissionFailed(this ILogger logger, Exception exception, Type Type);
-
-    [LoggerMessage(EventId = 6005, Level = LogLevel.Warning, Message = "Failed to dispose configuration observable")]
-    public static partial void DisposeObservableFailed(this ILogger logger, Exception exception);
+    [LoggerMessage(EventId = 6006, Level = LogLevel.Debug, Message = "Created reactive config wrapper for type {Type}")]
+    public static partial void CreatedReactiveConfig(this ILogger logger, Type type);
 }
 
-internal sealed class ReactiveConfigManager(ILogger logger, ExposureRegistry bindingRegistry) : IDisposable
+/// <summary>
+/// Manages reactive configuration access using the MasterBackplane.
+/// Provides type-safe projections of the configuration snapshot stream.
+/// </summary>
+internal sealed class ReactiveConfigManager : IDisposable
 {
-    private readonly ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private readonly ExposureRegistry _bindingRegistry = bindingRegistry ?? throw new ArgumentNullException(nameof(bindingRegistry));
-    private readonly ConcurrentDictionary<Type, object> _configObservables = new();
-    private readonly ConcurrentDictionary<Type, string> _previousConfigHashes = new();
-    private readonly ConcurrentDictionary<Type, object> _perPassSubjects = new();
-    private long _passId;
+    private readonly ILogger _logger;
+    private readonly ExposureRegistry _bindingRegistry;
+    private readonly ConcurrentDictionary<Type, object> _reactiveConfigs = new();
+    private MasterBackplane? _backplane;
+    private bool _disposed;
 
-    private static readonly ConcurrentDictionary<Type, Action<object, object?>> s_onNextCache = new();
-    private static readonly ConcurrentDictionary<Type, Func<object?, bool, long, object>> s_passEventFactoryCache = new();
-
-
-    private static readonly JsonSerializerOptions _optimizedJsonOptions = new()
+    public ReactiveConfigManager(ILogger logger, ExposureRegistry bindingRegistry)
     {
-        WriteIndented = false,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        PropertyNamingPolicy = null,
-        IncludeFields = false
-    };
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _bindingRegistry = bindingRegistry ?? throw new ArgumentNullException(nameof(bindingRegistry));
+    }
 
-
-    public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> configAccessor)
+    /// <summary>
+    /// Sets the MasterBackplane for this manager.
+    /// Must be called before GetReactiveConfig.
+    /// </summary>
+    internal void SetBackplane(MasterBackplane backplane)
     {
+        _backplane = backplane ?? throw new ArgumentNullException(nameof(backplane));
+    }
+
+    /// <summary>
+    /// Gets a reactive configuration wrapper for the specified type.
+    /// Uses the MasterBackplane's type projection for efficient change detection.
+    /// </summary>
+    public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> fallbackAccessor) where T : class
+    {
+        if (_backplane == null)
+        {
+            throw new InvalidOperationException("MasterBackplane not initialized. Ensure InitializeBackplane is called first.");
+        }
+
         var type = typeof(T);
-        
-        var subject = (BehaviorSubject<T>)_configObservables.AddOrUpdate(type, 
-            _ => CreateBehaviorSubject(configAccessor),
-            (_, existing) =>
-            {
-                if (existing is BehaviorSubject<T> { IsDisposed: false })
-                {
-                    return existing;
-                }
-                
-                _logger.RecreatingDeadObservable(type);
-                return CreateBehaviorSubject(configAccessor);
-            });
-
-        _perPassSubjects.GetOrAdd(type, _ => new Subject<PassEvent<T>>());
-
-        return new ReactiveConfig<T>(subject, _logger);
-    }
-
-
-    internal readonly struct PassEvent<T>(T value, bool changed, long passId)
-    {
-        public T Value { get; } = value;
-        public bool Changed { get; } = changed;
-        public long PassId { get; } = passId;
-    }
-
-
-    internal IObservable<PassEvent<T>> ObservePerPass<T>()
-    {
-        if (_perPassSubjects.TryGetValue(typeof(T), out var existing) && existing is Subject<PassEvent<T>> subject)
+        return (IReactiveConfig<T>)_reactiveConfigs.GetOrAdd(type, _ =>
         {
-            return subject.AsObservable();
-        }
-
-        var created = (Subject<PassEvent<T>>)_perPassSubjects.GetOrAdd(typeof(T), _ => new Subject<PassEvent<T>>());
-        return created.AsObservable();
-    }
-
-    private BehaviorSubject<T> CreateBehaviorSubject<T>(Func<T> configAccessor)
-    {
-        T initialValue;
-        try
-        {
-            initialValue = configAccessor() ?? default(T)!;
-        }
-        catch (Exception ex)
-        {
-            _logger.GetInitialConfigFailed(ex, typeof(T));
-            initialValue = default(T)!;
-        }
-
-        var initialHash = ComputeConfigHash(initialValue);
-        _previousConfigHashes[typeof(T)] = initialHash;
-
-        return new(initialValue);
-    }
-
-    public void NotifyConfigurationObservers(Func<Type, object?> configAccessor)
-    {
-        var passId = Interlocked.Increment(ref _passId);
-
-        var allTypes = new HashSet<Type>();
-        foreach (var type in _configObservables.Keys)
-        {
-            allTypes.Add(type);
-        }
-
-        foreach (var type in _perPassSubjects.Keys)
-        {
-            allTypes.Add(type);
-        }
-
-        foreach (var type in allTypes.ToArray())
-        {
-            var subject = _configObservables.GetValueOrDefault(type);
-            object? currentConfig;
-            var changed = false;
-            try
-            {
-                currentConfig = configAccessor(type);
-            }
-            catch (Exception ex)
-            {
-                _logger.GetCurrentConfigFailed(ex, type);
-                continue;
-            }
-
-            try
-            {
-                var currentHash = ComputeConfigHash(currentConfig);
-                var previousHash = _previousConfigHashes.GetValueOrDefault(type, string.Empty);
-                changed = currentHash != previousHash || string.IsNullOrEmpty(previousHash);
-                if (changed)
-                {
-                    _previousConfigHashes[type] = currentHash;
-
-                    if (subject is not null)
-                    {
-                        var payload = PrepareValueForSubject(type, currentConfig);
-
-                        try
-                        {
-                            PublishToSubject(subject, payload);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.ChangeEmissionFailed(ex, type);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.ChangeEmissionFailed(ex, type);
-            }
-
-            try
-            {
-                if (_perPassSubjects.TryGetValue(type, out var perPassObj))
-                {
-                    var evt = CreatePassEventInstance(type, currentConfig, changed, passId);
-                    PublishToSubject(perPassObj, evt);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.PerPassEmissionFailed(ex, type);
-            }
-        }
-    }
-
-    
-
-    private static string ComputeConfigHash(object? config)
-    {
-        if (config is null)
-        {
-            return "NULL";
-        }
-
-        try
-        {
-            // Use IncrementalHash for better performance (no stream overhead)
-            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var bufferWriter = new ArrayBufferWriter<byte>();
-            using var writer = new Utf8JsonWriter(bufferWriter, new()
-            { 
-                Indented = false,
-                SkipValidation = true 
-            });
-            
-            JsonSerializer.Serialize(writer, config, config.GetType(), _optimizedJsonOptions);
-            writer.Flush();
-            
-            var written = bufferWriter.WrittenSpan;
-            hash.AppendData(written);
-            
-            return Convert.ToHexString(hash.GetHashAndReset());
-        }
-        catch
-        {
-            return $"{config.GetType().FullName}#{config.GetHashCode()}";
-        }
+            _logger.CreatedReactiveConfig(type);
+            return new BackplaneReactiveConfig<T>(_backplane, _logger);
+        });
     }
 
     public void Dispose()
     {
-        foreach (var observable in _configObservables.Values.ToArray())
+        if (_disposed) return;
+        _disposed = true;
+
+        foreach (var config in _reactiveConfigs.Values)
         {
-            try
+            if (config is IDisposable disposable)
             {
-                if (observable is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.DisposeObservableFailed(ex);
+                try { disposable.Dispose(); }
+                catch { /* ignore */ }
             }
         }
 
-        _configObservables.Clear();
-        _previousConfigHashes.Clear();
-        foreach (var perPass in _perPassSubjects.Values.ToArray())
-        {
-            Safety.DisposeQuietly(perPass as IDisposable);
-        }
-        _perPassSubjects.Clear();
+        _reactiveConfigs.Clear();
+        GC.SuppressFinalize(this);
     }
 
-    private static void PublishToSubject(object subject, object? value)
+    /// <summary>
+    /// IReactiveConfig implementation that uses the MasterBackplane for values.
+    /// </summary>
+    private sealed class BackplaneReactiveConfig<T> : IReactiveConfig<T>, IDisposable where T : class
     {
-        var action = s_onNextCache.GetOrAdd(subject.GetType(), CreatePublishDelegate);
-        action(subject, value);
-    }
+        private readonly MasterBackplane _backplane;
+        private readonly IObservable<T> _observable;
+        private readonly ILogger _logger;
+        private bool _disposed;
 
-    private static Action<object, object?> CreatePublishDelegate(Type subjectType)
-    {
-        var onNext = subjectType.GetMethods()
-            .FirstOrDefault(m => string.Equals(m.Name, "OnNext", StringComparison.Ordinal) && m.GetParameters().Length == 1);
-        if (onNext == null)
+        public BackplaneReactiveConfig(MasterBackplane backplane, ILogger logger)
         {
-            return (_, _) => { };
+            _backplane = backplane;
+            _logger = logger;
+            _observable = backplane.GetTypeProjection<T>();
         }
 
-        var subjectParameter = Expression.Parameter(typeof(object), "subject");
-        var valueParameter = Expression.Parameter(typeof(object), "value");
+        public T CurrentValue => _backplane.GetConfig<T>()!;
 
-        var castSubject = Expression.Convert(subjectParameter, subjectType);
-        var parameterType = onNext.GetParameters()[0].ParameterType;
-        var castValue = Expression.Convert(valueParameter, parameterType);
+        public IDisposable Subscribe(IObserver<T> observer) => _observable.Subscribe(observer);
 
-        var body = Expression.Call(castSubject, onNext, castValue);
-        var lambda = Expression.Lambda<Action<object, object?>>(body, subjectParameter, valueParameter);
-        return lambda.Compile();
-    }
-
-    private static object CreatePassEventInstance(Type configType, object? value, bool changed, long passId)
-    {
-        var factory = s_passEventFactoryCache.GetOrAdd(configType, CreatePassEventFactory);
-        return factory(value, changed, passId);
-    }
-
-    private static Func<object?, bool, long, object> CreatePassEventFactory(Type configType)
-    {
-        var passEventType = typeof(PassEvent<>).MakeGenericType(configType);
-        var ctor = passEventType.GetConstructors()
-            .FirstOrDefault(c =>
-            {
-                var parameters = c.GetParameters();
-                return parameters.Length == 3 &&
-                       parameters[0].ParameterType == configType &&
-                       parameters[1].ParameterType == typeof(bool) &&
-                       parameters[2].ParameterType == typeof(long);
-            })
-            ?? throw new InvalidOperationException($"Unable to locate PassEvent constructor for type {configType}");
-
-        var valueParam = Expression.Parameter(typeof(object), "value");
-        var changedParam = Expression.Parameter(typeof(bool), "changed");
-        var passIdParam = Expression.Parameter(typeof(long), "passId");
-
-        Expression typedValue = configType.IsValueType
-            ? Expression.Condition(
-                Expression.Equal(valueParam, Expression.Constant(null)),
-                Expression.Default(configType),
-                Expression.Convert(valueParam, configType))
-            : Expression.Convert(valueParam, configType);
-
-        var newExpression = Expression.New(ctor, typedValue, changedParam, passIdParam);
-        var body = Expression.Convert(newExpression, typeof(object));
-
-        return Expression.Lambda<Func<object?, bool, long, object>>(body, valueParam, changedParam, passIdParam).Compile();
-    }
-
-    private object? PrepareValueForSubject(Type requestedType, object? currentValue)
-    {
-        if (currentValue is null)
+        public void Dispose()
         {
-            return null;
+            _disposed = true;
         }
-
-        if (requestedType.IsInstanceOfType(currentValue))
-        {
-            return currentValue;
-        }
-
-        if (_bindingRegistry.TryGetConcreteType(requestedType, out var concreteType) &&
-            concreteType.IsInstanceOfType(currentValue))
-        {
-            return currentValue;
-        }
-
-        return currentValue;
     }
 }

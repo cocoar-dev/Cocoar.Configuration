@@ -7,6 +7,26 @@ using Cocoar.Configuration.Secrets.SecretTypes;
 namespace Cocoar.Configuration.Secrets.Converters;
 
 /// <summary>
+/// Shared helper for determining if a type can hold null values.
+/// Used by both SecretJsonConverter and ISecretJsonConverter.
+/// </summary>
+internal static class SecretNullabilityHelper
+{
+    /// <summary>
+    /// Returns true if type T can legally hold a null value.
+    /// This includes reference types (string?, object?) and nullable value types (int?, bool?).
+    /// </summary>
+    public static bool TypeAcceptsNull<T>()
+    {
+        // Reference types where default is null
+        if (!typeof(T).IsValueType)
+            return true;
+        // Nullable<T> value types (int?, bool?, etc.)
+        return Nullable.GetUnderlyingType(typeof(T)) != null;
+    }
+}
+
+/// <summary>
 /// JSON converter for ISecret&lt;T&gt; interface types.
 /// Deserializes to Secret&lt;T&gt; instances, enabling interface-typed properties in configuration classes.
 /// </summary>
@@ -18,6 +38,11 @@ internal sealed class ISecretJsonConverter<T> : JsonConverter<ISecret<T>>
     {
         _innerConverter = new SecretJsonConverter<T>(scope);
     }
+
+    /// <summary>
+    /// Always handle null JSON values - delegate to inner converter for proper error handling.
+    /// </summary>
+    public override bool HandleNull => true;
 
     public override ISecret<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -39,6 +64,14 @@ internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
         _scope = scope ?? throw new ArgumentNullException(nameof(scope));
     }
 
+    /// <summary>
+    /// Always handle null JSON values so we can:
+    /// - Create a Secret containing null for nullable types (T?)
+    /// - Throw a clear error for non-nullable types (T)
+    /// Without this, System.Text.Json silently sets the property to null.
+    /// </summary>
+    public override bool HandleNull => true;
+
     private bool GetAllowPlaintextSetting()
     {
         var composition = _scope.Owner.GetComposition();
@@ -55,38 +88,50 @@ internal sealed class SecretJsonConverter<T> : JsonConverter<Secret<T>>
         {
             using var doc = JsonDocument.ParseValue(ref reader);
             var element = doc.RootElement;
-            
+
             if (SecretEnvelopeWrapper.IsEnvelope(element))
             {
                 if (!SecretEnvelopeWrapper.TryParse(element, out var env) || env is null)
                 {
                     throw new JsonException($"Invalid secret envelope for Secret<{typeof(T).Name}>");
                 }
-                
+
                 return new Secret<T>(env, resolver);
             }
-            
+
             var plainValue = JsonSerializer.Deserialize<T>(element.GetRawText(), options);
-            if (plainValue is null)
+            if (plainValue is null && !SecretNullabilityHelper.TypeAcceptsNull<T>())
             {
                 throw new JsonException($"Failed to deserialize plain value for Secret<{typeof(T).Name}>");
             }
-            return new Secret<T>(plainValue, resolver, allowPlaintext: GetAllowPlaintextSetting());
+            return new Secret<T>(plainValue!, resolver, allowPlaintext: GetAllowPlaintextSetting());
+        }
+
+        // Handle explicit null token
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            if (!SecretNullabilityHelper.TypeAcceptsNull<T>())
+            {
+                throw new JsonException(
+                    $"Cannot deserialize null to Secret<{typeof(T).Name}>. " +
+                    $"Use Secret<{typeof(T).Name}?> if the value can be null.");
+            }
+            // For nullable types, create a Secret containing null
+            return new Secret<T>(default!, resolver, allowPlaintext: GetAllowPlaintextSetting());
         }
 
         if (reader.TokenType == JsonTokenType.String ||
             reader.TokenType == JsonTokenType.Number ||
             reader.TokenType == JsonTokenType.True ||
-            reader.TokenType == JsonTokenType.False ||
-            reader.TokenType == JsonTokenType.Null)
+            reader.TokenType == JsonTokenType.False)
         {
             using var tempDoc = JsonDocument.ParseValue(ref reader);
             var plainValue = JsonSerializer.Deserialize<T>(tempDoc.RootElement.GetRawText(), options);
-            if (plainValue is null)
+            if (plainValue is null && !SecretNullabilityHelper.TypeAcceptsNull<T>())
             {
                 throw new JsonException($"Failed to deserialize plain value for Secret<{typeof(T).Name}>");
             }
-            return new Secret<T>(plainValue, resolver, allowPlaintext: GetAllowPlaintextSetting());
+            return new Secret<T>(plainValue!, resolver, allowPlaintext: GetAllowPlaintextSetting());
         }
 
         throw new JsonException($"Unexpected token type '{reader.TokenType}' for Secret<{typeof(T).Name}>");

@@ -1,132 +1,251 @@
 using System.Text.Json;
-using Cocoar.Configuration.Infrastructure;
 using Cocoar.Capabilities;
+using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
 using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Core;
 
+internal static partial class ConfigurationAccessorLog
+{
+    [LoggerMessage(EventId = 3000, Level = LogLevel.Debug,
+        Message = "Fallback deserialization for {TypeName} during recompute phase")]
+    public static partial void FallbackDeserialization(this ILogger logger, string typeName);
+
+    [LoggerMessage(EventId = 3001, Level = LogLevel.Warning,
+        Message = "Fallback deserialization failed for {TypeName}: {Message}")]
+    public static partial void FallbackDeserializationFailed(this ILogger logger, string typeName, string message);
+}
+
 internal partial class ConfigurationAccessor : IConfigurationAccessor
 {
     private readonly ConfigurationState _state;
     private readonly ExposureRegistry _bindingRegistry;
-    private readonly ConfigManagerCapabilityScope _capabilityScope;
     private readonly ILogger _logger;
+    private ConfigManagerCapabilityScope? _capabilityScope;
 
     public ConfigurationAccessor(
         ConfigurationState state,
         ExposureRegistry bindingRegistry,
-        ConfigManagerCapabilityScope capabilityScope,
         ILogger logger)
     {
         _state = state;
         _bindingRegistry = bindingRegistry;
-        _capabilityScope = capabilityScope;
         _logger = logger;
     }
-    public T? GetConfig<T>() => (T?)ResolveConfig(typeof(T));
 
-    public bool TryGetConfig<T>(out T? value)
+    internal void SetCapabilityScope(ConfigManagerCapabilityScope capabilityScope)
     {
-        value = GetConfig<T>();
-        return value is not null;
+        _capabilityScope = capabilityScope;
     }
 
-    public T GetRequiredConfig<T>()
+    /// <summary>
+    /// Gets a configuration instance from the cached snapshot.
+    /// During recompute, falls back to on-demand deserialization.
+    /// </summary>
+    /// <remarks>
+    /// <b>DO NOT mutate the returned instance.</b> It is shared across all consumers.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">No configuration rule is registered for type T.</exception>
+    public T GetConfig<T>()
     {
-        var result = GetConfig<T>();
-        if (result is null)
+        // First try the backplane (has cached instances after initialization)
+        try
+        {
+            var result = _state.Backplane.GetConfig(typeof(T));
+            if (result is T typed)
+            {
+                return typed;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Backplane not initialized yet - fall through to lazy deserialization
+        }
+
+        // Fallback: during recompute phase, deserialize on-demand from pending configurations
+        return FallbackDeserialize<T>();
+    }
+
+    private T FallbackDeserialize<T>()
+    {
+        var type = typeof(T);
+
+        // Try to resolve interface to concrete type
+        var targetType = type;
+        if (type.IsInterface && _bindingRegistry.TryGetConcreteType(type, out var concreteType))
+        {
+            targetType = concreteType;
+        }
+
+        if (!_state.TryGetConfiguration(targetType, out var json) || json == null)
         {
             throw new InvalidOperationException(
-                $"Configuration for {typeof(T).Name} hasn't been loaded yet. " +
-                $"If you're calling this from a rule factory, ensure a rule for {typeof(T).Name} appears earlier in your rule list.");
-        }
-        return result;
-    }
-
-    public object? GetConfig(Type type) => ResolveConfig(type);
-
-    public bool TryGetConfig(Type type, out object? value)
-    {
-        value = GetConfig(type);
-        return value is not null;
-    }
-
-    public object GetRequiredConfig(Type type)
-    {
-        var value = GetConfig(type);
-        if (value == null)
-        {
-            throw new InvalidOperationException(
-                $"Configuration for {type.Name} hasn't been loaded yet. " +
-                $"If you're calling this from a rule factory, ensure a rule for {type.Name} appears earlier in your rule list.");
-        }
-        return value;
-    }
-
-    public JsonElement? GetConfigAsJson(Type type) => _state.GetConfigurationAsJson(type);
-
-    private object? ResolveConfig(Type requestedType)
-    {
-        if (TryResolveConfiguration(requestedType, out var value))
-        {
-            return value;
+                $"No configuration rule is registered for type '{type.Name}'. " +
+                $"Add a rule using: rules.For<{type.Name}>().From...");
         }
 
-        if (_bindingRegistry.TryGetConcreteType(requestedType, out var concreteType) &&
-            TryResolveConfiguration(concreteType, out var concreteValue))
-        {
-            return concreteValue;
-        }
-
-        return null;
-    }
-
-    private bool TryResolveConfiguration(Type type, out object? value)
-    {
-        value = null;
-
-        if (!_state.TryGetConfiguration(type, out var mutableJsonObject) || mutableJsonObject == null)
-        {
-            return false;
-        }
-
-        var registration = _state.FindRegistration(type);
-        if (registration == null)
-        {
-            return false;
-        }
-
-        byte[] bytes;
-        lock (mutableJsonObject)
-        {
-            bytes = MutableJsonDocument.ToUtf8Bytes(mutableJsonObject);
-        }
-
-        using var doc = JsonDocument.Parse(bytes);
-        var jsonElement = doc.RootElement.Clone();
+        _logger.FallbackDeserialization(type.Name);
 
         try
         {
-            value = ConfigurationDeserializer.Deserialize(
-                jsonElement, registration, _bindingRegistry.DeserializationMap, _capabilityScope);
-            return value != null;
-        }
-        catch (Exception ex) when (ex is JsonException or FormatException or InvalidCastException)
-        {
-            var jsonPreview = jsonElement.ToString();
-            if (jsonPreview.Length > 500)
+            byte[] bytes;
+            lock (json)
             {
-                jsonPreview = jsonPreview[..500] + "...";
+                bytes = MutableJsonDocument.ToUtf8Bytes(json);
             }
-            DeserializationFailed(_logger, ex, type.Name, jsonPreview);
+
+            using var doc = JsonDocument.Parse(bytes);
+            var result = ConfigurationDeserializer.Deserialize(
+                doc.RootElement,
+                targetType,
+                _bindingRegistry.DeserializationMap,
+                _capabilityScope);
+
+            if (result is T typed)
+            {
+                return typed;
+            }
+
+            throw new InvalidOperationException(
+                $"Deserialization returned unexpected type for '{type.Name}'.");
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw our own exceptions
+        }
+        catch (Exception ex)
+        {
+            _logger.FallbackDeserializationFailed(type.Name, ex.Message);
+            throw new InvalidOperationException(
+                $"Failed to deserialize configuration for '{type.Name}': {ex.Message}", ex);
+        }
+    }
+
+    public bool TryGetConfig<T>(out T? value)
+    {
+        try
+        {
+            value = GetConfig<T>();
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            value = default;
             return false;
         }
     }
 
-    [LoggerMessage(EventId = 5100, Level = LogLevel.Error,
-        Message = "Failed to deserialize configuration for {TypeName}. " +
-                  "This may be caused by missing 'required' properties or type mismatches. JSON: {JsonContent}")]
-    private static partial void DeserializationFailed(ILogger logger, Exception ex, string typeName, string jsonContent);
+    /// <summary>
+    /// Gets configuration, throwing if not found.
+    /// </summary>
+    /// <remarks>
+    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
+    /// </remarks>
+    [Obsolete("Use GetConfig<T>() instead - it now throws if no rule is registered. " +
+              "This method will be removed in a future version.")]
+    public T GetRequiredConfig<T>() => GetConfig<T>();
+
+    /// <summary>
+    /// Gets a configuration instance from the cached snapshot.
+    /// During recompute, falls back to on-demand deserialization.
+    /// </summary>
+    /// <remarks>
+    /// <b>DO NOT mutate the returned instance.</b> It is shared across all consumers.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">No configuration rule is registered for the type.</exception>
+    public object GetConfig(Type type)
+    {
+        // First try the backplane
+        try
+        {
+            var result = _state.Backplane.GetConfig(type);
+            if (result != null)
+            {
+                return result;
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Backplane not initialized yet - fall through to lazy deserialization
+        }
+
+        // Fallback: during recompute phase, deserialize on-demand
+        return FallbackDeserialize(type);
+    }
+
+    private object FallbackDeserialize(Type type)
+    {
+        // Try to resolve interface to concrete type
+        var targetType = type;
+        if (type.IsInterface && _bindingRegistry.TryGetConcreteType(type, out var concreteType))
+        {
+            targetType = concreteType;
+        }
+
+        if (!_state.TryGetConfiguration(targetType, out var json) || json == null)
+        {
+            throw new InvalidOperationException(
+                $"No configuration rule is registered for type '{type.Name}'. " +
+                $"Add a rule using: rules.For<{type.Name}>().From...");
+        }
+
+        _logger.FallbackDeserialization(type.Name);
+
+        try
+        {
+            byte[] bytes;
+            lock (json)
+            {
+                bytes = MutableJsonDocument.ToUtf8Bytes(json);
+            }
+
+            using var doc = JsonDocument.Parse(bytes);
+            var result = ConfigurationDeserializer.Deserialize(
+                doc.RootElement,
+                targetType,
+                _bindingRegistry.DeserializationMap,
+                _capabilityScope);
+
+            return result ?? throw new InvalidOperationException(
+                $"Deserialization returned null for '{type.Name}'.");
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw our own exceptions
+        }
+        catch (Exception ex)
+        {
+            _logger.FallbackDeserializationFailed(type.Name, ex.Message);
+            throw new InvalidOperationException(
+                $"Failed to deserialize configuration for '{type.Name}': {ex.Message}", ex);
+        }
+    }
+
+    public bool TryGetConfig(Type type, out object? value)
+    {
+        try
+        {
+            value = GetConfig(type);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            value = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets configuration, throwing if not found.
+    /// </summary>
+    /// <remarks>
+    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
+    /// </remarks>
+    [Obsolete("Use GetConfig(Type) instead - it now throws if no rule is registered. " +
+              "This method will be removed in a future version.")]
+    public object GetRequiredConfig(Type type) => GetConfig(type);
+
+    public JsonElement? GetConfigAsJson(Type type) => _state.GetConfigurationAsJson(type);
 }

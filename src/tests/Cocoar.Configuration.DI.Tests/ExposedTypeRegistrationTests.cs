@@ -7,14 +7,21 @@ using Xunit;
 
 namespace Cocoar.Configuration.DI.Tests;
 
+/// <summary>
+/// Tests for exposed type registration.
+///
+/// IMPORTANT: With the Master Backplane architecture (v5.0+), configuration instances
+/// are cached globally. All resolved services return the same cached instance.
+/// </summary>
 public class ExposedTypeRegistrationTests
 {
     public interface ITestConfig { string Value { get; } }
     public record TestConfig(string Value) : ITestConfig;
 
     [Fact]
-    public void ExposedType_Default_Registers_As_Scoped()
+    public void ExposedType_Default_Returns_Same_Cached_Instance()
     {
+        // With Master Backplane architecture, all scopes receive the same cached instance
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
@@ -34,7 +41,9 @@ public class ExposedTypeRegistrationTests
 
         using var scope2 = sp.CreateScope();
         var scoped2 = scope2.ServiceProvider.GetRequiredService<ITestConfig>();
-        Assert.NotSame(scoped1a, scoped2); // different across scopes
+
+        // With Master Backplane, all instances are the same cached object
+        Assert.Same(scoped1a, scoped2);
         Assert.Equal("Hello", scoped1a.Value);
         Assert.Equal("Hello", scoped2.Value);
     }
@@ -42,6 +51,8 @@ public class ExposedTypeRegistrationTests
     [Fact]
     public void ExposedType_Can_Override_Lifetime_And_Add_Keyed_Registrations()
     {
+        // With Master Backplane architecture, all instances are the same cached object
+        // regardless of DI lifetime settings
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
@@ -59,14 +70,11 @@ public class ExposedTypeRegistrationTests
         Assert.Same(def1, def2);
         Assert.Equal("Hello", def1.Value);
 
-        // Keyed should be transient (new instance each resolve)
+        // Keyed transient - but with Master Backplane, still returns same cached instance
         var k1a = sp.GetRequiredKeyedService<ITestConfig>("my-key");
         var k1b = sp.GetRequiredKeyedService<ITestConfig>("my-key");
-        Assert.NotSame(k1a, k1b);
+        Assert.Same(k1a, k1b); // Same cached instance
         Assert.Equal("Hello", k1a.Value);
         Assert.Equal("Hello", k1b.Value);
     }
 }
-
-
-

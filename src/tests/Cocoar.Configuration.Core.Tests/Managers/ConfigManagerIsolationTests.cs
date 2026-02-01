@@ -141,8 +141,9 @@ public class ConfigManagerIsolationTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    public void GetConfig_WithNonExistentType_ShouldReturnDefault()
+    public void GetConfig_WithNonExistentType_ShouldThrow()
     {
+        // With Master Backplane architecture, GetConfig throws when no rule is registered
         var testConfig = new DatabaseConfig { ConnectionString = "test" };
         var rules = new List<ConfigRule>
         {
@@ -153,9 +154,11 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        var result = configManager.GetConfig<ApiConfig>(); // Different type not configured
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            configManager.GetConfig<ApiConfig>()); // Different type not configured
 
-        Assert.Null(result);
+        Assert.Contains("ApiConfig", exception.Message);
+        Assert.Contains("No configuration rule is registered", exception.Message);
     }
 
     [Fact]
@@ -225,6 +228,7 @@ public class ConfigManagerIsolationTests : IDisposable
     [Trait("Type", "Unit")]
     public void GetRequiredConfig_WithNonExistentType_ShouldThrowInvalidOperationException()
     {
+        // GetRequiredConfig now delegates to GetConfig, which throws when no rule exists
         var testConfig = new DatabaseConfig();
         var rules = new List<ConfigRule>
         {
@@ -235,11 +239,13 @@ public class ConfigManagerIsolationTests : IDisposable
         TrackForDisposal(configManager);
         configManager.Initialize();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => 
+#pragma warning disable CS0618 // Type or member is obsolete
+        var exception = Assert.Throws<InvalidOperationException>(() =>
             configManager.GetRequiredConfig<ApiConfig>());
-        
+#pragma warning restore CS0618
+
         Assert.Contains("ApiConfig", exception.Message);
-        Assert.Contains("hasn't been loaded", exception.Message);
+        Assert.Contains("No configuration rule is registered", exception.Message);
     }
 
     #endregion

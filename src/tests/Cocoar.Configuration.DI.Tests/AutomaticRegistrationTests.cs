@@ -84,36 +84,35 @@ public class AutomaticRegistrationTests
     }
 
     [Fact]
-    public void AutoRegistered_Types_Should_Have_Different_Instances_Across_Scopes()
+    public void AutoRegistered_Types_Should_Have_Same_Cached_Instance_Across_Scopes()
     {
-        // Arrange
+        // With Master Backplane architecture, configuration instances are cached globally.
+        // All scopes receive the same cached instance.
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]);
-        
+
         var sp = services.BuildServiceProvider();
-        
+
         // Act - Get instances from different scopes
         AppConfig? instance1;
         AppConfig? instance2;
-        
+
         using (var scope1 = sp.CreateScope())
         {
             instance1 = scope1.ServiceProvider.GetRequiredService<AppConfig>();
         }
-        
+
         using (var scope2 = sp.CreateScope())
         {
             instance2 = scope2.ServiceProvider.GetRequiredService<AppConfig>();
         }
-        
-        // Assert - Different instances across scopes (Scoped behavior)
-        Assert.NotSame(instance1, instance2);
-        
-        // But same values
-        Assert.Equal(instance1.Name, instance2.Name);
-        Assert.Equal(instance1.Version, instance2.Version);
+
+        // Assert - Same cached instance across scopes (Master Backplane behavior)
+        Assert.Same(instance1, instance2);
+        Assert.Equal("TestApp", instance1.Name);
+        Assert.Equal(1, instance1.Version);
     }
 
     [Fact]

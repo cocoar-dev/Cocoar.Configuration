@@ -1,13 +1,32 @@
 using System.Text.Json;
+using Cocoar.Capabilities;
 using Cocoar.Configuration.Health;
+using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
 using Cocoar.Json.Mutable;
+using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.Core;
+
+internal static partial class ConfigurationStateLog
+{
+    [LoggerMessage(EventId = 4000, Level = LogLevel.Error,
+        Message = "Deserialization failed for {TypeName}: {Message}")]
+    public static partial void DeserializationFailed(this ILogger logger, Exception? ex, string typeName, string message);
+
+    [LoggerMessage(EventId = 4001, Level = LogLevel.Warning,
+        Message = "Runtime deserialization failed for {FailureCount} types, keeping last good configuration")]
+    public static partial void RuntimeDeserializationFailed(this ILogger logger, int failureCount);
+
+    [LoggerMessage(EventId = 4002, Level = LogLevel.Information,
+        Message = "Configuration snapshot published: version={Version}, types={TypeCount}")]
+    public static partial void SnapshotPublished(this ILogger logger, long version, int typeCount);
+}
 
 /// <summary>
 /// Central state management for configurations and health monitoring.
 /// Combines configuration storage (repository) with health tracking.
+/// Uses MasterBackplane for atomic, eager-deserialized configuration updates.
 /// </summary>
 internal class ConfigurationState : IDisposable
 {
@@ -15,12 +34,19 @@ internal class ConfigurationState : IDisposable
     private volatile Dictionary<Type, MutableJsonObject>? _pendingConfigurations;
     private readonly List<RuleManager> _ruleManagers;
     private readonly ConfigurationHealthService _healthService;
+    private readonly ILogger _logger;
     private long _healthSequence;
     private long _configVersion;
 
-    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules)
+    // Master Backplane fields
+    private MasterBackplane? _backplane;
+    private bool _isStartupPhase = true;
+    private IReadOnlyList<DeserializationFailure> _lastDeserializationFailures = [];
+
+    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules, ILogger logger)
     {
         _ruleManagers = ruleManagers;
+        _logger = logger;
         var initialEntries = rules.Select((r, i) => new RuleHealthEntry(
             index: i,
             name: r.Options?.Name,
@@ -32,7 +58,8 @@ internal class ConfigurationState : IDisposable
             errorCode: null,
             errorMessage: null,
             providerType: r.ProviderType.Name,
-            configType: r.ConcreteType.Name)).ToList();
+            configType: r.ConcreteType.Name,
+            deserializationStatus: null)).ToList();
 
         var initialSnapshot = new ConfigHealthSnapshot(
             id: ++_healthSequence,
@@ -42,6 +69,42 @@ internal class ConfigurationState : IDisposable
 
         _healthService = new(initialSnapshot);
     }
+
+    /// <summary>
+    /// Gets the MasterBackplane for accessing cached configuration instances.
+    /// </summary>
+    public MasterBackplane Backplane => _backplane ?? throw new InvalidOperationException("Backplane not initialized. Call InitializeBackplane first.");
+
+    /// <summary>
+    /// Indicates whether the system is still in the startup phase.
+    /// During startup, deserialization failures throw exceptions.
+    /// After startup, failures preserve the last good configuration.
+    /// </summary>
+    public bool IsStartupPhase => _isStartupPhase;
+
+    /// <summary>
+    /// Gets the last deserialization failures that occurred during runtime (non-startup) updates.
+    /// </summary>
+    public IReadOnlyList<DeserializationFailure> LastDeserializationFailures => _lastDeserializationFailures;
+
+    /// <summary>
+    /// Initializes the MasterBackplane with the binding registry.
+    /// Must be called before CommitUpdateWithDeserialization.
+    /// </summary>
+    internal void InitializeBackplane(ExposureRegistry bindingRegistry)
+    {
+        _backplane = new MasterBackplane(bindingRegistry);
+    }
+
+    /// <summary>
+    /// Marks the startup phase as complete.
+    /// After this, deserialization failures will preserve last good configuration instead of throwing.
+    /// </summary>
+    public void MarkStartupComplete()
+    {
+        _isStartupPhase = false;
+    }
+
     /// <summary>
     /// Gets the current configuration dictionary (or pending if available).
     /// Thread-safe access to avoid race conditions.
@@ -71,6 +134,66 @@ internal class ConfigurationState : IDisposable
         _pendingConfigurations[type] = value;
     }
 
+    /// <summary>
+    /// Commits the update with eager deserialization to the MasterBackplane.
+    /// During startup, throws on any deserialization failure.
+    /// At runtime, keeps last good configuration on failure.
+    /// </summary>
+    public void CommitUpdateWithDeserialization(
+        Dictionary<Type, MutableJsonObject> finalConfigurations,
+        ExposureRegistry bindingRegistry,
+        ConfigManagerCapabilityScope capabilityScope)
+    {
+        // Build the snapshot with eager deserialization
+        var builder = new ConfigSnapshotBuilder(bindingRegistry, capabilityScope);
+
+        foreach (var (type, json) in finalConfigurations)
+        {
+            builder.DeserializeType(type, json);
+        }
+
+        if (_isStartupPhase)
+        {
+            // Startup: fail fast with all errors
+            var snapshot = builder.Build(++_configVersion);
+            _backplane?.Publish(snapshot);
+            _logger.SnapshotPublished(snapshot.Version, snapshot.Count);
+        }
+        else
+        {
+            // Runtime: keep last good on failure
+            var (snapshot, failures) = builder.TryBuild(++_configVersion);
+
+            if (snapshot != null)
+            {
+                _lastDeserializationFailures = [];
+                _backplane?.Publish(snapshot);
+                _logger.SnapshotPublished(snapshot.Version, snapshot.Count);
+            }
+            else
+            {
+                _lastDeserializationFailures = failures;
+                _logger.RuntimeDeserializationFailed(failures.Count);
+
+                foreach (var failure in failures)
+                {
+                    _logger.DeserializationFailed(failure.Exception, failure.ConfigType.Name, failure.Message);
+                }
+
+                // Don't decrement version - we want to track that an attempt was made
+                // The backplane keeps the old snapshot
+            }
+        }
+
+        // Also store the raw JSON for backward compatibility with GetConfigurationAsJson
+        _configs = finalConfigurations;
+        _pendingConfigurations = null;
+    }
+
+    /// <summary>
+    /// Legacy commit that only stores JSON without deserialization.
+    /// Used during the transition period.
+    /// </summary>
     public void CommitUpdate(Dictionary<Type, MutableJsonObject> finalConfigurations)
     {
         _configs = finalConfigurations;
@@ -131,21 +254,48 @@ internal class ConfigurationState : IDisposable
         }
         return null;
     }
+
     public IConfigurationHealthService GetHealthService() => _healthService;
 
     public void ReportSuccessfulRecompute(int startIndex)
     {
         var list = BuildEntriesFromOutcomes();
-        PublishSnapshot(list, incrementVersion: true);
+        // Don't increment version here - it's already incremented in CommitUpdateWithDeserialization
+        PublishHealthSnapshot(list, incrementVersion: false);
     }
 
     public void ReportFailedRecompute(int startIndex, Exception exception)
     {
         var list = BuildEntriesFromOutcomes(forceTrailingUnknown: true);
-        PublishSnapshot(list, incrementVersion: false);
+        PublishHealthSnapshot(list, incrementVersion: false);
     }
 
-    private void PublishSnapshot(List<RuleHealthEntry> entries, bool incrementVersion)
+    /// <summary>
+    /// Reports deserialization failures to the health service.
+    /// Call this after a runtime deserialization failure to update health status.
+    /// </summary>
+    public void ReportDeserializationFailures(IReadOnlyList<DeserializationFailure> failures)
+    {
+        if (failures.Count == 0) return;
+
+        var list = BuildEntriesFromOutcomes();
+
+        // Add deserialization status to affected rules
+        var failuresByType = failures.ToDictionary(f => f.ConfigType.Name, f => f);
+
+        for (var i = 0; i < list.Count; i++)
+        {
+            var entry = list[i];
+            if (entry.ConfigType != null && failuresByType.TryGetValue(entry.ConfigType, out var failure))
+            {
+                list[i] = entry.WithDeserializationFailure(failure.Message);
+            }
+        }
+
+        PublishHealthSnapshot(list, incrementVersion: false);
+    }
+
+    private void PublishHealthSnapshot(List<RuleHealthEntry> entries, bool incrementVersion)
     {
         if (incrementVersion)
         {
@@ -170,7 +320,7 @@ internal class ConfigurationState : IDisposable
             }
             else
             {
-                list.Add(new(seed, null, _ruleManagers[seed].Required, RuleResultStatus.Unknown, null, null, 0, null, null, null, null));
+                list.Add(new(seed, null, _ruleManagers[seed].Required, RuleResultStatus.Unknown, null, null, 0, null, null, null, null, null));
             }
         }
 
@@ -213,7 +363,7 @@ internal class ConfigurationState : IDisposable
                     var existing = list[j];
                     if (existing.Status is RuleResultStatus.Up or RuleResultStatus.Skipped)
                     {
-                        list[j] = new(existing.Index, existing.Name, existing.Required, RuleResultStatus.Unknown, existing.LastSuccessUtc, existing.LastFailureUtc, existing.FailureCount, existing.ErrorCode, existing.ErrorMessage, existing.ProviderType, existing.ConfigType);
+                        list[j] = new(existing.Index, existing.Name, existing.Required, RuleResultStatus.Unknown, existing.LastSuccessUtc, existing.LastFailureUtc, existing.FailureCount, existing.ErrorCode, existing.ErrorMessage, existing.ProviderType, existing.ConfigType, existing.DeserializationStatus);
                     }
                 }
                 break;
@@ -259,6 +409,7 @@ internal class ConfigurationState : IDisposable
     public void Dispose()
     {
         _healthService.Dispose();
+        _backplane?.Dispose();
         GC.SuppressFinalize(this);
     }
 }

@@ -15,6 +15,9 @@ internal static partial class ReactiveConfigurationFactoryLog
 
     [LoggerMessage(EventId = 6402, Level = LogLevel.Warning, Message = "Failed to prime reactive configuration for tuple element {Type}")]
     public static partial void PrimeReactiveConfigFailed(this ILogger logger, Exception exception, Type Type);
+
+    [LoggerMessage(EventId = 6403, Level = LogLevel.Warning, Message = "Type {Type} is not a class, skipping reactive priming")]
+    public static partial void SkippingNonClassType(this ILogger logger, Type Type);
 }
 
 internal class ReactiveConfigurationFactory(
@@ -31,10 +34,30 @@ internal class ReactiveConfigurationFactory(
         {
             return (IReactiveConfig<T>)CreateTupleReactiveConfig(t);
         }
-        return reactiveConfigManager.GetReactiveConfig(configAccessor);
+
+        // For non-tuple types, must be a class for the backplane
+        if (!t.IsClass)
+        {
+            throw new InvalidOperationException(
+                $"GetReactiveConfig<{t.Name}> is only supported for class types or ValueTuple types. " +
+                $"Configuration types should be classes, not structs.");
+        }
+
+        // Use reflection to call the generic method with class constraint
+        var method = typeof(ReactiveConfigManager)
+            .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
+            .MakeGenericMethod(t);
+
+        if (method == null)
+        {
+            throw new InvalidOperationException($"Cannot create IReactiveConfig<{t.Name}> - internal error.");
+        }
+
+        var funcType = typeof(Func<>).MakeGenericType(t);
+        return (IReactiveConfig<T>)method.Invoke(reactiveConfigManager, [configAccessor])!;
     }
 
-    private static bool IsValueTupleType(Type t) => 
+    private static bool IsValueTupleType(Type t) =>
         t is { IsValueType: true, FullName: not null } && t.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal);
 
     private object CreateTupleReactiveConfig(Type tupleType)
@@ -72,8 +95,16 @@ internal class ReactiveConfigurationFactory(
             throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/exposed: {string.Join(", ", invalid)}");
         }
 
+        // Prime each distinct element type's reactive config
         foreach (var et in elementTypes.Distinct())
         {
+            // Only prime reference types (class constraint on ReactiveConfigManager)
+            if (!et.IsClass)
+            {
+                logger.SkippingNonClassType(et);
+                continue;
+            }
+
             try
             {
                 var reactiveMethod = typeof(ReactiveConfigManager)
