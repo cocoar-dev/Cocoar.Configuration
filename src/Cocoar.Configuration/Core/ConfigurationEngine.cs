@@ -3,7 +3,6 @@ using System.Text.Json;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
-using Cocoar.Configuration.Reactive;
 using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
 
@@ -35,19 +34,18 @@ internal static partial class ConfigurationEngineLog
 
 /// <summary>
 /// Central engine for configuration computation and change management.
-/// Handles initialization, recomputation, task scheduling, and change subscriptions.
+/// Handles initialization, recomputation, and change subscriptions.
+/// Delegates scheduling/cancellation to RecomputeScheduler.
 /// </summary>
 internal class ConfigurationEngine : IDisposable
 {
     private readonly ConfigurationState _state;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _recomputeSemaphore = new(1, 1);
-    private readonly Lock _recomputeGate = new();
+    private readonly RecomputeScheduler _scheduler = new();
 
-    private CancellationTokenSource? _recomputeCts;
-    private Task? _currentRecomputeTask;
     private bool _disposed;
-    private readonly List<IDisposable> _changeSubscriptions = new();
+    private readonly List<IDisposable> _changeSubscriptions = [];
 
     // Context for deserialization
     private ExposureRegistry? _bindingRegistry;
@@ -59,7 +57,7 @@ internal class ConfigurationEngine : IDisposable
         _logger = logger;
     }
 
-    public Task? CurrentRecomputeTask => _currentRecomputeTask;
+    public Task? CurrentRecomputeTask => _scheduler.CurrentRecomputeTask;
 
     /// <summary>
     /// Initializes the configuration system: analyzes rules, creates managers, performs initial computation, and sets up subscriptions.
@@ -114,33 +112,29 @@ internal class ConfigurationEngine : IDisposable
         IConfigurationAccessor configAccessor,
         int startIndex)
     {
-        lock (_recomputeGate)
+        _scheduler.Schedule(ct =>
         {
-            var cts = RenewCancellationSource();
-
-            _currentRecomputeTask = Task.Run(() =>
+            try
             {
-                try
-                {
-                    RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, cts.Token);
-                    _state.ReportSuccessfulRecompute(startIndex);
+                RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, ct);
+                _state.ReportSuccessfulRecompute(startIndex);
 
-                    // Report any deserialization failures to health service
-                    if (_state.LastDeserializationFailures.Count > 0)
-                    {
-                        _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
-                    }
-                }
-                catch (OperationCanceledException)
+                // Report any deserialization failures to health service
+                if (_state.LastDeserializationFailures.Count > 0)
                 {
+                    _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
                 }
-                catch (Exception ex)
-                {
-                    _logger.RuntimeRecomputeFailed(ex);
-                    _state.ReportFailedRecompute(startIndex, ex);
-                }
-            }, cts.Token);
-        }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelled, don't report as failure
+            }
+            catch (Exception ex)
+            {
+                _logger.RuntimeRecomputeFailed(ex);
+                _state.ReportFailedRecompute(startIndex, ex);
+            }
+        });
     }
 
     /// <summary>
@@ -440,28 +434,14 @@ internal class ConfigurationEngine : IDisposable
         _changeSubscriptions.Clear();
     }
 
-    private CancellationTokenSource RenewCancellationSource()
-    {
-        var newCts = new CancellationTokenSource();
-        var previous = Interlocked.Exchange(ref _recomputeCts, newCts);
-        Safety.CancelAndDisposeQuietly(previous);
-        return newCts;
-    }
-
-    private void DisposeCancellationSource()
-    {
-        var cts = Interlocked.Exchange(ref _recomputeCts, null);
-        Safety.CancelAndDisposeQuietly(cts);
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        DisposeCancellationSource();
+        _scheduler.Dispose();
         DisposeAllSubscriptions();
-        _recomputeSemaphore?.Dispose();
+        _recomputeSemaphore.Dispose();
         GC.SuppressFinalize(this);
     }
 }

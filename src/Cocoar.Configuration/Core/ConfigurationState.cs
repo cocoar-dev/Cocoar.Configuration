@@ -25,13 +25,12 @@ internal static partial class ConfigurationStateLog
 
 /// <summary>
 /// Central state management for configurations and health monitoring.
-/// Combines configuration storage (repository) with health tracking.
+/// Coordinates JSON storage, backplane publication, and health tracking.
 /// Uses MasterBackplane for atomic, eager-deserialized configuration updates.
 /// </summary>
 internal class ConfigurationState : IDisposable
 {
-    private volatile Dictionary<Type, MutableJsonObject> _configs = new();
-    private volatile Dictionary<Type, MutableJsonObject>? _pendingConfigurations;
+    private readonly ConfigJsonRepository _jsonRepository = new();
     private readonly ConfigurationHealthReporter _healthReporter;
     private readonly ILogger _logger;
     private long _configVersion;
@@ -65,6 +64,12 @@ internal class ConfigurationState : IDisposable
     public IReadOnlyList<DeserializationFailure> LastDeserializationFailures => _lastDeserializationFailures;
 
     /// <summary>
+    /// Gets the current configuration dictionary (or pending if available).
+    /// Thread-safe access to avoid race conditions.
+    /// </summary>
+    public Dictionary<Type, MutableJsonObject> CurrentConfigurations => _jsonRepository.CurrentConfigurations;
+
+    /// <summary>
     /// Initializes the MasterBackplane with the binding registry.
     /// Must be called before CommitUpdateWithDeserialization.
     /// </summary>
@@ -82,34 +87,9 @@ internal class ConfigurationState : IDisposable
         _isStartupPhase = false;
     }
 
-    /// <summary>
-    /// Gets the current configuration dictionary (or pending if available).
-    /// Thread-safe access to avoid race conditions.
-    /// </summary>
-    public Dictionary<Type, MutableJsonObject> CurrentConfigurations
-    {
-        get
-        {
-            // Capture volatile field once to avoid torn reads
-            var pending = _pendingConfigurations;
-            return pending ?? _configs;
-        }
-    }
+    public void BeginUpdate() => _jsonRepository.BeginUpdate();
 
-    public void BeginUpdate()
-    {
-        _pendingConfigurations = new();
-    }
-
-    public void UpdateConfiguration(Type type, MutableJsonObject value)
-    {
-        if (_pendingConfigurations == null)
-        {
-            throw new InvalidOperationException("Must call BeginUpdate() before updating configurations");
-        }
-
-        _pendingConfigurations[type] = value;
-    }
+    public void UpdateConfiguration(Type type, MutableJsonObject value) => _jsonRepository.UpdateConfiguration(type, value);
 
     /// <summary>
     /// Commits the update with eager deserialization to the MasterBackplane.
@@ -137,8 +117,7 @@ internal class ConfigurationState : IDisposable
             _logger.SnapshotPublished(snapshot.Version, snapshot.Count);
 
             // Store the raw JSON for backward compatibility with GetConfigurationAsJson
-            _configs = finalConfigurations;
-            _pendingConfigurations = null;
+            _jsonRepository.CommitUpdate(finalConfigurations);
         }
         else
         {
@@ -153,8 +132,7 @@ internal class ConfigurationState : IDisposable
 
                 // Only update JSON when deserialization succeeds - keeps consistency
                 // between GetConfig<T>() (cached instances) and GetConfigAsJson() (raw JSON)
-                _configs = finalConfigurations;
-                _pendingConfigurations = null;
+                _jsonRepository.CommitUpdate(finalConfigurations);
             }
             else
             {
@@ -169,7 +147,7 @@ internal class ConfigurationState : IDisposable
                 // Rollback: keep old JSON AND old cached instances
                 // Don't update _configs - keep the last good JSON
                 // Don't decrement version - we want to track that an attempt was made
-                _pendingConfigurations = null;
+                _jsonRepository.RollbackUpdate();
             }
         }
     }
@@ -179,65 +157,19 @@ internal class ConfigurationState : IDisposable
     /// Used during the transition period.
     /// </summary>
     public void CommitUpdate(Dictionary<Type, MutableJsonObject> finalConfigurations)
-    {
-        _configs = finalConfigurations;
-        _pendingConfigurations = null;
-    }
+        => _jsonRepository.CommitUpdate(finalConfigurations);
 
-    public void RollbackUpdate()
-    {
-        _pendingConfigurations = null;
-    }
+    public void RollbackUpdate() => _jsonRepository.RollbackUpdate();
 
-    public Type? FindRegistration<T>() => FindRegistration(typeof(T));
+    public Type? FindRegistration<T>() => _jsonRepository.FindRegistration<T>();
 
-    /// <summary>
-    /// Finds a configuration registration by concrete type.
-    /// Thread-safe to avoid race conditions.
-    /// </summary>
-    public Type? FindRegistration(Type type)
-    {
-        var currentConfigs = CurrentConfigurations;
-        return currentConfigs.ContainsKey(type) ? type : null;
-    }
+    public Type? FindRegistration(Type type) => _jsonRepository.FindRegistration(type);
 
-    public bool TryGetConfiguration<T>(out MutableJsonObject? value) => TryGetConfiguration(typeof(T), out value);
+    public bool TryGetConfiguration<T>(out MutableJsonObject? value) => _jsonRepository.TryGetConfiguration<T>(out value);
 
-    /// <summary>
-    /// Tries to get a configuration value by type.
-    /// Thread-safe to avoid race conditions with volatile fields.
-    /// </summary>
-    public bool TryGetConfiguration(Type type, out MutableJsonObject? value)
-    {
-        var foundType = FindRegistration(type);
-        if (foundType != null)
-        {
-            var currentConfigs = CurrentConfigurations;
-            if (currentConfigs.TryGetValue(foundType, out value))
-            {
-                return true;
-            }
-        }
+    public bool TryGetConfiguration(Type type, out MutableJsonObject? value) => _jsonRepository.TryGetConfiguration(type, out value);
 
-        value = default;
-        return false;
-    }
-
-    public JsonElement? GetConfigurationAsJson(Type type)
-    {
-        var currentConfigs = CurrentConfigurations;
-        if (currentConfigs.TryGetValue(type, out var value))
-        {
-            byte[] bytes;
-            lock (value)
-            {
-                bytes = MutableJsonDocument.ToUtf8Bytes(value);
-            }
-            using var doc = JsonDocument.Parse(bytes);
-            return doc.RootElement.Clone();
-        }
-        return null;
-    }
+    public JsonElement? GetConfigurationAsJson(Type type) => _jsonRepository.GetConfigurationAsJson(type);
 
     public IConfigurationHealthService GetHealthService() => _healthReporter.HealthService;
 

@@ -90,13 +90,10 @@ internal sealed class ReactiveConfigManager : IDisposable
     {
         private readonly MasterBackplane _backplane;
         private readonly IObservable<T> _observable;
-        private readonly ILogger _logger;
-        private bool _disposed;
 
         public BackplaneReactiveConfig(MasterBackplane backplane, ILogger logger)
         {
             _backplane = backplane;
-            _logger = logger;
             _observable = backplane.GetTypeProjection<T>();
         }
 
@@ -106,7 +103,7 @@ internal sealed class ReactiveConfigManager : IDisposable
 
         public void Dispose()
         {
-            _disposed = true;
+            // No resources to dispose - backplane and observable are shared
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Cocoar.Capabilities;
@@ -50,11 +51,11 @@ public sealed class ConfigurationDeserializationException : Exception
         }
 
         var sb = new StringBuilder();
-        sb.Append($"Configuration deserialization failed for {failures.Count} types:");
+        sb.Append(CultureInfo.InvariantCulture, $"Configuration deserialization failed for {failures.Count} types:");
         foreach (var failure in failures)
         {
             sb.AppendLine();
-            sb.Append($"  - {failure.ConfigType.Name}: {failure.Message}");
+            sb.Append(CultureInfo.InvariantCulture, $"  - {failure.ConfigType.Name}: {failure.Message}");
         }
         return sb.ToString();
     }
