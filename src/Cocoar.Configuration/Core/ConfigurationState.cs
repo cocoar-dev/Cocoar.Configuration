@@ -158,6 +158,10 @@ internal class ConfigurationState : IDisposable
             var snapshot = builder.Build(++_configVersion);
             _backplane?.Publish(snapshot);
             _logger.SnapshotPublished(snapshot.Version, snapshot.Count);
+
+            // Store the raw JSON for backward compatibility with GetConfigurationAsJson
+            _configs = finalConfigurations;
+            _pendingConfigurations = null;
         }
         else
         {
@@ -169,6 +173,11 @@ internal class ConfigurationState : IDisposable
                 _lastDeserializationFailures = [];
                 _backplane?.Publish(snapshot);
                 _logger.SnapshotPublished(snapshot.Version, snapshot.Count);
+
+                // Only update JSON when deserialization succeeds - keeps consistency
+                // between GetConfig<T>() (cached instances) and GetConfigAsJson() (raw JSON)
+                _configs = finalConfigurations;
+                _pendingConfigurations = null;
             }
             else
             {
@@ -180,14 +189,12 @@ internal class ConfigurationState : IDisposable
                     _logger.DeserializationFailed(failure.Exception, failure.ConfigType.Name, failure.Message);
                 }
 
+                // Rollback: keep old JSON AND old cached instances
+                // Don't update _configs - keep the last good JSON
                 // Don't decrement version - we want to track that an attempt was made
-                // The backplane keeps the old snapshot
+                _pendingConfigurations = null;
             }
         }
-
-        // Also store the raw JSON for backward compatibility with GetConfigurationAsJson
-        _configs = finalConfigurations;
-        _pendingConfigurations = null;
     }
 
     /// <summary>
