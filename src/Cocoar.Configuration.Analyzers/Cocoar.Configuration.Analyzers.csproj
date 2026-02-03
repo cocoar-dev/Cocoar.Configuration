@@ -12,6 +12,8 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <!-- Required for analyzer projects to satisfy RS1036 -->
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- Analyzers don't need symbols - prevents snupkg validation errors when referenced by other packages -->
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>

@@ -139,17 +139,19 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
             await Task.Delay(100);
         }
 
-        // Wait for final configuration to settle
+        // Compute expected result from current provider states
+        var naiveResult = ComputeNaiveFullMerge(providers.Select(p => p.Value).ToList());
+
+        // Wait for incremental config to catch up with all debounced changes
         await ActiveWaitHelpers.WaitUntilAsync(
             () => {
                 var config = configManager.GetConfig<FuzzConfig>();
-                return config != null;
+                return config != null && config.Data.Count == naiveResult.Count;
             },
             timeout: TimeSpan.FromSeconds(5),
-            description: "random change sequence completion");
+            description: "incremental config to match expected key count");
 
         var incrementalConfig = configManager.GetConfig<FuzzConfig>();
-        var naiveResult = ComputeNaiveFullMerge(providers.Select(p => p.Value).ToList());
 
         ValidateResultsMatch(incrementalConfig, naiveResult);
     }

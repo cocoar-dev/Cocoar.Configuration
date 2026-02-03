@@ -184,10 +184,10 @@ public class ErrorMessageTests
                 rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
             ]
             // NOTE: No setup.Secrets() - deserialization will fail
-        ).Initialize();
+        );
 
-        // Act & Assert - deserialization fails, not Open()
-        var ex = Assert.ThrowsAny<Exception>(() => manager.GetConfig<ConfigWithSecretString>());
+        // Act & Assert - With Master Backplane, deserialization fails at startup
+        var ex = Assert.Throws<ConfigurationDeserializationException>(() => manager.Initialize());
 
         // The error is about JSON deserialization, not about secrets infrastructure
         Assert.Contains("Deserialization", ex.Message);

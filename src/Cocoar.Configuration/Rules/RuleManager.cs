@@ -5,7 +5,6 @@ using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Helper;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Providers.Abstractions;
-using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
 using Microsoft.Extensions.Logging;
 
@@ -25,20 +24,16 @@ internal static partial class RuleManagerLog
 
 /// <summary>
 /// Coordinates rule execution: provider lifecycle, query management, caching, and change tracking.
-/// Delegates caching to TransformCache and subscriptions to ChangeSubscription.
+/// Delegates lifecycle to RuleProviderLease, caching to TransformCache, and subscriptions to ChangeSubscription.
 /// </summary>
 internal sealed class RuleManager : IDisposable
 {
     private readonly ConfigRule _rule;
     private readonly ILogger _logger;
-    private readonly ProviderRegistry _registry;
 
+    private readonly RuleProviderLease _providerLease;
     private readonly TransformCache _cache = new();
     private readonly ChangeSubscription _changeSubscription = new();
-
-    private ProviderRegistry.ProviderHandle? _providerHandle;
-    private ConfigurationProvider? _provider;
-    private string? _providerKey;
 
     internal enum RuleExecutionOutcome
     {
@@ -66,7 +61,7 @@ internal sealed class RuleManager : IDisposable
     {
         _rule = rule;
         _logger = logger;
-        _registry = registry;
+        _providerLease = new RuleProviderLease(rule.ProviderType, registry);
     }
 
     public async Task<ReadOnlyMemory<byte>?> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
@@ -99,7 +94,7 @@ internal sealed class RuleManager : IDisposable
                 LastOutcome = RuleExecutionOutcome.Up;
                 return _cache.GetCachedBytes();
             }
-            var bytesMemory = await _provider!.FetchConfigurationBytesAsync(queryOptions, ct).ConfigureAwait(false);
+            var bytesMemory = await _providerLease.Provider!.FetchConfigurationBytesAsync(queryOptions, ct).ConfigureAwait(false);
 
             try
             {
@@ -152,18 +147,19 @@ internal sealed class RuleManager : IDisposable
 
     private void EnsureProvider(IProviderConfiguration providerOptions)
     {
-        var newProviderKey = providerOptions.GenerateProviderKey();
-        if (_provider != null && _providerKey == newProviderKey)
-        {
-            return;
-        }
+        _providerLease.EnsureProvider(providerOptions, OnBeforeProviderRebuild);
+    }
 
-        RebuildProvider(providerOptions, newProviderKey);
+    private void OnBeforeProviderRebuild()
+    {
+        _changeSubscription.Reset();
+        LastSelectionHash = null;
+        _cache.Invalidate();
     }
 
     private void EnsureSubscription(IProviderQuery queryOptions)
     {
-        if (_provider is null)
+        if (!_providerLease.HasProvider)
         {
             return;
         }
@@ -171,7 +167,7 @@ internal sealed class RuleManager : IDisposable
         var newQueryKey = ComputeQueryKey(queryOptions);
 
         bool subscriptionChanged = _changeSubscription.EnsureSubscription(
-            _provider,
+            _providerLease.Provider!,
             queryOptions,
             newQueryKey,
             ProcessProviderChangeBytes);
@@ -180,24 +176,6 @@ internal sealed class RuleManager : IDisposable
         {
             LastSelectionHash = null;
         }
-    }
-
-    private void RebuildProvider(IProviderConfiguration providerOptions, string? providerKey)
-    {
-        _changeSubscription.Reset();
-
-        if (_providerHandle is not null)
-        {
-            Safety.DisposeQuietly(_providerHandle);
-            _providerHandle = null;
-        }
-
-        _providerHandle = _registry.Acquire(_rule.ProviderType, providerOptions);
-        _provider = _providerHandle.Provider;
-        _providerKey = providerKey;
-
-        LastSelectionHash = null;
-        _cache.Invalidate();
     }
 
     private void ProcessProviderChangeBytes(byte[] bytesMemory)
@@ -309,13 +287,6 @@ internal sealed class RuleManager : IDisposable
     {
         _changeSubscription.Dispose();
         _cache.Dispose();
-
-        if (_providerHandle is not null)
-        {
-            Safety.DisposeQuietly(_providerHandle);
-            _providerHandle = null;
-        }
-
-        _provider = null;
+        _providerLease.Dispose();
     }
 }

@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration.Core;
 
 namespace Cocoar.Configuration.Reactive;
-
 
 internal static partial class ReactiveTupleConfigLog
 {
@@ -16,13 +16,14 @@ internal static partial class ReactiveTupleConfigLog
     [LoggerMessage(EventId = 6101, Level = LogLevel.Warning, Message = "Failed to build CurrentValue for tuple {TupleType}")]
     public static partial void BuildCurrentValueFailed(this ILogger logger, Exception exception, string TupleType);
 
-    [LoggerMessage(EventId = 6102, Level = LogLevel.Debug, Message = "Tuple pass alignment discrepancy for {TupleType}: got {IncomingPass} expected {CurrentPass}")]
-    public static partial void TuplePassAlignmentDiscrepancy(this ILogger logger, string TupleType, long IncomingPass, long CurrentPass);
-
     [LoggerMessage(EventId = 6103, Level = LogLevel.Warning, Message = "Failed building tuple emission for {TupleType}")]
     public static partial void BuildTupleEmissionFailed(this ILogger logger, Exception exception, string TupleType);
 }
 
+/// <summary>
+/// Provides reactive tuple configuration using the MasterBackplane.
+/// Tuple updates are atomic - all elements update together when the snapshot changes.
+/// </summary>
 internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDisposable where TTuple : struct
 {
     private readonly ILogger _logger;
@@ -30,7 +31,6 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
     private readonly IObservable<TTuple> _observable;
     private readonly Func<object?[], object> _builder;
     private readonly Type[] _elementTypes;
-    private volatile object?[] _latestValues;
     private readonly ConfigManager _configManager;
 
     public ReactiveTupleConfig(
@@ -46,8 +46,8 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
             throw new InvalidOperationException($"{typeof(TTuple).Name} is not a ValueTuple with elements.");
         }
 
+        // Validate all elements are present
         var missing = new List<string>();
-        _latestValues = new object?[_elementTypes.Length];
         for (var i = 0; i < _elementTypes.Length; i++)
         {
             var val = configManager.GetConfig(_elementTypes[i]);
@@ -55,17 +55,17 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
             {
                 missing.Add(_elementTypes[i].Name);
             }
-
-            _latestValues[i] = val;
         }
+
         if (missing.Count > 0)
         {
             throw new InvalidOperationException(
                 $"Cannot create IReactiveConfig<{typeof(TTuple).Name}>. Missing configuration for: {string.Join(", ", missing)}");
         }
 
-        var merged = CreateMergedPerPassObservable(reactiveConfigManager);
-        _observable = merged
+        // Create observable from the backplane's snapshot stream
+        // This provides atomicity - all tuple elements update together
+        _observable = CreateTupleObservable(configManager)
             .Catch<TTuple, Exception>(ex =>
             {
                 _logger.TupleStreamErrorIgnored(ex, typeof(TTuple).Name);
@@ -84,15 +84,12 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
         {
             try
             {
+                var values = new object?[_elementTypes.Length];
                 for (var i = 0; i < _elementTypes.Length; i++)
                 {
-                    var value = _configManager.GetConfig(_elementTypes[i]);
-                    if (value != null)
-                    {
-                        _latestValues[i] = value;
-                    }
+                    values[i] = _configManager.GetConfig(_elementTypes[i]);
                 }
-                return (TTuple)_builder(_latestValues);
+                return (TTuple)_builder(values);
             }
             catch (Exception ex)
             {
@@ -104,98 +101,125 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
 
     public IDisposable Subscribe(IObserver<TTuple> observer) => _observable.Subscribe(observer);
 
-    private IObservable<TTuple> CreateMergedPerPassObservable(ReactiveConfigManager manager)
+    private IObservable<TTuple> CreateTupleObservable(ConfigManager configManager)
     {
-        var streams = new IObservable<object>[_elementTypes.Length];
-        for (var i = 0; i < _elementTypes.Length; i++)
-        {
-            var method = typeof(ReactiveConfigManager).GetMethod("ObservePerPass", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public)!;
-            var g = method.MakeGenericMethod(_elementTypes[i]);
-            var passObservable = g.Invoke(manager, null)!;
-            var projected = (IObservable<object>)typeof(ReactiveTupleConfig<TTuple>)
-                .GetMethod(nameof(Project), BindingFlags.NonPublic | BindingFlags.Static)!
-                .MakeGenericMethod(_elementTypes[i])
-                .Invoke(null, [passObservable, i])!;
-            streams[i] = projected;
-        }
-
-        var merged = streams.Merge();
+        // Access the backplane through the state (after initialization)
+        // The backplane provides atomic updates for all types
         return Observable.Create<TTuple>(observer =>
         {
-            var gate = new object();
-            long currentPassId;
-            int received;
-            bool changedAny;
-            var slotChanged = new bool[_elementTypes.Length];
+            TTuple? previousTuple = null;
 
-            void Reset(long passId)
+            // Subscribe to the backplane's snapshot stream
+            var backplane = configManager.GetType()
+                .GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance)?
+                .GetValue(configManager);
+
+            if (backplane == null)
             {
-                currentPassId = passId;
-                received = 0;
-                changedAny = false;
-                Array.Clear(slotChanged, 0, slotChanged.Length);
+                observer.OnError(new InvalidOperationException("Cannot access ConfigurationState for tuple observation"));
+                return Disposable.Empty;
             }
 
-            Reset(-1);
+            var backplaneProp = backplane.GetType().GetProperty("Backplane", BindingFlags.Public | BindingFlags.Instance);
+            var masterBackplane = backplaneProp?.GetValue(backplane);
 
-            return merged.Subscribe(evtObj =>
+            if (masterBackplane == null)
             {
-                if (evtObj is not PassEnvelope env)
+                observer.OnError(new InvalidOperationException("MasterBackplane not initialized for tuple observation"));
+                return Disposable.Empty;
+            }
+
+            var snapshotStreamProp = masterBackplane.GetType().GetProperty("SnapshotStream");
+            var snapshotStream = snapshotStreamProp?.GetValue(masterBackplane) as IObservable<ConfigSnapshot>;
+
+            if (snapshotStream == null)
+            {
+                observer.OnError(new InvalidOperationException("Cannot access SnapshotStream for tuple observation"));
+                return Disposable.Empty;
+            }
+
+            return snapshotStream.Subscribe(snapshot =>
+            {
+                try
                 {
-                    return;
+                    var values = new object?[_elementTypes.Length];
+                    var allPresent = true;
+
+                    for (var i = 0; i < _elementTypes.Length; i++)
+                    {
+                        values[i] = snapshot.GetConfig(_elementTypes[i]);
+                        if (values[i] == null)
+                        {
+                            allPresent = false;
+                            break;
+                        }
+                    }
+
+                    if (!allPresent)
+                    {
+                        return; // Skip if any element is missing
+                    }
+
+                    var tuple = (TTuple)_builder(values);
+
+                    // Only emit if any element changed (using reference equality)
+                    var changed = previousTuple == null;
+                    if (!changed && previousTuple.HasValue)
+                    {
+                        var prevValues = ExtractTupleValues(previousTuple.Value);
+                        for (var i = 0; i < _elementTypes.Length; i++)
+                        {
+                            if (!ReferenceEquals(prevValues[i], values[i]))
+                            {
+                                changed = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        previousTuple = tuple;
+                        observer.OnNext(tuple);
+                    }
                 }
-
-                lock (gate)
+                catch (Exception ex)
                 {
-                    if (received == 0)
-                    {
-                        Reset(env.PassId);
-                    }
-                    else if (env.PassId != currentPassId)
-                    {
-                        _logger.TuplePassAlignmentDiscrepancy(typeof(TTuple).Name, env.PassId, currentPassId);
-                        Reset(env.PassId);
-                    }
-
-                    if (!slotChanged[env.Index])
-                    {
-                        slotChanged[env.Index] = true;
-                        received++;
-                        if (env.Changed)
-                        {
-                            changedAny = true;
-                        }
-
-                        _latestValues[env.Index] = env.Value;
-                    }
-
-                    if (received == _elementTypes.Length)
-                    {
-                        if (changedAny)
-                        {
-                            try
-                            {
-                                var tuple = (TTuple)_builder(_latestValues);
-                                observer.OnNext(tuple);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.BuildTupleEmissionFailed(ex, typeof(TTuple).Name);
-                            }
-                        }
-                        currentPassId = -1;
-                    }
+                    _logger.BuildTupleEmissionFailed(ex, typeof(TTuple).Name);
                 }
             }, observer.OnError, observer.OnCompleted);
         });
     }
 
-    private static IObservable<object> Project<T>(IObservable<ReactiveConfigManager.PassEvent<T>> source, int index)
+    private object?[] ExtractTupleValues(TTuple tuple)
     {
-        return source.Select(e => (object)new PassEnvelope(index, e.PassId, e.Changed, e.Value));
+        var values = new object?[_elementTypes.Length];
+        var fields = typeof(TTuple).GetFields(BindingFlags.Public | BindingFlags.Instance);
+
+        var index = 0;
+        ExtractRecursive(tuple, fields, ref index, values);
+        return values;
     }
 
-    private readonly record struct PassEnvelope(int Index, long PassId, bool Changed, object? Value);
+    private static void ExtractRecursive(object tuple, FieldInfo[] fields, ref int index, object?[] values)
+    {
+        foreach (var field in fields)
+        {
+            if (field.Name == "Rest" && field.FieldType.FullName?.StartsWith("System.ValueTuple", StringComparison.Ordinal) == true)
+            {
+                var rest = field.GetValue(tuple);
+                if (rest != null)
+                {
+                    var restFields = field.FieldType.GetFields(BindingFlags.Public | BindingFlags.Instance);
+                    ExtractRecursive(rest, restFields, ref index, values);
+                }
+            }
+            else
+            {
+                values[index++] = field.GetValue(tuple);
+            }
+        }
+    }
 
     public void Dispose() => _subscription.Dispose();
 }
@@ -246,7 +270,6 @@ internal static class TupleShapeCache
 
     private static Func<object?[], object> CompileBuilder(Type[] elements)
     {
-
         var param = Expression.Parameter(typeof(object?[]), "arr");
 
         var body = Build(0);
@@ -260,7 +283,7 @@ internal static class TupleShapeCache
             {
                 var ctorTypes = elements.Skip(start).Take(remaining).ToArray();
                 var ctors = GetTupleType(remaining, ctorTypes);
-                var args = ctorTypes.Select((t,i) => Expression.Convert(Expression.ArrayIndex(param, Expression.Constant(start + i)), t));
+                var args = ctorTypes.Select((t, i) => Expression.Convert(Expression.ArrayIndex(param, Expression.Constant(start + i)), t));
                 return Expression.New(ctors.GetConstructors()[0], args);
             }
             else
@@ -268,7 +291,7 @@ internal static class TupleShapeCache
                 var headTypes = elements.Skip(start).Take(7).ToArray();
                 var restExpr = Build(start + 7);
                 var tupleTypeHead = GetTupleType(8, headTypes.Concat([restExpr.Type]).ToArray());
-                var args = headTypes.Select((t,i) => Expression.Convert(Expression.ArrayIndex(param, Expression.Constant(start + i)), t))
+                var args = headTypes.Select((t, i) => Expression.Convert(Expression.ArrayIndex(param, Expression.Constant(start + i)), t))
                     .Concat([restExpr]);
                 return Expression.New(tupleTypeHead.GetConstructors()[0], args);
             }

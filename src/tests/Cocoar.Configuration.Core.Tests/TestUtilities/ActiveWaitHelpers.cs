@@ -31,14 +31,21 @@ public static class ActiveWaitHelpers
         
         while (stopwatch.Elapsed < timeout)
         {
-            if (condition())
+            try
             {
-                return;
+                if (condition())
+                {
+                    return;
+                }
+            }
+            catch
+            {
+                // Condition threw (e.g., accessing property on incomplete state) - treat as "not yet met"
             }
 
             await Task.Delay(pollInterval);
         }
-        
+
         throw new TimeoutException($"Timeout waiting for {description} after {timeout}");
     }
 
@@ -65,14 +72,21 @@ public static class ActiveWaitHelpers
         
         while (stopwatch.Elapsed < timeout)
         {
-            if (await condition())
+            try
             {
-                return;
+                if (await condition())
+                {
+                    return;
+                }
+            }
+            catch
+            {
+                // Condition threw (e.g., accessing property on incomplete state) - treat as "not yet met"
             }
 
             await Task.Delay(pollInterval);
         }
-        
+
         throw new TimeoutException($"Timeout waiting for {description} after {timeout}");
     }
 

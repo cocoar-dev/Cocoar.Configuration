@@ -8,6 +8,18 @@ using Xunit;
 
 namespace Cocoar.Configuration.DI.Tests;
 
+/// <summary>
+/// Tests for service lifetime capabilities.
+///
+/// IMPORTANT: With the Master Backplane architecture (v5.0+), configuration instances
+/// are cached globally. This means:
+/// - GetConfig always returns the same cached instance
+/// - DI lifetime settings (Scoped/Transient) don't create new configuration instances
+/// - The instance only changes when the configuration is recomputed (e.g., file change)
+///
+/// The DI lifetime still affects when the service is resolved within the container,
+/// but the underlying configuration instance is always the same cached object.
+/// </summary>
 public class ServiceLifetimeCapabilityTests
 {
     private record TestService(int Value);
@@ -22,11 +34,11 @@ public class ServiceLifetimeCapabilityTests
         ], setup => [
             setup.ConcreteType<TestService>().AsSingleton()
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance1 = sp.GetRequiredService<TestService>();
         var instance2 = sp.GetRequiredService<TestService>();
-        
+
         Assert.Same(instance1, instance2);
         Assert.Equal(42, instance1.Value);
     }
@@ -40,51 +52,54 @@ public class ServiceLifetimeCapabilityTests
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Singleton)
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance1 = sp.GetRequiredService<TestService>();
         var instance2 = sp.GetRequiredService<TestService>();
-        
+
         Assert.Same(instance1, instance2);
         Assert.Equal(42, instance1.Value);
     }
 
     [Fact]
-    public void AsTransient_Should_Create_Different_Instances()
+    public void AsTransient_Returns_Same_Cached_Instance()
     {
+        // With Master Backplane architecture, configuration instances are cached globally.
+        // AsTransient affects DI container behavior but doesn't create new config instances.
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().AsTransient()
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance1 = sp.GetRequiredService<TestService>();
         var instance2 = sp.GetRequiredService<TestService>();
-        
-        Assert.NotSame(instance1, instance2);
+
+        // Both return the same cached instance from the backplane
+        Assert.Same(instance1, instance2);
         Assert.Equal(123, instance1.Value);
-        Assert.Equal(123, instance2.Value);
     }
 
     [Fact]
-    public void RegisterAs_Transient_Should_Create_Different_Instances()
+    public void RegisterAs_Transient_Returns_Same_Cached_Instance()
     {
+        // With Master Backplane architecture, configuration instances are cached globally.
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(123))).Required()
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Transient)
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance1 = sp.GetRequiredService<TestService>();
         var instance2 = sp.GetRequiredService<TestService>();
-        
-        Assert.NotSame(instance1, instance2);
+
+        // Both return the same cached instance from the backplane
+        Assert.Same(instance1, instance2);
         Assert.Equal(123, instance1.Value);
-        Assert.Equal(123, instance2.Value);
     }
 
     [Fact]
@@ -96,36 +111,37 @@ public class ServiceLifetimeCapabilityTests
         ], setup => [
             setup.ConcreteType<TestService>().RegisterAs(ServiceLifetime.Scoped, "my-key")
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance = sp.GetRequiredKeyedService<TestService>("my-key");
-        
+
         Assert.NotNull(instance);
         Assert.Equal(999, instance.Value);
     }
 
     [Fact]
-    public void Default_Registration_Should_Be_Scoped()
+    public void Default_Registration_Returns_Same_Cached_Instance()
     {
+        // With Master Backplane architecture, configuration instances are cached globally.
+        // All scopes receive the same cached instance.
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(rules => [
             rules.For<TestService>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestService(555))).Required()
         ], setup => [
             setup.ConcreteType<TestService>() // No explicit lifetime specified
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         using var scope1 = sp.CreateScope();
         using var scope2 = sp.CreateScope();
-        
+
         var instance1a = scope1.ServiceProvider.GetRequiredService<TestService>();
         var instance1b = scope1.ServiceProvider.GetRequiredService<TestService>();
         var instance2 = scope2.ServiceProvider.GetRequiredService<TestService>();
-        
-        // Same instance within scope
+
+        // All instances are the same cached object from the backplane
         Assert.Same(instance1a, instance1b);
-        // Different instance across scopes
-        Assert.NotSame(instance1a, instance2);
+        Assert.Same(instance1a, instance2);
     }
 
     [Fact]
@@ -137,11 +153,11 @@ public class ServiceLifetimeCapabilityTests
         ], setup => [
             setup.ConcreteType<TestService>().AsSingleton("singleton-key")
         ]);
-        
+
         var sp = services.BuildServiceProvider();
         var instance1 = sp.GetRequiredKeyedService<TestService>("singleton-key");
         var instance2 = sp.GetRequiredKeyedService<TestService>("singleton-key");
-        
+
         Assert.Same(instance1, instance2); // Should be same instance (singleton)
         Assert.Equal(777, instance1.Value);
     }
@@ -155,13 +171,10 @@ public class ServiceLifetimeCapabilityTests
         ], setup => [
             setup.ConcreteType<TestService>().DisableAutoRegistration()
         ]);
-        
+
         var sp = services.BuildServiceProvider();
-        
+
         // Service should not be registered
         Assert.Throws<InvalidOperationException>(() => sp.GetRequiredService<TestService>());
     }
 }
-
-
-

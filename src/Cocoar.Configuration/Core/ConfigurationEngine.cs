@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using Cocoar.Capabilities;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
-using Cocoar.Configuration.Reactive;
 using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
 
@@ -27,23 +27,29 @@ internal static partial class ConfigurationEngineLog
 
     [LoggerMessage(EventId = 2005, Level = LogLevel.Error, Message = "Recompute failed from change trigger")]
     public static partial void RecomputeFailedFromChange(this ILogger logger, Exception exception);
+
+    [LoggerMessage(EventId = 2006, Level = LogLevel.Information, Message = "Startup phase complete - switching to resilient mode")]
+    public static partial void StartupComplete(this ILogger logger);
 }
 
 /// <summary>
 /// Central engine for configuration computation and change management.
-/// Handles initialization, recomputation, task scheduling, and change subscriptions.
+/// Handles initialization, recomputation, and change subscriptions.
+/// Delegates scheduling/cancellation to RecomputeScheduler.
 /// </summary>
 internal class ConfigurationEngine : IDisposable
 {
     private readonly ConfigurationState _state;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _recomputeSemaphore = new(1, 1);
-    private readonly Lock _recomputeGate = new();
+    private readonly RecomputeScheduler _scheduler = new();
 
-    private CancellationTokenSource? _recomputeCts;
-    private Task? _currentRecomputeTask;
     private bool _disposed;
-    private readonly List<IDisposable> _changeSubscriptions = new();
+    private readonly List<IDisposable> _changeSubscriptions = [];
+
+    // Context for deserialization
+    private ExposureRegistry? _bindingRegistry;
+    private ConfigManagerCapabilityScope? _capabilityScope;
 
     public ConfigurationEngine(ConfigurationState state, ILogger logger)
     {
@@ -51,28 +57,43 @@ internal class ConfigurationEngine : IDisposable
         _logger = logger;
     }
 
-    public Task? CurrentRecomputeTask => _currentRecomputeTask;
+    public Task? CurrentRecomputeTask => _scheduler.CurrentRecomputeTask;
 
     /// <summary>
     /// Initializes the configuration system: analyzes rules, creates managers, performs initial computation, and sets up subscriptions.
+    /// Throws ConfigurationDeserializationException if any deserialization fails during startup (fail-fast behavior).
     /// </summary>
     public void InitializeAndCompute(
         List<ConfigRule> rules,
         List<RuleManager> ruleManagers,
         ProviderRegistry providerRegistry,
         IConfigurationAccessor configAccessor,
+        ExposureRegistry bindingRegistry,
+        ConfigManagerCapabilityScope capabilityScope,
         Action<int> scheduleRecomputeCallback,
         int debounceMilliseconds)
     {
+        // Store context for runtime recomputes
+        _bindingRegistry = bindingRegistry;
+        _capabilityScope = capabilityScope;
+
+        // Initialize the backplane
+        _state.InitializeBackplane(bindingRegistry);
+
         ruleManagers.Clear();
         ruleManagers.AddRange(rules.Select(rule => new RuleManager(rule, _logger, providerRegistry)));
 
         try
         {
+            // During startup, deserialization failures throw
             RecomputeAllConfigurationsSafe(ruleManagers, configAccessor);
             CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
 
             _state.ReportSuccessfulRecompute(0);
+
+            // Mark startup complete - future failures will preserve last good config
+            _state.MarkStartupComplete();
+            _logger.StartupComplete();
         }
         catch (Exception ex)
         {
@@ -89,31 +110,31 @@ internal class ConfigurationEngine : IDisposable
     public void ScheduleRecompute(
         List<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
-        ReactiveConfigManager reactiveConfigManager,
         int startIndex)
     {
-        lock (_recomputeGate)
+        _scheduler.Schedule(ct =>
         {
-            var cts = RenewCancellationSource();
-
-            _currentRecomputeTask = Task.Run(() =>
+            try
             {
-                try
+                RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, ct);
+                _state.ReportSuccessfulRecompute(startIndex);
+
+                // Report any deserialization failures to health service
+                if (_state.LastDeserializationFailures.Count > 0)
                 {
-                    RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, cts.Token);
-                    _state.ReportSuccessfulRecompute(startIndex);
-                    reactiveConfigManager.NotifyConfigurationObservers(configAccessor.GetConfig);
+                    _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
                 }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception ex)
-                {
-                    _logger.RuntimeRecomputeFailed(ex);
-                    _state.ReportFailedRecompute(startIndex, ex);
-                }
-            }, cts.Token);
-        }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when cancelled, don't report as failure
+            }
+            catch (Exception ex)
+            {
+                _logger.RuntimeRecomputeFailed(ex);
+                _state.ReportFailedRecompute(startIndex, ex);
+            }
+        });
     }
 
     /// <summary>
@@ -193,6 +214,7 @@ internal class ConfigurationEngine : IDisposable
             _recomputeSemaphore.Release();
         }
     }
+
     private void RecomputeAllConfigurations(
         IEnumerable<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
@@ -209,7 +231,17 @@ internal class ConfigurationEngine : IDisposable
         RecomputeSuffix(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
-        _state.CommitUpdate(mergedConfigs);
+
+        // Use new method with eager deserialization
+        if (_bindingRegistry != null && _capabilityScope != null)
+        {
+            _state.CommitUpdateWithDeserialization(mergedConfigs, _bindingRegistry, _capabilityScope);
+        }
+        else
+        {
+            // Fallback for tests or edge cases
+            _state.CommitUpdate(mergedConfigs);
+        }
     }
 
     private async Task RecomputeAllConfigurationsAsync(
@@ -228,7 +260,17 @@ internal class ConfigurationEngine : IDisposable
         await RecomputeSuffixAsync(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
-        _state.CommitUpdate(mergedConfigs);
+
+        // Use new method with eager deserialization
+        if (_bindingRegistry != null && _capabilityScope != null)
+        {
+            _state.CommitUpdateWithDeserialization(mergedConfigs, _bindingRegistry, _capabilityScope);
+        }
+        else
+        {
+            // Fallback for tests or edge cases
+            _state.CommitUpdate(mergedConfigs);
+        }
     }
 
     private void RestorePrefixContributions(
@@ -392,28 +434,14 @@ internal class ConfigurationEngine : IDisposable
         _changeSubscriptions.Clear();
     }
 
-    private CancellationTokenSource RenewCancellationSource()
-    {
-        var newCts = new CancellationTokenSource();
-        var previous = Interlocked.Exchange(ref _recomputeCts, newCts);
-        Safety.CancelAndDisposeQuietly(previous);
-        return newCts;
-    }
-
-    private void DisposeCancellationSource()
-    {
-        var cts = Interlocked.Exchange(ref _recomputeCts, null);
-        Safety.CancelAndDisposeQuietly(cts);
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
 
-        DisposeCancellationSource();
+        _scheduler.Dispose();
         DisposeAllSubscriptions();
-        _recomputeSemaphore?.Dispose();
+        _recomputeSemaphore.Dispose();
         GC.SuppressFinalize(this);
     }
 }

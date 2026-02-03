@@ -170,4 +170,109 @@ public class EdgeCasesTests
         Assert.Contains("plaintext JSON instead of an encrypted envelope", ex.Message);
         Assert.Contains("Pre-encrypted envelopes are required", ex.Message);
     }
+
+    #region Secret<T?> - Nullable Inner Type Tests
+
+    [Fact]
+    public void Secret_NullableString_WithValue()
+    {
+        // Secret<string?> with an actual value
+        var secret = Secret<string?>.FromPlain("hello");
+        using var lease = secret.Open();
+        Assert.Equal("hello", lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableString_WithNull()
+    {
+        // Secret<string?> with null value
+        var secret = Secret<string?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableInt_WithValue()
+    {
+        // Secret<int?> with an actual value
+        var secret = Secret<int?>.FromPlain(42);
+        using var lease = secret.Open();
+        Assert.Equal(42, lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableInt_WithNull()
+    {
+        // Secret<int?> with null value - properly supports Nullable<T> value types
+        var secret = Secret<int?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableLong_WithValue()
+    {
+        var secret = Secret<long?>.FromPlain(9876543210L);
+        using var lease = secret.Open();
+        Assert.Equal(9876543210L, lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableLong_WithNull()
+    {
+        var secret = Secret<long?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableDouble_WithValue()
+    {
+        var secret = Secret<double?>.FromPlain(3.14159);
+        using var lease = secret.Open();
+        Assert.Equal(3.14159, lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableDouble_WithNull()
+    {
+        var secret = Secret<double?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableBool_WithValue()
+    {
+        var secret = Secret<bool?>.FromPlain(true);
+        using var lease = secret.Open();
+        Assert.True(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableBool_WithNull()
+    {
+        var secret = Secret<bool?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableGuid_WithValue()
+    {
+        var guid = Guid.NewGuid();
+        var secret = Secret<Guid?>.FromPlain(guid);
+        using var lease = secret.Open();
+        Assert.Equal(guid, lease.Value);
+    }
+
+    [Fact]
+    public void Secret_NullableGuid_WithNull()
+    {
+        var secret = Secret<Guid?>.FromPlain(null);
+        using var lease = secret.Open();
+        Assert.Null(lease.Value);
+    }
+
+    #endregion
 }

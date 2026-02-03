@@ -468,9 +468,11 @@ public class StaticJsonProviderIsolationTests
         using var manager = new ConfigManager(rules => [
             rules.For<TestConfig>().FromStaticJson(json).When(useWhen)
         ]).Initialize();
-        // If TEST_ENV is not set, config should not be available
-        var config = manager.GetConfig<TestConfig>();
-        // Can't guarantee TEST_ENV value, just verify rule is created
+
+        // Use TryGetConfig since the rule may be skipped depending on TEST_ENV
+        // GetConfig would throw if the condition is false and rule is skipped
+        var hasConfig = manager.TryGetConfig<TestConfig>(out _);
+        // hasConfig will be true if TEST_ENV == "true", false otherwise
     }
 
     #endregion

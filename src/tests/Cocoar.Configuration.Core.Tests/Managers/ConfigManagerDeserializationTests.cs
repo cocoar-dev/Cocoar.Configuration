@@ -51,7 +51,7 @@ public class ConfigManagerDeserializationTests : IDisposable
     [Trait("Provider", "ConfigManager")]
     [Trait("Feature", "Deserialization")]
     [Trait("Priority", "High")]
-    public void GetConfig_MissingRequiredProperty_ReturnsNullAndLogsError()
+    public void Initialize_MissingRequiredProperty_ThrowsDeserializationException()
     {
         // Arrange: JSON is missing the required "Name" property
         var json = """{"Value": 42}""";
@@ -60,17 +60,14 @@ public class ConfigManagerDeserializationTests : IDisposable
             r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
             logger: _logger);
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
-        // Act
-        var result = configManager.GetConfig<ConfigWithRequired>();
+        // Act & Assert: With Master Backplane, deserialization failures at startup throw
+        var exception = Assert.Throws<ConfigurationDeserializationException>(
+            () => configManager.Initialize());
 
-        // Assert
-        Assert.Null(result);
-        Assert.True(_logger.HasLogEntry(LogLevel.Error, "ConfigWithRequired"),
-            "Expected error log entry containing type name 'ConfigWithRequired'");
-        Assert.True(_logger.HasLogEntry(LogLevel.Error, 5100),
-            "Expected error log entry with EventId 5100");
+        Assert.Single(exception.Failures);
+        Assert.Equal(typeof(ConfigWithRequired), exception.Failures[0].ConfigType);
+        Assert.Contains("Name", exception.Failures[0].Message);
     }
 
     [Fact]
@@ -78,7 +75,7 @@ public class ConfigManagerDeserializationTests : IDisposable
     [Trait("Provider", "ConfigManager")]
     [Trait("Feature", "Deserialization")]
     [Trait("Priority", "High")]
-    public void GetRequiredConfig_MissingRequiredProperty_ThrowsInvalidOperationException()
+    public void Initialize_MissingRequiredProperty_ExceptionContainsJsonPreview()
     {
         // Arrange: JSON is missing the required "Name" property
         var json = """{"Value": 42}""";
@@ -87,14 +84,14 @@ public class ConfigManagerDeserializationTests : IDisposable
             r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
             logger: _logger);
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         // Act & Assert
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => configManager.GetRequiredConfig<ConfigWithRequired>());
+        var exception = Assert.Throws<ConfigurationDeserializationException>(
+            () => configManager.Initialize());
 
-        Assert.Contains("ConfigWithRequired", exception.Message);
-        Assert.Contains("hasn't been loaded yet", exception.Message);
+        // The exception should include a JSON preview
+        Assert.NotNull(exception.Failures[0].JsonPreview);
+        Assert.Contains("42", exception.Failures[0].JsonPreview);
     }
 
     [Fact]
@@ -129,7 +126,7 @@ public class ConfigManagerDeserializationTests : IDisposable
     [Trait("Provider", "ConfigManager")]
     [Trait("Feature", "Deserialization")]
     [Trait("Priority", "Medium")]
-    public void GetConfig_TypeMismatch_ReturnsNullAndLogsError()
+    public void Initialize_TypeMismatch_ThrowsDeserializationException()
     {
         // Arrange: JSON has a string where an int is expected
         var json = """{"Count": "not-a-number"}""";
@@ -138,15 +135,13 @@ public class ConfigManagerDeserializationTests : IDisposable
             r => [r.For<ConfigWithInt>().FromStaticJson(json)],
             logger: _logger);
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
-        // Act
-        var result = configManager.GetConfig<ConfigWithInt>();
+        // Act & Assert: With Master Backplane, deserialization failures at startup throw
+        var exception = Assert.Throws<ConfigurationDeserializationException>(
+            () => configManager.Initialize());
 
-        // Assert
-        Assert.Null(result);
-        Assert.True(_logger.HasLogEntry(LogLevel.Error, "ConfigWithInt"),
-            "Expected error log entry containing type name 'ConfigWithInt'");
+        Assert.Single(exception.Failures);
+        Assert.Equal(typeof(ConfigWithInt), exception.Failures[0].ConfigType);
     }
 
     [Fact]
@@ -154,49 +149,27 @@ public class ConfigManagerDeserializationTests : IDisposable
     [Trait("Provider", "ConfigManager")]
     [Trait("Feature", "Deserialization")]
     [Trait("Priority", "Medium")]
-    public void GetConfig_DeserializationFailure_LogContainsJsonContent()
+    public void Initialize_MultipleFailures_ThrowsExceptionWithAllFailures()
     {
-        // Arrange: JSON is missing required property
-        var json = """{"Value": 123}""";
+        // Arrange: Both configs will fail
+        var json1 = """{"Value": 123}"""; // Missing Name
+        var json2 = """{"Count": "not-a-number"}"""; // Type mismatch
 
         var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
+            r => [
+                r.For<ConfigWithRequired>().FromStaticJson(json1),
+                r.For<ConfigWithInt>().FromStaticJson(json2)
+            ],
             logger: _logger);
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
-        // Act
-        var result = configManager.GetConfig<ConfigWithRequired>();
+        // Act & Assert
+        var exception = Assert.Throws<ConfigurationDeserializationException>(
+            () => configManager.Initialize());
 
-        // Assert
-        Assert.Null(result);
-        var logEntry = _logger.FindEntry(LogLevel.Error, "ConfigWithRequired");
-        Assert.NotNull(logEntry);
-        Assert.Contains("123", logEntry.Message); // JSON content should be in the log
-    }
-
-    [Fact]
-    [Trait("Type", "Unit")]
-    [Trait("Provider", "ConfigManager")]
-    [Trait("Feature", "Deserialization")]
-    [Trait("Priority", "Medium")]
-    public void TryGetConfig_MissingRequiredProperty_ReturnsFalse()
-    {
-        // Arrange: JSON is missing the required "Name" property
-        var json = """{"Value": 42}""";
-
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
-            logger: _logger);
-        TrackForDisposal(configManager);
-        configManager.Initialize();
-
-        // Act
-        var success = configManager.TryGetConfig<ConfigWithRequired>(out var result);
-
-        // Assert
-        Assert.False(success);
-        Assert.Null(result);
+        Assert.Equal(2, exception.Failures.Count);
+        Assert.Contains(exception.Failures, f => f.ConfigType == typeof(ConfigWithRequired));
+        Assert.Contains(exception.Failures, f => f.ConfigType == typeof(ConfigWithInt));
     }
 
     [Fact]
@@ -224,5 +197,31 @@ public class ConfigManagerDeserializationTests : IDisposable
         Assert.Equal(0, result.Value); // Default value
         Assert.False(_logger.HasLogEntry(LogLevel.Error, "deserialize"),
             "No error should be logged for successful deserialization");
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "ConfigManager")]
+    [Trait("Feature", "Deserialization")]
+    [Trait("Priority", "High")]
+    public void GetConfig_AfterSuccessfulInit_ReturnsCachedInstance()
+    {
+        // Arrange: Valid JSON
+        var json = """{"Name": "test", "Value": 42}""";
+
+        var configManager = new ConfigManager(
+            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
+            logger: _logger);
+        TrackForDisposal(configManager);
+        configManager.Initialize();
+
+        // Act: Get config multiple times
+        var result1 = configManager.GetConfig<ConfigWithRequired>();
+        var result2 = configManager.GetConfig<ConfigWithRequired>();
+
+        // Assert: Same instance returned (no re-deserialization)
+        Assert.NotNull(result1);
+        Assert.NotNull(result2);
+        Assert.Same(result1, result2);
     }
 }

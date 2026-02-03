@@ -124,8 +124,8 @@ public sealed class Secret<T> : ISecret<T>
 
         if (value is null)
         {
-            // Allow null for nullable types
-            if (!typeof(T).IsValueType && default(T) is null)
+            // Allow null for types that accept null: reference types and Nullable<T> value types
+            if (TypeAcceptsNull())
             {
                 return new SecretLease<T>(value!, CreateCleanupAction(bytes, needsCleanup));
             }
@@ -134,6 +134,19 @@ public sealed class Secret<T> : ISecret<T>
         }
 
         return new SecretLease<T>(value, CreateCleanupAction(bytes, needsCleanup));
+    }
+
+    /// <summary>
+    /// Returns true if type T can legally hold a null value.
+    /// This includes reference types (string?, object?) and nullable value types (int?, bool?).
+    /// </summary>
+    private static bool TypeAcceptsNull()
+    {
+        // Reference types where default is null
+        if (!typeof(T).IsValueType)
+            return true;
+        // Nullable<T> value types (int?, bool?, etc.)
+        return Nullable.GetUnderlyingType(typeof(T)) != null;
     }
 
     private static Action CreateCleanupAction(byte[] bytes, bool needsCleanup)
