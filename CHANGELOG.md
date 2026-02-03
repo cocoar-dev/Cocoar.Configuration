@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [4.2.0] - 2026-02-03
 
 ### Added
 
@@ -32,6 +32,8 @@
 
 ### Fixed
 - **Deserialization failure logging**: `GetConfig<T>()` now logs an error (EventId 5100) when deserialization fails due to missing `required` properties or type mismatches, instead of silently returning `null`. This helps diagnose configuration issues while maintaining backward-compatible behavior (still returns `null`, `GetRequiredConfig<T>()` still throws).
+- **DI registration ordering**: Service descriptors are now emitted in deterministic order (sorted by type full name). Previously, dictionary iteration order could vary between runs, affecting test assertions and diagnostic logging.
+- **Provider rebuild callback ordering**: Fixed callback timing in `RuleProviderLease` to invoke the subscription reset callback *before* rebuilding the provider, matching original `RuleManager` behavior. This prevents spurious change notifications that could occur if a provider's `Dispose()` triggers events while the subscription is still active.
 
 ### Changed
 - **Type Relocation with Forwarding**: Moved core interfaces to abstractions packages with type forwarding for full backward compatibility
