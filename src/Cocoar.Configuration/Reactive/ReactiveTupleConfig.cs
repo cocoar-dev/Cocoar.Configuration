@@ -32,14 +32,17 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
     private readonly Func<object?[], object> _builder;
     private readonly Type[] _elementTypes;
     private readonly ConfigManager _configManager;
+    private readonly Infrastructure.ExposureRegistry? _bindingRegistry;
 
     public ReactiveTupleConfig(
         ConfigManager configManager,
         ReactiveConfigManager reactiveConfigManager,
-        ILogger logger)
+        ILogger logger,
+        Infrastructure.ExposureRegistry? bindingRegistry = null)
     {
         _configManager = configManager;
         _logger = logger;
+        _bindingRegistry = bindingRegistry;
         (_elementTypes, _builder) = TupleShapeCache.Get(typeof(TTuple));
         if (_elementTypes.Length == 0)
         {
@@ -147,7 +150,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
 
                     for (var i = 0; i < _elementTypes.Length; i++)
                     {
-                        values[i] = snapshot.GetConfig(_elementTypes[i]);
+                        values[i] = GetConfigFromSnapshot(snapshot, _elementTypes[i]);
                         if (values[i] == null)
                         {
                             allPresent = false;
@@ -189,6 +192,28 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
                 }
             }, observer.OnError, observer.OnCompleted);
         });
+    }
+
+    /// <summary>
+    /// Gets a config from the snapshot, handling interface-to-concrete type resolution.
+    /// </summary>
+    private object? GetConfigFromSnapshot(ConfigSnapshot snapshot, Type type)
+    {
+        // Try direct lookup first
+        var result = snapshot.GetConfig(type);
+        if (result != null)
+        {
+            return result;
+        }
+
+        // Try interface-to-concrete mapping
+        if (type.IsInterface && _bindingRegistry != null &&
+            _bindingRegistry.TryGetConcreteType(type, out var concreteType))
+        {
+            return snapshot.GetConfig(concreteType);
+        }
+
+        return null;
     }
 
     private object?[] ExtractTupleValues(TTuple tuple)

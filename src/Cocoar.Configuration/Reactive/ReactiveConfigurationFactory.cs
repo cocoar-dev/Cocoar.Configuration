@@ -35,11 +35,25 @@ internal class ReactiveConfigurationFactory(
             return (IReactiveConfig<T>)CreateTupleReactiveConfig(t);
         }
 
-        // For non-tuple types, must be a class for the backplane
+        // For interfaces, look up the concrete type from the binding registry
+        if (t.IsInterface)
+        {
+            if (!bindingRegistry.TryGetConcreteType(t, out var concreteType))
+            {
+                throw new InvalidOperationException(
+                    $"GetReactiveConfig<{t.Name}> requires the interface to be exposed via " +
+                    $"setup.ConcreteType<T>().ExposeAs<{t.Name}>(). No concrete type mapping found.");
+            }
+
+            // Use the concrete type for the reactive config, but wrap the accessor
+            return CreateReactiveConfigForConcreteType<T>(concreteType, configAccessor);
+        }
+
+        // For non-tuple, non-interface types, must be a class for the backplane
         if (!t.IsClass)
         {
             throw new InvalidOperationException(
-                $"GetReactiveConfig<{t.Name}> is only supported for class types or ValueTuple types. " +
+                $"GetReactiveConfig<{t.Name}> is only supported for class types, interfaces (with ExposeAs), or ValueTuple types. " +
                 $"Configuration types should be classes, not structs.");
         }
 
@@ -55,6 +69,42 @@ internal class ReactiveConfigurationFactory(
 
         var funcType = typeof(Func<>).MakeGenericType(t);
         return (IReactiveConfig<T>)method.Invoke(reactiveConfigManager, [configAccessor])!;
+    }
+
+    /// <summary>
+    /// Creates a reactive config for an interface type by using the concrete type's reactive config.
+    /// The concrete type implements the interface, so we can cast safely.
+    /// </summary>
+    private IReactiveConfig<TInterface> CreateReactiveConfigForConcreteType<TInterface>(Type concreteType, Func<TInterface> configAccessor)
+    {
+        // Create an accessor for the concrete type that returns TInterface (which the concrete type implements)
+        var concreteAccessorMethod = typeof(ConfigManager)
+            .GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)?
+            .MakeGenericMethod(concreteType);
+
+        if (concreteAccessorMethod == null)
+        {
+            throw new InvalidOperationException($"Cannot create accessor for concrete type {concreteType.Name}.");
+        }
+
+        var concreteFuncType = typeof(Func<>).MakeGenericType(concreteType);
+        var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, configManager, concreteAccessorMethod);
+
+        // Get the reactive config for the concrete type
+        var reactiveMethod = typeof(ReactiveConfigManager)
+            .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
+            .MakeGenericMethod(concreteType);
+
+        if (reactiveMethod == null)
+        {
+            throw new InvalidOperationException($"Cannot create IReactiveConfig for concrete type {concreteType.Name}.");
+        }
+
+        var concreteReactiveConfig = reactiveMethod.Invoke(reactiveConfigManager, [concreteAccessor])!;
+
+        // Wrap the concrete reactive config in an interface adapter
+        var adapterType = typeof(InterfaceReactiveConfigAdapter<,>).MakeGenericType(typeof(TInterface), concreteType);
+        return (IReactiveConfig<TInterface>)Activator.CreateInstance(adapterType, concreteReactiveConfig)!;
     }
 
     private static bool IsValueTupleType(Type t) =>
@@ -98,9 +148,23 @@ internal class ReactiveConfigurationFactory(
         // Prime each distinct element type's reactive config
         foreach (var et in elementTypes.Distinct())
         {
-            // Only prime reference types (class constraint on ReactiveConfigManager)
-            if (!et.IsClass)
+            // For interfaces, resolve to concrete type for priming
+            var typeToPrime = et;
+            if (et.IsInterface)
             {
+                if (bindingRegistry.TryGetConcreteType(et, out var concreteType))
+                {
+                    typeToPrime = concreteType;
+                }
+                else
+                {
+                    logger.SkippingNonClassType(et);
+                    continue;
+                }
+            }
+            else if (!et.IsClass)
+            {
+                // Skip non-class, non-interface types (structs)
                 logger.SkippingNonClassType(et);
                 continue;
             }
@@ -109,35 +173,35 @@ internal class ReactiveConfigurationFactory(
             {
                 var reactiveMethod = typeof(ReactiveConfigManager)
                     .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
-                    .MakeGenericMethod(et);
+                    .MakeGenericMethod(typeToPrime);
                 if (reactiveMethod == null)
                 {
-                    logger.MissingGetReactiveConfig(et);
+                    logger.MissingGetReactiveConfig(typeToPrime);
                     continue;
                 }
 
                 var accessorMethod = typeof(ConfigManager)
                     .GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)?
-                    .MakeGenericMethod(et);
+                    .MakeGenericMethod(typeToPrime);
                 if (accessorMethod == null)
                 {
-                    logger.MissingGetConfig(et);
+                    logger.MissingGetConfig(typeToPrime);
                     continue;
                 }
 
-                var funcType = typeof(Func<>).MakeGenericType(et);
+                var funcType = typeof(Func<>).MakeGenericType(typeToPrime);
                 var accessorDelegate = Delegate.CreateDelegate(funcType, configManager, accessorMethod);
 
                 _ = reactiveMethod.Invoke(reactiveConfigManager, [accessorDelegate]);
             }
             catch (Exception ex)
             {
-                logger.PrimeReactiveConfigFailed(ex, et);
+                logger.PrimeReactiveConfigFailed(ex, typeToPrime);
             }
         }
 
         var generic = typeof(ReactiveTupleConfig<>).MakeGenericType(tupleType);
-        return Activator.CreateInstance(generic, configManager, reactiveConfigManager, logger)!;
+        return Activator.CreateInstance(generic, configManager, reactiveConfigManager, logger, bindingRegistry)!;
     }
 
     private static IEnumerable<Type> FlattenTuple(Type t)
@@ -162,5 +226,36 @@ internal class ReactiveConfigurationFactory(
                 yield return f.FieldType;
             }
         }
+    }
+}
+
+/// <summary>
+/// Adapts an IReactiveConfig of a concrete type to an IReactiveConfig of an interface type.
+/// Used when injecting IReactiveConfig&lt;IInterface&gt; where IInterface is exposed via ExposeAs.
+/// </summary>
+internal sealed class InterfaceReactiveConfigAdapter<TInterface, TConcrete> : IReactiveConfig<TInterface>
+    where TConcrete : class, TInterface
+{
+    private readonly IReactiveConfig<TConcrete> _inner;
+
+    public InterfaceReactiveConfigAdapter(IReactiveConfig<TConcrete> inner)
+    {
+        _inner = inner;
+    }
+
+    public TInterface CurrentValue => _inner.CurrentValue;
+
+    public IDisposable Subscribe(IObserver<TInterface> observer)
+    {
+        // Adapt the observer to accept TConcrete (which is assignable to TInterface)
+        return _inner.Subscribe(new CastingObserver<TInterface, TConcrete>(observer));
+    }
+
+    private sealed class CastingObserver<TOut, TIn>(IObserver<TOut> inner) : IObserver<TIn>
+        where TIn : TOut
+    {
+        public void OnCompleted() => inner.OnCompleted();
+        public void OnError(Exception error) => inner.OnError(error);
+        public void OnNext(TIn value) => inner.OnNext(value);
     }
 }

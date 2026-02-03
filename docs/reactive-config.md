@@ -70,6 +70,23 @@ using var sub = reactive.Subscribe(cfg =>
 Console.WriteLine($"Current value: {reactive.CurrentValue}");
 ```
 
+### Interface Types
+
+If you expose a concrete type as an interface via the setup API, you can also request `IReactiveConfig<IInterface>`:
+
+```csharp
+builder.Services.AddCocoarConfiguration(
+    rule => [rule.For<AppSettings>().FromFile("appsettings.json")],
+    setup => [setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()]
+);
+
+// Both work:
+var concrete = manager.GetReactiveConfig<AppSettings>();
+var asInterface = manager.GetReactiveConfig<IAppSettings>();
+```
+
+This is useful when your services depend on interfaces rather than concrete types for testability and decoupling.
+
 ### Tuple-Based Multi-Config Snapshots (Arbitrary Arity)
 
 Sometimes you need a consistent snapshot spanning several configuration types (e.g., `AppSettings`, `FeatureFlags`, `LoggingConfig`, `Pricing`, etc.). Naïvely combining individual `IReactiveConfig<T>` streams with `CombineLatest` risks mixing values from different recompute passes when only one type changed.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [4.2.1] - 2026-02-03
+
+### Fixed
+- **Interface reactive configs**: `IReactiveConfig<IInterface>` now works for interfaces exposed via `setup.ConcreteType<T>().ExposeAs<IInterface>()`. Previously, requesting a reactive config for an interface type threw an error. Tuples containing interface types (e.g., `IReactiveConfig<(IAppSettings, IDatabaseSettings)>`) also now work correctly.
+
 ## [4.2.0] - 2026-02-03
 
 ### Added
