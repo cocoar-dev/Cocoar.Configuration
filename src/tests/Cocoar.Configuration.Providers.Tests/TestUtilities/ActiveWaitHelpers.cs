@@ -15,9 +15,16 @@ public static class ActiveWaitHelpers
         
         while (stopwatch.Elapsed < timeout)
         {
-            if (condition())
+            try
             {
-                return;
+                if (condition())
+                {
+                    return;
+                }
+            }
+            catch
+            {
+                // Condition threw (e.g., accessing property on incomplete JSON) - treat as "not yet met"
             }
 
             await Task.Delay(pollInterval);
