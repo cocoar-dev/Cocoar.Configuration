@@ -371,14 +371,13 @@ public class ConfigManagerIntegrationTests
         ]);
 
         // Act - ConfigManager with original rules
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
                 MaxConnections = 10
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var config = configManager.GetRequiredConfig<TestConfig>();
 
@@ -399,14 +398,13 @@ public class ConfigManagerIntegrationTests
         ]);
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
                 MaxConnections = 10
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var config = configManager.GetRequiredConfig<TestConfig>();
 
@@ -420,14 +418,13 @@ public class ConfigManagerIntegrationTests
         // Arrange - No test configuration set
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "normal-connection",
                 MaxConnections = 50
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var config = configManager.GetRequiredConfig<TestConfig>();
 
@@ -451,14 +448,13 @@ public class ConfigManagerIntegrationTests
         using var _ = CocoarTestConfiguration.Apply(context);
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
                 MaxConnections = 10
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var config = configManager.GetRequiredConfig<TestConfig>();
 
@@ -676,12 +672,11 @@ public class ConfigManagerSetupIntegrationTests
             });
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
-            setup => []);
-        configManager.Initialize();
+            setup => []));
 
         // Assert
         Assert.True(testSetupCalled);
@@ -701,12 +696,11 @@ public class ConfigManagerSetupIntegrationTests
             });
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
-            setup => []);
-        configManager.Initialize();
+            setup => []));
 
         // Assert
         Assert.True(testSetupCalled);
@@ -724,12 +718,11 @@ public class ConfigManagerSetupIntegrationTests
         });
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
-            setup => []);
-        configManager.Initialize();
+            setup => []));
 
         // Assert - Original rules should still work
         var config = configManager.GetRequiredConfig<TestConfig>();
@@ -751,7 +744,7 @@ public class ConfigManagerSetupIntegrationTests
         });
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -759,8 +752,7 @@ public class ConfigManagerSetupIntegrationTests
             {
                 configuredSetupCalled = true;
                 return [];
-            });
-        configManager.Initialize();
+            }));
 
         // Assert - Both setups should be called (merged)
         Assert.True(configuredSetupCalled);
@@ -778,7 +770,7 @@ public class ConfigManagerSetupIntegrationTests
             ]); // No setup parameter
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -786,8 +778,7 @@ public class ConfigManagerSetupIntegrationTests
             {
                 configuredSetupCalled = true;
                 return [];
-            });
-        configManager.Initialize();
+            }));
 
         // Assert - Configured setup should still run
         Assert.True(configuredSetupCalled);
@@ -811,12 +802,11 @@ public class ConfigManagerSetupIntegrationTests
         using var _ = CocoarTestConfiguration.Apply(context);
 
         // Act
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
-            setup => []);
-        configManager.Initialize();
+            setup => []));
 
         // Assert
         Assert.True(testSetupCalled);

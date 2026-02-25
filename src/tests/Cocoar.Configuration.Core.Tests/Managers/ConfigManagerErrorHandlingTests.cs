@@ -51,11 +51,11 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 new(Required: true))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
-        TrackForDisposal(configManager);
-
-
-        var exception = Assert.Throws<InvalidOperationException>(() => configManager.Initialize());
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+            TrackForDisposal(configManager);
+        });
 
         // Verify exception message contains provider information
         Assert.Contains("Required rule failed", exception.Message);
@@ -88,11 +88,8 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-
-
-        configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
 
@@ -127,11 +124,8 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 new(Required: false)) // Optional rule
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-
-
-        configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
 
@@ -172,11 +166,8 @@ public class ConfigManagerErrorHandlingTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-
-
-        configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
 

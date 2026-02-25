@@ -56,14 +56,14 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: JSON is missing the required "Name" property
         var json = """{"Value": 42}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
-            logger: _logger);
-        TrackForDisposal(configManager);
-
         // Act & Assert: With Master Backplane, deserialization failures at startup throw
         var exception = Assert.Throws<ConfigurationDeserializationException>(
-            () => configManager.Initialize());
+            () =>
+            {
+                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                    r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
+                TrackForDisposal(configManager);
+            });
 
         Assert.Single(exception.Failures);
         Assert.Equal(typeof(ConfigWithRequired), exception.Failures[0].ConfigType);
@@ -80,14 +80,14 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: JSON is missing the required "Name" property
         var json = """{"Value": 42}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
-            logger: _logger);
-        TrackForDisposal(configManager);
-
         // Act & Assert
         var exception = Assert.Throws<ConfigurationDeserializationException>(
-            () => configManager.Initialize());
+            () =>
+            {
+                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                    r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
+                TrackForDisposal(configManager);
+            });
 
         // The exception should include a JSON preview
         Assert.NotNull(exception.Failures[0].JsonPreview);
@@ -104,11 +104,9 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: JSON has all required properties
         var json = """{"Name": "test", "Value": 42}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
-            logger: _logger);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+            r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         // Act
         var result = configManager.GetConfig<ConfigWithRequired>();
@@ -131,14 +129,14 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: JSON has a string where an int is expected
         var json = """{"Count": "not-a-number"}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithInt>().FromStaticJson(json)],
-            logger: _logger);
-        TrackForDisposal(configManager);
-
         // Act & Assert: With Master Backplane, deserialization failures at startup throw
         var exception = Assert.Throws<ConfigurationDeserializationException>(
-            () => configManager.Initialize());
+            () =>
+            {
+                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                    r => [r.For<ConfigWithInt>().FromStaticJson(json)]).UseLogger(_logger));
+                TrackForDisposal(configManager);
+            });
 
         Assert.Single(exception.Failures);
         Assert.Equal(typeof(ConfigWithInt), exception.Failures[0].ConfigType);
@@ -155,17 +153,17 @@ public class ConfigManagerDeserializationTests : IDisposable
         var json1 = """{"Value": 123}"""; // Missing Name
         var json2 = """{"Count": "not-a-number"}"""; // Type mismatch
 
-        var configManager = new ConfigManager(
-            r => [
-                r.For<ConfigWithRequired>().FromStaticJson(json1),
-                r.For<ConfigWithInt>().FromStaticJson(json2)
-            ],
-            logger: _logger);
-        TrackForDisposal(configManager);
-
         // Act & Assert
         var exception = Assert.Throws<ConfigurationDeserializationException>(
-            () => configManager.Initialize());
+            () =>
+            {
+                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                    r => [
+                        r.For<ConfigWithRequired>().FromStaticJson(json1),
+                        r.For<ConfigWithInt>().FromStaticJson(json2)
+                    ]).UseLogger(_logger));
+                TrackForDisposal(configManager);
+            });
 
         Assert.Equal(2, exception.Failures.Count);
         Assert.Contains(exception.Failures, f => f.ConfigType == typeof(ConfigWithRequired));
@@ -182,11 +180,9 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: Simple config without required properties
         var json = """{"Name": "test"}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<SimpleConfig>().FromStaticJson(json)],
-            logger: _logger);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+            r => [r.For<SimpleConfig>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         // Act
         var result = configManager.GetConfig<SimpleConfig>();
@@ -209,11 +205,9 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: Valid JSON
         var json = """{"Name": "test", "Value": 42}""";
 
-        var configManager = new ConfigManager(
-            r => [r.For<ConfigWithRequired>().FromStaticJson(json)],
-            logger: _logger);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+            r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         // Act: Get config multiple times
         var result1 = configManager.GetConfig<ConfigWithRequired>();

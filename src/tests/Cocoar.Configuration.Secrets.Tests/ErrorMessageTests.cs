@@ -38,14 +38,13 @@ public class ErrorMessageTests
         }
         """;
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets()  // Secrets enabled, but no certificates configured
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .WithConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
+                ])
+            .WithSecretsSetup(secrets => secrets) // Secrets enabled, but no certificates configured
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithSecretString>();
@@ -81,10 +80,11 @@ public class ErrorMessageTests
         }
         """;
 
-        var manager = new ConfigManager(
-            rules => [rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()],
-            setup => [setup.Secrets()]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .WithConfiguration(
+                rules => [rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()])
+            .WithSecretsSetup(secrets => secrets)
+        );
 
         var config = manager.GetConfig<ConfigWithSecretString>();
 
@@ -94,7 +94,7 @@ public class ErrorMessageTests
         // Assert - error should have code examples showing certificate setup
         Assert.Contains(".UseCertificateFromFile(", ex.Message);
         Assert.Contains(".WithKeyId(", ex.Message);
-        Assert.Contains("setup.Secrets()", ex.Message);
+        Assert.Contains(".WithSecretsSetup(", ex.Message);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class ErrorMessageTests
         var ex = Assert.Throws<InvalidOperationException>(() => secret.Open());
 
         Assert.Contains("secrets infrastructure not configured", ex.Message);
-        Assert.Contains("setup.Secrets()", ex.Message);
+        Assert.Contains("WithSecretsSetup", ex.Message);
         Assert.Contains("ConfigManager", ex.Message);
         Assert.Contains("AddCocoarConfiguration", ex.Message);
     }
@@ -179,15 +179,13 @@ public class ErrorMessageTests
         }
         """;
 
-        var manager = new ConfigManager(
+        // Act & Assert - With Master Backplane, deserialization fails at startup
+        var ex = Assert.Throws<ConfigurationDeserializationException>(() => ConfigManager.Create(c => c.WithConfiguration(
             rules => [
                 rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
             ]
             // NOTE: No setup.Secrets() - deserialization will fail
-        );
-
-        // Act & Assert - With Master Backplane, deserialization fails at startup
-        var ex = Assert.Throws<ConfigurationDeserializationException>(() => manager.Initialize());
+        )));
 
         // The error is about JSON deserialization, not about secrets infrastructure
         Assert.Contains("Deserialization", ex.Message);

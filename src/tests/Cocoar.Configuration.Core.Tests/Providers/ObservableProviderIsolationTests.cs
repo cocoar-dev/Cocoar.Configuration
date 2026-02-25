@@ -1065,7 +1065,7 @@ public class ObservableProviderIsolationTests
             TestRules.ObservableString<TestConfig>(System.Reactive.Linq.Observable.Return(jsonString))
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
 
 
         var config = configManager.GetConfig<TestConfig>();

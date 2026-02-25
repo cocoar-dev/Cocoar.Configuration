@@ -40,7 +40,7 @@ public static class CocoarTestConfiguration
     ///         rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = testDb })
     ///     ],
     ///     setup => [
-    ///         setup.Secrets().AllowPlaintext()
+    ///         setup.ConcreteType&lt;DbConfig&gt;()
     ///     ]);
     /// // Test configuration automatically cleared when scope is disposed
     /// </code>
@@ -68,7 +68,7 @@ public static class CocoarTestConfiguration
     ///         rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = testDb })
     ///     ],
     ///     setup => [
-    ///         setup.Secrets().AllowPlaintext()
+    ///         setup.ConcreteType&lt;DbConfig&gt;()
     ///     ]);
     /// // Test configuration automatically cleared when scope is disposed
     /// </code>
@@ -91,7 +91,7 @@ public static class CocoarTestConfiguration
     /// <example>
     /// <code>
     /// using var _ = CocoarTestConfiguration.WithSetup(setup => [
-    ///     setup.Secrets().AllowPlaintext()
+    ///     setup.ConcreteType&lt;DbConfig&gt;()
     /// ]);
     /// // Original rules are preserved, but setup includes test overrides
     /// </code>
@@ -242,7 +242,7 @@ public sealed class TestConfigurationContext
     ///                 rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = "test-db" })
     ///             ],
     ///             setup => [
-    ///                 setup.Secrets().AllowPlaintext()
+    ///                 setup.ConcreteType&lt;DbConfig&gt;()
     ///             ]);
     /// }
     /// </code>
@@ -269,7 +269,7 @@ public sealed class TestConfigurationContext
     ///                 rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { MaxConnections = 5 })
     ///             ],
     ///             setup => [
-    ///                 setup.Secrets().AllowPlaintext()
+    ///                 setup.ConcreteType&lt;DbConfig&gt;()
     ///             ]);
     /// }
     /// </code>

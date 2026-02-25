@@ -51,13 +51,12 @@ public sealed class SecretsBuilder : SetupDefinition
     /// <example>
     /// <code>
     /// // Conditional based on environment (ASP.NET Core)
-    /// builder.Services.AddCocoarConfiguration(
-    ///     rules => [...],
-    ///     setup => [setup.Secrets().AllowPlaintext(builder.Environment.IsDevelopment())]
-    /// );
+    /// ConfigManager.Create(c => c
+    ///     .WithConfiguration(rules => [...])
+    ///     .WithSecretsSetup(secrets => secrets.AllowPlaintext(isDevelopment)));
     ///
     /// // Always enable for tests
-    /// setup => [setup.Secrets().AllowPlaintext()]  // defaults to true
+    /// .WithSecretsSetup(secrets => secrets.AllowPlaintext())  // defaults to true
     /// </code>
     /// </example>
     public SecretsBuilder AllowPlaintext(bool allow = true)
@@ -65,10 +64,4 @@ public sealed class SecretsBuilder : SetupDefinition
         _composer.Add(new SecretsPolicy { AllowPlaintextSecrets = allow });
         return this;
     }
-}
-
-public static class SecretsSetupExtensions
-{
-    public static SecretsBuilder Secrets(this SetupBuilder builder)
-        => new(SetupBuilder.GetCapabilityScopeFor(builder));
 }

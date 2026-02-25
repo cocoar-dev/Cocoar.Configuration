@@ -32,10 +32,9 @@ public class Program
         Console.WriteLine("--- Test 1: Default (--) prefix ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
                 rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })
-            ]);
-            manager.Initialize();
+            ]));
 
             var config = manager.GetConfig<AppConfig>();
             Console.WriteLine($"Host: {config?.Host ?? "null"}");
@@ -54,14 +53,13 @@ public class Program
         Console.WriteLine("--- Test 2: Multiple prefixes (--, -, /) ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+                rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["--", "-", "/"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var config = manager.GetConfig<AppConfig>();
             Console.WriteLine($"Host: {config?.Host ?? "null"}");
@@ -80,24 +78,23 @@ public class Program
         Console.WriteLine("--- Test 3: Semantic prefixes (@, #, %) ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<TargetConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+                rule.For<TargetConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["@"]
                 }),
-                rule.For<IssueConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<IssueConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["#"]
                 }),
-                rule.For<EnvConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<EnvConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["%"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var target = manager.GetConfig<TargetConfig>();
             var issue = manager.GetConfig<IssueConfig>();
@@ -119,19 +116,18 @@ public class Program
         Console.WriteLine("--- Test 4: Prefix filtering (app_, db_) ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+                rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     Prefix = "app_"
                 }),
-                rule.For<DatabaseConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<DatabaseConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     Prefix = "db_"
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var app = manager.GetConfig<AppConfig>();
             var db = manager.GetConfig<DatabaseConfig>();
@@ -152,10 +148,9 @@ public class Program
         Console.WriteLine("--- Test 5: Nested configuration (: and __) ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
                 rule.For<ServerConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })
-            ]);
-            manager.Initialize();
+            ]));
 
             var config = manager.GetConfig<ServerConfig>();
             Console.WriteLine($"Database Host: {config?.Database?.Host ?? "null"}");

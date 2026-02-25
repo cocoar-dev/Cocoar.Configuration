@@ -47,14 +47,13 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rules: rule => [
                 rule.For<AppConfiguration>().FromStaticJson(json)
             ],
             setup: setup => [
                 setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
-            ]
-        ).Initialize();
+            ]));
 
         // Act
         var config = configManager.GetRequiredConfig<AppConfiguration>();
@@ -81,14 +80,13 @@ public class InterfaceDeserializationTests
 
         try
         {
-            var configManager = new ConfigManager(
+            var configManager = ConfigManager.Create(c => c.WithConfiguration(
                 rules: rule => [
                     rule.For<AppConfiguration>().FromEnvironment()
                 ],
                 setup: setup => [
                     setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
-                ]
-            ).Initialize();
+                ]));
 
             // Act
             var config = configManager.GetRequiredConfig<AppConfiguration>();
@@ -149,15 +147,14 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rules: rule => [
                 rule.For<ComplexConfiguration>().FromStaticJson(json)
             ],
             setup: setup => [
                 setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>(),
                 setup.Interface<IDatabaseConfig>().DeserializeTo<DatabaseConfig>()
-            ]
-        ).Initialize();
+            ]));
 
         // Act
         var config = configManager.GetRequiredConfig<ComplexConfiguration>();
@@ -220,15 +217,14 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rules: rule => [
                 rule.For<NestedConfiguration>().FromStaticJson(json)
             ],
             setup: setup => [
                 setup.Interface<IAdvancedLoggingConfig>().DeserializeTo<AdvancedLoggingConfig>(),
                 setup.Interface<IRetryPolicy>().DeserializeTo<RetryPolicy>()
-            ]
-        ).Initialize();
+            ]));
 
         // Act
         var config = configManager.GetRequiredConfig<NestedConfiguration>();
@@ -306,7 +302,7 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = new ConfigManager(
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(
             rules: rule => [
                 rule.For<DeepConfiguration>().FromStaticJson(json)
             ],
@@ -314,8 +310,7 @@ public class InterfaceDeserializationTests
                 setup.Interface<IDeepLoggingConfig>().DeserializeTo<DeepLoggingConfig>(),
                 setup.Interface<IAdvancedRetryPolicy>().DeserializeTo<AdvancedRetryPolicy>(),
                 setup.Interface<ICircuitBreaker>().DeserializeTo<CircuitBreaker>()
-            ]
-        ).Initialize();
+            ]));
 
         // Act
         var config = configManager.GetRequiredConfig<DeepConfiguration>();

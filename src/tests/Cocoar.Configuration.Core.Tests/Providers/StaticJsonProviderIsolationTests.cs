@@ -417,9 +417,9 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Test", "Value": 789, "Enabled": true}""";
         
         // Verify rule can be used in ConfigManager
-        using var manager = new ConfigManager(rules => [
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json)
-        ]).Initialize();
+        ]));
         var config = manager.GetConfig<TestConfig>();
         
         Assert.NotNull(config);
@@ -434,9 +434,9 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Works", "Value": 456, "Enabled": false}""";
 
         // Verify rule works correctly
-        using var manager = new ConfigManager(rules => [
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json)
-        ]).Initialize();
+        ]));
         var config = manager.GetConfig<TestConfig>();
         
         Assert.NotNull(config);
@@ -449,9 +449,9 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Required", "Value": 123, "Enabled": true}""";
 
         // Verify required flag is set by checking health service
-        using var manager = new ConfigManager(rules => [
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json).Required()
-        ]).Initialize();
+        ]));
         var health = manager.GetHealthService().Snapshot;
         
         Assert.True(health.Rules[0].Required);
@@ -465,9 +465,9 @@ public class StaticJsonProviderIsolationTests
         Func<IConfigurationAccessor, bool> useWhen = (_) => Environment.GetEnvironmentVariable("TEST_ENV") == "true";
 
         // Verify the rule can be created and used
-        using var manager = new ConfigManager(rules => [
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json).When(useWhen)
-        ]).Initialize();
+        ]));
 
         // Use TryGetConfig since the rule may be skipped depending on TEST_ENV
         // GetConfig would throw if the condition is false and rule is skipped

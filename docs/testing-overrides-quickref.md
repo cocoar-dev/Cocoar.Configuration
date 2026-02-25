@@ -69,7 +69,7 @@ In addition to overriding rules, you can override **setup** options like `AllowP
 ### Setup-Only Override
 ```csharp
 using var _ = CocoarTestConfiguration.WithSetup(setup => [
-    setup.Secrets().AllowPlaintext()
+    setup.ConcreteType<DbConfig>()
 ]);
 ```
 - Keeps original rules unchanged
@@ -83,7 +83,7 @@ using var _ = CocoarTestConfiguration.ReplaceAllRules(
         rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test" })
     ],
     setup => [
-        setup.Secrets().AllowPlaintext()
+        setup.ConcreteType<DbConfig>()
     ]);
 ```
 - Replaces rules AND adds setup overrides
@@ -99,7 +99,7 @@ public class IntegrationTestFixture
                 rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
             ],
             setup => [
-                setup.Secrets().AllowPlaintext()
+                setup.ConcreteType<DbConfig>()
             ]);
 }
 ```
@@ -116,7 +116,7 @@ This ensures you can override specific setup options without breaking core funct
 
 ## Works Everywhere
 
-- Direct `new ConfigManager(...)`
+- Direct `ConfigManager.Create(...)`
 - `services.AddCocoarConfiguration(...)`
 - `builder.AddCocoarConfiguration(...)`
 - `new WebApplicationFactory<Program>()`
@@ -202,7 +202,7 @@ public class SimpleTests : IDisposable
             rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
         ]);
 
-        var manager = new ConfigManager(rule => [...]);
+        var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [...]));
         // Uses test rules
     }
 
@@ -366,7 +366,7 @@ public async Task TestWithPlaintextSecrets()
             })
         ],
         setup => [
-            setup.Secrets().AllowPlaintext()
+            setup.ConcreteType<DbConfig>()
         ]);
 
     await using var factory = new WebApplicationFactory<Program>();
@@ -390,12 +390,12 @@ var context = TestConfigurationContext.Append(rule => [...]);
 // Replace mode with setup
 var context = TestConfigurationContext.Replace(
     rule => [...],
-    setup => [setup.Secrets().AllowPlaintext()]);
+    setup => [setup.ConcreteType<DbConfig>()]);
 
 // Append mode with setup
 var context = TestConfigurationContext.Append(
     rule => [...],
-    setup => [setup.Secrets().AllowPlaintext()]);
+    setup => [setup.ConcreteType<DbConfig>()]);
 ```
 
 ---

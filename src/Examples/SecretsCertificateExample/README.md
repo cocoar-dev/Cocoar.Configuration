@@ -26,61 +26,40 @@ cocoar-secrets generate-cert -o certs/dev.pfx
 
 Then configure the manager:
 ```csharp
-var manager = new ConfigManager(rule => [
-    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
-], setup => [
-    setup.Secrets()
+var manager = ConfigManager.Create(c => c
+    .WithConfiguration(rule => [
+        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
+    ])
+    .WithSecretsSetup(secrets => secrets
         .UseCertificateFromFile("certs/dev.pfx")
-        .WithKeyId("dev-secrets")
-        .Build()
-]).Initialize();
+        .WithKeyId("dev-secrets")));
 ```
 
 ### Production Setup with Rotation
 
 ```csharp
-var manager = new ConfigManager(rule => [
-    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.prod.json"))
-], setup => [
+var manager = ConfigManager.Create(c => c
+    .WithConfiguration(rule => [
+        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.prod.json"))
+    ])
     // Folder-based with automatic rotation
     // Uses kid-based folders: C:\certs\prod\production-secrets\*.pfx
-    setup.Secrets()
-        .UseCertificatesFromFolder(@"C:\certs\prod", 
-            cacheDurationSeconds: 30),
-    
-    // Legacy support for old Kids
-    setup.Secrets()
-        .UseCertificateFromFile("certs/legacy.pfx")
-        .WithKeyId("hybrid-encryption")
-        .WithAdditionalKeyId("prod-v1")  // Backward compatibility
-        .Build()
-]).Initialize();
+    .WithSecretsSetup(secrets => secrets
+        .UseCertificatesFromFolder(@"C:\certs\prod",
+            cacheDurationSeconds: 30)));
 ```
 
 ### Multi-Tier Security
 
 ```csharp
-var manager = new ConfigManager(rule => [
-    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
-], setup => [
+var manager = ConfigManager.Create(c => c
+    .WithConfiguration(rule => [
+        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
+    ])
     // Critical secrets - no cache, load fresh every time
-    // Folder structure: C:\certs\pci\pci-data\*.pfx
-    setup.Secrets()
-        .UseCertificatesFromFolder(@"C:\certs\pci", 
-            cacheDurationSeconds: 0),  // Maximum security
-    
-    // API keys - balanced 30-second cache
-    // Folder structure: C:\certs\api\api-keys\*.pfx
-    setup.Secrets()
-        .UseCertificatesFromFolder(@"C:\certs\api", 
-            cacheDurationSeconds: 30),
-    
-    // Feature flags - 1-hour cache for performance
-    // Folder structure: C:\certs\config\feature-flags\*.pfx
-    setup.Secrets()
-        .UseCertificatesFromFolder(@"C:\certs\config", 
-            cacheDurationSeconds: 3600)
-]).Initialize();
+    .WithSecretsSetup(secrets => secrets
+        .UseCertificatesFromFolder(@"C:\certs\pci",
+            cacheDurationSeconds: 0)));  // Maximum security
 ```
 
 ## Certificate Management

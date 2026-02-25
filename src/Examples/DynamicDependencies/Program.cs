@@ -36,7 +36,7 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration(rule => [
+        services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
 
             rule.For<ApiSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .Required(),
@@ -46,7 +46,7 @@ public static class Program
                 var apiSettings = configManager.GetRequiredConfig<ApiSettings>();
                 if (apiSettings.BaseUrl.Contains("staging"))
                 {
-                    return new FeatureFlags { EnableNewDashboard = true, EnableBetaFeatures = true, Theme = "staging" };        
+                    return new FeatureFlags { EnableNewDashboard = true, EnableBetaFeatures = true, Theme = "staging" };
                 }
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
             }),
@@ -65,7 +65,7 @@ public static class Program
                 };
             })
 
-        ]);
+        ]));
 
         var serviceProvider = services.BuildServiceProvider();
 

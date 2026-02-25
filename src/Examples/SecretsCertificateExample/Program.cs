@@ -45,14 +45,13 @@ class Program
             keySize: 2048,
             overwrite: true);
 
-        var manager = new ConfigManager(rule => [
-            rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
-        ], setup => [
-            // Development: Load certificate explicitly
-            setup.Secrets()
+        var manager = ConfigManager.Create(c => c
+            .WithConfiguration(rule => [
+                rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
+            ])
+            .WithSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(devCertPath)
-                .WithKeyId("dev-secrets")
-        ]).Initialize();
+                .WithKeyId("dev-secrets")));
 
         var config = manager.GetConfig<AppConfig>();
 
@@ -94,14 +93,13 @@ class Program
             keySize: 2048,
             overwrite: true);
 
-        var manager = new ConfigManager(rule => [
-            rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
-        ], setup => [
-            // Production: Decrypt pre-encrypted secrets with explicit certificate
-            setup.Secrets()
+        var manager = ConfigManager.Create(c => c
+            .WithConfiguration(rule => [
+                rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
+            ])
+            .WithSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(prodCertPath)
-                .WithKeyId("prod-secrets")
-        ]).Initialize();
+                .WithKeyId("prod-secrets")));
 
         var config = manager.GetConfig<AppConfig>();
 

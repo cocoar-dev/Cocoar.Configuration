@@ -39,14 +39,13 @@ class Program
             overwrite: true);
 
         // Create ConfigManager with certificate-based secrets
-        var manager = new ConfigManager(rule => [
-            rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
-        ], setup => [
-            // Load certificate explicitly (no auto-creation)
-            setup.Secrets()
+        var manager = ConfigManager.Create(c => c
+            .WithConfiguration(rule => [
+                rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
+            ])
+            .WithSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(certPath)
-                .WithKeyId("dev-secrets")
-        ]).Initialize();
+                .WithKeyId("dev-secrets")));
 
         // Retrieve configuration
         var config = manager.GetConfig<AppConfig>();

@@ -24,7 +24,7 @@ But with Cocoar.Configuration, you want the same capability using the rule-based
 Set test configuration **before** creating `ConfigManager` (or `WebApplicationFactory`) using `AsyncLocal` context.
 
 **Works universally:**
-- ✅ Direct `new ConfigManager(...)` instantiation
+- ✅ Direct `ConfigManager.Create(...)` instantiation
 - ✅ `services.AddCocoarConfiguration(...)` in DI
 - ✅ `builder.AddCocoarConfiguration(...)` in ASP.NET Core
 - ✅ `WebApplicationFactory<Program>` in integration tests
@@ -84,7 +84,7 @@ public async Task TestWithSetupOverride()
 {
     // Override setup options only, keep original rules
     CocoarTestConfiguration.WithSetup(setup => [
-        setup.Secrets().AllowPlaintext()
+        setup.ConcreteType<DbConfig>()
     ]);
 
     await using var factory = new WebApplicationFactory<Program>();
@@ -111,7 +111,7 @@ public async Task TestWithRulesAndSetup()
             })
         ],
         setup => [
-            setup.Secrets().AllowPlaintext()
+            setup.ConcreteType<DbConfig>()
         ]);
 
     await using var factory = new WebApplicationFactory<Program>();
@@ -151,10 +151,9 @@ public void DirectConfigManagerTest()
     ]);
 
     // Works with direct instantiation
-    var configManager = new ConfigManager(rule => [
+    var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
         rule.For<DbConfig>().FromFile("config.json") // SKIPPED in test
-    ]);
-    configManager.Initialize();
+    ]));
 
     var config = configManager.GetRequiredConfig<DbConfig>();
     // config comes from test rules, not file
@@ -193,7 +192,7 @@ public class IntegrationTestFixture
                 rule.For<ApiSettings>().FromStatic(_ => new ApiSettings { BaseUrl = "https://test.api" })
             ],
             setup => [
-                setup.Secrets().AllowPlaintext()  // Enable plaintext secrets for all tests
+                setup.ConcreteType<DbConfig>()  // Enable plaintext secrets for all tests
             ]);
 }
 

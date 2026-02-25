@@ -33,6 +33,11 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         var lambdas = invocation.DescendantNodes().OfType<SimpleLambdaExpressionSyntax>();
         foreach (var lambda in lambdas)
         {
+            // Only analyze lambdas whose body is a collection expression (rule => [...])
+            // Skip outer builder lambdas (c => c.WithConfiguration(...))
+            if (lambda.ExpressionBody is not CollectionExpressionSyntax)
+                continue;
+
             AnalyzeRuleOrdering(lambda, context);
         }
     }

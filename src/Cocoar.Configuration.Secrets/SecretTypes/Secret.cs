@@ -92,15 +92,15 @@ public sealed class Secret<T> : ISecret<T>
             throw new InvalidOperationException(
                 $"Cannot decrypt Secret<{typeof(T).Name}>: secrets infrastructure not configured.\n\n" +
                 "To fix, add secrets setup when creating ConfigManager:\n\n" +
-                "  var manager = new ConfigManager(\n" +
-                "      rules => [...],\n" +
-                "      setup => [setup.Secrets()]  // <-- Add this\n" +
-                "  );\n\n" +
+                "  ConfigManager.Create(c => c\n" +
+                "      .WithConfiguration(rules => [...])\n" +
+                "      .WithSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));\n\n" +
                 "Or with DI:\n\n" +
-                "  services.AddCocoarConfiguration(\n" +
-                "      rules => [...],\n" +
-                "      setup => [setup.Secrets()]\n" +
-                "  );");
+                "  services.AddCocoarConfiguration(c => c\n" +
+                "      .WithConfiguration(rules => [...])\n" +
+                "      .WithSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));");
         }
 
         var protector = _resolver.ResolveForKid(env.Kid);

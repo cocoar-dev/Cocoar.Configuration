@@ -22,8 +22,7 @@ public class CommandLineArgumentProviderUnitTests
     {
         var args = Array.Empty<string>();
         
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -37,8 +36,7 @@ public class CommandLineArgumentProviderUnitTests
     public void EqualsFormat_ParsesCorrectly()
     {
         var args = new[] { "--host=localhost", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -52,8 +50,7 @@ public class CommandLineArgumentProviderUnitTests
     public void SpaceFormat_ParsesCorrectly()
     {
         var args = new[] { "--host", "localhost", "--port", "8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -67,8 +64,7 @@ public class CommandLineArgumentProviderUnitTests
     public void MixedFormats_ParsesCorrectly()
     {
         var args = new[] { "--host=localhost", "--port", "8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -82,8 +78,7 @@ public class CommandLineArgumentProviderUnitTests
     public void BooleanFlags_ParseAsTrue()
     {
         var args = new[] { "--debug", "--verbose" };
-        using var manager = new ConfigManager(rule => [rule.For<FlagsConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<FlagsConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<FlagsConfig>();
         Assert.NotNull(cfg);
@@ -97,8 +92,7 @@ public class CommandLineArgumentProviderUnitTests
     public void NestedConfiguration_WithColon_ParsesCorrectly()
     {
         var args = new[] { "--database:host=localhost", "--database:port=5432", "--database:name=mydb" };
-        using var manager = new ConfigManager(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<NestedConfig>();
         Assert.NotNull(cfg);
@@ -114,8 +108,7 @@ public class CommandLineArgumentProviderUnitTests
     public void NestedConfiguration_WithDoubleUnderscore_ParsesCorrectly()
     {
         var args = new[] { "--database__host=localhost", "--database__port=5432" };
-        using var manager = new ConfigManager(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<NestedConfig>();
         Assert.NotNull(cfg);
@@ -130,12 +123,11 @@ public class CommandLineArgumentProviderUnitTests
     public void SingleDashPrefix_ParsesCorrectly()
     {
         var args = new[] { "-host=localhost", "-port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions
         {
             Args = args,
             SwitchPrefixes = ["-"]
-        })]);
-        manager.Initialize();
+        })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -149,8 +141,7 @@ public class CommandLineArgumentProviderUnitTests
     public void NonSwitchArguments_AreIgnored()
     {
         var args = new[] { "somecommand", "--host=localhost", "anotherarg", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -164,8 +155,7 @@ public class CommandLineArgumentProviderUnitTests
     public void CaseInsensitive_ParsesCorrectly()
     {
         var args = new[] { "--HOST=localhost", "--Port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -179,8 +169,7 @@ public class CommandLineArgumentProviderUnitTests
     public void FluentAPI_WithArgs_Works()
     {
         var args = new[] { "--host=localhost", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -194,8 +183,7 @@ public class CommandLineArgumentProviderUnitTests
     public void EmptyValueAfterEquals_ParsesAsEmptyString()
     {
         var args = new[] { "--host=", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -209,8 +197,7 @@ public class CommandLineArgumentProviderUnitTests
     public void ValueWithSpaces_InEqualsFormat_ParsesCorrectly()
     {
         var args = new[] { "--host=my server name", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -224,8 +211,7 @@ public class CommandLineArgumentProviderUnitTests
     public void LastValueWins_WhenDuplicateKeys()
     {
         var args = new[] { "--host=server1", "--host=server2", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -240,8 +226,7 @@ public class CommandLineArgumentProviderUnitTests
     {
         // Simulating: docker run myapp --host=localhost --port=8080 --debug
         var args = new[] { "--host=localhost", "--port=8080", "--debug" };
-        using var manager = new ConfigManager(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<MixedConfig>();
         Assert.NotNull(cfg);
@@ -256,8 +241,7 @@ public class CommandLineArgumentProviderUnitTests
     public void Prefix_FiltersAndStripsPrefix()
     {
         var args = new[] { "--app_host=localhost", "--app_port=8080", "--db_host=dbserver" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -271,11 +255,10 @@ public class CommandLineArgumentProviderUnitTests
     public void Prefix_WithMultipleTypes_MapsCorrectly()
     {
         var args = new[] { "--app_host=localhost", "--app_port=8080", "--db_host=dbserver", "--db_port=5432" };
-        using var manager = new ConfigManager(rule => [
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" }),
             rule.For<DatabaseConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "db_" })
-        ]);
-        manager.Initialize();
+        ]));
 
         var appCfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(appCfg);
@@ -294,8 +277,7 @@ public class CommandLineArgumentProviderUnitTests
     public void Prefix_WithNestedKeys_WorksCorrectly()
     {
         var args = new[] { "--app_database:host=localhost", "--app_database:port=5432" };
-        using var manager = new ConfigManager(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<NestedConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]));
 
         var cfg = manager.GetConfig<NestedConfig>();
         Assert.NotNull(cfg);
@@ -310,8 +292,7 @@ public class CommandLineArgumentProviderUnitTests
     public void Prefix_CaseInsensitive()
     {
         var args = new[] { "--APP_host=localhost", "--app_port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -325,8 +306,7 @@ public class CommandLineArgumentProviderUnitTests
     public void NoPrefix_ReturnsAllArguments()
     {
         var args = new[] { "--host=localhost", "--port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -340,8 +320,7 @@ public class CommandLineArgumentProviderUnitTests
     public void Prefix_NoMatchingArgs_ReturnsEmptyConfig()
     {
         var args = new[] { "--other_host=localhost", "--other_port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]);
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args, Prefix = "app_" })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);
@@ -355,12 +334,11 @@ public class CommandLineArgumentProviderUnitTests
     public void MultipleSwitchPrefixes_ParsesCorrectly()
     {
         var args = new[] { "--host=localhost", "-port=8080", "/debug=true" };
-        using var manager = new ConfigManager(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions
         {
             Args = args,
             SwitchPrefixes = ["--", "-", "/"]
-        })]);
-        manager.Initialize();
+        })]));
 
         var cfg = manager.GetConfig<MixedConfig>();
         Assert.NotNull(cfg);
@@ -375,12 +353,11 @@ public class CommandLineArgumentProviderUnitTests
     public void MultipleSwitchPrefixes_WithSpaceFormat_ParsesCorrectly()
     {
         var args = new[] { "--host", "localhost", "-port", "8080", "/debug" };
-        using var manager = new ConfigManager(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<MixedConfig>().FromCommandLine(cm => new CommandLineRuleOptions
         {
             Args = args,
             SwitchPrefixes = ["--", "-", "/"]
-        })]);
-        manager.Initialize();
+        })]));
 
         var cfg = manager.GetConfig<MixedConfig>();
         Assert.NotNull(cfg);
@@ -396,12 +373,11 @@ public class CommandLineArgumentProviderUnitTests
     {
         // Ensure "--" matches before "-" even if array order is reversed
         var args = new[] { "--host=localhost", "-port=8080" };
-        using var manager = new ConfigManager(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [rule.For<SimpleConfig>().FromCommandLine(cm => new CommandLineRuleOptions
         {
             Args = args,
             SwitchPrefixes = ["-", "--"]  // Note: shorter prefix first in array
-        })]);
-        manager.Initialize();
+        })]));
 
         var cfg = manager.GetConfig<SimpleConfig>();
         Assert.NotNull(cfg);

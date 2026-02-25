@@ -64,7 +64,7 @@ public class ConfigManagerIsolationTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    public void ConfigManager_Initialize_ShouldSetInitializedFlag()
+    public void ConfigManager_Create_ShouldReturnInitializedManager()
     {
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
@@ -72,13 +72,9 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(testConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
 
-        var result = configManager.Initialize();
-
-        Assert.Same(configManager, result); // Should return self for fluent interface
-        
         // Verify initialization by checking if configs are accessible
         var config = configManager.GetConfig<DatabaseConfig>();
         Assert.NotNull(config);
@@ -88,7 +84,7 @@ public class ConfigManagerIsolationTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    public void ConfigManager_Initialize_ShouldBeIdempotent()
+    public void ConfigManager_Create_CanBeCalledMultipleTimes_IndependentInstances()
     {
         var testConfig = new DatabaseConfig { ConnectionString = "test", Timeout = 30 };
         var rules = new List<ConfigRule>
@@ -96,19 +92,21 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(testConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
-        TrackForDisposal(configManager);
+        var configManager1 = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+        TrackForDisposal(configManager1);
 
-        var result1 = configManager.Initialize();
-        var result2 = configManager.Initialize(); // Second call should be safe
+        var configManager2 = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+        TrackForDisposal(configManager2);
 
-        Assert.Same(configManager, result1);
-        Assert.Same(configManager, result2);
-        
-        // Verify configuration is still accessible
-        var config = configManager.GetConfig<DatabaseConfig>();
-        Assert.NotNull(config);
-        Assert.Equal("test", config.ConnectionString);
+        Assert.NotSame(configManager1, configManager2);
+
+        // Both should have accessible config
+        var config1 = configManager1.GetConfig<DatabaseConfig>();
+        var config2 = configManager2.GetConfig<DatabaseConfig>();
+        Assert.NotNull(config1);
+        Assert.NotNull(config2);
+        Assert.Equal("test", config1.ConnectionString);
+        Assert.Equal("test", config2.ConnectionString);
     }
 
     [Fact]
@@ -127,9 +125,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(expectedConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var result = configManager.GetConfig<DatabaseConfig>();
 
@@ -150,9 +147,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(testConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
             configManager.GetConfig<ApiConfig>()); // Different type not configured
@@ -171,9 +167,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(expectedConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var success = configManager.TryGetConfig<DatabaseConfig>(out var result);
 
@@ -193,9 +188,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(testConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var success = configManager.TryGetConfig<ApiConfig>(out var result);
 
@@ -213,9 +207,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(expectedConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var result = configManager.GetRequiredConfig<DatabaseConfig>();
 
@@ -235,9 +228,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(testConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
 #pragma warning disable CS0618 // Type or member is obsolete
         var exception = Assert.Throws<InvalidOperationException>(() =>
@@ -272,9 +264,8 @@ public class ConfigManagerIsolationTests : IDisposable
             })
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var config = configManager.GetConfig<DatabaseConfig>();
 
@@ -296,9 +287,8 @@ public class ConfigManagerIsolationTests : IDisposable
             CreateStaticRule(apiConfig)
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var dbResult = configManager.GetConfig<DatabaseConfig>();
         var apiResult = configManager.GetConfig<ApiConfig>();
@@ -336,10 +326,9 @@ public class ConfigManagerIsolationTests : IDisposable
                 new())
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
         TrackForDisposal(observable);
-        configManager.Initialize();
 
         // Verify initial state
         var initialResult = configManager.GetConfig<DatabaseConfig>();
@@ -388,10 +377,9 @@ public class ConfigManagerIsolationTests : IDisposable
         };
 
         // Use longer debounce to test coalescing
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 100);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
         TrackForDisposal(configManager);
         TrackForDisposal(observable);
-        configManager.Initialize();
 
 
         for (var i = 1; i < configs.Length; i++)
@@ -432,10 +420,9 @@ public class ConfigManagerIsolationTests : IDisposable
                 new())
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 200);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(200));
         TrackForDisposal(configManager);
         TrackForDisposal(observable);
-        configManager.Initialize();
 
 
         observable.OnNext(new() { ConnectionString = "change1", Timeout = 20 });
@@ -485,11 +472,10 @@ public class ConfigManagerIsolationTests : IDisposable
                 new())
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
         TrackForDisposal(observable1);
         TrackForDisposal(observable2);
-        configManager.Initialize();
 
         // Initial state - rule2 should win (based on "last wins" rule order)
         var initialResult = configManager.GetConfig<DatabaseConfig>();
@@ -546,11 +532,9 @@ public class ConfigManagerIsolationTests : IDisposable
         };
 
         // Short debounce to test rapid cancellation
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 30);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(30));
         TrackForDisposal(configManager);
         TrackForDisposal(observable);
-        
-        configManager.Initialize();
 
 
         const int totalChanges = 100; // 100 rapid changes to stress-test debounce/cancel
@@ -602,10 +586,9 @@ public class ConfigManagerIsolationTests : IDisposable
         };
 
         // Longer debounce to test massive coalescing
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 200);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(200));
         TrackForDisposal(configManager);
         TrackForDisposal(observable);
-        configManager.Initialize();
 
 
         const int totalChanges = 200;
@@ -666,14 +649,12 @@ public class ConfigManagerIsolationTests : IDisposable
                 new()));
         }
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
         foreach (var obs in observables)
         {
             TrackForDisposal(obs);
         }
-
-        configManager.Initialize();
 
         // Initial state - last rule should win
         var initialResult = configManager.GetConfig<DatabaseConfig>();

@@ -85,9 +85,8 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
             rules.Add(rule);
         }
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 50);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
         var random = new Random(42); // Deterministic seed for reproducible tests
 
@@ -185,9 +184,8 @@ public class DifferentialCorrectnessFuzzTests : IDisposable
             rules.Add(rule);
         }
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance, debounceMilliseconds: 100);
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
         TrackForDisposal(configManager);
-        configManager.Initialize();
 
 
         for (var burst = 0; burst < 3; burst++)

@@ -1,5 +1,55 @@
 # Changelog
 
+## [5.0.0] - unreleased
+
+### Added
+
+**NEW: ConfigManager Builder API**
+- New `ConfigManager.Create()` static factory method with fluent builder pattern for creating fully-initialized ConfigManager instances
+- Single entry point replaces split construction/initialization pattern (`new ConfigManager(...).Initialize()`)
+- Builder groups concerns logically: `.WithConfiguration()` for rules/setup, `.UseLogger()` for logging, `.UseDebounce()` for debounce timing
+- Satellite libraries can extend the builder via extension methods (e.g., `.WithSecretsSetup()`)
+
+**NEW: `WithSecretsSetup()` Extension Method**
+- Dedicated builder extension for configuring secrets, replacing `setup.Secrets()` in the setup lambda
+- Leverages the Cocoar.Capabilities system for cross-assembly extensibility
+- Cleaner separation: secrets configuration is now independent of the setup pipeline
+
+### Changed
+
+**BREAKING: ConfigManager constructors and `Initialize()` are now `internal`**
+- Use `ConfigManager.Create(c => c.WithConfiguration(...))` instead of `new ConfigManager(...).Initialize()`
+- See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for detailed migration instructions
+
+**BREAKING: `AddCocoarConfiguration()` now uses the builder API**
+- Old: `services.AddCocoarConfiguration(rule => [...], setup => [...])`
+- New: `services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [...], setup => [...]))`
+- Same change applies to `WebApplicationBuilder.AddCocoarConfiguration()`
+- Provides access to the full builder API in DI scenarios, including `.WithSecretsSetup()` and other satellite extensions
+
+**BREAKING: Secrets setup moved from `setup` lambda to dedicated builder method**
+- Old: `setup => [setup.Secrets().UseCertificateFromFile("cert.pfx")]`
+- New: `.WithSecretsSetup(secrets => secrets.UseCertificateFromFile("cert.pfx"))`
+
+### Migration from v4.x
+
+```csharp
+// v4.x
+var manager = new ConfigManager(
+    rule => [rule.For<AppSettings>().FromFile("config.json")],
+    logger: myLogger
+).Initialize();
+
+// v5.0
+var manager = ConfigManager.Create(c => c
+    .WithConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("config.json")
+    ])
+    .UseLogger(myLogger));
+```
+
+See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
+
 ## [4.2.1] - 2026-02-03
 
 ### Fixed
@@ -21,10 +71,10 @@
   - `ISecret<T>` properties in configuration classes automatically deserialize to `Secret<T>` instances
 
 **NEW: AllowPlaintext() for Secrets**
-- New `setup.Secrets().AllowPlaintext()` fluent API to conditionally allow plaintext JSON values to be deserialized into `Secret<T>` properties
+- New `AllowPlaintext()` fluent API to conditionally allow plaintext JSON values to be deserialized into `Secret<T>` properties
 - Useful for development and testing scenarios where encrypted envelopes are not available
 - **SECURITY WARNING**: Only enable in development/test environments; production should always use encrypted envelopes
-- Example: `setup => [setup.Secrets().AllowPlaintext(builder.Environment.IsDevelopment())]`
+- Example: `.WithSecretsSetup(secrets => secrets.AllowPlaintext(builder.Environment.IsDevelopment()))` (v5.0+ syntax)
 
 **NEW: Testing Setup Overrides**
 - Extended `CocoarTestConfiguration` to support setup overrides in addition to rule overrides

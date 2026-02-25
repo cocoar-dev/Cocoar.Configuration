@@ -24,24 +24,23 @@ public class Program
         Console.WriteLine("--- Test 1: Individual emoji prefixes ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["💀"]
                 }),
-                rule.For<FireConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<FireConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["🔥"]
                 }),
-                rule.For<RocketConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<RocketConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["🚀"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var skull = manager.GetConfig<SkullConfig>();
             var fire = manager.GetConfig<FireConfig>();
@@ -63,14 +62,13 @@ public class Program
         var mixedArgs = new[] { "💀host=emojihost", "--host=dashhost", "@host=athost" };
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = mixedArgs,
                     SwitchPrefixes = ["💀", "--", "@"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var config = manager.GetConfig<SkullConfig>();
             Console.WriteLine($"Host (should be 'athost' - last wins): {config?.Host ?? "null"}");

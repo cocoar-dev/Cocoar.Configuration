@@ -55,7 +55,7 @@ public class MultiProviderMergingTests
             TestRules.StaticJson<AppConfig>(overrideConfigJson)  // Rule 1 (wins)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
@@ -104,7 +104,7 @@ public class MultiProviderMergingTests
             TestRules.StaticJson<AppConfig>(baseConfig)        // Rule 1 (wins!)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
@@ -161,7 +161,7 @@ public class MultiProviderMergingTests
             TestRules.StaticJson<AppConfig>(observablePartialJson)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
@@ -198,7 +198,7 @@ public class MultiProviderMergingTests
             TestRules.StaticJson<AppConfig>(finalConfig)        // Rule 2: Final (wins!)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 

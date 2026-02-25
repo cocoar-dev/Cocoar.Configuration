@@ -15,9 +15,9 @@ The CommandLine provider allows you to load configuration from command-line argu
 ### Simple usage (default `--` prefix)
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
     rule.For<AppConfig>().FromCommandLine()
-]);
+]));
 ```
 
 Command line:
@@ -96,10 +96,10 @@ public class DatabaseConfig
 You can use prefixes to map different command-line arguments to different configuration types:
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
     rule.For<AppConfig>().FromCommandLine("app_"),
     rule.For<DatabaseConfig>().FromCommandLine("db_")
-]);
+]));
 ```
 
 Command line:
@@ -116,10 +116,10 @@ This maps:
 Mix semantic prefixes with custom switch styles:
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
     rule.For<TargetConfig>().FromCommandLine("target_", ["@"]),
     rule.For<IssueConfig>().FromCommandLine("issue_", ["#"])
-]);
+]));
 ```
 
 Command line:
@@ -130,19 +130,19 @@ invoke.exe @target_host=10.10.10.10 #issue_id=123
 ### Dynamic Configuration with Config-Aware Rules
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
     rule.For<TenantSettings>().FromFile("tenant.json"),
-    
+
     rule.For<AppConfig>().FromCommandLine(accessor =>
     {
         var tenant = accessor.GetRequiredConfig<TenantSettings>();
-        return new CommandLineRuleOptions 
-        { 
+        return new CommandLineRuleOptions
+        {
             Prefix = $"{tenant.Name}_",
             SwitchPrefixes = ["--", "-"]
         };
     })
-]);
+]));
 ```
 
 ## Argument Format Support
@@ -213,11 +213,11 @@ public class AppConfig
 Command-line arguments are typically used as the highest-priority layer to override file and environment-based configuration:
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
     rule.For<AppConfig>().FromFile("appsettings.json"),  // Base
     rule.For<AppConfig>().FromEnvironment("APP_"),       // Override
     rule.For<AppConfig>().FromCommandLine()              // Final override
-]);
+]));
 ```
 
 Command line:

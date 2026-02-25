@@ -71,7 +71,7 @@ public async Task ConfigManager_Handles_Provider_Failure_Gracefully()
         TestRules.StaticJson<MyConfig>(fallbackJson)
     };
     
-    var manager = new ConfigManager(rules).Initialize();
+    var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
     var config = manager.GetConfig<MyConfig>(); // Should use fallback
     
     Assert.NotNull(config);
@@ -149,11 +149,11 @@ public async Task FileProvider_Detects_File_Changes()
 public void AsSingleton_Creates_Same_Instance()
 {
     var services = new ServiceCollection();
-    services.AddCocoarConfiguration(rules => [
+    services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
         rules.For<MyConfig>().FromStaticJson(json).Required()
     ], setup => [
         setup.ConcreteType<MyConfig>().AsSingleton()
-    ]);
+    ]));
     
     var sp = services.BuildServiceProvider();
     var instance1 = sp.GetRequiredService<MyConfig>();
@@ -462,11 +462,11 @@ public async Task ConfigManager_Uses_Cached_Configuration()
         TestRules.Cached(testProvider, cacheDuration: TimeSpan.FromMinutes(1))
     };
     
-    var manager = new ConfigManager(rules).Initialize();
-    
+    var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
+
     var config1 = manager.GetConfig<MyConfig>();
     var config2 = manager.GetConfig<MyConfig>();
-    
+
     Assert.Equal(1, fetchCount); // Only fetched once (cached)
     Assert.Same(config1, config2);
 }

@@ -25,8 +25,7 @@ public class ConfigManagerOrchestrationTests
         
         var rule = TestRules.ObservableString<TestConfig>(behaviorSubject, required: true);
 
-        using var manager = new ConfigManager(new[] { rule });
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { rule }));
         
         var initialConfig = manager.GetConfig<TestConfig>();
         Assert.NotNull(initialConfig);
@@ -54,8 +53,7 @@ public class ConfigManagerOrchestrationTests
     {
         var rule = TestRules.StaticJson<TestConfig>("""{"Enabled": true, "Value": 42}""", required: true);
 
-        using var manager = new ConfigManager(new[] { rule });
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { rule }));
         var config = manager.GetConfig<TestConfig>();
 
         Assert.NotNull(config);
@@ -76,8 +74,7 @@ public class ConfigManagerOrchestrationTests
             """{"additional": "config2", "shared": "from-second"}""",
             required: true);
 
-        using var manager = new ConfigManager(new[] { rule1, rule2 });
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { rule1, rule2 }));
         var config = manager.GetConfig<Dictionary<string, object>>();
 
         Assert.NotNull(config);

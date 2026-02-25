@@ -20,10 +20,9 @@ public class DirectConfigManagerTests : IDisposable
         ]);
 
         // Act - Create ConfigManager directly (no DI, no AspNetCore)
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<DbConfig>().FromFile("config.json").Select("Database") // This will be SKIPPED
-        ]);
-        configManager.Initialize();
+        ]));
 
         var dbConfig = configManager.GetRequiredConfig<DbConfig>();
 
@@ -44,14 +43,13 @@ public class DirectConfigManagerTests : IDisposable
         ]);
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=base;",
                 MaxConnections = 10
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var dbConfig = configManager.GetRequiredConfig<DbConfig>();
 
@@ -65,14 +63,13 @@ public class DirectConfigManagerTests : IDisposable
         // No CocoarTestConfiguration set
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=normal;",
                 MaxConnections = 50
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
         var dbConfig = configManager.GetRequiredConfig<DbConfig>();
 

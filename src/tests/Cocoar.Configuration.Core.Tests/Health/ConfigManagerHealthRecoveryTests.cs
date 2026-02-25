@@ -46,8 +46,7 @@ public sealed class ConfigManagerHealthRecoveryTests
             new ConfigRule(typeof(FlakyStaticProvider), new DummyProviderOptions(), new DummyProviderQuery(), typeof(RecoveryConfig), new(Required: false))
         };
 
-        var manager = new ConfigManager(rules, null, NullLogger.Instance, (t, _) => (ConfigurationProvider)Activator.CreateInstance(t, new DummyProviderOptions())!);
-    manager.Initialize(); // Optional failure does not throw
+        var manager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseProviderFactory((t, _) => (ConfigurationProvider)Activator.CreateInstance(t, new DummyProviderOptions())!));
     var health1 = manager.GetHealthService().Snapshot; // snapshot after optional failure
     Assert.Equal(HealthStatus.Degraded, health1.OverallStatus);
         Assert.Single(health1.Rules);
@@ -55,8 +54,7 @@ public sealed class ConfigManagerHealthRecoveryTests
         Assert.Equal(RuleResultStatus.Down, health1.Rules[0].Status);
 
         // Second attempt: call Initialize again (idempotent pattern not guaranteed) - we re-create manager to simulate retry
-    var manager2 = new ConfigManager(rules, null, NullLogger.Instance, (t, _) => (ConfigurationProvider)Activator.CreateInstance(t, new DummyProviderOptions())!);
-    manager2.Initialize();
+    var manager2 = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseProviderFactory((t, _) => (ConfigurationProvider)Activator.CreateInstance(t, new DummyProviderOptions())!));
 
     var health2 = manager2.GetHealthService().Snapshot;
     Assert.Equal(HealthStatus.Healthy, health2.OverallStatus);

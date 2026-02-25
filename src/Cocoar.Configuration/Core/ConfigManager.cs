@@ -16,41 +16,61 @@ namespace Cocoar.Configuration.Core;
 
 public class ConfigManager : IConfigurationAccessor, IDisposable
 {
-    private readonly List<ConfigRule> _rules;
-    private readonly List<SetupDefinition> _setupDefinitions;
+    private List<ConfigRule> _rules = null!;
+    private List<SetupDefinition> _setupDefinitions = null!;
     private readonly List<RuleManager> _ruleManagers = new();
 
-    private readonly ConfigurationAccessor _accessor;
-    private readonly ReactiveConfigurationFactory _reactiveFactory;
-    private readonly ReactiveConfigManager _reactiveConfigManager;
+    private ConfigurationAccessor _accessor = null!;
+    private ReactiveConfigurationFactory _reactiveFactory = null!;
+    private ReactiveConfigManager _reactiveConfigManager = null!;
     private readonly ConfigManagerCapabilityScope _capabilityScope;
-    private readonly ConfigurationEngine _engine;
-    private readonly ConfigurationState _state;
-    private readonly ProviderRegistry _providerRegistry;
-    private readonly ExposureRegistry _bindingRegistry;
-    private readonly ILogger _logger;
-    private readonly int _debounceMilliseconds;
+    private ConfigurationEngine _engine = null!;
+    private ConfigurationState _state = null!;
+    private ProviderRegistry _providerRegistry = null!;
+    private ExposureRegistry _bindingRegistry = null!;
+    private ILogger _logger = NullLogger.Instance;
+    private int _debounceMilliseconds = 300;
 
     private volatile bool _initialized;
 
-    /// <summary>
-    /// Creates a new ConfigManager with a function-based rules builder.
-    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
-    /// </summary>
-    public ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    public static ConfigManager Create(Action<ConfigManagerBuilder> configure)
     {
-        var rulesBuilder = new RulesBuilder();
-        var configuredRules = rules(rulesBuilder);
+        ArgumentNullException.ThrowIfNull(configure);
+        var manager = new ConfigManager();
+        var builder = new ConfigManagerBuilder(manager);
+        configure(builder);
+        return builder.Build();
+    }
 
-        // Apply test configuration overrides if present
-        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
-
+    /// <summary>
+    /// Creates a bare ConfigManager with only the CapabilityScope initialized.
+    /// Must be followed by <see cref="Configure"/> and <see cref="Initialize"/> to be fully operational.
+    /// </summary>
+    internal ConfigManager()
+    {
         _capabilityScope = new ConfigManagerCapabilityScope(this);
         _capabilityScope.Owner.Compose();
+    }
+
+    /// <summary>
+    /// Configures the ConfigManager with rules, setup, and infrastructure.
+    /// Called by <see cref="ConfigManagerBuilder.Build"/> after the user lambda
+    /// has had a chance to configure satellite capabilities on the scope.
+    /// </summary>
+    internal void Configure(
+        ConfigRule[] configuredRules,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null,
+        ILogger? logger = null,
+        Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null,
+        int debounceMilliseconds = 300)
+    {
+        // Apply test configuration overrides if present
+        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
 
         // Apply test setup overrides if present
         var effectiveSetup = ApplyTestSetupOverrides(setup);
         _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
+
         _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
@@ -66,36 +86,18 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _engine = new ConfigurationEngine(_state, _logger);
     }
 
-    /// <summary>
-    /// Creates a new ConfigManager with a pre-built list of rules.
-    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
-    /// </summary>
-    public ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    internal ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+        : this()
     {
-        var configuredRules = rules.ToArray();
+        var rulesBuilder = new RulesBuilder();
+        var configuredRules = rules(rulesBuilder);
+        Configure(configuredRules, setup, logger, providerFactory, debounceMilliseconds);
+    }
 
-        // Apply test configuration overrides if present
-        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
-
-        _capabilityScope = new ConfigManagerCapabilityScope(this);
-        _capabilityScope.Owner.Compose();
-
-        // Apply test setup overrides if present
-        var effectiveSetup = ApplyTestSetupOverrides(setup);
-        _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
-        _logger = logger ?? NullLogger.Instance;
-        _debounceMilliseconds = debounceMilliseconds;
-
-        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
-        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
-        _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
-
-        _accessor = new(_state, _bindingRegistry, _logger);
-        _accessor.SetCapabilityScope(_capabilityScope);
-        _reactiveConfigManager = new(_logger, _bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, _logger, this, _bindingRegistry);
-
-        _engine = new ConfigurationEngine(_state, _logger);
+    internal ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+        : this()
+    {
+        Configure(rules.ToArray(), setup, logger, providerFactory, debounceMilliseconds);
     }
 
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
@@ -104,7 +106,7 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     public ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
 
 
-    public ConfigManager Initialize()
+    internal ConfigManager Initialize()
     {
         if (_initialized)
         {

@@ -24,7 +24,7 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration(rule => [
+        services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
 
             rule.For<DatabaseSettings>().FromMicrosoftSource(_ => new(
                     new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -49,7 +49,7 @@ public static class Program
                 ))
                 .Required()
 
-        ]);
+        ]));
 
         var serviceProvider = services.BuildServiceProvider();
 

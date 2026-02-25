@@ -23,7 +23,7 @@ Rule.From.File("app.json").For<AppConfig>()
 ### ✅ Direct Manager Usage
 ```csharp
 // Manual configuration manager (no DI)
-var manager = new ConfigManager(rules).Initialize();
+var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
 var config = manager.GetConfig<AppConfig>();
 ```
 
