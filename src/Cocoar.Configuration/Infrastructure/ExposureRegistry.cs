@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.Collections.Frozen;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Core;
@@ -29,8 +30,8 @@ internal static partial class ExposureRegistryLog
 
 internal sealed class ExposureRegistry
 {
-    private readonly Dictionary<Type, Type> _interfaceToConcreteMap = new();
-    private readonly Dictionary<Type, Type> _deserializationMap = new();
+    private FrozenDictionary<Type, Type> _interfaceToConcreteMap = FrozenDictionary<Type, Type>.Empty;
+    private FrozenDictionary<Type, Type> _deserializationMap = FrozenDictionary<Type, Type>.Empty;
     private readonly ILogger _logger;
     private readonly ConfigManagerCapabilityScope _capabilityScope;
 
@@ -54,9 +55,9 @@ internal sealed class ExposureRegistry
 
     private void BuildMappingTables(IEnumerable<SetupDefinition> bindings)
     {
-        _interfaceToConcreteMap.Clear();
-        _deserializationMap.Clear();
-        
+        var interfaceToConcreteMap = new Dictionary<Type, Type>();
+        var deserializationMap = new Dictionary<Type, Type>();
+
         foreach (var configureSpec in bindings)
         {
 
@@ -64,7 +65,7 @@ internal sealed class ExposureRegistry
                 continue;
             }
 
-           
+
             if (!bag.TryGetPrimaryAs<IPrimaryTypeCapability>(out var typeCapability))
             {
                 _logger.MissingPrimaryTypeCapability();
@@ -75,44 +76,47 @@ internal sealed class ExposureRegistry
             if (primaryType.IsClass)
             {
                 var concreteType = primaryType;
-                
+
                 bag.GetAll<ExposeAsCapability<SetupDefinition>>().ForEach(exposeAs =>
                 {
                     var interfaceType = exposeAs.ContractType;
-                    
 
-                    if (_interfaceToConcreteMap.TryGetValue(interfaceType, out var existingConcrete))
+
+                    if (interfaceToConcreteMap.TryGetValue(interfaceType, out var existingConcrete))
                     {
                         _logger.ExposeOverride(interfaceType.Name, existingConcrete.Name, concreteType.Name);
                     }
-                    
-                    _interfaceToConcreteMap[interfaceType] = concreteType;
-                    
+
+                    interfaceToConcreteMap[interfaceType] = concreteType;
+
                     _logger.ExposedInterface(interfaceType.Name, concreteType.Name);
                 });
             }
             if (primaryType.IsInterface)
             {
                 var interfaceType = primaryType;
-                
+
                 var deserializeCaps = bag.GetAll<DeserializeToCapability<SetupDefinition>>();
                 var deserializeToCapability = deserializeCaps.Count != 0 ? deserializeCaps[0] : null;
                 if (deserializeToCapability != null)
                 {
                     var concreteType = deserializeToCapability.ConcreteType;
 
-                    if (_deserializationMap.TryGetValue(interfaceType, out var existingConcrete))
+                    if (deserializationMap.TryGetValue(interfaceType, out var existingConcrete))
                     {
                         _logger.DeserializeMappingOverride(interfaceType.Name, existingConcrete.Name, concreteType.Name);
                     }
-                    
-                    _deserializationMap[interfaceType] = concreteType;
-                    
+
+                    deserializationMap[interfaceType] = concreteType;
+
                     _logger.DeserializeMapping(interfaceType.Name, concreteType.Name);
                 }
             }
         }
-        
+
+        _interfaceToConcreteMap = interfaceToConcreteMap.ToFrozenDictionary();
+        _deserializationMap = deserializationMap.ToFrozenDictionary();
+
         _logger.BuiltExposureRegistry(_interfaceToConcreteMap.Count, _deserializationMap.Count);
     }
 }

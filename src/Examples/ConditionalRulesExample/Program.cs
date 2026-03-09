@@ -6,7 +6,7 @@ Console.WriteLine("=== Conditional Rules Example ===\n");
 Console.WriteLine("Demonstrates using When() with IConfigurationAccessor\n");
 
 // Setup: Load tenant configuration, then conditionally load premium features
-var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
     // Load tenant info first
     rule.For<TenantSettings>().FromStaticJson("""
                                               {
@@ -24,12 +24,12 @@ var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
                                                """)
         .When(accessor =>
         {
-            var tenant = accessor.GetRequiredConfig<TenantSettings>();
+            var tenant = accessor.GetConfig<TenantSettings>()!;
             return tenant.Tier == "Premium";
         })
 ]));
 
-var tenant = manager.GetRequiredConfig<TenantSettings>();
+var tenant = manager.GetConfig<TenantSettings>()!;
 var features = manager.GetConfig<PremiumFeatures>();
 
 Console.WriteLine($"Tenant: {tenant.TenantId}");

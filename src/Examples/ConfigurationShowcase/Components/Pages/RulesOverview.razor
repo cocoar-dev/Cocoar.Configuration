@@ -106,7 +106,7 @@
 <div class="card">
     <h3 style="margin-bottom: 0.75rem;">Builder API (Program.cs)</h3>
     <pre><code>builder.AddCocoarConfiguration(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rules: rule => [
             rule.For&lt;AppSettings&gt;()
                 .FromFile("config/app.json")

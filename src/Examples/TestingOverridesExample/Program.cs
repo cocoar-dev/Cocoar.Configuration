@@ -22,7 +22,7 @@ public partial class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Regular configuration - these rules would normally run
-        builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+        builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<DbConfig>().FromFile("config.json").Select("Database"),
             rule.For<ApiSettings>().FromFile("config.json").Select("Api")
         ]));

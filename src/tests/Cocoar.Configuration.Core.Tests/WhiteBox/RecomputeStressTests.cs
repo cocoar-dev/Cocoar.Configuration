@@ -81,7 +81,7 @@ public class RecomputeStressTests : IDisposable
             rules.Add(rule);
         }
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(20));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(20));
         TrackForDisposal(configManager);
 
         var initialMemory = GC.GetTotalMemory(true);
@@ -164,7 +164,7 @@ public class RecomputeStressTests : IDisposable
             rules.Add(rule);
         }
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
         TrackForDisposal(configManager);
 
         var publicationCount = 0;
@@ -248,7 +248,7 @@ public class RecomputeStressTests : IDisposable
 
         var initialMemory = GC.GetTotalMemory(true);
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
         
         // Wait for initial configuration
@@ -334,7 +334,7 @@ public class RecomputeStressTests : IDisposable
             rules.Add(rule);
         }
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(30));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(30));
 
 
         var changeTask = Task.Run(async () =>

@@ -20,9 +20,10 @@ public sealed class SecretsBuilder : SetupDefinition
         _composer = CapabilityScope.Owner.GetRequiredComposer();
 
         // Register test serialization if in test context
-        if (CocoarTestConfiguration.Current != null)
+        var testContext = CocoarTestConfiguration.Current;
+        if (testContext != null)
         {
-            CocoarTestConfiguration.TestSerializerOptions ??= TestSecretSerialization.Options;
+            testContext.SerializerOptions ??= TestSecretSerialization.Options;
         }
 
         if (!_composer.Has<ISerializerSetupCapability>())
@@ -52,7 +53,7 @@ public sealed class SecretsBuilder : SetupDefinition
     /// <code>
     /// // Conditional based on environment (ASP.NET Core)
     /// ConfigManager.Create(c => c
-    ///     .WithConfiguration(rules => [...])
+    ///     .UseConfiguration(rules => [...])
     ///     .WithSecretsSetup(secrets => secrets.AllowPlaintext(isDevelopment)));
     ///
     /// // Always enable for tests

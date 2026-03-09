@@ -28,7 +28,7 @@ public static class Program
     {
         Console.WriteLine("=== StaticJsonProvider Demo: JSON Strings + Factory Functions ===\n");
 
-        var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+        var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             // 1. JSON string approach - great for configuration templates, testing, defaults
             rule.For<CoreDefaults>().FromStaticJson("""
                                                     {
@@ -49,7 +49,7 @@ public static class Program
 
             // 3. Factory approach - dynamic composition using previously resolved configs
             rule.For<Wrapper>().FromStatic(cm => {
-                var coreConfig = cm.GetRequiredConfig<CoreDefaults>();
+                var coreConfig = cm.GetConfig<CoreDefaults>()!;
                 return new Wrapper {
                     Inner = new CoreDefaults {
                         Feature = $"Enhanced_{coreConfig.Feature}",
@@ -61,9 +61,9 @@ public static class Program
         ]));
 
         // Retrieve and display configurations
-        var coreDefaults = manager.GetRequiredConfig<CoreDefaults>();
-        var dbSettings = manager.GetRequiredConfig<DatabaseSettings>();  
-        var wrapper = manager.GetRequiredConfig<Wrapper>();
+        var coreDefaults = manager.GetConfig<CoreDefaults>()!;
+        var dbSettings = manager.GetConfig<DatabaseSettings>()!;
+        var wrapper = manager.GetConfig<Wrapper>()!;
 
         Console.WriteLine("📋 Core Configuration (from JSON string):");
         Console.WriteLine($"   Feature: {coreDefaults.Feature}");

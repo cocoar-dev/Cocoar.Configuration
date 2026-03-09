@@ -34,7 +34,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         foreach (var lambda in lambdas)
         {
             // Only analyze lambdas whose body is a collection expression (rule => [...])
-            // Skip outer builder lambdas (c => c.WithConfiguration(...))
+            // Skip outer builder lambdas (c => c.UseConfiguration(...))
             if (lambda.ExpressionBody is not CollectionExpressionSyntax)
                 continue;
 
@@ -66,9 +66,9 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeRuleOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         var configuredTypes = new HashSet<string>();
-        
+
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
-        
+
         foreach (var inv in invocations)
         {
             var ruleInfo = ExtractRuleInfo(inv, context.SemanticModel);
@@ -78,7 +78,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
             }
 
             var dependencies = ExtractDependencies(inv, context.SemanticModel);
-            
+
             foreach (var dependency in dependencies)
             {
                 if (!configuredTypes.Contains(dependency))
@@ -139,7 +139,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
             if (parent is InvocationExpressionSyntax parentInv)
             {
                 var memberAccess = parentInv.Expression as MemberAccessExpressionSyntax;
-                
+
                 if (memberAccess?.Name.Identifier.Text == "When")
                 {
                     var lambdaArg = parentInv.ArgumentList.Arguments.FirstOrDefault()?.Expression as SimpleLambdaExpressionSyntax;
@@ -169,7 +169,7 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
         var types = new List<string>();
 
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
-        
+
         foreach (var inv in invocations)
         {
             var memberAccess = inv.Expression as MemberAccessExpressionSyntax;

@@ -48,7 +48,7 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     /// <b>DO NOT mutate the returned instance.</b> It is shared across all consumers.
     /// </remarks>
     /// <exception cref="InvalidOperationException">No configuration rule is registered for type T.</exception>
-    public T GetConfig<T>()
+    public T? GetConfig<T>() where T : class
     {
         // First try the backplane (has cached instances after initialization)
         try
@@ -123,7 +123,7 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
         }
     }
 
-    public bool TryGetConfig<T>(out T? value)
+    public bool TryGetConfig<T>(out T? value) where T : class
     {
         try
         {
@@ -145,7 +145,7 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     /// </remarks>
     [Obsolete("Use GetConfig<T>() instead - it now throws if no rule is registered. " +
               "This method will be removed in a future version.")]
-    public T GetRequiredConfig<T>() => GetConfig<T>();
+    public T GetRequiredConfig<T>() => (T)GetConfig(typeof(T));
 
     /// <summary>
     /// Gets a configuration instance from the cached snapshot.

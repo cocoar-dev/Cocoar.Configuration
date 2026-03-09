@@ -20,6 +20,12 @@ internal static partial class RuleManagerLog
 
     [LoggerMessage(EventId = 5002, Level = LogLevel.Warning, Message = "Optional rule failed and will be skipped: {Provider}->{Config}")]
     public static partial void OptionalRuleFailed(this ILogger logger, Exception exception, string Provider, string Config);
+
+    [LoggerMessage(EventId = 5003, Level = LogLevel.Debug, Message = "Query key hash failed for {QueryType}; falling back to JSON serialization")]
+    public static partial void QueryKeyHashFallback(this ILogger logger, Exception exception, string QueryType);
+
+    [LoggerMessage(EventId = 5004, Level = LogLevel.Debug, Message = "Transform key computation failed; falling back to empty key")]
+    public static partial void TransformKeyFallback(this ILogger logger, Exception exception);
 }
 
 /// <summary>
@@ -225,7 +231,7 @@ internal sealed class RuleManager : IDisposable
         return "{}"u8.ToArray();
     }
 
-    private static string ComputeQueryKey(IProviderQuery query)
+    private string ComputeQueryKey(IProviderQuery query)
     {
         try
         {
@@ -242,13 +248,14 @@ internal sealed class RuleManager : IDisposable
 
             return Convert.ToHexString(hash.GetHashAndReset());
         }
-        catch
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
+            _logger.QueryKeyHashFallback(ex, query.GetType().Name);
             return JsonSerializer.Serialize(query, query.GetType());
         }
     }
 
-    private static string ComputeTransformKey(ConfigRuleOptions? options)
+    private string ComputeTransformKey(ConfigRuleOptions? options)
     {
         try
         {
@@ -259,8 +266,9 @@ internal sealed class RuleManager : IDisposable
             var hash = SHA256.HashData(bytes);
             return Convert.ToHexString(hash);
         }
-        catch
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
+            _logger.TransformKeyFallback(ex);
             return string.Empty;
         }
     }

@@ -18,7 +18,7 @@ public class EnvironmentProviderUnitTests
     {
         var prefix = "COCOAR_TEST_APP_" + Guid.NewGuid().ToString("N") + "_"; // unique prefix with no variables
         var rule = EnvironmentVariableProvider.CreateRule<object>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         var snap = manager.GetHealthService().Snapshot;
         Assert.Equal(Health.HealthStatus.Healthy, snap.OverallStatus); // Fetch succeeded with empty object
         Assert.Single(snap.Rules);
@@ -35,7 +35,7 @@ public class EnvironmentProviderUnitTests
         using var scope = EnvScope.Set(variableName, "200");
 
         var rule = EnvironmentVariableProvider.CreateRule<SimpleValueConfig>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<SimpleValueConfig>();
         Assert.NotNull(cfg);
@@ -54,7 +54,7 @@ public class EnvironmentProviderUnitTests
         using var s1 = EnvScope.Set(prefix + "__Logging__Level", "Debug");
 
         var rule = EnvironmentVariableProvider.CreateRule<AppSettings>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<AppSettings>();
         Assert.NotNull(cfg);
@@ -70,7 +70,7 @@ public class EnvironmentProviderUnitTests
         using var s1 = EnvScope.Set(prefix + "_Feature_Flag", "enabled");
 
         var rule = EnvironmentVariableProvider.CreateRule<AppSettings>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<AppSettings>();
         Assert.NotNull(cfg);
@@ -86,7 +86,7 @@ public class EnvironmentProviderUnitTests
         using var s1 = EnvScope.Set(prefix + "Logging:Level", "Info");
 
         var rule = EnvironmentVariableProvider.CreateRule<AppSettings>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<AppSettings>();
         Assert.NotNull(cfg);
@@ -102,7 +102,7 @@ public class EnvironmentProviderUnitTests
         using var s1 = EnvScope.Set(prefix + "Logging___Level", "Warn");
 
         var rule = EnvironmentVariableProvider.CreateRule<AppSettings>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<AppSettings>();
         Assert.NotNull(cfg);
@@ -118,7 +118,7 @@ public class EnvironmentProviderUnitTests
         using var s1 = EnvScope.Set(testVar, "global-value");
 
         var rule = EnvironmentVariableProvider.CreateRule<Dictionary<string, object>>(null, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<Dictionary<string, object>>();
         Assert.NotNull(cfg);
@@ -135,7 +135,7 @@ public class EnvironmentProviderUnitTests
         using var scope = EnvScope.Set(key, "CS");
 
         var rule = EnvironmentVariableProvider.CreateRule<Dictionary<string, object>>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<Dictionary<string, object>>();
         Assert.NotNull(cfg);
@@ -153,7 +153,7 @@ public class EnvironmentProviderUnitTests
         using var scope = EnvScope.Set(key, "x");
 
         var rule = EnvironmentVariableProvider.CreateRule<Dictionary<string, object>>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<Dictionary<string, object>>();
         Assert.NotNull(cfg);
@@ -175,7 +175,7 @@ public class EnvironmentProviderUnitTests
         using var s3 = EnvScope.Set("MYAPP:Data:ConnectionString", "cs");
 
         var rule = EnvironmentVariableProvider.CreateRule<Dictionary<string, object>>(prefix, required: true);
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[]{rule}));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
 
         var cfg = manager.GetConfig<Dictionary<string, object>>();
         Assert.NotNull(cfg);

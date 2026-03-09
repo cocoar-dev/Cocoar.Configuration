@@ -37,7 +37,7 @@ internal static partial class ConfigurationEngineLog
 /// Handles initialization, recomputation, and change subscriptions.
 /// Delegates scheduling/cancellation to RecomputeScheduler.
 /// </summary>
-internal class ConfigurationEngine : IDisposable
+internal class ConfigurationEngine : IDisposable, IAsyncDisposable
 {
     private readonly ConfigurationState _state;
     private readonly ILogger _logger;
@@ -112,23 +112,17 @@ internal class ConfigurationEngine : IDisposable
         IConfigurationAccessor configAccessor,
         int startIndex)
     {
-        _scheduler.Schedule(ct =>
+        _scheduler.ScheduleAsync(async ct =>
         {
             try
             {
-                RecomputeAllConfigurationsSafe(ruleManagers, configAccessor, startIndex, ct);
+                await RecomputeAllConfigurationsSafeAsync(ruleManagers, configAccessor, startIndex, ct).ConfigureAwait(false);
                 _state.ReportSuccessfulRecompute(startIndex);
 
-                // Report any deserialization failures to health service
                 if (_state.LastDeserializationFailures.Count > 0)
-                {
                     _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
-                }
             }
-            catch (OperationCanceledException)
-            {
-                // Expected when cancelled, don't report as failure
-            }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 _logger.RuntimeRecomputeFailed(ex);
@@ -138,10 +132,49 @@ internal class ConfigurationEngine : IDisposable
     }
 
     /// <summary>
+    /// Async variant of <see cref="InitializeAndCompute"/>. Used by <see cref="ConfigManager.InitializeAsync"/>.
+    /// </summary>
+    public async Task InitializeAndComputeAsync(
+        List<ConfigRule> rules,
+        List<RuleManager> ruleManagers,
+        ProviderRegistry providerRegistry,
+        IConfigurationAccessor configAccessor,
+        ExposureRegistry bindingRegistry,
+        ConfigManagerCapabilityScope capabilityScope,
+        Action<int> scheduleRecomputeCallback,
+        int debounceMilliseconds,
+        CancellationToken cancellationToken = default)
+    {
+        _bindingRegistry = bindingRegistry;
+        _capabilityScope = capabilityScope;
+
+        _state.InitializeBackplane(bindingRegistry);
+
+        ruleManagers.Clear();
+        ruleManagers.AddRange(rules.Select(rule => new RuleManager(rule, _logger, providerRegistry)));
+
+        try
+        {
+            await RecomputeAllConfigurationsSafeAsync(ruleManagers, configAccessor, 0, cancellationToken).ConfigureAwait(false);
+            CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
+
+            _state.ReportSuccessfulRecompute(0);
+            _state.MarkStartupComplete();
+            _logger.StartupComplete();
+        }
+        catch (Exception ex)
+        {
+            _logger.InitializationFailed(ex);
+            _state.ReportFailedRecompute(0, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Recomputes all configurations starting from the given index, with semaphore protection and error handling.
     /// </summary>
     public void RecomputeAllConfigurationsSafe(
-        IEnumerable<RuleManager> ruleManagers,
+        IReadOnlyList<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -180,7 +213,7 @@ internal class ConfigurationEngine : IDisposable
     /// Async version of RecomputeAllConfigurationsSafe.
     /// </summary>
     public async Task RecomputeAllConfigurationsSafeAsync(
-        IEnumerable<RuleManager> ruleManagers,
+        IReadOnlyList<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -216,19 +249,18 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void RecomputeAllConfigurations(
-        IEnumerable<RuleManager> ruleManagers,
+        IReadOnlyList<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
     {
         var mergedConfigs = new Dictionary<Type, MutableJsonObject>();
         _state.BeginUpdate();
-        var orderedManagers = ruleManagers.ToList();
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        RestorePrefixContributions(orderedManagers, startIndex, mergedConfigs, cancellationToken);
-        RecomputeSuffix(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken);
+        RestorePrefixContributions(ruleManagers, startIndex, mergedConfigs, cancellationToken);
+        RecomputeSuffix(ruleManagers, startIndex, configAccessor, mergedConfigs, cancellationToken);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -245,19 +277,18 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private async Task RecomputeAllConfigurationsAsync(
-        IEnumerable<RuleManager> ruleManagers,
+        IReadOnlyList<RuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
     {
         var mergedConfigs = new Dictionary<Type, MutableJsonObject>();
         _state.BeginUpdate();
-        var orderedManagers = ruleManagers.ToList();
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        RestorePrefixContributions(orderedManagers, startIndex, mergedConfigs, cancellationToken);
-        await RecomputeSuffixAsync(orderedManagers, startIndex, configAccessor, mergedConfigs, cancellationToken).ConfigureAwait(false);
+        RestorePrefixContributions(ruleManagers, startIndex, mergedConfigs, cancellationToken);
+        await RecomputeSuffixAsync(ruleManagers, startIndex, configAccessor, mergedConfigs, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -274,7 +305,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void RestorePrefixContributions(
-        List<RuleManager> orderedManagers,
+        IReadOnlyList<RuleManager> orderedManagers,
         int startIndex,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
         CancellationToken cancellationToken)
@@ -302,7 +333,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void RecomputeSuffix(
-        List<RuleManager> orderedManagers,
+        IReadOnlyList<RuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -320,7 +351,7 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private async Task RecomputeSuffixAsync(
-        List<RuleManager> orderedManagers,
+        IReadOnlyList<RuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -395,20 +426,19 @@ internal class ConfigurationEngine : IDisposable
     }
 
     private void CreateChangeSubscriptions(
-        IEnumerable<RuleManager> ruleManagers,
+        IReadOnlyList<RuleManager> ruleManagers,
         Action<int> recomputeFromIndexCallback,
         int debounceMilliseconds)
     {
         DisposeAllSubscriptions();
 
-        var list = ruleManagers.ToList();
         var coalescer = new RecomputeCoalescer(_logger, recomputeFromIndexCallback, debounceMilliseconds, 40);
         _changeSubscriptions.Add(coalescer);
 
-        for (var i = 0; i < list.Count; i++)
+        for (var i = 0; i < ruleManagers.Count; i++)
         {
             var idx = i;
-            var rm = list[i];
+            var rm = ruleManagers[i];
             var subscription = rm.Changes.Subscribe(_ =>
             {
                 try
@@ -442,6 +472,15 @@ internal class ConfigurationEngine : IDisposable
         _scheduler.Dispose();
         DisposeAllSubscriptions();
         _recomputeSemaphore.Dispose();
-        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        await _scheduler.DisposeAsync().ConfigureAwait(false);
+        DisposeAllSubscriptions();
+        _recomputeSemaphore.Dispose();
     }
 }

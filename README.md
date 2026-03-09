@@ -19,7 +19,7 @@
 ### Shouldn't configuration be this easy?
 ```csharp
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
         rule.For<AppSettings>().FromEnvironment("APP_")
     ]));
@@ -79,7 +79,7 @@ public class MyService(IOptions<AppSettings> options)
 ```csharp
 // Startup configuration
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("appsettings.json").Select("App")
     ]));
 
@@ -104,7 +104,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Define your configuration rules
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
         rule.For<AppSettings>().FromEnvironment("APP_"),
         rule.For<DatabaseConfig>().FromFile("appsettings.json").Select("Database")
@@ -168,7 +168,7 @@ public class ConfigHub : Hub
 ### Layer Configuration Sources
 ```csharp
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("appsettings.json"),           // Base
         rule.For<AppSettings>().FromFile("appsettings.Production.json"), // Environment
         rule.For<AppSettings>().FromEnvironment("APP_"),                 // Overrides
@@ -216,7 +216,7 @@ invoke.exe @target=server #issue=123 %env=prod
 Map arguments to specific configuration types:
 ```csharp
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromCommandLine("app_"),
         rule.For<DatabaseConfig>().FromCommandLine("db_")
     ]));
@@ -289,7 +289,7 @@ rule.For<ApiSettings>().FromHttpPolling(accessor =>
 ### Interface Exposure
 ```csharp
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rule => [rule.For<AppSettings>().FromFile("appsettings.json")],
         setup => [setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()]));
 
@@ -310,7 +310,7 @@ public class AppSettings
 }
 
 builder.Services.AddCocoarConfiguration(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rule => [rule.For<AppSettings>().FromEnvironment()],  // or FromFile, FromHttpPolling, etc.
         setup => [
             // Map interface to concrete type for deserialization
@@ -362,7 +362,7 @@ public class AppSettings
 
 // Configure secrets via the builder API
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("config.json")
     ])
     .WithSecretsSetup(secrets => secrets

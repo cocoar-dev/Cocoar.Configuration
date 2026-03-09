@@ -7,19 +7,19 @@ This guide explains how to migrate from v4.x to v5.0, which introduces the **Con
 v5.0 introduces two major breaking changes:
 
 1. **`ConfigManager` constructors and `Initialize()` are now `internal`** — use `ConfigManager.Create()` instead
-2. **`AddCocoarConfiguration()` now uses the builder API** — use `AddCocoarConfiguration(c => c.WithConfiguration(...))` instead of `AddCocoarConfiguration(rule => [...])`
+2. **`AddCocoarConfiguration()` now uses the builder API** — use `AddCocoarConfiguration(c => c.UseConfiguration(...))` instead of `AddCocoarConfiguration(rule => [...])`
 
 ### Migration Table
 
 | v4.x API | v5.0 API |
 |----------|----------|
-| `new ConfigManager(rules).Initialize()` | `ConfigManager.Create(c => c.WithConfiguration(rules))` |
-| `new ConfigManager(rules, setup).Initialize()` | `ConfigManager.Create(c => c.WithConfiguration(rules, setup))` |
-| `new ConfigManager(rules, logger: l).Initialize()` | `ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(l))` |
-| `new ConfigManager(rules, debounceMilliseconds: 50).Initialize()` | `ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(50))` |
-| `services.AddCocoarConfiguration(rule => [...])` | `services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [...]))` |
-| `services.AddCocoarConfiguration(rule => [...], setup => [...])` | `services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [...], setup => [...]))` |
-| `builder.AddCocoarConfiguration(rule => [...])` | `builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [...]))` |
+| `new ConfigManager(rules).Initialize()` | `ConfigManager.Create(c => c.UseConfiguration(rules))` |
+| `new ConfigManager(rules, setup).Initialize()` | `ConfigManager.Create(c => c.UseConfiguration(rules, setup))` |
+| `new ConfigManager(rules, logger: l).Initialize()` | `ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(l))` |
+| `new ConfigManager(rules, debounceMilliseconds: 50).Initialize()` | `ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(50))` |
+| `services.AddCocoarConfiguration(rule => [...])` | `services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [...]))` |
+| `services.AddCocoarConfiguration(rule => [...], setup => [...])` | `services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [...], setup => [...]))` |
+| `builder.AddCocoarConfiguration(rule => [...])` | `builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [...]))` |
 
 ## Why the Change?
 
@@ -30,7 +30,7 @@ The old API had two problems:
 
 The new API solves both:
 - `ConfigManager.Create()` returns a **fully-initialized** instance — no `Initialize()` needed
-- The builder groups concerns logically: `.WithConfiguration()` for rules/setup, `.UseLogger()` for logging, etc.
+- The builder groups concerns logically: `.UseConfiguration()` for rules/setup, `.UseLogger()` for logging, etc.
 - The builder provides extension points (`.AfterBuild()`) for satellite libraries
 
 ## Quick Examples
@@ -48,7 +48,7 @@ var manager = new ConfigManager(rule => [
 **After (v5.0):**
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("config.json"),
         rule.For<DbSettings>().FromEnvironment("DB_")
     ]));
@@ -71,7 +71,7 @@ var manager = new ConfigManager(
 **After (v5.0):**
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rule => [
             rule.For<AppSettings>().FromFile("config.json")
         ],
@@ -94,7 +94,7 @@ var manager = new ConfigManager(
 **After (v5.0):**
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("config.json")
     ])
     .UseLogger(myLogger)
@@ -113,7 +113,7 @@ var manager = new ConfigManager(rules, logger: NullLogger.Instance).Initialize()
 ```csharp
 var rules = new[] { rule1, rule2, rule3 };
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rules)
+    .UseConfiguration(rules)
     .UseLogger(NullLogger.Instance));
 ```
 
@@ -134,7 +134,7 @@ var manager = new ConfigManager(
 **After (v5.0):**
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rule => [rule.For<AppConfig>().FromFile("config.json")])
     .WithSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")
@@ -158,7 +158,7 @@ services.AddCocoarConfiguration(
 **After (v5.0):**
 ```csharp
 services.AddCocoarConfiguration(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rule => [rule.For<AppSettings>().FromFile("config.json")],
         setup => [setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()]));
 ```
@@ -166,7 +166,7 @@ services.AddCocoarConfiguration(c => c
 **ASP.NET Core:**
 ```csharp
 builder.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("config.json")
     ]));
 ```
@@ -174,7 +174,7 @@ builder.AddCocoarConfiguration(c => c
 **With Secrets:**
 ```csharp
 services.AddCocoarConfiguration(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile("config.json")
     ])
     .WithSecretsSetup(secrets => secrets
@@ -192,7 +192,7 @@ var manager = new ConfigManager(rule => [...]).Initialize();
 services.AddCocoarConfiguration(manager);
 
 // After:
-var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [...]));
+var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [...]));
 services.AddCocoarConfiguration(manager);
 ```
 
@@ -202,12 +202,12 @@ For most cases, find/replace works:
 
 ### Pattern 1: Chained Initialize
 **Find:** `new ConfigManager(rule => [`
-**Replace with:** `ConfigManager.Create(c => c.WithConfiguration(rule => [`
+**Replace with:** `ConfigManager.Create(c => c.UseConfiguration(rule => [`
 
 Then replace the closing `).Initialize()` with `))`.
 
 ### Pattern 2: Separate Initialize
-Remove the `.Initialize()` call and wrap the constructor in `ConfigManager.Create(c => c.WithConfiguration(...))`.
+Remove the `.Initialize()` call and wrap the constructor in `ConfigManager.Create(c => c.UseConfiguration(...))`.
 
 ## What Stays the Same
 

@@ -46,6 +46,11 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
             opts);
     }
 
+    /// <remarks>
+    /// This implicit conversion triggers <see cref="Build"/> immediately.
+    /// Ensure the fluent chain is complete before the implicit conversion occurs,
+    /// as any further method calls after conversion will not be reflected in the built rule.
+    /// </remarks>
     public static implicit operator ConfigRule(ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> builder)
     {
        return builder.Build();

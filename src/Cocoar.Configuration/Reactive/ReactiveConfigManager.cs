@@ -61,7 +61,7 @@ internal sealed class ReactiveConfigManager : IDisposable
         return (IReactiveConfig<T>)_reactiveConfigs.GetOrAdd(type, _ =>
         {
             _logger.CreatedReactiveConfig(type);
-            return new BackplaneReactiveConfig<T>(_backplane, _logger);
+            return new BackplaneReactiveConfig<T>(_backplane);
         });
     }
 
@@ -80,7 +80,6 @@ internal sealed class ReactiveConfigManager : IDisposable
         }
 
         _reactiveConfigs.Clear();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
@@ -91,13 +90,13 @@ internal sealed class ReactiveConfigManager : IDisposable
         private readonly MasterBackplane _backplane;
         private readonly IObservable<T> _observable;
 
-        public BackplaneReactiveConfig(MasterBackplane backplane, ILogger logger)
+        public BackplaneReactiveConfig(MasterBackplane backplane)
         {
             _backplane = backplane;
             _observable = backplane.GetTypeProjection<T>();
         }
 
-        public T CurrentValue => _backplane.GetConfig<T>()!;
+        public T CurrentValue => _backplane.GetConfig<T>() ?? throw new InvalidOperationException($"No configuration available for type {typeof(T).Name}.");
 
         public IDisposable Subscribe(IObserver<T> observer) => _observable.Subscribe(observer);
 

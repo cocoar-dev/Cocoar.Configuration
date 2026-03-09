@@ -39,7 +39,7 @@ public class ErrorMessageTests
         """;
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [
                     rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
                 ])
@@ -81,7 +81,7 @@ public class ErrorMessageTests
         """;
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()])
             .WithSecretsSetup(secrets => secrets)
         );
@@ -180,7 +180,7 @@ public class ErrorMessageTests
         """;
 
         // Act & Assert - With Master Backplane, deserialization fails at startup
-        var ex = Assert.Throws<ConfigurationDeserializationException>(() => ConfigManager.Create(c => c.WithConfiguration(
+        var ex = Assert.Throws<ConfigurationDeserializationException>(() => ConfigManager.Create(c => c.UseConfiguration(
             rules => [
                 rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
             ]

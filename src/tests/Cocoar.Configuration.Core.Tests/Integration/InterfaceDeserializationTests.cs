@@ -47,7 +47,7 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rules: rule => [
                 rule.For<AppConfiguration>().FromStaticJson(json)
             ],
@@ -80,7 +80,7 @@ public class InterfaceDeserializationTests
 
         try
         {
-            var configManager = ConfigManager.Create(c => c.WithConfiguration(
+            var configManager = ConfigManager.Create(c => c.UseConfiguration(
                 rules: rule => [
                     rule.For<AppConfiguration>().FromEnvironment()
                 ],
@@ -147,7 +147,7 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rules: rule => [
                 rule.For<ComplexConfiguration>().FromStaticJson(json)
             ],
@@ -217,7 +217,7 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rules: rule => [
                 rule.For<NestedConfiguration>().FromStaticJson(json)
             ],
@@ -302,7 +302,7 @@ public class InterfaceDeserializationTests
         }
         """;
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rules: rule => [
                 rule.For<DeepConfiguration>().FromStaticJson(json)
             ],

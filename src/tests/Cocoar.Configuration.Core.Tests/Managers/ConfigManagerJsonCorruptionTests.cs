@@ -114,7 +114,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+            var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
             TrackForDisposal(configManager);
         });
         
@@ -153,7 +153,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
         var config = configManager.GetConfig<TestConfig>();
 
@@ -196,7 +196,7 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
         var config = configManager.GetConfig<TestConfig>();
 

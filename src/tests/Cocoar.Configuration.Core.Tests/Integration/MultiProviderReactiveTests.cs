@@ -26,7 +26,7 @@ public class MultiProviderReactiveTests
             TestRules.ObservableString<AppConfig>(behaviorSubject)  // Observable (rule 1, wins)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(100));
         var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
         
         var emissions = new List<AppConfig>();
@@ -99,7 +99,7 @@ public class MultiProviderReactiveTests
             TestRules.ObservableString<AppConfig>(behaviorSubject)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(50));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(50));
         var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
 
         var emissions = new List<AppConfig>();
@@ -176,7 +176,7 @@ public class MultiProviderReactiveTests
             TestRules.ObservableString<AppConfig>(subject)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(100));
         var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
         
         var emissions = new List<AppConfig>();
@@ -228,7 +228,7 @@ public class MultiProviderReactiveTests
             TestRules.ObservableString<AppConfig>(subject)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(100));
         var reactiveConfig = configManager.GetReactiveConfig<AppConfig>();
         
         var emissions = new List<AppConfig>();
@@ -277,7 +277,7 @@ public class MultiProviderReactiveTests
             TestRules.ObservableString<AppConfigWithArray>(subject)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseDebounce(100));
         var reactiveConfig = configManager.GetReactiveConfig<AppConfigWithArray>();
         
         var emissions = new List<AppConfigWithArray>();

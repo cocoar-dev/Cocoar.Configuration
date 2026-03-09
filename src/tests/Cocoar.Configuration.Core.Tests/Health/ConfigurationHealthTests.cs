@@ -1,4 +1,4 @@
-
+using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Core.Tests.Helpers;
 
 namespace Cocoar.Configuration.Core.Tests.Health;
@@ -8,26 +8,23 @@ public class ConfigurationHealthTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Area", "Health")]
-    public void ConfigurationHealthStatus_HasExpectedValues()
+    public void HealthStatus_HasExpectedValues()
     {
-
-        Assert.Equal(0, (int)ConfigurationHealthStatus.Healthy);
-        Assert.Equal(1, (int)ConfigurationHealthStatus.Degraded);
-        Assert.Equal(2, (int)ConfigurationHealthStatus.Unhealthy);
-        Assert.Equal(3, (int)ConfigurationHealthStatus.Unknown);
+        Assert.Equal(0, (int)HealthStatus.Unknown);
+        Assert.Equal(1, (int)HealthStatus.Healthy);
+        Assert.Equal(2, (int)HealthStatus.Degraded);
+        Assert.Equal(3, (int)HealthStatus.Unhealthy);
     }
 
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Area", "Health")]
-    public void RuleEvaluationState_HasExpectedValues()
+    public void RuleResultStatus_HasExpectedValues()
     {
-
-        Assert.Equal(0, (int)RuleEvaluationState.NotEvaluated);
-        Assert.Equal(1, (int)RuleEvaluationState.Skipped);
-        Assert.Equal(2, (int)RuleEvaluationState.Evaluating);
-        Assert.Equal(3, (int)RuleEvaluationState.Success);
-        Assert.Equal(4, (int)RuleEvaluationState.Failed);
+        Assert.Equal(0, (int)RuleResultStatus.Unknown);
+        Assert.Equal(1, (int)RuleResultStatus.Up);
+        Assert.Equal(2, (int)RuleResultStatus.Down);
+        Assert.Equal(3, (int)RuleResultStatus.Skipped);
     }
 
     [Fact]
@@ -36,12 +33,12 @@ public class ConfigurationHealthTests
     public void RuleHealthInfo_CanBeCreated()
     {
         var ruleHealth = new RuleHealthInfo(
-            RuleEvaluationState.Success,
+            RuleResultStatus.Up,
             IsRequired: true,
             IsSkipped: false
         );
 
-        Assert.Equal(RuleEvaluationState.Success, ruleHealth.State);
+        Assert.Equal(RuleResultStatus.Up, ruleHealth.Status);
         Assert.True(ruleHealth.IsRequired);
         Assert.False(ruleHealth.IsSkipped);
     }
@@ -53,17 +50,17 @@ public class ConfigurationHealthTests
     {
         var rules = new[]
         {
-            new RuleHealthInfo(RuleEvaluationState.Success, IsRequired: true, IsSkipped: false),
-            new RuleHealthInfo(RuleEvaluationState.Success, IsRequired: false, IsSkipped: false)
+            new RuleHealthInfo(RuleResultStatus.Up, IsRequired: true, IsSkipped: false),
+            new RuleHealthInfo(RuleResultStatus.Up, IsRequired: false, IsSkipped: false)
         };
 
         var healthInfo = new ConfigurationHealthInfo(rules);
 
-        Assert.Equal(ConfigurationHealthStatus.Healthy, healthInfo.State);
+        Assert.Equal(HealthStatus.Healthy, healthInfo.State);
         Assert.Equal(2, healthInfo.Rules.Count);
-        Assert.Equal(RuleEvaluationState.Success, healthInfo.Rules[0].State);
+        Assert.Equal(RuleResultStatus.Up, healthInfo.Rules[0].Status);
         Assert.True(healthInfo.Rules[0].IsRequired);
-        Assert.Equal(RuleEvaluationState.Success, healthInfo.Rules[1].State);
+        Assert.Equal(RuleResultStatus.Up, healthInfo.Rules[1].Status);
         Assert.False(healthInfo.Rules[1].IsRequired);
     }
 
@@ -74,7 +71,7 @@ public class ConfigurationHealthTests
     {
         var healthInfo = new ConfigurationHealthInfo(Array.Empty<RuleHealthInfo>());
 
-        Assert.Equal(ConfigurationHealthStatus.Unknown, healthInfo.State);
+        Assert.Equal(HealthStatus.Unknown, healthInfo.State);
         Assert.Empty(healthInfo.Rules);
     }
 
@@ -85,15 +82,15 @@ public class ConfigurationHealthTests
     {
         var rules = new[]
         {
-            new RuleHealthInfo(RuleEvaluationState.Success, IsRequired: true, IsSkipped: false),
-            new RuleHealthInfo(RuleEvaluationState.Skipped, IsRequired: false, IsSkipped: true)
+            new RuleHealthInfo(RuleResultStatus.Up, IsRequired: true, IsSkipped: false),
+            new RuleHealthInfo(RuleResultStatus.Skipped, IsRequired: false, IsSkipped: true)
         };
 
         var healthInfo = new ConfigurationHealthInfo(rules);
 
-        Assert.Equal(ConfigurationHealthStatus.Healthy, healthInfo.State);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.Success && r.IsRequired);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.Skipped && r.IsSkipped);
+        Assert.Equal(HealthStatus.Healthy, healthInfo.State);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Up && r.IsRequired);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Skipped && r.IsSkipped);
     }
 
     [Fact]
@@ -103,15 +100,15 @@ public class ConfigurationHealthTests
     {
         var rules = new[]
         {
-            new RuleHealthInfo(RuleEvaluationState.Success, IsRequired: true, IsSkipped: false),
-            new RuleHealthInfo(RuleEvaluationState.Failed, IsRequired: false, IsSkipped: false)
+            new RuleHealthInfo(RuleResultStatus.Up, IsRequired: true, IsSkipped: false),
+            new RuleHealthInfo(RuleResultStatus.Down, IsRequired: false, IsSkipped: false)
         };
 
         var healthInfo = new ConfigurationHealthInfo(rules);
 
-        Assert.Equal(ConfigurationHealthStatus.Degraded, healthInfo.State);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.Success && r.IsRequired);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.Failed && !r.IsRequired);
+        Assert.Equal(HealthStatus.Degraded, healthInfo.State);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Up && r.IsRequired);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Down && !r.IsRequired);
     }
 
     [Fact]
@@ -121,32 +118,28 @@ public class ConfigurationHealthTests
     {
         var rules = new[]
         {
-            new RuleHealthInfo(RuleEvaluationState.Failed, IsRequired: true, IsSkipped: false),
-            new RuleHealthInfo(RuleEvaluationState.NotEvaluated, IsRequired: false, IsSkipped: false)
+            new RuleHealthInfo(RuleResultStatus.Down, IsRequired: true, IsSkipped: false),
+            new RuleHealthInfo(RuleResultStatus.Unknown, IsRequired: false, IsSkipped: false)
         };
 
         var healthInfo = new ConfigurationHealthInfo(rules);
 
-        Assert.Equal(ConfigurationHealthStatus.Unhealthy, healthInfo.State);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.Failed && r.IsRequired);
-        Assert.Contains(healthInfo.Rules, r => r.State == RuleEvaluationState.NotEvaluated);
+        Assert.Equal(HealthStatus.Unhealthy, healthInfo.State);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Down && r.IsRequired);
+        Assert.Contains(healthInfo.Rules, r => r.Status == RuleResultStatus.Unknown);
     }
 
     [Theory]
     [Trait("Type", "Unit")]
     [Trait("Area", "Health")]
-    [InlineData(RuleEvaluationState.NotEvaluated)]
-    [InlineData(RuleEvaluationState.Skipped)]
-    [InlineData(RuleEvaluationState.Evaluating)]
-    [InlineData(RuleEvaluationState.Success)]
-    [InlineData(RuleEvaluationState.Failed)]
-    public void RuleHealthInfo_SupportsAllEvaluationStates(RuleEvaluationState state)
+    [InlineData(RuleResultStatus.Unknown)]
+    [InlineData(RuleResultStatus.Up)]
+    [InlineData(RuleResultStatus.Down)]
+    [InlineData(RuleResultStatus.Skipped)]
+    public void RuleHealthInfo_SupportsAllResultStatuses(RuleResultStatus status)
     {
-        var ruleHealth = new RuleHealthInfo(state, IsRequired: true, IsSkipped: false);
+        var ruleHealth = new RuleHealthInfo(status, IsRequired: true, IsSkipped: false);
 
-        Assert.Equal(state, ruleHealth.State);
+        Assert.Equal(status, ruleHealth.Status);
     }
 }
-
-
-

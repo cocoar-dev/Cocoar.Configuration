@@ -1,0 +1,10 @@
+{
+  "Api": {
+    "BaseUrl": "https://api.example.com",
+    "ApiKey": "demo-api-key-12345"
+  },
+  "Region": {
+    "Region": "us-west-2",
+    "DataCenter": "oregon-dc-01"
+  }
+}

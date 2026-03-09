@@ -14,7 +14,7 @@ using Cocoar.Configuration.Utilities;
 
 namespace Cocoar.Configuration.Core;
 
-public class ConfigManager : IConfigurationAccessor, IDisposable
+public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncDisposable
 {
     private List<ConfigRule> _rules = null!;
     private List<SetupDefinition> _setupDefinitions = null!;
@@ -31,8 +31,22 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     private ILogger _logger = NullLogger.Instance;
     private int _debounceMilliseconds = 300;
 
-    private volatile bool _initialized;
+    private int _initialized;
 
+    /// <summary>
+    /// Creates and initializes a new <see cref="ConfigManager"/> using the provided configuration.
+    /// </summary>
+    /// <param name="configure">An action to configure the <see cref="ConfigManagerBuilder"/>.</param>
+    /// <returns>A fully initialized <see cref="ConfigManager"/> ready for use.</returns>
+    /// <example>
+    /// <code>
+    /// var manager = ConfigManager.Create(builder => builder
+    ///     .UseConfiguration(rules => [
+    ///         rules.For&lt;AppSettings&gt;().FromFile("appsettings.json")
+    ///     ]));
+    /// var settings = manager.GetConfig&lt;AppSettings&gt;();
+    /// </code>
+    /// </example>
     public static ConfigManager Create(Action<ConfigManagerBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
@@ -103,17 +117,17 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
     internal IReadOnlyList<SetupDefinition> SetupDefinitions => _setupDefinitions.AsReadOnly();
 
-    public ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
-
+    internal ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
+    internal MasterBackplane Backplane => _state.Backplane;
 
     internal ConfigManager Initialize()
     {
-        if (_initialized)
+        if (_initialized != 0)
         {
             return this;
         }
 
-        if (!Interlocked.CompareExchange(ref _initialized, true, false))
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
         {
             _capabilityScope.Owner.TryGetComposer(out var composer);
             composer?.Build();
@@ -135,8 +149,75 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         return this;
     }
 
-    public T GetConfig<T>() => _accessor.GetConfig<T>();
-    public bool TryGetConfig<T>(out T? value) => _accessor.TryGetConfig(out value);
+    internal async Task<ConfigManager> InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        if (_initialized != 0)
+            return this;
+
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+        {
+            _capabilityScope.Owner.TryGetComposer(out var composer);
+            composer?.Build();
+            _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
+
+            await _engine.InitializeAndComputeAsync(
+                _rules,
+                _ruleManagers,
+                _providerRegistry,
+                this,
+                _bindingRegistry,
+                _capabilityScope,
+                ScheduleRecompute,
+                _debounceMilliseconds,
+                cancellationToken).ConfigureAwait(false);
+
+            _reactiveConfigManager.SetBackplane(_state.Backplane);
+        }
+        return this;
+    }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="ConfigManager"/> asynchronously.
+    /// Prefer this over <see cref="Create"/> in console apps or any context where
+    /// blocking the calling thread during provider I/O is undesirable.
+    /// </summary>
+    /// <param name="configure">An action to configure the <see cref="ConfigManagerBuilder"/>.</param>
+    /// <param name="cancellationToken">Token to cancel the initialization.</param>
+    public static async Task<ConfigManager> CreateAsync(
+        Action<ConfigManagerBuilder> configure,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var manager = new ConfigManager();
+        var builder = new ConfigManagerBuilder(manager);
+        configure(builder);
+        return await builder.BuildAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets a configuration instance of the specified type from the current snapshot.
+    /// </summary>
+    /// <typeparam name="T">The configuration type to retrieve. Must be a class.</typeparam>
+    /// <returns>The configuration instance, or null if not found.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public T? GetConfig<T>() where T : class
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _accessor.GetConfig<T>();
+    }
+
+    /// <summary>
+    /// Attempts to get a configuration instance without throwing.
+    /// </summary>
+    /// <typeparam name="T">The configuration type to retrieve. Must be a class.</typeparam>
+    /// <param name="value">The configuration instance if found; otherwise null.</param>
+    /// <returns>True if the configuration exists; false otherwise.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public bool TryGetConfig<T>(out T? value) where T : class
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _accessor.TryGetConfig(out value);
+    }
 
 #pragma warning disable CS0618 // Type or member is obsolete
     public T GetRequiredConfig<T>() => _accessor.GetRequiredConfig<T>();
@@ -151,20 +232,45 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
 
     public JsonElement? GetConfigAsJson(Type type) => _accessor.GetConfigAsJson(type);
 
-    public IReactiveConfig<T> GetReactiveConfig<T>() => _reactiveFactory.GetReactiveConfig<T>(() => GetConfig<T>());
+    /// <summary>
+    /// Gets a reactive wrapper for the specified configuration type.
+    /// The returned <see cref="IReactiveConfig{T}"/> emits the current value immediately on subscribe
+    /// and then on every subsequent configuration change (replay-1 / BehaviorSubject semantics).
+    /// </summary>
+    /// <typeparam name="T">The configuration type. Must be a class, interface (with ExposeAs), or ValueTuple.</typeparam>
+    /// <returns>A reactive configuration wrapper.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public IReactiveConfig<T> GetReactiveConfig<T>()
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _reactiveFactory.GetReactiveConfig<T>(() => (T)GetConfig(typeof(T)));
+    }
 
-    public IConfigurationHealthService GetHealthService() => _state.GetHealthService();
+    /// <summary>
+    /// Gets the health service for monitoring the configuration system's status.
+    /// </summary>
+    /// <returns>An <see cref="IConfigurationHealthService"/> providing health status and observable streams.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public IConfigurationHealthService GetHealthService()
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _state.GetHealthService();
+    }
 
     internal void ScheduleRecompute(int startIndex) =>
         _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 
+    /// <summary>
+    /// Disposes the configuration manager and all associated resources.
+    /// After disposal, configuration methods will throw <see cref="InvalidOperationException"/>.
+    /// </summary>
     public void Dispose()
     {
-        _engine.Dispose();
-        _reactiveConfigManager.Dispose();
-        _state.Dispose();
+        _engine?.Dispose();
+        _reactiveConfigManager?.Dispose();
+        _state?.Dispose();
 
         foreach (var rm in _ruleManagers.ToArray())
         {
@@ -172,8 +278,27 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         }
 
         _ruleManagers.Clear();
-        _initialized = false;
-        GC.SuppressFinalize(this);
+        Interlocked.Exchange(ref _initialized, 0);
+    }
+
+    /// <summary>
+    /// Asynchronously disposes the configuration manager, awaiting any in-flight recompute to finish.
+    /// Preferred over <see cref="Dispose"/> in ASP.NET Core and other async hosts, which call
+    /// <see cref="IAsyncDisposable.DisposeAsync"/> on singletons at shutdown.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_engine != null) await _engine.DisposeAsync().ConfigureAwait(false);
+        _reactiveConfigManager?.Dispose();
+        _state?.Dispose();
+
+        foreach (var rm in _ruleManagers.ToArray())
+        {
+            Safety.DisposeQuietly(rm);
+        }
+
+        _ruleManagers.Clear();
+        Interlocked.Exchange(ref _initialized, 0);
     }
 
     /// <summary>

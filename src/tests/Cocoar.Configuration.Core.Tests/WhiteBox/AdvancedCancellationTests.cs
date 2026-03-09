@@ -60,7 +60,7 @@ public class AdvancedCancellationTests : IDisposable
                 new())
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(30));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(30));
         TrackForDisposal(configManager);
 
         // Wait for initial configuration
@@ -108,7 +108,7 @@ public class AdvancedCancellationTests : IDisposable
                 typeof(CancellationConfig),
                 new())).ToList();
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(100));
         TrackForDisposal(configManager);
 
         // Wait for initial state
@@ -161,7 +161,7 @@ public class AdvancedCancellationTests : IDisposable
                 new())
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(50));
         TrackForDisposal(configManager);
 
         // Track emissions

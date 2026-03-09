@@ -70,10 +70,10 @@ public async Task ConfigManager_Handles_Provider_Failure_Gracefully()
         TestRules.Failable<MyConfig>(shouldFail: true), // TestProvider, not real I/O
         TestRules.StaticJson<MyConfig>(fallbackJson)
     };
-    
-    var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
+
+    var manager = ConfigManager.Create(c => c.UseConfiguration(rules));
     var config = manager.GetConfig<MyConfig>(); // Should use fallback
-    
+
     Assert.NotNull(config);
     Assert.Equal(expectedFallbackValue, config.SomeProperty);
 }
@@ -110,15 +110,15 @@ public async Task FileProvider_Detects_File_Changes()
     using var tempDir = TempDirectoryHelper.Create();
     var configFile = Path.Combine(tempDir.Path, "config.json");
     File.WriteAllText(configFile, """{"value": 1}""");
-    
+
     var provider = new FileSourceProvider(new(tempDir.Path));
     var config1 = await provider.FetchConfigurationBytesAsync(new("config.json"));
-    
+
     File.WriteAllText(configFile, """{"value": 2}""");
     await Task.Delay(100); // Wait for file watcher
-    
+
     var config2 = await provider.FetchConfigurationBytesAsync(new("config.json"));
-    
+
     Assert.Equal(1, config1.ToJsonElement().GetProperty("value").GetInt32());
     Assert.Equal(2, config2.ToJsonElement().GetProperty("value").GetInt32());
 }
@@ -149,16 +149,16 @@ public async Task FileProvider_Detects_File_Changes()
 public void AsSingleton_Creates_Same_Instance()
 {
     var services = new ServiceCollection();
-    services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+    services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
         rules.For<MyConfig>().FromStaticJson(json).Required()
     ], setup => [
         setup.ConcreteType<MyConfig>().AsSingleton()
     ]));
-    
+
     var sp = services.BuildServiceProvider();
     var instance1 = sp.GetRequiredService<MyConfig>();
     var instance2 = sp.GetRequiredService<MyConfig>();
-    
+
     Assert.Same(instance1, instance2); // ← Verifies singleton behavior
 }
 ```
@@ -258,7 +258,7 @@ public void Service_Returns_Correct_Configuration()
 {
     var service = new MyService();
     var result = service.GetConfig();
-    
+
     Assert.Equal(expectedValue, result.Property);
     Assert.True(result.IsValid);
 }
@@ -281,7 +281,7 @@ public void Service_Is_Scoped()
     using var scope = provider.CreateScope();
     var instance1 = scope.ServiceProvider.GetService<MyService>();
     var instance2 = scope.ServiceProvider.GetService<MyService>();
-    
+
     Assert.Same(instance1, instance2); // Verifies same instance
 }
 ```
@@ -396,14 +396,14 @@ When reviewing tests, ask:
 ```csharp
 // Wait for condition
 await ActiveWaitHelpers.WaitUntilAsync(
-    () => condition, 
-    TimeSpan.FromSeconds(5), 
+    () => condition,
+    TimeSpan.FromSeconds(5),
     "description");
 
 // Wait for specific value
 var result = await ActiveWaitHelpers.WaitForValueAsync(
-    () => getValue(), 
-    TimeSpan.FromSeconds(5), 
+    () => getValue(),
+    TimeSpan.FromSeconds(5),
     "description");
 ```
 
@@ -411,9 +411,9 @@ var result = await ActiveWaitHelpers.WaitForValueAsync(
 ```csharp
 var emissions = new List<T>();
 await ObservableTestHelpers.WaitForValueAsync(
-    observable, 
-    emissions, 
-    TimeSpan.FromSeconds(5), 
+    observable,
+    emissions,
+    TimeSpan.FromSeconds(5),
     "description");
 ```
 
@@ -457,12 +457,12 @@ public async Task ConfigManager_Uses_Cached_Configuration()
         fetchCount++;
         return new MyConfig { Value = fetchCount };
     });
-    
+
     var rules = new List<ConfigRule> {
         TestRules.Cached(testProvider, cacheDuration: TimeSpan.FromMinutes(1))
     };
-    
-    var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
+
+    var manager = ConfigManager.Create(c => c.UseConfiguration(rules));
 
     var config1 = manager.GetConfig<MyConfig>();
     var config2 = manager.GetConfig<MyConfig>();
@@ -478,11 +478,11 @@ public async Task ConfigManager_Uses_Cached_Configuration()
 public async Task CacheProvider_Expires_After_Duration()
 {
     var provider = new CacheProvider<MyConfig>(innerProvider, TimeSpan.FromMilliseconds(100));
-    
+
     var config1 = await provider.FetchConfigurationBytesAsync(query);
     await Task.Delay(150); // Wait for cache expiration
     var config2 = await provider.FetchConfigurationBytesAsync(query);
-    
+
     Assert.NotSame(config1, config2); // Cache expired, new fetch
 }
 ```
@@ -519,5 +519,5 @@ dotnet test --filter "Type=Performance" --logger:trx
 
 ---
 
-**Version:** 1.0.0  
+**Version:** 1.0.0
 **Last Updated:** November 16, 2025

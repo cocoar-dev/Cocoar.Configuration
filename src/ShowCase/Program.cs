@@ -14,7 +14,7 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         var configManager = ConfigManager.Create(c => c
-            .WithConfiguration(rule => [
+            .UseConfiguration(rule => [
                 rule.For<StartUpConfiguration>().FromFile("config.json").Select("Startup"),
                 rule.For<StartUpConfiguration>().FromEnvironment(),
             ])

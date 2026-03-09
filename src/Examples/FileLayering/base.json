@@ -1,0 +1,13 @@
+{
+  "App": {
+    "ApplicationName": "File Layering Example",
+    "Version": "1.0.0",
+    "EnableLogging": true,
+    "LogLevel": "Information",
+    "MaxConnections": 100,
+    "AllowedOrigins": [
+      "https://example.com",
+      "https://www.example.com"
+    ]
+  }
+}

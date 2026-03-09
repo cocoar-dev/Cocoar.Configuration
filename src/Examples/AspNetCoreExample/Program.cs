@@ -31,7 +31,7 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+        builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<AppSettings>().FromFile("config.json").Select("App"),
             rule.For<AppSettings>().FromEnvironment("APP_"),
             rule.For<DatabaseSettings>().FromFile("config.json").Select("Database"),
@@ -58,7 +58,7 @@ public static class Program
 
         app.MapGet("/manager", (ConfigManager manager) =>
         {
-            var appSettings = manager.GetRequiredConfig<IAppSettings>();
+            var appSettings = manager.GetConfig<IAppSettings>();
             var dbSettings = manager.GetConfig<DatabaseSettings>();
             return new
             {

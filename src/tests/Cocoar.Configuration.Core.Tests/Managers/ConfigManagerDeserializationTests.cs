@@ -60,7 +60,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         var exception = Assert.Throws<ConfigurationDeserializationException>(
             () =>
             {
-                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                var configManager = ConfigManager.Create(c => c.UseConfiguration(
                     r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
                 TrackForDisposal(configManager);
             });
@@ -84,7 +84,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         var exception = Assert.Throws<ConfigurationDeserializationException>(
             () =>
             {
-                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                var configManager = ConfigManager.Create(c => c.UseConfiguration(
                     r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
                 TrackForDisposal(configManager);
             });
@@ -104,7 +104,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: JSON has all required properties
         var json = """{"Name": "test", "Value": 42}""";
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
 
@@ -133,7 +133,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         var exception = Assert.Throws<ConfigurationDeserializationException>(
             () =>
             {
-                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                var configManager = ConfigManager.Create(c => c.UseConfiguration(
                     r => [r.For<ConfigWithInt>().FromStaticJson(json)]).UseLogger(_logger));
                 TrackForDisposal(configManager);
             });
@@ -157,7 +157,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         var exception = Assert.Throws<ConfigurationDeserializationException>(
             () =>
             {
-                var configManager = ConfigManager.Create(c => c.WithConfiguration(
+                var configManager = ConfigManager.Create(c => c.UseConfiguration(
                     r => [
                         r.For<ConfigWithRequired>().FromStaticJson(json1),
                         r.For<ConfigWithInt>().FromStaticJson(json2)
@@ -180,7 +180,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: Simple config without required properties
         var json = """{"Name": "test"}""";
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             r => [r.For<SimpleConfig>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
 
@@ -205,7 +205,7 @@ public class ConfigManagerDeserializationTests : IDisposable
         // Arrange: Valid JSON
         var json = """{"Name": "test", "Value": 42}""";
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             r => [r.For<ConfigWithRequired>().FromStaticJson(json)]).UseLogger(_logger));
         TrackForDisposal(configManager);
 

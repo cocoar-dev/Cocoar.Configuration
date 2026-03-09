@@ -417,7 +417,7 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Test", "Value": 789, "Enabled": true}""";
         
         // Verify rule can be used in ConfigManager
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json)
         ]));
         var config = manager.GetConfig<TestConfig>();
@@ -434,7 +434,7 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Works", "Value": 456, "Enabled": false}""";
 
         // Verify rule works correctly
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json)
         ]));
         var config = manager.GetConfig<TestConfig>();
@@ -449,7 +449,7 @@ public class StaticJsonProviderIsolationTests
         const string json = """{"Name": "Required", "Value": 123, "Enabled": true}""";
 
         // Verify required flag is set by checking health service
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json).Required()
         ]));
         var health = manager.GetHealthService().Snapshot;
@@ -465,7 +465,7 @@ public class StaticJsonProviderIsolationTests
         Func<IConfigurationAccessor, bool> useWhen = (_) => Environment.GetEnvironmentVariable("TEST_ENV") == "true";
 
         // Verify the rule can be created and used
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json).When(useWhen)
         ]));
 

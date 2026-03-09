@@ -23,7 +23,7 @@ public class ExposedTypeRegistrationTests
     {
         // With Master Backplane architecture, all scopes receive the same cached instance
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             // Provide the concrete mapping so ConfigManager can resolve the interface
@@ -54,7 +54,7 @@ public class ExposedTypeRegistrationTests
         // With Master Backplane architecture, all instances are the same cached object
         // regardless of DI lifetime settings
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),

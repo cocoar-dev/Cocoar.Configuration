@@ -19,7 +19,7 @@ public class TupleReactiveConfigGuardTests
     [Fact]
     public void Tuple_With_Unconfigured_Primitive_Fails()
     {
-        var mgr = ConfigManager.Create(c => c.WithConfiguration(new[]{
+        var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{
             CreateStaticRule(new App(1))
         }).UseLogger(NullLogger.Instance));
         // int is not a configured type; guard should throw
@@ -29,7 +29,7 @@ public class TupleReactiveConfigGuardTests
     [Fact]
     public void Tuple_With_Exposed_Interface_Succeeds()
     {
-        var mgr = ConfigManager.Create(c => c.WithConfiguration(new[]{
+        var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{
             CreateStaticRule(new App(2))
         }, setup => [setup.ConcreteType<App>().ExposeAs<IApp>()]).UseLogger(NullLogger.Instance));
         var cfg = mgr.GetReactiveConfig<(IApp,App)>();
@@ -41,7 +41,7 @@ public class TupleReactiveConfigGuardTests
     [Fact]
     public void Tuple_With_Unexposed_Interface_Fails()
     {
-        var mgr = ConfigManager.Create(c => c.WithConfiguration(new[]{
+        var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{
             CreateStaticRule(new App(3))
         }).UseLogger(NullLogger.Instance));
         Assert.Throws<InvalidOperationException>(() => mgr.GetReactiveConfig<(IApp,App)>());

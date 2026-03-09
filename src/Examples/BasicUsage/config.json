@@ -1,0 +1,12 @@
+{
+  "StartUp": {
+    "ConnectionString": "Server=localhost;Database=myapp;Trusted_Connection=true",
+    "EnableLogging": true,
+    "TimeoutSeconds": 30
+  },
+  "Marten": {
+    "DatabaseConnection": "Server=localhost;Database=marten;Trusted_Connection=true",
+    "EnableMigrations": true,
+    "Schema": "public"
+  }
+}

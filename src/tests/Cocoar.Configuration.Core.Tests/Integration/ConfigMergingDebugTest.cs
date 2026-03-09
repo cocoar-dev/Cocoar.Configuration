@@ -57,7 +57,7 @@ public class ConfigMergingDebugTest
             TestRules.StaticJson<TestConfig>(observablePartialJson)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<TestConfig>();
 
         // Expected flattened merge:

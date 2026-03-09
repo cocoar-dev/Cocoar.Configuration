@@ -23,9 +23,9 @@ public sealed class ConfigSnapshot
     /// <summary>
     /// UTC timestamp when this snapshot was created.
     /// </summary>
-    public DateTime TimestampUtc { get; }
+    public DateTimeOffset TimestampUtc { get; }
 
-    private ConfigSnapshot(IReadOnlyDictionary<Type, object> instances, long version, DateTime timestampUtc)
+    private ConfigSnapshot(IReadOnlyDictionary<Type, object> instances, long version, DateTimeOffset timestampUtc)
     {
         _instances = instances;
         Version = version;
@@ -89,7 +89,7 @@ public sealed class ConfigSnapshot
     /// </summary>
     internal static ConfigSnapshot Create(IReadOnlyDictionary<Type, object> instances, long version)
     {
-        return new ConfigSnapshot(instances, version, DateTime.UtcNow);
+        return new ConfigSnapshot(instances, version, DateTimeOffset.UtcNow);
     }
 
     /// <summary>
@@ -98,5 +98,5 @@ public sealed class ConfigSnapshot
     public static ConfigSnapshot Empty { get; } = new(
         new Dictionary<Type, object>(),
         version: 0,
-        timestampUtc: DateTime.MinValue);
+        timestampUtc: DateTimeOffset.MinValue);
 }

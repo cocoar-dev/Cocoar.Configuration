@@ -20,7 +20,7 @@ public sealed class ConfigManagerHealthRuntimeRecoveryTests
         var failingRule = BuildAlwaysFailingRule(required: false, new InvalidOperationException("Test runtime failure"));
         
         // Initialization will attempt recompute - second optional fails -> degraded
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { goodRule, failingRule }));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[] { goodRule, failingRule }));
         
         var snap = manager.GetHealthService().Snapshot;
         Assert.Equal(HealthStatus.Degraded, snap.OverallStatus);

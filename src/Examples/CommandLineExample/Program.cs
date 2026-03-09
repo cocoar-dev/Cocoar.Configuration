@@ -32,7 +32,7 @@ public class Program
         Console.WriteLine("--- Test 1: Default (--) prefix ---");
         try
         {
-            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })
             ]));
 
@@ -53,7 +53,7 @@ public class Program
         Console.WriteLine("--- Test 2: Multiple prefixes (--, -, /) ---");
         try
         {
-            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions
                 {
                     Args = args,
@@ -78,7 +78,7 @@ public class Program
         Console.WriteLine("--- Test 3: Semantic prefixes (@, #, %) ---");
         try
         {
-            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<TargetConfig>().FromCommandLine(cm => new CommandLineRuleOptions
                 {
                     Args = args,
@@ -116,7 +116,7 @@ public class Program
         Console.WriteLine("--- Test 4: Prefix filtering (app_, db_) ---");
         try
         {
-            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<AppConfig>().FromCommandLine(cm => new CommandLineRuleOptions
                 {
                     Args = args,
@@ -148,7 +148,7 @@ public class Program
         Console.WriteLine("--- Test 5: Nested configuration (: and __) ---");
         try
         {
-            using var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<ServerConfig>().FromCommandLine(cm => new CommandLineRuleOptions { Args = args })
             ]));
 

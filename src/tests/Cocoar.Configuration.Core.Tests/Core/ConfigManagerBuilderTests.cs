@@ -11,7 +11,7 @@ public class ConfigManagerBuilderTests
     public void Create_WithRulesOnly_Works()
     {
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rules => [
+            .UseConfiguration(rules => [
                 rules.For<TestConfig>().FromStaticJson("""{"Value": 42}""")
             ]));
 
@@ -26,7 +26,7 @@ public class ConfigManagerBuilderTests
     public void Create_WithRulesAndSetup_Works()
     {
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<TestConfig>().FromStaticJson("""{"Value": 7}""")],
                 setup => [setup.ConcreteType<TestConfig>()]));
 
@@ -43,7 +43,7 @@ public class ConfigManagerBuilderTests
         var rule = TestRules.StaticJson<TestConfig>("""{"Enabled": true}""");
 
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(new[] { rule }));
+            .UseConfiguration(new[] { rule }));
 
         var config = manager.GetConfig<TestConfig>();
         Assert.NotNull(config);
@@ -68,7 +68,7 @@ public class ConfigManagerBuilderTests
     public void Create_WithLogger_PassesLogger()
     {
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rules => [
+            .UseConfiguration(rules => [
                 rules.For<TestConfig>().FromStaticJson("""{"Value": 1}""")
             ])
             .UseLogger(NullLogger.Instance));
@@ -83,7 +83,7 @@ public class ConfigManagerBuilderTests
     public void Create_WithDebounce_PassesDebounce()
     {
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rules => [
+            .UseConfiguration(rules => [
                 rules.For<TestConfig>().FromStaticJson("""{"Value": 1}""")
             ])
             .UseDebounce(50));
@@ -101,7 +101,7 @@ public class ConfigManagerBuilderTests
         ConfigManager? capturedManager = null;
 
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rules => [
+            .UseConfiguration(rules => [
                 rules.For<TestConfig>().FromStaticJson("""{"Value": 99}""")
             ])
             .AfterBuild(m =>
@@ -126,7 +126,7 @@ public class ConfigManagerBuilderTests
         var order = new List<int>();
 
         using var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rules => [
+            .UseConfiguration(rules => [
                 rules.For<TestConfig>().FromStaticJson("""{"Value": 1}""")
             ])
             .AfterBuild(_ => order.Add(1))
@@ -153,6 +153,64 @@ public class ConfigManagerBuilderTests
         {
             ConfigManager.Create(c => c.AfterBuild(null!));
         });
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "ConfigManagerBuilder")]
+    public async Task CreateAsync_ReturnsInitializedManager()
+    {
+        await using var manager = await ConfigManager.CreateAsync(c => c
+            .UseConfiguration(rules => [
+                rules.For<TestConfig>().FromStaticJson("""{"Value": 42}""")
+            ]));
+
+        var config = manager.GetConfig<TestConfig>();
+        Assert.NotNull(config);
+        Assert.Equal(42, config!.Value);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "ConfigManagerBuilder")]
+    public async Task CreateAsync_WithCancellation_Throws()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            ConfigManager.CreateAsync(
+                c => c.UseConfiguration(rules => [
+                    rules.For<TestConfig>().FromStaticJson("""{"Value": 1}""")
+                ]),
+                cts.Token));
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "ConfigManagerBuilder")]
+    public async Task CreateAsync_WithStaticJson_ProducesCorrectConfig()
+    {
+        await using var manager = await ConfigManager.CreateAsync(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<TestConfig>().FromStaticJson("""{"Value": 7, "Enabled": true}""")
+                ],
+                setup => [setup.ConcreteType<TestConfig>()]));
+
+        var config = manager.GetConfig<TestConfig>();
+        Assert.NotNull(config);
+        Assert.Equal(7, config!.Value);
+        Assert.True(config.Enabled);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "ConfigManagerBuilder")]
+    public async Task CreateAsync_NullConfigure_Throws()
+    {
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            ConfigManager.CreateAsync(null!));
     }
 
     public sealed class TestConfig

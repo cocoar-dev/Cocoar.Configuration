@@ -35,7 +35,25 @@ public sealed class ConfigManagerBuilder
         return builder._manager.CapabilityScope;
     }
 
-    public ConfigManagerBuilder WithConfiguration(
+    /// <summary>
+    /// Configures the rules that define how configuration is loaded and mapped to types.
+    /// </summary>
+    /// <param name="rules">A function that builds the configuration rules using the fluent API.</param>
+    /// <param name="setup">An optional function to configure DI bindings and type exposure.</param>
+    /// <returns>This builder for chaining.</returns>
+    /// <example>
+    /// <code>
+    /// builder.UseConfiguration(
+    ///     rules => [
+    ///         rules.For&lt;AppSettings&gt;().FromFile("appsettings.json"),
+    ///         rules.For&lt;DbSettings&gt;().FromFile("database.json")
+    ///     ],
+    ///     setup => [
+    ///         setup.ConcreteType&lt;AppSettings&gt;()
+    ///     ]);
+    /// </code>
+    /// </example>
+    public ConfigManagerBuilder UseConfiguration(
         Func<RulesBuilder, ConfigRule[]> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
     {
@@ -45,7 +63,7 @@ public sealed class ConfigManagerBuilder
         return this;
     }
 
-    public ConfigManagerBuilder WithConfiguration(
+    public ConfigManagerBuilder UseConfiguration(
         IEnumerable<ConfigRule> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
     {
@@ -55,12 +73,24 @@ public sealed class ConfigManagerBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures the logger used by the configuration system for diagnostics and error reporting.
+    /// </summary>
+    /// <param name="logger">The logger instance to use.</param>
+    /// <returns>This builder for chaining.</returns>
     public ConfigManagerBuilder UseLogger(ILogger logger)
     {
         _logger = logger;
         return this;
     }
 
+    /// <summary>
+    /// Sets the debounce interval for coalescing rapid configuration changes.
+    /// When multiple changes occur within this window, only one recompute is triggered.
+    /// Default is 300ms.
+    /// </summary>
+    /// <param name="milliseconds">The debounce interval in milliseconds.</param>
+    /// <returns>This builder for chaining.</returns>
     public ConfigManagerBuilder UseDebounce(int milliseconds)
     {
         _debounceMilliseconds = milliseconds;
@@ -108,6 +138,35 @@ public sealed class ConfigManagerBuilder
             _debounceMilliseconds);
 
         _manager.Initialize();
+
+        foreach (var action in _afterBuildActions)
+            action(_manager);
+
+        return _manager;
+    }
+
+    internal async Task<ConfigManager> BuildAsync(CancellationToken cancellationToken = default)
+    {
+        ConfigRule[] configuredRules;
+
+        if (_prebuiltRules is not null)
+        {
+            configuredRules = _prebuiltRules.ToArray();
+        }
+        else
+        {
+            var rulesBuilder = new RulesBuilder();
+            configuredRules = (_rules ?? (_ => []))(rulesBuilder);
+        }
+
+        _manager.Configure(
+            configuredRules,
+            _setup,
+            _logger,
+            _providerFactory,
+            _debounceMilliseconds);
+
+        await _manager.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var action in _afterBuildActions)
             action(_manager);

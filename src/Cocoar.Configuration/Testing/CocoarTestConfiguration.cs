@@ -160,12 +160,6 @@ public static class CocoarTestConfiguration
     /// </summary>
     public static bool IsActive => s_testContext.Value != null;
 
-    /// <summary>
-    /// Optional custom serializer options for test scenarios.
-    /// Set by extension packages (e.g., Cocoar.Configuration.Secrets) to handle
-    /// special types during FromStatic serialization.
-    /// </summary>
-    public static JsonSerializerOptions? TestSerializerOptions { get; set; }
 }
 
 /// <summary>
@@ -207,6 +201,11 @@ public sealed class TestConfigurationContext
     /// Gets the optional setup builder function for this test configuration.
     /// </summary>
     public Func<SetupBuilder, SetupDefinition[]>? Setup { get; }
+
+    /// <summary>
+    /// Optional custom serializer options for this test configuration context.
+    /// </summary>
+    public JsonSerializerOptions? SerializerOptions { get; set; }
 
     /// <summary>
     /// Creates a new test configuration context.

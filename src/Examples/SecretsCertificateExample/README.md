@@ -27,7 +27,7 @@ cocoar-secrets generate-cert -o certs/dev.pfx
 Then configure the manager:
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
     ])
     .WithSecretsSetup(secrets => secrets
@@ -39,7 +39,7 @@ var manager = ConfigManager.Create(c => c
 
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.prod.json"))
     ])
     // Folder-based with automatic rotation
@@ -53,7 +53,7 @@ var manager = ConfigManager.Create(c => c
 
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
     ])
     // Critical secrets - no cache, load fresh every time

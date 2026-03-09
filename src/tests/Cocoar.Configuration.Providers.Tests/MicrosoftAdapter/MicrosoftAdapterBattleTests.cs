@@ -189,7 +189,7 @@ public class MicrosoftAdapterBattleTests : IDisposable
                 configSource,
                 configurationPrefix: "App"));
 
-        using var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { rule }));
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[] { rule }));
 
 
         var config = manager.GetConfig<AppConfig>();

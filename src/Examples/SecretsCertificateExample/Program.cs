@@ -46,7 +46,7 @@ class Program
             overwrite: true);
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rule => [
+            .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
             ])
             .WithSecretsSetup(secrets => secrets
@@ -94,7 +94,7 @@ class Program
             overwrite: true);
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rule => [
+            .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
             ])
             .WithSecretsSetup(secrets => secrets

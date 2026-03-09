@@ -202,7 +202,7 @@ public class SimpleTests : IDisposable
             rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
         ]);
 
-        var manager = ConfigManager.Create(c => c.WithConfiguration(rule => [...]));
+        var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [...]));
         // Uses test rules
     }
 

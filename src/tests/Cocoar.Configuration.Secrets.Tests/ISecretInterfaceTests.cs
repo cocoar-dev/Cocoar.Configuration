@@ -151,7 +151,7 @@ public class ISecretInterfaceTests
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
             .WithSecretsSetup(secrets => secrets.AllowPlaintext())
         );
@@ -177,7 +177,7 @@ public class ISecretInterfaceTests
         var json = """{"Name":"Test","ApiKey":42}""";
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
             .WithSecretsSetup(secrets => secrets.AllowPlaintext())
         );
@@ -202,7 +202,7 @@ public class ISecretInterfaceTests
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
             .WithSecretsSetup(secrets => secrets)
         );
@@ -227,7 +227,7 @@ public class ISecretInterfaceTests
         var json = """{"Name":"Test","Password":"value"}""";
 
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(
+            .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
             .WithSecretsSetup(secrets => secrets.AllowPlaintext())
         );

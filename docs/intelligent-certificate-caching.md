@@ -16,7 +16,7 @@ Folder-based certificate mode (UseCertificatesFromFolder) provides intelligent c
 
 ```csharp
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(new[] { rule })
+    .UseConfiguration(new[] { rule })
     .WithSecretsSetup(secrets => secrets
         .UseCertificatesFromFolder(@"C:\certs",
             cacheDurationSeconds: 30)));  // 30 seconds (default)

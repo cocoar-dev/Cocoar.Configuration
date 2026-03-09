@@ -11,11 +11,11 @@ public static class SecretsBuilderExtensions
     /// <example>
     /// <code>
     /// ConfigManager.Create(c => c
-    ///     .WithConfiguration(rules => [...])
+    ///     .UseConfiguration(rules => [...])
     ///     .WithSecretsSetup(secrets => secrets.AllowPlaintext()));
     ///
     /// ConfigManager.Create(c => c
-    ///     .WithConfiguration(rules => [...])
+    ///     .UseConfiguration(rules => [...])
     ///     .WithSecretsSetup(secrets => secrets
     ///         .UseCertificateFromFile("cert.pfx")
     ///         .WithKeyId("my-key")));

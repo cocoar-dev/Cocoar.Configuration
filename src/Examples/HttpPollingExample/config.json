@@ -1,0 +1,7 @@
+{
+  "Api": {
+    "BaseUrl": "https://api.example.com",
+    "ApiKey": "demo-api-key-12345",
+    "PollIntervalSeconds": 30
+  }
+}

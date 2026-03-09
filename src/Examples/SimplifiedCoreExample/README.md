@@ -23,13 +23,13 @@ Rule.From.File("app.json").For<AppConfig>()
 ### ✅ Direct Manager Usage
 ```csharp
 // Manual configuration manager (no DI)
-var manager = ConfigManager.Create(c => c.WithConfiguration(rules));
+var manager = ConfigManager.Create(c => c.UseConfiguration(rules));
 var config = manager.GetConfig<AppConfig>();
 ```
 
 ### ❌ Removed Features (moved to DI package)
 - `.As<TInterface>()` - interface exposure
-- `ServiceLifetime` parameters - DI lifetimes  
+- `ServiceLifetime` parameters - DI lifetimes
 - `AddCocoarConfiguration()` - DI integration
 - Service keys - keyed DI registrations
 
@@ -45,7 +45,7 @@ dotnet run
 ```
 config/
 ├── app.json        # Application metadata
-├── database.json   # Database connection settings  
+├── database.json   # Database connection settings
 └── features.json   # Feature toggles
 ```
 

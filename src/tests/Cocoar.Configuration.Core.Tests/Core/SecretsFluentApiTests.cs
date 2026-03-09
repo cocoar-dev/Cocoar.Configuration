@@ -30,7 +30,7 @@ public class SecretsFluentApiTests
                 keySize: 2048);
 
             var manager = ConfigManager.Create(c => c
-                .WithConfiguration(rules: Array.Empty<ConfigRule>())
+                .UseConfiguration(rules: Array.Empty<ConfigRule>())
                 .WithSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath)
                     .WithKeyId(kid)));
@@ -66,7 +66,7 @@ public class SecretsFluentApiTests
                 keySize: 2048);
 
             var manager = ConfigManager.Create(c => c
-                .WithConfiguration(rules: Array.Empty<ConfigRule>())
+                .UseConfiguration(rules: Array.Empty<ConfigRule>())
                 .WithSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath)
                     .WithKeyId(kid)));
@@ -122,13 +122,13 @@ public class SecretsFluentApiTests
 
             // Act - create two different ConfigManagers with different secrets configurations
             var manager1 = ConfigManager.Create(c => c
-                .WithConfiguration(rules: Array.Empty<ConfigRule>())
+                .UseConfiguration(rules: Array.Empty<ConfigRule>())
                 .WithSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath1)
                     .WithKeyId(kid1)));
 
             var manager2 = ConfigManager.Create(c => c
-                .WithConfiguration(rules: Array.Empty<ConfigRule>())
+                .UseConfiguration(rules: Array.Empty<ConfigRule>())
                 .WithSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath2)
                     .WithKeyId(kid2)));

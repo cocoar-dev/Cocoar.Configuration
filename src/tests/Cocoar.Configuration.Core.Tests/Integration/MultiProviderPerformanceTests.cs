@@ -33,7 +33,7 @@ public class MultiProviderPerformanceTests
             TestRules.ObservableString<AppConfig>(behaviorSubject)
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
         Assert.NotNull(config);
 
@@ -77,7 +77,7 @@ public class MultiProviderPerformanceTests
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<AppConfig>();
 
         stopwatch.Stop();
@@ -124,7 +124,7 @@ public class MultiProviderPerformanceTests
         var staticRule = new ConfigRule(typeof(TrackableStaticJsonProvider), staticOptions, dummyQuery, typeof(TestConfig));
         var observableRule = new ConfigRule(typeof(ObservableProvider<string>), observableOptions, observableQuery, typeof(TestConfig));
 
-        var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { staticRule, observableRule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(50));
+        var manager = ConfigManager.Create(c => c.UseConfiguration(new[] { staticRule, observableRule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(50));
 
         await ActiveWaitHelpers.WaitUntilAsync(
             () => fetchCount > 0,
@@ -199,7 +199,7 @@ public class MultiProviderPerformanceTests
         var staticRule = new ConfigRule(typeof(TrackableStaticJsonProvider), staticOptions, dummyQuery, typeof(TestConfig));
         var obs1Rule = new ConfigRule(typeof(ObservableProvider<string>), obs1Options, observableQuery, typeof(TestConfig));
         var obs2Rule = new ConfigRule(typeof(ObservableProvider<string>), obs2Options, observableQuery, typeof(TestConfig));
-        var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { staticRule, obs1Rule, obs2Rule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(100));
+        var manager = ConfigManager.Create(c => c.UseConfiguration(new[] { staticRule, obs1Rule, obs2Rule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(100));
 
         await ActiveWaitHelpers.WaitUntilAsync(
             () => manager.GetConfig<TestConfig>()?.Name == "Observable2",
@@ -287,7 +287,7 @@ public class MultiProviderPerformanceTests
         var staticRule = new ConfigRule(typeof(TrackableStaticJsonProvider), staticOptions, dummyQuery, typeof(TestConfig));
         var observableRule = new ConfigRule(typeof(ObservableProvider<string>), observableOptions, observableQuery, typeof(TestConfig));
 
-        var manager = ConfigManager.Create(c => c.WithConfiguration(new[] { staticRule, observableRule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(50));
+        var manager = ConfigManager.Create(c => c.UseConfiguration(new[] { staticRule, observableRule }).UseLogger(NullLogger.Instance).UseProviderFactory(Factory).UseDebounce(50));
 
         await ActiveWaitHelpers.WaitUntilAsync(
             () => manager.GetConfig<TestConfig>()?.Name == "InitialValue",
@@ -428,7 +428,7 @@ public class MultiProviderPerformanceTests
         }
         """;
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<ComplexConfig>().FromStaticJson(baseConfig),                          // Rule 0: Base config
             rules.For<ComplexConfig>().FromStaticJson(databaseOverride).MountAt("Database"), // Rule 1: Replace Database section
             rules.For<ComplexConfig>().FromStaticJson(featuresConfig).Select("NewFeatures").MountAt("Features"), // Rule 2: Mount NewFeatures as Features
@@ -507,7 +507,7 @@ public class MultiProviderPerformanceTests
         }
         """);
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<NestedConfig>().FromStaticJson(baseConfig),                                       // Rule 0: Base
             rules.For<NestedConfig>().FromObservable(dynamicSubject)                                    // Rule 1: Select deep path, mount at new location
                 .Select("DynamicSection:Deep:Nested")

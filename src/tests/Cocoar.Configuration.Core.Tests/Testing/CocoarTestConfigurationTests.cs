@@ -371,7 +371,7 @@ public class ConfigManagerIntegrationTests
         ]);
 
         // Act - ConfigManager with original rules
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
@@ -398,7 +398,7 @@ public class ConfigManagerIntegrationTests
         ]);
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
@@ -418,7 +418,7 @@ public class ConfigManagerIntegrationTests
         // Arrange - No test configuration set
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "normal-connection",
@@ -448,7 +448,7 @@ public class ConfigManagerIntegrationTests
         using var _ = CocoarTestConfiguration.Apply(context);
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "original-connection",
@@ -672,7 +672,7 @@ public class ConfigManagerSetupIntegrationTests
             });
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -696,7 +696,7 @@ public class ConfigManagerSetupIntegrationTests
             });
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -718,7 +718,7 @@ public class ConfigManagerSetupIntegrationTests
         });
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -744,7 +744,7 @@ public class ConfigManagerSetupIntegrationTests
         });
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -770,7 +770,7 @@ public class ConfigManagerSetupIntegrationTests
             ]); // No setup parameter
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],
@@ -802,7 +802,7 @@ public class ConfigManagerSetupIntegrationTests
         using var _ = CocoarTestConfiguration.Apply(context);
 
         // Act
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
             ],

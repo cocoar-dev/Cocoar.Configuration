@@ -36,7 +36,7 @@ using Cocoar.Configuration;
 using Cocoar.Configuration.Secrets;
 
 var manager = ConfigManager.Create(c => c
-    .WithConfiguration(rule => [
+    .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile("config.json")
     ])
     .WithSecretsSetup(secrets => secrets
@@ -115,7 +115,7 @@ using (var lease = config.Database.ApiKey.Open())
     // WARNING: 'key' is now plain text - handle carefully!
     // The Secret<T> type protects values (shows as ***), but once you
     // extract .Value, you're responsible for not logging/exposing it
-    
+
     // Use the secret (API calls, database connections, etc.)
     CallApiWithKey(key);
 }

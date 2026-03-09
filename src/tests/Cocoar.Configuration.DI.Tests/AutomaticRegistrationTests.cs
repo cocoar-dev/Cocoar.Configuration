@@ -26,7 +26,7 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Register WITHOUT setup.ConcreteType<>() call
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]));
         
@@ -46,7 +46,7 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Multiple rules, no explicit setup
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required(),
             rules.For<DatabaseConfig>().FromStaticJson("{\"Host\":\"localhost\",\"Port\":5432}").Required(),
             rules.For<FeatureFlags>().FromStaticJson("{\"EnableNewUI\":true,\"EnableBetaFeatures\":false}").Required()
@@ -73,7 +73,7 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]));
 
@@ -89,7 +89,7 @@ public class AutomaticRegistrationTests
         // With Master Backplane architecture, configuration instances are cached globally.
         // All scopes receive the same cached instance.
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]));
 
@@ -120,7 +120,7 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]));
 
@@ -142,7 +142,7 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Explicit setup.ConcreteType() should take precedence
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ], setup => [
             setup.ConcreteType<AppConfig>().AsSingleton()
@@ -163,7 +163,7 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ]));
 
@@ -185,7 +185,7 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Explicitly disable auto-registration
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ], setup => [
             setup.ConcreteType<AppConfig>().DisableAutoRegistration()
@@ -211,7 +211,7 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Same type from multiple rules (layering)
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"BaseApp\",\"Version\":1}").Required(),
             rules.For<AppConfig>().FromStaticJson("{\"Version\":2}").Required() // Overrides Version
         ]));

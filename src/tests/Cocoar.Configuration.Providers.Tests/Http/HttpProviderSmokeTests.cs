@@ -49,7 +49,7 @@ public class HttpProviderSmokeTests
         var handler = new QueueHandler(queue);
 
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(c => c.WithConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
             rules.For<MyHttpPollingSettings>().FromMicrosoftSource(cm => new(
                     new ConfigurationBuilder()

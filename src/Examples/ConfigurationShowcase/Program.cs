@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 var configDir = Path.Combine(builder.Environment.ContentRootPath, "config");
 
 builder.AddCocoarConfiguration(c => c
-    .WithConfiguration(
+    .UseConfiguration(
         rules: rule =>
         [
             // --- File-based rules ---

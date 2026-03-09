@@ -235,7 +235,7 @@ This approach keeps mapping responsibility with the provider (which has full con
 You can give rules explicit names using the `.Named()` method to make health snapshots more readable:
 
 ```csharp
-builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<DatabaseConfig>()
         .FromFile("db.json")
         .Required()
@@ -280,7 +280,7 @@ Console.WriteLine($"Optional failed: {summary.OptionalFailed}");
 Rules with `.When()` conditions that evaluate to `false` are marked as `Skipped`:
 
 ```csharp
-builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<FeatureConfig>()
         .FromFile("features.json")
         .When(cfg => cfg.Get<AppConfig>().EnableFeatureX)

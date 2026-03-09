@@ -1,14 +1,13 @@
+using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Builder;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Capabilities;
 
 namespace Cocoar.Configuration.AspNetCore;
 
 public static class CocoarConfigurationAspNetCoreExtensions
 {
-    // Use Cocoar.Capabilities infrastructure instead of ConditionalWeakTable
-    private static readonly CapabilityScope _capabilityScope = new();
+    private static readonly ConditionalWeakTable<WebApplicationBuilder, ConfigManager> _registrations = new();
 
     /// <summary>
     /// Adds Cocoar configuration to the WebApplicationBuilder using the builder API.
@@ -22,7 +21,7 @@ public static class CocoarConfigurationAspNetCoreExtensions
         var configManager = ConfigManager.Create(configure);
 
         builder.Services.AddCocoarConfiguration(configManager);
-        _capabilityScope.Compose(builder).Add(configManager).Build();
+        _registrations.AddOrUpdate(builder, configManager);
 
         return builder;
     }
@@ -32,11 +31,19 @@ public static class CocoarConfigurationAspNetCoreExtensions
         ConfigManager configManager)
     {
         builder.Services.AddCocoarConfiguration(configManager);
-        _capabilityScope.Compose(builder).Add(configManager).Build();
+        _registrations.AddOrUpdate(builder, configManager);
 
         return builder;
     }
 
     public static ConfigManager GetCocoarConfigManager(this WebApplicationBuilder builder)
-        => _capabilityScope.Compositions.GetRequired(builder).GetRequiredFirst<ConfigManager>();
+    {
+        if (!_registrations.TryGetValue(builder, out var configManager))
+        {
+            throw new InvalidOperationException(
+                "No ConfigManager has been registered for this WebApplicationBuilder. " +
+                "Call AddCocoarConfiguration() before GetCocoarConfigManager().");
+        }
+        return configManager;
+    }
 }

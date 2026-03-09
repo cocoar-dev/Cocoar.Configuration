@@ -151,11 +151,11 @@ public void DirectConfigManagerTest()
     ]);
 
     // Works with direct instantiation
-    var configManager = ConfigManager.Create(c => c.WithConfiguration(rule => [
+    var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
         rule.For<DbConfig>().FromFile("config.json") // SKIPPED in test
     ]));
 
-    var config = configManager.GetRequiredConfig<DbConfig>();
+    var config = configManager.GetConfig<DbConfig>()!;
     // config comes from test rules, not file
 }
 ```

@@ -27,7 +27,7 @@ public class ConfigManagerHealthCancellationTests
             options: new(Required: true)
         );
 
-        using var configManager = ConfigManager.Create(c => c.WithConfiguration(new[] {rule}).UseLogger(NullLogger.Instance));
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {rule}).UseLogger(NullLogger.Instance));
 
         var healthService = configManager.GetHealthService();
         var healthEmissions = new List<ConfigHealthSnapshot>();

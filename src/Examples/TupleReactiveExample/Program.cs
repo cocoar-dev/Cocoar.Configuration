@@ -26,7 +26,7 @@ var appSubject = new System.Reactive.Subjects.BehaviorSubject<AppSettings>(new A
 var flagsSubject = new System.Reactive.Subjects.BehaviorSubject<FeatureFlags>(new FeatureFlags { Flags = defaultFlags });
 
 // Define configuration rules using observable providers for dynamic types and static JSON for logging
-builder.Services.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<AppSettings>().FromObservable(appSubject),
     rule.For<FeatureFlags>().FromObservable(flagsSubject),
     rule.For<LoggingConfig>().FromStaticJson("{ \"Level\": \"Info\" }")

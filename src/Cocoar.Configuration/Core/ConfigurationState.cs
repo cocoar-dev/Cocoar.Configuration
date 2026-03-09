@@ -190,6 +190,5 @@ internal class ConfigurationState : IDisposable
     {
         _healthReporter.Dispose();
         _backplane?.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

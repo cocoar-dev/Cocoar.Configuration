@@ -19,7 +19,7 @@ public class TupleReactiveConfigTests
 
     private static ConfigManager Create(params ConfigRule[] rules)
     {
-        var mgr = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(10));
+        var mgr = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance).UseDebounce(10));
         return mgr;
     }
 

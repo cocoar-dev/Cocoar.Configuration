@@ -57,7 +57,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+            ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         });
 
         Assert.Contains("Required rule failed for FailableProvider", exception.Message);
@@ -85,7 +85,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
                 new(Required: true))
         };
 
-        var configManager = ConfigManager.Create(c => c.WithConfiguration(rules).UseLogger(NullLogger.Instance));
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
         var initialConfig = configManager.GetConfig<TestConfig>();
 
@@ -111,7 +111,7 @@ public class ConfigManagerRuntimeErrorTests : IDisposable
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
         {
-            ConfigManager.Create(c => c.WithConfiguration(failingRules).UseLogger(NullLogger.Instance));
+            ConfigManager.Create(c => c.UseConfiguration(failingRules).UseLogger(NullLogger.Instance));
         });
 
 

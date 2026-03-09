@@ -40,7 +40,7 @@ class Program
 
         // Create ConfigManager with certificate-based secrets
         var manager = ConfigManager.Create(c => c
-            .WithConfiguration(rule => [
+            .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
             ])
             .WithSecretsSetup(secrets => secrets

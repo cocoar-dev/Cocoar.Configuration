@@ -30,7 +30,7 @@ public static class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddCocoarConfiguration(c => c.WithConfiguration(rule => [
+        builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<StartUpConfiguration>().FromFile("config.json").Select("StartUp"),
             rule.For<MartenStartupSettings>().FromFile("config.json").Select("Marten"),
             rule.For<StartUpConfiguration>().FromEnvironment(),

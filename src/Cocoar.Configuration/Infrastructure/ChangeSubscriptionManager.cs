@@ -51,6 +51,5 @@ internal class ChangeSubscriptionManager(ILogger logger) : IDisposable
     public void Dispose()
     {
         DisposeAllSubscriptions();
-        GC.SuppressFinalize(this);
     }
 }

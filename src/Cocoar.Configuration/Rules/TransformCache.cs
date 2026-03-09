@@ -93,11 +93,8 @@ internal sealed class TransformCache : IDisposable
             
             var hash = ComputeSelectionHash(transformed);
             
-            // Use constant-time comparison to prevent timing attacks
-            if (_lastSelectionHash is not null && 
-                CryptographicOperations.FixedTimeEquals(
-                    System.Text.Encoding.UTF8.GetBytes(hash),
-                    System.Text.Encoding.UTF8.GetBytes(_lastSelectionHash)))
+            if (_lastSelectionHash is not null &&
+                string.Equals(hash, _lastSelectionHash, StringComparison.Ordinal))
             {
                 return false; // No change
             }
