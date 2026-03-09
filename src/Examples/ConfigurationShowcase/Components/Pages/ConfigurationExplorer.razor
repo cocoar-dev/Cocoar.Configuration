@@ -1,0 +1,133 @@
+@page "/explorer"
+@implements IDisposable
+@inject IReactiveConfig<AppSettings> AppSettingsReactive
+@inject IReactiveConfig<DatabaseSettings> DbSettingsReactive
+@inject NotificationSettings NotificationSettings
+
+<h1>Configuration Explorer</h1>
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    Live configuration values. Edit <code>config/*.json</code> files to see changes propagate in real time.
+</p>
+
+<div class="explorer-grid">
+    <div class="card @AppFlash">
+        <h3>AppSettings</h3>
+        <span class="badge badge-required" style="margin-bottom: 0.75rem;">File + Env</span>
+        <table>
+            <tr><td>ApplicationName</td><td>@app.ApplicationName</td></tr>
+            <tr><td>Version</td><td>@app.Version</td></tr>
+            <tr><td>MaxRetries</td><td>@app.MaxRetries</td></tr>
+            <tr><td>EnableDetailedErrors</td><td>@app.EnableDetailedErrors</td></tr>
+            <tr><td>WelcomeMessage</td><td>@app.WelcomeMessage</td></tr>
+        </table>
+    </div>
+
+    <div class="card @DbFlash">
+        <h3>DatabaseSettings</h3>
+        <span class="badge badge-required" style="margin-bottom: 0.75rem;">File</span>
+        <table>
+            <tr><td>ConnectionString</td><td>@db.ConnectionString</td></tr>
+            <tr><td>MaxPoolSize</td><td>@db.MaxPoolSize</td></tr>
+            <tr><td>CommandTimeout</td><td>@db.CommandTimeoutSeconds s</td></tr>
+            <tr><td>RetryOnFailure</td><td>@db.EnableRetryOnFailure</td></tr>
+            <tr><td colspan="2" style="padding-top: 0.75rem;">
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem; background: var(--bg-primary);">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); margin-bottom: 0.5rem; font-weight: 600;">
+                        Secret&lt;T&gt; Protection Demo
+                    </div>
+                    <table style="margin: 0;">
+                        <tr>
+                            <td style="color: var(--text-secondary);">ToString()</td>
+                            <td><code style="color: var(--danger);">@SecretToString()</code></td>
+                            <td style="font-size: 0.75rem; color: var(--text-muted);">Always masked - safe for logging</td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--text-secondary);">JSON serialization</td>
+                            <td><code style="color: var(--danger);">@SecretJsonDisplay()</code></td>
+                            <td style="font-size: 0.75rem; color: var(--text-muted);">Cannot leak through serializers</td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--text-secondary);">Open() lease</td>
+                            <td>
+                                @if (showSecret)
+                                {
+                                    <code style="color: var(--success);">@SecretOpenDisplay()</code>
+                                    <button style="margin-left: 0.5rem; padding: 0.15rem 0.5rem; font-size: 0.75rem;" @onclick="() => showSecret = false">Hide</button>
+                                }
+                                else
+                                {
+                                    <button style="padding: 0.15rem 0.5rem; font-size: 0.75rem;" @onclick="() => showSecret = true">Reveal via Open()</button>
+                                }
+                            </td>
+                            <td style="font-size: 0.75rem; color: var(--text-muted);">Explicit opt-in required to access value</td>
+                        </tr>
+                    </table>
+                </div>
+            </td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>NotificationSettings</h3>
+        <span class="badge badge-optional" style="margin-bottom: 0.75rem;">Static JSON</span>
+        <table>
+            <tr><td>SmtpServer</td><td>@NotificationSettings.SmtpServer</td></tr>
+            <tr><td>SmtpPort</td><td>@NotificationSettings.SmtpPort</td></tr>
+            <tr><td>FromAddress</td><td>@NotificationSettings.FromAddress</td></tr>
+            <tr><td>EnableSlack</td><td>@NotificationSettings.EnableSlack</td></tr>
+            <tr><td>SlackWebhookUrl</td><td>@NotificationSettings.SlackWebhookUrl</td></tr>
+        </table>
+    </div>
+</div>
+
+@code {
+    private AppSettings app = new();
+    private DatabaseSettings db = new();
+    private IDisposable? appSub;
+    private IDisposable? dbSub;
+    private string AppFlash = "";
+    private string DbFlash = "";
+    private bool showSecret;
+
+    protected override void OnInitialized()
+    {
+        app = AppSettingsReactive.CurrentValue;
+        db = DbSettingsReactive.CurrentValue;
+
+        appSub = AppSettingsReactive.Subscribe(v => { app = v; AppFlash = "flash"; InvokeAsync(StateHasChanged); _ = ClearFlash(() => AppFlash = ""); });
+        dbSub = DbSettingsReactive.Subscribe(v => { db = v; DbFlash = "flash"; InvokeAsync(StateHasChanged); _ = ClearFlash(() => DbFlash = ""); });
+    }
+
+    private async Task ClearFlash(Action clear)
+    {
+        await Task.Delay(1000);
+        clear();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string SecretToString()
+    {
+        if (db.ApiKey == null) return "(none)";
+        return db.ApiKey.ToString()!; // Always returns "***"
+    }
+
+    private string SecretJsonDisplay()
+    {
+        if (db.ApiKey == null) return "(none)";
+        // Serializing a Secret<T> produces "***", never the real value
+        return System.Text.Json.JsonSerializer.Serialize(db.ApiKey);
+    }
+
+    private string SecretOpenDisplay()
+    {
+        if (db.ApiKey == null) return "(none)";
+        using var lease = db.ApiKey.Open();
+        return lease.Value;
+    }
+
+    public void Dispose()
+    {
+        appSub?.Dispose();
+        dbSub?.Dispose();
+    }
+}

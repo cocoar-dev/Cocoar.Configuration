@@ -1,0 +1,71 @@
+@page "/"
+@implements IDisposable
+@inject IAppSettings AppSettings
+@inject IConfigurationHealthService HealthService
+
+<h1>Dashboard</h1>
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">@appSettings.WelcomeMessage</p>
+
+<div class="grid-3" style="margin-bottom: 1.5rem;">
+    <div class="card">
+        <div class="stat-label">Overall Health</div>
+        <div style="margin-top: 0.5rem;"><HealthStatusBadge Status="@snapshot.OverallStatus" /></div>
+    </div>
+    <div class="card">
+        <div class="stat-value">@snapshot.Rules.Count</div>
+        <div class="stat-label">Active Rules</div>
+    </div>
+    <div class="card">
+        <div class="stat-value">v@snapshot.ConfigVersion</div>
+        <div class="stat-label">Config Version</div>
+    </div>
+</div>
+
+<div class="grid-2" style="margin-bottom: 1.5rem;">
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Application Info</h3>
+        <table>
+            <tr><td style="color: var(--text-secondary);">Name</td><td>@appSettings.ApplicationName</td></tr>
+            <tr><td style="color: var(--text-secondary);">Version</td><td>@appSettings.Version</td></tr>
+            <tr><td style="color: var(--text-secondary);">Max Retries</td><td>@appSettings.MaxRetries</td></tr>
+            <tr><td style="color: var(--text-secondary);">Detailed Errors</td><td>@appSettings.EnableDetailedErrors</td></tr>
+        </table>
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Health Summary</h3>
+        <div class="grid-3">
+            <div>
+                <div class="stat-value" style="color: var(--success);">@(snapshot.Rules.Count(r => r.Status == RuleResultStatus.Up))</div>
+                <div class="stat-label">Rules Up</div>
+            </div>
+            <div>
+                <div class="stat-value" style="color: var(--warning);">@snapshot.Summary.Skipped</div>
+                <div class="stat-label">Skipped</div>
+            </div>
+            <div>
+                <div class="stat-value" style="color: var(--danger);">@(snapshot.Summary.RequiredFailed + snapshot.Summary.OptionalFailed)</div>
+                <div class="stat-label">Failed</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IAppSettings appSettings = default!;
+    private ConfigHealthSnapshot snapshot = default!;
+    private IDisposable? healthSub;
+
+    protected override void OnInitialized()
+    {
+        appSettings = AppSettings;
+        snapshot = HealthService.Snapshot;
+
+        healthSub = HealthService.SnapshotStream.Subscribe(s =>
+        {
+            snapshot = s;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose() => healthSub?.Dispose();
+}
