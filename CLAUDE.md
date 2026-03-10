@@ -33,7 +33,8 @@ dotnet pack ./src -c Release
 
 ### Core Components
 
-- **ConfigManager** (`src/Cocoar.Configuration/Core/`) - Central orchestrator that manages configuration lifecycle, rule execution, and reactive updates
+- **ConfigManager** (`src/Cocoar.Configuration/Core/`) - Central orchestrator that manages configuration lifecycle, rule execution, and reactive updates. Always created via `ConfigManager.Create()` or `ConfigManager.CreateAsync()` — constructors are internal.
+- **ConfigManagerBuilder** (`src/Cocoar.Configuration/Core/`) - Fluent builder returned by `Create`/`CreateAsync`. Satellite libraries extend it via extension methods (e.g. `.UseSecretsSetup()`).
 - **Providers** (`src/Cocoar.Configuration/Providers/`) - Abstract configuration sources (File, Environment, CommandLine, HTTP, Static, Observable)
 - **Fluent Builders** (`src/Cocoar.Configuration/Fluent/`) - `RulesBuilder` for defining configuration rules with `.For<T>().FromFile()` pattern
 - **SetupBuilder** (`src/Cocoar.Configuration/Configure/`) - DI registration with `.ConcreteType<T>()` and `.Interface<T>()` patterns
@@ -44,9 +45,10 @@ The configuration engine follows a transactional recompute model:
 
 1. **Change Detection** - Provider signals change (file modified, HTTP poll, observable emission)
 2. **Debouncing** - `RecomputeScheduler` coalesces rapid changes (default 300ms)
-3. **Rule Execution** - Rules execute sequentially via `RuleManager` instances
-4. **Atomic Commit** - `ConfigurationState` commits all changes atomically or rolls back entirely
-5. **Reactive Notification** - `ReactiveConfigManager` emits to subscribers (hash-based change detection)
+3. **Async Dispatch** - `ScheduleAsync` dispatches a fully async recompute; the threadpool thread is released during provider I/O (no sync-over-async)
+4. **Rule Execution** - Rules execute sequentially via `RuleManager` instances
+5. **Atomic Commit** - `ConfigurationState` commits all changes atomically or rolls back entirely
+6. **Reactive Notification** - `ReactiveConfigManager` emits to subscribers (hash-based change detection)
 
 ### RuleManager Coordination
 
