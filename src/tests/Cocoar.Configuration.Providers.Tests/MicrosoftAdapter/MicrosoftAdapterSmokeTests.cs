@@ -21,7 +21,7 @@ public class MicrosoftAdapterSmokeTests
         var configSource = new Microsoft.Extensions.Configuration.Memory.MemoryConfigurationSource { InitialData = dict };
 
         var rule = MicrosoftConfigurationSourceProvider.CreateRule<AppConfig>(_ => new(configSource, configurationPrefix: "App"));
-        using var manager = new ConfigManager(new[]{rule}).Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         var config = manager.GetConfig<AppConfig>();
         Assert.Equal("42", config!.Value);
         var snap = manager.GetHealthService().Snapshot;

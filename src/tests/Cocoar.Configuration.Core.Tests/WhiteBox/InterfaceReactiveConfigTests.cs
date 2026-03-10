@@ -55,7 +55,7 @@ public class InterfaceReactiveConfigTests
         ConfigRule[] rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
     {
-        return new ConfigManager(rules, setup, logger: NullLogger.Instance, debounceMilliseconds: 10).Initialize();
+        return ConfigManager.Create(c => c.UseConfiguration(rules, setup).UseLogger(NullLogger.Instance).UseDebounce(10));
     }
 
     [Fact]

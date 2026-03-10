@@ -29,10 +29,7 @@ public class FileProviderUnitTests
     {
         var path = Path.Combine(Path.GetTempPath(), "cocoar_missing_" + Guid.NewGuid().ToString("N") + ".json");
         var rule = CreateFileRule<object>(path, required: false); // explicitly optional
-        using var manager = new ConfigManager(new[]{rule});
-        
-        // Optional rule should initialize successfully even with missing file
-        manager.Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         var snap = manager.GetHealthService().Snapshot;
         
         // Optional rule fails but doesn't make the system unhealthy - shows as Down but overall Degraded
@@ -49,10 +46,8 @@ public class FileProviderUnitTests
     {
         var path = Path.Combine(Path.GetTempPath(), "cocoar_missing_req_" + Guid.NewGuid().ToString("N") + ".json");
         var rule = CreateFileRule<object>(path, required: true);
-        using var manager = new ConfigManager(new[]{rule});
-        
         // Should throw during initialization for required missing file (wrapped in InvalidOperationException)
-        var ex = Assert.Throws<InvalidOperationException>(() => manager.Initialize());
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigManager.Create(c => c.UseConfiguration(new[]{rule})));
         Assert.Contains("Required rule failed", ex.Message);
         Assert.IsType<FileNotFoundException>(ex.InnerException);
     }
@@ -66,7 +61,7 @@ public class FileProviderUnitTests
         file.WriteJson(new { Name = "TestApp", Value = 42 });
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
-        using var manager = new ConfigManager(new[]{rule}).Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);
@@ -87,10 +82,8 @@ public class FileProviderUnitTests
         file.WriteContent("{ invalid json syntax }");
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
-        using var manager = new ConfigManager(new[]{rule});
-        
         // Should throw during initialization due to JSON parse error (wrapped in InvalidOperationException)
-        var ex = Assert.Throws<InvalidOperationException>(() => manager.Initialize());
+        var ex = Assert.Throws<InvalidOperationException>(() => ConfigManager.Create(c => c.UseConfiguration(new[]{rule})));
         Assert.Contains("Required rule failed", ex.Message);
         // Inner exception should be JSON parsing related
         Assert.True(ex.InnerException is JsonException || ex.InnerException?.GetType().Name.Contains("Json") == true);
@@ -105,7 +98,7 @@ public class FileProviderUnitTests
         file.WriteContent("{}");
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
-        using var manager = new ConfigManager(new[]{rule}).Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);
@@ -126,7 +119,7 @@ public class FileProviderUnitTests
         file.WriteJson(new { App = new { Name = "Nested", Value = 100 } });
 
         var rule = CreateFileRule<NestedConfig>(file.FilePath, required: true);
-        using var manager = new ConfigManager(new[]{rule}).Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         
         var config = manager.GetConfig<NestedConfig>();
         Assert.NotNull(config);
@@ -146,7 +139,7 @@ public class FileProviderUnitTests
         });
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, selectPath: "App", required: true);
-        using var manager = new ConfigManager(new[]{rule}).Initialize();
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
         
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);

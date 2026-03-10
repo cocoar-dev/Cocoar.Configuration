@@ -36,17 +36,17 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration(rule => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
 
             rule.For<ApiSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .Required(),
 
             rule.For<FeatureFlags>().FromStatic(configManager =>
             {
-                var apiSettings = configManager.GetRequiredConfig<ApiSettings>();
+                var apiSettings = configManager.GetConfig<ApiSettings>()!;
                 if (apiSettings.BaseUrl.Contains("staging"))
                 {
-                    return new FeatureFlags { EnableNewDashboard = true, EnableBetaFeatures = true, Theme = "staging" };        
+                    return new FeatureFlags { EnableNewDashboard = true, EnableBetaFeatures = true, Theme = "staging" };
                 }
                 return new FeatureFlags { EnableNewDashboard = false, EnableBetaFeatures = false, Theme = "production" };
             }),
@@ -56,7 +56,7 @@ public static class Program
 
             rule.For<RegionSpecificConfig>().FromStatic(configManager =>
             {
-                var regionSettings = configManager.GetRequiredConfig<RegionSettings>();
+                var regionSettings = configManager.GetConfig<RegionSettings>()!;
                 return regionSettings.Region switch
                 {
                     "us-west-2" => new RegionSpecificConfig { DatabaseEndpoint = "db-oregon.example.com", CdnUrl = "https://cdn-us-west.example.com", AvailableLanguages = new[] { "en", "es" } },
@@ -65,7 +65,7 @@ public static class Program
                 };
             })
 
-        ]);
+        ]));
 
         var serviceProvider = services.BuildServiceProvider();
 

@@ -1,0 +1,142 @@
+@page "/rules"
+
+<h1>Rules Overview</h1>
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    All configuration rules and setup definitions used in this showcase, demonstrating the <code>ConfigManager.Create()</code> Builder API.
+</p>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Configuration Rules</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Provider</th>
+                <th>Modifiers</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>AppSettings</code></td>
+                <td><code>FromFile()</code></td>
+                <td><span class="badge badge-required">Required</span> <code>.Select("AppSettings")</code> <code>.Named()</code></td>
+                <td>Primary app config from <code>config/app.json</code>, scoped to the AppSettings section</td>
+            </tr>
+            <tr>
+                <td><code>AppSettings</code></td>
+                <td><code>FromEnvironment("APP_")</code></td>
+                <td><code>.Named()</code></td>
+                <td>Environment variable overlay. Set <code>APP_ApplicationName</code> to override.</td>
+            </tr>
+            <tr>
+                <td><code>DatabaseSettings</code></td>
+                <td><code>FromFile()</code></td>
+                <td><span class="badge badge-required">Required</span> <code>.Named()</code></td>
+                <td>Database config with <code>Secret&lt;string&gt;</code> for ApiKey</td>
+            </tr>
+            <tr>
+                <td><code>NotificationSettings</code></td>
+                <td><code>FromStaticJson()</code></td>
+                <td><code>.Named()</code></td>
+                <td>Embedded static JSON, demonstrates non-file providers</td>
+            </tr>
+            <tr>
+                <td><code>DiagnosticsConfig</code></td>
+                <td><code>FromStaticJson()</code></td>
+                <td><code>.When()</code> <code>.Named()</code></td>
+                <td>Conditional rule: only loads when <code>AppSettings.EnableDetailedErrors == true</code></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Setup Definitions</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Pattern</th>
+                <th>Code</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>ConcreteType + ExposeAs</code></td>
+                <td><code>setup.ConcreteType&lt;AppSettings&gt;().ExposeAs&lt;IAppSettings&gt;()</code></td>
+                <td>Registers concrete type and exposes via interface for DI consumers</td>
+            </tr>
+            <tr>
+                <td><code>ConcreteType + ExposeAs</code></td>
+                <td><code>setup.ConcreteType&lt;DatabaseSettings&gt;().ExposeAs&lt;IDatabaseSettings&gt;()</code></td>
+                <td>Database settings exposed as read-only interface</td>
+            </tr>
+            <tr>
+                <td><code>Interface + DeserializeTo</code></td>
+                <td><code>setup.Interface&lt;INotificationSettings&gt;().DeserializeTo&lt;NotificationSettings&gt;()</code></td>
+                <td>Interface-first deserialization: consumers depend on the interface only</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Secrets Setup</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Configuration</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>.UseSecretsSetup(secrets =&gt; secrets.AllowPlaintext())</code></td>
+                <td>Enables plaintext secret deserialization for demo purposes. In production, use certificate-based encryption.</td>
+            </tr>
+            <tr>
+                <td><code>DatabaseSettings.ApiKey</code> (<code>ISecret&lt;string&gt;</code>)</td>
+                <td>Demonstrates <code>Secret&lt;T&gt;</code> with memory-safe access via <code>Open()</code> / <code>SecretLease&lt;T&gt;</code></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 0.75rem;">Builder API (Program.cs)</h3>
+    <pre><code>builder.AddCocoarConfiguration(c => c
+    .UseConfiguration(
+        rules: rule => [
+            rule.For&lt;AppSettings&gt;()
+                .FromFile("config/app.json")
+                .Select("AppSettings")
+                .Named("AppSettings (file)")
+                .Required(),
+
+            rule.For&lt;AppSettings&gt;()
+                .FromEnvironment("APP_")
+                .Named("AppSettings (env)"),
+
+            rule.For&lt;DatabaseSettings&gt;()
+                .FromFile("config/database.json")
+                .Named("DatabaseSettings")
+                .Required(),
+
+            rule.For&lt;NotificationSettings&gt;()
+                .FromStaticJson("{ ... }")
+                .Named("NotificationSettings (static)"),
+
+            rule.For&lt;DiagnosticsConfig&gt;()
+                .FromStaticJson("{ ... }")
+                .Named("Diagnostics (conditional)")
+                .When(accessor => accessor.GetConfig&lt;AppSettings&gt;().EnableDetailedErrors)
+        ],
+        setup: setup => [
+            setup.ConcreteType&lt;AppSettings&gt;().ExposeAs&lt;IAppSettings&gt;(),
+            setup.ConcreteType&lt;DatabaseSettings&gt;().ExposeAs&lt;IDatabaseSettings&gt;(),
+            setup.Interface&lt;INotificationSettings&gt;().DeserializeTo&lt;NotificationSettings&gt;()
+        ])
+    .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+    .UseDebounce(500));</code></pre>
+</div>

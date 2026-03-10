@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+
+<div class="layout">
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>Cocoar</h2>
+            <span class="sidebar-subtitle">Configuration v5.0</span>
+        </div>
+        <ul class="nav-links">
+            <li><NavLink href="" Match="NavLinkMatch.All">Dashboard</NavLink></li>
+            <li><NavLink href="explorer">Config Explorer</NavLink></li>
+            <li><NavLink href="health">Health Dashboard</NavLink></li>
+            <li><NavLink href="reactive">Reactive Demo</NavLink></li>
+            <li><NavLink href="rules">Rules Overview</NavLink></li>
+        </ul>
+        <div class="sidebar-footer">
+            <span>Builder Pattern API</span>
+        </div>
+    </nav>
+    <main class="content">
+        @Body
+    </main>
+</div>

@@ -7,7 +7,7 @@ namespace Cocoar.Configuration.Rules;
 /// Represents a single configuration rule that fetches data from a provider and binds it to a concrete type.
 /// Rules are executed in order, with later rules overwriting earlier ones (last-write-wins).
 /// </summary>
-public class ConfigRule(
+public sealed class ConfigRule(
     Type providerType,
     Func<IConfigurationAccessor, IProviderConfiguration> providerOptionsFactory,
     Func<IConfigurationAccessor, IProviderQuery> queryOptionsFactory,

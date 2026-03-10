@@ -16,13 +16,13 @@ public class BuilderPatternApiTests
     public void Builder_Pattern_Works_With_Multiple_Types()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required(),
             rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(42))).Required()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             setup.ConcreteType<AppImpl>()
-        ]);
+        ]));
 
         var sp = services.BuildServiceProvider();
         

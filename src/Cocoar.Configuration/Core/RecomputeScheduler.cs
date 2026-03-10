@@ -6,7 +6,7 @@ namespace Cocoar.Configuration.Core;
 /// Manages scheduling and cancellation of configuration recompute operations.
 /// Handles concurrency boundaries: cancels in-flight recomputes when new ones are triggered.
 /// </summary>
-internal sealed class RecomputeScheduler : IDisposable
+internal sealed class RecomputeScheduler : IDisposable, IAsyncDisposable
 {
     private readonly Lock _recomputeGate = new();
     private CancellationTokenSource? _recomputeCts;
@@ -72,6 +72,15 @@ internal sealed class RecomputeScheduler : IDisposable
         _disposed = true;
 
         DisposeCancellationSource();
-        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        DisposeCancellationSource();
+        if (_currentRecomputeTask is { } task)
+            await task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
     }
 }

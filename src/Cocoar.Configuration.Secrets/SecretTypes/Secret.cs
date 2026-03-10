@@ -14,6 +14,7 @@ public sealed class Secret<T> : ISecret<T>
     private SecretsDecryptorResolver? _resolver;
     private bool _disposed;
     private readonly bool _blockPlaintextAccess;
+    private readonly Lock _lock = new();
 
     internal Secret(T plain, SecretsDecryptorResolver? resolver = null, bool allowPlaintext = false)
     {
@@ -35,42 +36,45 @@ public sealed class Secret<T> : ISecret<T>
 
     public SecretLease<T> Open()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        lock (_lock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
 
-        ValidatePlaintextAccess();
+            ValidatePlaintextAccess();
 
-        // Get decrypted bytes - decrypt at the LAST possible moment
-        byte[] bytes;
-        bool needsCleanup;
+            // Get decrypted bytes - decrypt at the LAST possible moment
+            byte[] bytes;
+            bool needsCleanup;
 
-        if (_plainBytes is { } plain)
-        {
-            bytes = plain;
-            needsCleanup = false;
-        }
-        else if (_envelope is { } env)
-        {
-            // CRITICAL: Decrypt here, right before deserialization
-            bytes = DecryptEnvelope(env);
-            needsCleanup = true;
-        }
-        else
-        {
-            throw new ObjectDisposedException(nameof(Secret<T>));
-        }
-
-        // Deserialize and create lease immediately after decryption
-        try
-        {
-            return DeserializeAndCreateLease(bytes, needsCleanup);
-        }
-        catch
-        {
-            if (needsCleanup)
+            if (_plainBytes is { } plain)
             {
-                Array.Clear(bytes, 0, bytes.Length);
+                bytes = plain;
+                needsCleanup = false;
             }
-            throw;
+            else if (_envelope is { } env)
+            {
+                // CRITICAL: Decrypt here, right before deserialization
+                bytes = DecryptEnvelope(env);
+                needsCleanup = true;
+            }
+            else
+            {
+                throw new ObjectDisposedException(nameof(Secret<T>));
+            }
+
+            // Deserialize and create lease immediately after decryption
+            try
+            {
+                return DeserializeAndCreateLease(bytes, needsCleanup);
+            }
+            catch
+            {
+                if (needsCleanup)
+                {
+                    Array.Clear(bytes, 0, bytes.Length);
+                }
+                throw;
+            }
         }
     }
 
@@ -92,15 +96,15 @@ public sealed class Secret<T> : ISecret<T>
             throw new InvalidOperationException(
                 $"Cannot decrypt Secret<{typeof(T).Name}>: secrets infrastructure not configured.\n\n" +
                 "To fix, add secrets setup when creating ConfigManager:\n\n" +
-                "  var manager = new ConfigManager(\n" +
-                "      rules => [...],\n" +
-                "      setup => [setup.Secrets()]  // <-- Add this\n" +
-                "  );\n\n" +
+                "  ConfigManager.Create(c => c\n" +
+                "      .UseConfiguration(rules => [...])\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));\n\n" +
                 "Or with DI:\n\n" +
-                "  services.AddCocoarConfiguration(\n" +
-                "      rules => [...],\n" +
-                "      setup => [setup.Secrets()]\n" +
-                "  );");
+                "  services.AddCocoarConfiguration(c => c\n" +
+                "      .UseConfiguration(rules => [...])\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));");
         }
 
         var protector = _resolver.ResolveForKid(env.Kid);
@@ -158,16 +162,19 @@ public sealed class Secret<T> : ISecret<T>
 
     public void Dispose()
     {
-        if (_disposed) return;
-
-        if (_plainBytes is { } bytes)
+        lock (_lock)
         {
-            Array.Clear(bytes, 0, bytes.Length);
-            _plainBytes = null;
-        }
+            if (_disposed) return;
 
-        _envelope = null;
-        _disposed = true;
+            if (_plainBytes is { } bytes)
+            {
+                Array.Clear(bytes, 0, bytes.Length);
+                _plainBytes = null;
+            }
+
+            _envelope = null;
+            _disposed = true;
+        }
     }
 
     /// <summary>

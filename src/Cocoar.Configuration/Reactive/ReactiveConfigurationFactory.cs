@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Infrastructure;
@@ -27,6 +28,11 @@ internal class ReactiveConfigurationFactory(
     ConfigManager configManager,
     ExposureRegistry bindingRegistry)
 {
+    private static readonly MethodInfo _getReactiveConfigMethod =
+        typeof(ReactiveConfigManager).GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))!;
+    private static readonly MethodInfo _getConfigMethod =
+        typeof(ConfigManager).GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)!;
+
     public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> configAccessor)
     {
         var t = typeof(T);
@@ -58,14 +64,7 @@ internal class ReactiveConfigurationFactory(
         }
 
         // Use reflection to call the generic method with class constraint
-        var method = typeof(ReactiveConfigManager)
-            .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
-            .MakeGenericMethod(t);
-
-        if (method == null)
-        {
-            throw new InvalidOperationException($"Cannot create IReactiveConfig<{t.Name}> - internal error.");
-        }
+        var method = _getReactiveConfigMethod.MakeGenericMethod(t);
 
         var funcType = typeof(Func<>).MakeGenericType(t);
         return (IReactiveConfig<T>)method.Invoke(reactiveConfigManager, [configAccessor])!;
@@ -78,27 +77,13 @@ internal class ReactiveConfigurationFactory(
     private IReactiveConfig<TInterface> CreateReactiveConfigForConcreteType<TInterface>(Type concreteType, Func<TInterface> configAccessor)
     {
         // Create an accessor for the concrete type that returns TInterface (which the concrete type implements)
-        var concreteAccessorMethod = typeof(ConfigManager)
-            .GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)?
-            .MakeGenericMethod(concreteType);
-
-        if (concreteAccessorMethod == null)
-        {
-            throw new InvalidOperationException($"Cannot create accessor for concrete type {concreteType.Name}.");
-        }
+        var concreteAccessorMethod = _getConfigMethod.MakeGenericMethod(concreteType);
 
         var concreteFuncType = typeof(Func<>).MakeGenericType(concreteType);
         var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, configManager, concreteAccessorMethod);
 
         // Get the reactive config for the concrete type
-        var reactiveMethod = typeof(ReactiveConfigManager)
-            .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
-            .MakeGenericMethod(concreteType);
-
-        if (reactiveMethod == null)
-        {
-            throw new InvalidOperationException($"Cannot create IReactiveConfig for concrete type {concreteType.Name}.");
-        }
+        var reactiveMethod = _getReactiveConfigMethod.MakeGenericMethod(concreteType);
 
         var concreteReactiveConfig = reactiveMethod.Invoke(reactiveConfigManager, [concreteAccessor])!;
 
@@ -171,23 +156,8 @@ internal class ReactiveConfigurationFactory(
 
             try
             {
-                var reactiveMethod = typeof(ReactiveConfigManager)
-                    .GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))?
-                    .MakeGenericMethod(typeToPrime);
-                if (reactiveMethod == null)
-                {
-                    logger.MissingGetReactiveConfig(typeToPrime);
-                    continue;
-                }
-
-                var accessorMethod = typeof(ConfigManager)
-                    .GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)?
-                    .MakeGenericMethod(typeToPrime);
-                if (accessorMethod == null)
-                {
-                    logger.MissingGetConfig(typeToPrime);
-                    continue;
-                }
+                var reactiveMethod = _getReactiveConfigMethod.MakeGenericMethod(typeToPrime);
+                var accessorMethod = _getConfigMethod.MakeGenericMethod(typeToPrime);
 
                 var funcType = typeof(Func<>).MakeGenericType(typeToPrime);
                 var accessorDelegate = Delegate.CreateDelegate(funcType, configManager, accessorMethod);

@@ -35,13 +35,13 @@ cocoar-secrets generate-cert -o secrets.pfx
 using Cocoar.Configuration;
 using Cocoar.Configuration.Secrets;
 
-var manager = new ConfigManager(rule => [
-    rule.For<AppConfig>().FromFile("config.json")
-], setup => [
-    setup.Secrets()
+var manager = ConfigManager.Create(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppConfig>().FromFile("config.json")
+    ])
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")  // Password-less certificate
-        .WithKeyId("dev-secrets")               // Matches kid in envelopes
-]).Initialize();
+        .WithKeyId("dev-secrets")));            // Matches kid in envelopes
 
 var config = manager.GetConfig<AppConfig>();
 ```
@@ -115,7 +115,7 @@ using (var lease = config.Database.ApiKey.Open())
     // WARNING: 'key' is now plain text - handle carefully!
     // The Secret<T> type protects values (shows as ***), but once you
     // extract .Value, you're responsible for not logging/exposing it
-    
+
     // Use the secret (API calls, database connections, etc.)
     CallApiWithKey(key);
 }
@@ -156,9 +156,9 @@ cocoar-secrets encrypt -f config.json \
 ### Single Certificate (Development)
 
 ```csharp
-setup.Secrets()
+.UseSecretsSetup(secrets => secrets
     .UseCertificateFromFile("secrets.pfx")
-    .WithKeyId("dev-secrets")
+    .WithKeyId("dev-secrets"))
 ```
 
 ### Multiple Certificates (Production with Rotation)
@@ -168,9 +168,9 @@ setup.Secrets()
 // Example: C:\certs\prod\api-keys\cert-v1.pfx
 //          C:\certs\prod\api-keys\cert-v2.pfx
 
-setup.Secrets()
-    .UseCertificatesFromFolder(@"C:\certs\prod", 
-        cacheDurationSeconds: 30)  // Cache for performance
+.UseSecretsSetup(secrets => secrets
+    .UseCertificatesFromFolder(@"C:\certs\prod",
+        cacheDurationSeconds: 30))  // Cache for performance
 ```
 
 **Certificate discovery:**
@@ -183,29 +183,28 @@ setup.Secrets()
 
 ```csharp
 // Critical secrets - no cache (maximum security)
-setup.Secrets()
-    .UseCertificatesFromFolder(@"C:\certs\pci", 
-        cacheDurationSeconds: 0),
+.UseSecretsSetup(secrets => secrets
+    .UseCertificatesFromFolder(@"C:\certs\pci",
+        cacheDurationSeconds: 0))
 
 // API keys - balanced 30-second cache
-setup.Secrets()
-    .UseCertificatesFromFolder(@"C:\certs\api", 
-        cacheDurationSeconds: 30),
+.UseSecretsSetup(secrets => secrets
+    .UseCertificatesFromFolder(@"C:\certs\api",
+        cacheDurationSeconds: 30))
 
 // Feature flags - 1-hour cache (performance)
-setup.Secrets()
-    .UseCertificatesFromFolder(@"C:\certs\config", 
-        cacheDurationSeconds: 3600)
+.UseSecretsSetup(secrets => secrets
+    .UseCertificatesFromFolder(@"C:\certs\config",
+        cacheDurationSeconds: 3600))
 ```
 
 ### Legacy Certificate Support
 
 ```csharp
-setup.Secrets()
+.UseSecretsSetup(secrets => secrets
     .UseCertificateFromFile("current.pfx")
     .WithKeyId("prod-v2")
-    .WithAdditionalKeyId("prod-v1")  // Backward compatibility
-    .Build()
+    .WithAdditionalKeyId("prod-v1"))  // Backward compatibility
 ```
 
 ## Certificate Formats
@@ -240,8 +239,8 @@ Certificates can be in PEM format (`.crt` / `.cer` + `.key` files):
 cocoar-secrets convert-cert -i cert.pfx -o cert.crt --format pem
 
 # Use PEM in configuration
-setup.Secrets()
-    .UseCertificateFromFile("cert.crt", "cert.key")  // Separate cert + key files
+.UseSecretsSetup(secrets => secrets
+    .UseCertificateFromFile("cert.crt", "cert.key"))  // Separate cert + key files
 ```
 
 ## Security Features

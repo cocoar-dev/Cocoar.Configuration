@@ -26,6 +26,7 @@
     <Project Path="Examples/SimplifiedCoreExample/SimplifiedCoreExample.csproj" />
     <Project Path="Examples/StaticProviderExample/StaticProviderExample.csproj" />
     <Project Path="Examples/TupleReactiveExample/TupleReactiveExample.csproj" />
+    <Project Path="Examples/ConfigurationShowcase/ConfigurationShowcase.csproj" />
   </Folder>
   <Project Path="Cocoar.Configuration.Analyzers/Cocoar.Configuration.Analyzers.csproj" />
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />

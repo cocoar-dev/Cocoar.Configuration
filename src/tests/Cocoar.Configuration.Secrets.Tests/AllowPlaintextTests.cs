@@ -60,14 +60,13 @@ public class AllowPlaintextTests
         // Arrange - ConfigManager without AllowPlaintext (default behavior)
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets() // No AllowPlaintext - default security
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets) // No AllowPlaintext - default security
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -87,14 +86,13 @@ public class AllowPlaintextTests
         // Arrange - ConfigManager with AllowPlaintext(true)
         var json = """{"Name":"TestApp","Password":"secret123","ApiKey":42}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()  // defaults to true
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -120,14 +118,13 @@ public class AllowPlaintextTests
         // Arrange - Explicitly set AllowPlaintext(false) for self-documenting code
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext(false)  // explicit disable
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext(false))
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -147,14 +144,13 @@ public class AllowPlaintextTests
         // Arrange
         var json = """{"Name":"Test","ApiKey":12345}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -175,15 +171,13 @@ public class AllowPlaintextTests
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
         // This test verifies fluent API chaining compiles and works
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets()
-                    .AllowPlaintext(true)  // Can be chained
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext(true))
+        );
 
         var config = manager.GetConfig<ConfigWithSecret>();
 
@@ -202,16 +196,15 @@ public class AllowPlaintextTests
         // Arrange - If called multiple times, last value wins
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets()
-                    .AllowPlaintext(false)  // First: disable
-                    .AllowPlaintext(true)   // Second: enable (wins)
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets
+                .AllowPlaintext(false)  // First: disable
+                .AllowPlaintext(true))  // Second: enable (wins)
+        );
 
         var config = manager.GetConfig<ConfigWithSecret>();
 
@@ -246,14 +239,13 @@ public class AllowPlaintextTests
         // Without a certificate, we can't actually decrypt, but we can verify:
         // 1. The envelope is recognized as an envelope (not plaintext)
         // 2. AllowPlaintext doesn't break envelope handling
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()  // Should not affect envelopes
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         var config = manager.GetConfig<ConfigWithSecret>();
 
@@ -291,17 +283,14 @@ public class AllowPlaintextTests
         // With Master Backplane architecture, deserialization failures at startup throw.
         var json = """{"Name":"TestApp","RequiredStringSecret":"test","RequiredIntSecret":null}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        );
-
         // Deserialization fails at startup with Master Backplane architecture
-        var ex = Assert.Throws<ConfigurationDeserializationException>(() => manager.Initialize());
+        var ex = Assert.Throws<ConfigurationDeserializationException>(() => ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        ));
         Assert.Contains("Secret<Int32>", ex.Failures[0].Message);
     }
 
@@ -316,14 +305,13 @@ public class AllowPlaintextTests
         // Therefore, the converter creates a Secret containing null.
         var json = """{"Name":"TestApp","RequiredStringSecret":null,"RequiredIntSecret":42}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         var config = manager.GetConfig<ConfigWithNonNullableSecrets>();
         Assert.NotNull(config);
@@ -342,14 +330,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<int> and Secret<string> with valid values
         var json = """{"Name":"TestApp","RequiredStringSecret":"password","RequiredIntSecret":42}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNonNullableSecrets>();
@@ -376,14 +363,13 @@ public class AllowPlaintextTests
         // a Secret that contains null inside, NOT a null Secret.
         var json = """{"Name":"TestApp","RequiredStringSecret":"test","RequiredIntSecret":null}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithRequiredNullableInnerSecrets>();
@@ -403,14 +389,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<string?> with null value
         var json = """{"Name":"TestApp","RequiredStringSecret":null,"RequiredIntSecret":42}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithRequiredNullableInnerSecrets>();
@@ -430,14 +415,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<string?> with an actual value
         var json = """{"Name":"TestApp","NullableStringSecret":"secret-value"}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -460,14 +444,13 @@ public class AllowPlaintextTests
         // regardless of whether the property is declared as Secret<T?>? or Secret<T?>.
         var json = """{"Name":"TestApp","NullableStringSecret":null}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -487,14 +470,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<int?> with an actual value
         var json = """{"Name":"TestApp","NullableIntSecret":42}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -514,14 +496,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<int?>? with explicit null JSON value
         var json = """{"Name":"TestApp","NullableIntSecret":null}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -541,14 +522,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<bool?> with an actual value
         var json = """{"Name":"TestApp","NullableBoolSecret":true}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -568,14 +548,13 @@ public class AllowPlaintextTests
         // Arrange - All nullable inner secrets with values
         var json = """{"Name":"TestApp","NullableStringSecret":"password","NullableIntSecret":123,"NullableBoolSecret":false}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();
@@ -605,14 +584,13 @@ public class AllowPlaintextTests
         // Arrange - Secret<T?> properties not present in JSON
         var json = """{"Name":"TestApp"}""";
 
-        var manager = new ConfigManager(
-            rules => [
-                rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
-            ],
-            setup => [
-                setup.Secrets().AllowPlaintext()
-            ]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithNullableInnerSecrets>();

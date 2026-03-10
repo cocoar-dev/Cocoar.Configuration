@@ -18,7 +18,7 @@ public class ConfigManagerHealthIntegrationTests
     [Fact]
     [Trait("Type", "Integration")]
     [Trait("Area", "Health")]
-    public void ConfigManager_GetHealth_ReturnsInitialHealthInfo()
+    public void ConfigManager_AfterCreate_HasHealthyStatus()
     {
         using var document = JsonDocument.Parse("{}");
         var providerOptions = new StaticJsonProviderOptions(document.RootElement);
@@ -26,13 +26,12 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager(new[] {rule});
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {rule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.NotNull(health);
-        Assert.Equal(HealthStatus.Unknown, health.OverallStatus);
         Assert.Single(health.Rules);
-        Assert.Equal(RuleResultStatus.Unknown, health.Rules[0].Status);
+        Assert.Equal(RuleResultStatus.Up, health.Rules[0].Status);
         Assert.False(health.Rules[0].Required);
     }
 
@@ -47,13 +46,11 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager(new[] {rule});
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {rule}));
         var healthUpdates = new List<ConfigHealthSnapshot>();
 
         using var subscription = configManager.GetHealthService().SnapshotStream
             .Subscribe(s => healthUpdates.Add(s));
-
-        configManager.Initialize();
 
         // Wait for the observable to emit health update
         await ActiveWaitHelpers.WaitUntilAsync(
@@ -62,7 +59,7 @@ public class ConfigManagerHealthIntegrationTests
             description: "initial health update emission");
 
         Assert.True(healthUpdates.Count >= 1);
-        
+
         // Check that we get health updates
         var latestHealth = configManager.GetHealthService().Snapshot;
         Assert.Single(latestHealth.Rules);
@@ -82,8 +79,7 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager(new[] {rule});
-        configManager.Initialize();
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {rule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.Equal(HealthStatus.Healthy, health.OverallStatus);
@@ -108,8 +104,7 @@ public class ConfigManagerHealthIntegrationTests
         var optionalRule = new ConfigRule(typeof(StaticJsonProvider), optionalProviderOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager(new[] {requiredRule, optionalRule});
-        configManager.Initialize();
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {requiredRule, optionalRule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.Equal(HealthStatus.Healthy, health.OverallStatus);
@@ -140,8 +135,7 @@ public class ConfigManagerHealthIntegrationTests
         var unnamedRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions2, queryOptions, typeof(SimpleConfig),
             new(Required: false));
 
-        using var configManager = new ConfigManager(new[] {namedRule, unnamedRule});
-        configManager.Initialize();
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {namedRule, unnamedRule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.Equal(HealthStatus.Healthy, health.OverallStatus);
@@ -171,8 +165,7 @@ public class ConfigManagerHealthIntegrationTests
         var rule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false, Name: "Explicit Name", MountPath: "MountPath"));
 
-        using var configManager = new ConfigManager(new[] {rule});
-        configManager.Initialize();
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {rule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.Single(health.Rules);
@@ -196,8 +189,7 @@ public class ConfigManagerHealthIntegrationTests
         var alwaysRule = new ConfigRule(typeof(StaticJsonProvider), providerOptions, queryOptions, typeof(SimpleConfig),
             new(Required: false, Name: "Always Rule"));
 
-        using var configManager = new ConfigManager(new[] {conditionalRule, alwaysRule});
-        configManager.Initialize();
+        using var configManager = ConfigManager.Create(c => c.UseConfiguration(new[] {conditionalRule, alwaysRule}));
         var health = configManager.GetHealthService().Snapshot;
 
         Assert.Equal(HealthStatus.Healthy, health.OverallStatus);

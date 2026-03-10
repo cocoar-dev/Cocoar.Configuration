@@ -17,11 +17,11 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration(rule => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<AppSettings>().FromFile(_ => FileSourceRuleOptions.FromFilePath("./appsettings.json"))
                 .Select("App")
                 .Required()
-        ]);
+        ]));
 
         var serviceProvider = services.BuildServiceProvider();
 

@@ -11,7 +11,7 @@ public class DirectConfigManagerTests : IDisposable
     public void DirectConfigManager_AppliesTestOverrides_ReplaceMode()
     {
         // Arrange - Set test configuration BEFORE creating ConfigManager
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=test-direct;Database=DirectTest;",
@@ -20,12 +20,11 @@ public class DirectConfigManagerTests : IDisposable
         ]);
 
         // Act - Create ConfigManager directly (no DI, no AspNetCore)
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<DbConfig>().FromFile("config.json").Select("Database") // This will be SKIPPED
-        ]);
-        configManager.Initialize();
+        ]));
 
-        var dbConfig = configManager.GetRequiredConfig<DbConfig>();
+        var dbConfig = configManager.GetConfig<DbConfig>()!;
 
         // Assert - Test rules were used, not config.json
         Assert.Equal("Server=test-direct;Database=DirectTest;", dbConfig.ConnectionString);
@@ -36,7 +35,7 @@ public class DirectConfigManagerTests : IDisposable
     public void DirectConfigManager_AppliesTestOverrides_AppendMode()
     {
         // Arrange
-        CocoarTestConfiguration.AppendTestRules(rule => [
+        CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 MaxConnections = 999 // Override only MaxConnections
@@ -44,16 +43,15 @@ public class DirectConfigManagerTests : IDisposable
         ]);
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=base;",
                 MaxConnections = 10
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
-        var dbConfig = configManager.GetRequiredConfig<DbConfig>();
+        var dbConfig = configManager.GetConfig<DbConfig>()!;
 
         // Assert - Base rule + test override merged (last-write-wins)
         Assert.Equal(999, dbConfig.MaxConnections); // From test override
@@ -65,16 +63,15 @@ public class DirectConfigManagerTests : IDisposable
         // No CocoarTestConfiguration set
 
         // Act
-        var configManager = new ConfigManager(rule => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=normal;",
                 MaxConnections = 50
             })
-        ]);
-        configManager.Initialize();
+        ]));
 
-        var dbConfig = configManager.GetRequiredConfig<DbConfig>();
+        var dbConfig = configManager.GetConfig<DbConfig>()!;
 
         // Assert - Normal behavior
         Assert.Equal("Server=normal;", dbConfig.ConnectionString);

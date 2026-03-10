@@ -23,13 +23,13 @@ public interface IConfigurationAccessor
     /// <para><b>DO NOT mutate the returned instance.</b></para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">No configuration rule is registered for type T.</exception>
-    T GetConfig<T>();
+    T? GetConfig<T>() where T : class;
 
     /// <summary>
     /// Tries to get a configuration instance without throwing.
     /// </summary>
     /// <returns>True if configuration exists for the type; false otherwise.</returns>
-    bool TryGetConfig<T>(out T? value);
+    bool TryGetConfig<T>(out T? value) where T : class;
 
     /// <summary>
     /// Gets configuration, throwing if not found.

@@ -112,11 +112,11 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 new(Required: true))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
-        TrackForDisposal(configManager);
-
-
-        var exception = Assert.Throws<InvalidOperationException>(() => configManager.Initialize());
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
+            TrackForDisposal(configManager);
+        });
         
         // The inner exception should be a JSON-related exception from the malformed JSON
         Assert.NotNull(exception.InnerException);
@@ -153,11 +153,8 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-
-
-        configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
 
@@ -199,11 +196,8 @@ public class ConfigManagerJsonCorruptionTests : IDisposable
                 new(Required: false))
         };
 
-        var configManager = new ConfigManager(rules, logger: NullLogger.Instance);
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
-
-
-        configManager.Initialize();
         var config = configManager.GetConfig<TestConfig>();
 
 

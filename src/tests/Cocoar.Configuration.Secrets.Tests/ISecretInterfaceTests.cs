@@ -150,10 +150,11 @@ public class ISecretInterfaceTests
         // Arrange - Config class with ISecret<T> property (interface, not concrete)
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
-        var manager = new ConfigManager(
-            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
-            setup => [setup.Secrets().AllowPlaintext()]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithISecret>();
@@ -175,10 +176,11 @@ public class ISecretInterfaceTests
         // Arrange
         var json = """{"Name":"Test","ApiKey":42}""";
 
-        var manager = new ConfigManager(
-            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
-            setup => [setup.Secrets().AllowPlaintext()]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithISecret>();
@@ -199,10 +201,11 @@ public class ISecretInterfaceTests
         // Arrange - Default security behavior (no AllowPlaintext)
         var json = """{"Name":"TestApp","Password":"secret123"}""";
 
-        var manager = new ConfigManager(
-            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
-            setup => [setup.Secrets()]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
+            .UseSecretsSetup(secrets => secrets)
+        );
 
         // Act
         var config = manager.GetConfig<ConfigWithISecret>();
@@ -223,10 +226,11 @@ public class ISecretInterfaceTests
         // Verify the deserialized value is actually a Secret<T> instance
         var json = """{"Name":"Test","Password":"value"}""";
 
-        var manager = new ConfigManager(
-            rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()],
-            setup => [setup.Secrets().AllowPlaintext()]
-        ).Initialize();
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
 
         var config = manager.GetConfig<ConfigWithISecret>();
 

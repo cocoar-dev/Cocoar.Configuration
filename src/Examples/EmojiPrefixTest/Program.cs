@@ -9,9 +9,9 @@ public class Program
     public static void Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        
+
         var args = new[] { "💀host=localhost", "🔥port=8080", "🚀verbose" };
-        
+
         Console.WriteLine("=== Emoji Prefix Test ===\n");
         Console.WriteLine($"Input args:");
         foreach (var arg in args)
@@ -19,29 +19,28 @@ public class Program
             Console.WriteLine($"  {arg}");
         }
         Console.WriteLine();
-        
+
         // Test 1: Emoji prefixes
         Console.WriteLine("--- Test 1: Individual emoji prefixes ---");
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
+                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["💀"]
                 }),
-                rule.For<FireConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<FireConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["🔥"]
                 }),
-                rule.For<RocketConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+                rule.For<RocketConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = args,
                     SwitchPrefixes = ["🚀"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var skull = manager.GetConfig<SkullConfig>();
             var fire = manager.GetConfig<FireConfig>();
@@ -57,20 +56,19 @@ public class Program
             Console.WriteLine($"❌ ERROR: {ex.Message}");
         }
         Console.WriteLine();
-        
+
         // Test 2: Mixed emoji and traditional
         Console.WriteLine("--- Test 2: Mixed emoji and traditional prefixes ---");
         var mixedArgs = new[] { "💀host=emojihost", "--host=dashhost", "@host=athost" };
         try
         {
-            using var manager = new ConfigManager(rule => [
-                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions 
-                { 
+            using var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
+                rule.For<SkullConfig>().FromCommandLine(cm => new CommandLineRuleOptions
+                {
                     Args = mixedArgs,
                     SwitchPrefixes = ["💀", "--", "@"]
                 })
-            ]);
-            manager.Initialize();
+            ]));
 
             var config = manager.GetConfig<SkullConfig>();
             Console.WriteLine($"Host (should be 'athost' - last wins): {config?.Host ?? "null"}");

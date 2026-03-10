@@ -235,7 +235,7 @@ This approach keeps mapping responsibility with the provider (which has full con
 You can give rules explicit names using the `.Named()` method to make health snapshots more readable:
 
 ```csharp
-builder.AddCocoarConfiguration(rule => [
+builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<DatabaseConfig>()
         .FromFile("db.json")
         .Required()
@@ -248,7 +248,7 @@ builder.AddCocoarConfiguration(rule => [
     rule.For<ApiConfig>()
         .FromEnvironment("API_")
         .Named("API Settings")
-]);
+]));
 ```
 
 When you check health, rule names appear in the snapshot:
@@ -280,12 +280,12 @@ Console.WriteLine($"Optional failed: {summary.OptionalFailed}");
 Rules with `.When()` conditions that evaluate to `false` are marked as `Skipped`:
 
 ```csharp
-builder.AddCocoarConfiguration(rule => [
+builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<FeatureConfig>()
         .FromFile("features.json")
         .When(cfg => cfg.Get<AppConfig>().EnableFeatureX)
         .Named("Feature X Config")
-]);
+]));
 
 // If EnableFeatureX is false, this rule will have Status = Skipped
 var health = manager.GetHealthService().Snapshot;

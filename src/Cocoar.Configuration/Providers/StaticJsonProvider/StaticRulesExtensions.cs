@@ -50,10 +50,6 @@ public static class StaticRulesExtensions
     private static JsonSerializerOptions? GetSerializerOptions()
     {
         // Only use custom serialization in test context with registered options
-        if (CocoarTestConfiguration.Current != null)
-        {
-            return CocoarTestConfiguration.TestSerializerOptions;
-        }
-        return null;  // Use default serialization
+        return CocoarTestConfiguration.Current?.SerializerOptions;
     }
 }

@@ -113,33 +113,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
             TTuple? previousTuple = null;
 
             // Subscribe to the backplane's snapshot stream
-            var backplane = configManager.GetType()
-                .GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance)?
-                .GetValue(configManager);
-
-            if (backplane == null)
-            {
-                observer.OnError(new InvalidOperationException("Cannot access ConfigurationState for tuple observation"));
-                return Disposable.Empty;
-            }
-
-            var backplaneProp = backplane.GetType().GetProperty("Backplane", BindingFlags.Public | BindingFlags.Instance);
-            var masterBackplane = backplaneProp?.GetValue(backplane);
-
-            if (masterBackplane == null)
-            {
-                observer.OnError(new InvalidOperationException("MasterBackplane not initialized for tuple observation"));
-                return Disposable.Empty;
-            }
-
-            var snapshotStreamProp = masterBackplane.GetType().GetProperty("SnapshotStream");
-            var snapshotStream = snapshotStreamProp?.GetValue(masterBackplane) as IObservable<ConfigSnapshot>;
-
-            if (snapshotStream == null)
-            {
-                observer.OnError(new InvalidOperationException("Cannot access SnapshotStream for tuple observation"));
-                return Disposable.Empty;
-            }
+            var snapshotStream = configManager.Backplane.SnapshotStream;
 
             return snapshotStream.Subscribe(snapshot =>
             {

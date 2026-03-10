@@ -26,7 +26,7 @@ public static class Program
     {
         var services = new ServiceCollection();
 
-        services.AddCocoarConfiguration(rule => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
 
             rule.For<ApiConfiguration>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config.json")).Select("Api")
                 .Required(),
@@ -38,7 +38,7 @@ public static class Program
                 AllowedRegions = DefaultAllowedRegions
             })
 
-        ]);
+        ]));
 
         var serviceProvider = services.BuildServiceProvider();
 

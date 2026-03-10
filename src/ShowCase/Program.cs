@@ -13,17 +13,15 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddCocoarConfiguration(rule => [
+        var configManager = ConfigManager.Create(c => c
+            .UseConfiguration(rule => [
                 rule.For<StartUpConfiguration>().FromFile("config.json").Select("Startup"),
                 rule.For<StartUpConfiguration>().FromEnvironment(),
-            ], setup => [
-                // Password-less certificates - protected by file permissions only
-                setup.Secrets().UseCertificatesFromFolder("certs")
-                
-                // Or with password (if needed):
-                // setup.Secrets().UseCertificatesFromFolder("certs", (c) => [c.Config.GetRequiredConfig<StartUpConfiguration>().CertPassword])
-            ]
-        );
+            ])
+            .UseSecretsSetup(secrets => secrets
+                .UseCertificatesFromFolder("certs")));
+
+        builder.AddCocoarConfiguration(configManager);
 
         var app = builder.Build();
 

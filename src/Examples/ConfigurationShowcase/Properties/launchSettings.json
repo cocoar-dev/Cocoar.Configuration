@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "ConfigurationShowcase": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:5200",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "APP_ApplicationName": "Showcase (from env)"
+      }
+    }
+  }
+}

@@ -19,13 +19,13 @@ dotnet run --project Examples\SecretsBasicExample\SecretsBasicExample.csproj
 ## Key Code Snippet
 
 ```csharp
-var manager = new ConfigManager(rule => [
-    rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
-], setup => [
-    setup.Secrets()
+var manager = ConfigManager.Create(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppConfig>().FromFile("appsettings.json")
+    ])
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")  // Password-less certificate
-        .WithKeyId("dev-secrets")
-]).Initialize();
+        .WithKeyId("dev-secrets")));
 
 var config = manager.GetConfig<AppConfig>();
 

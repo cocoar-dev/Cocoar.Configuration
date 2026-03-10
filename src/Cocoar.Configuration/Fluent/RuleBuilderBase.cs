@@ -12,18 +12,36 @@ public abstract class RuleBuilderBase<TBuilder>
     protected string? SelectPath { get; set; }
     protected string? Name { get; set; }
 
+    /// <summary>
+    /// Marks the rule as required. If a required rule fails to load or deserialize,
+    /// the entire recompute is rolled back and the previous configuration snapshot is retained.
+    /// </summary>
+    /// <param name="value">True to mark the rule as required (default); false to revert to optional.</param>
+    /// <returns>This builder for chaining.</returns>
     public TBuilder Required(bool value = true)
     {
         IsRequired = value;
         return (TBuilder)this;
     }
-    
+
+    /// <summary>
+    /// Conditionally executes this rule based on a predicate evaluated against the current configuration state.
+    /// If the predicate returns false, the rule is skipped during recompute.
+    /// </summary>
+    /// <param name="predicate">A function that receives the current <see cref="IConfigurationAccessor"/> and returns true if the rule should run.</param>
+    /// <returns>This builder for chaining.</returns>
     public TBuilder When(Func<IConfigurationAccessor, bool> predicate)
     {
         UseWhen = predicate;
         return (TBuilder)this;
     }
 
+    /// <summary>
+    /// Sets the JSON mount path used when merging this rule's output into the target configuration type.
+    /// Values from this rule are nested under the given path before deserialization.
+    /// </summary>
+    /// <param name="mountPath">The dot-notation path to mount values under (e.g., "Database" or "Feature.Flags").</param>
+    /// <returns>This builder for chaining.</returns>
     public TBuilder MountAt(string mountPath)
     {
         if (string.IsNullOrWhiteSpace(mountPath))
@@ -35,6 +53,12 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
 
+    /// <summary>
+    /// Sets the JSON selection path used to extract a sub-document from the provider's output
+    /// before it is merged into the target configuration type.
+    /// </summary>
+    /// <param name="selectPath">The dot-notation path of the JSON property to select (e.g., "ConnectionStrings.Default").</param>
+    /// <returns>This builder for chaining.</returns>
     public TBuilder Select(string selectPath)
     {
         if (string.IsNullOrWhiteSpace(selectPath))
@@ -46,6 +70,11 @@ public abstract class RuleBuilderBase<TBuilder>
         return (TBuilder)this;
     }
 
+    /// <summary>
+    /// Assigns a display name to this rule for use in health monitoring and diagnostic output.
+    /// </summary>
+    /// <param name="name">A short, descriptive name for the rule (e.g., "BaseSettings", "ProductionOverride").</param>
+    /// <returns>This builder for chaining.</returns>
     public TBuilder Named(string name)
     {
         if (string.IsNullOrWhiteSpace(name))

@@ -18,10 +18,11 @@
 
 ### Shouldn't configuration be this easy?
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
-    rule.For<AppSettings>().FromEnvironment("APP_")
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
+        rule.For<AppSettings>().FromEnvironment("APP_")
+    ]));
 ```
 It is. `AppSettings` is now injectable — and automatically updates when configs change.
 
@@ -77,9 +78,10 @@ public class MyService(IOptions<AppSettings> options)
 **After (Cocoar.Configuration):**
 ```csharp
 // Startup configuration
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json").Select("App")
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("appsettings.json").Select("App")
+    ]));
 
 // Direct injection - no wrapper
 public class MyService(AppSettings settings)
@@ -101,11 +103,12 @@ public class MyService(IReactiveConfig<AppSettings> config)
 var builder = WebApplication.CreateBuilder(args);
 
 // Define your configuration rules
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
-    rule.For<AppSettings>().FromEnvironment("APP_"),
-    rule.For<DatabaseConfig>().FromFile("appsettings.json").Select("Database")
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("appsettings.json").Select("App"),
+        rule.For<AppSettings>().FromEnvironment("APP_"),
+        rule.For<DatabaseConfig>().FromFile("appsettings.json").Select("Database")
+    ]));
 
 var app = builder.Build();
 
@@ -164,12 +167,13 @@ public class ConfigHub : Hub
 
 ### Layer Configuration Sources
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json"),           // Base
-    rule.For<AppSettings>().FromFile("appsettings.Production.json"), // Environment
-    rule.For<AppSettings>().FromEnvironment("APP_"),                 // Overrides
-    rule.For<AppSettings>().FromCommandLine()                        // Final overrides (highest priority)
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("appsettings.json"),           // Base
+        rule.For<AppSettings>().FromFile("appsettings.Production.json"), // Environment
+        rule.For<AppSettings>().FromEnvironment("APP_"),                 // Overrides
+        rule.For<AppSettings>().FromCommandLine()                        // Final overrides (highest priority)
+    ]));
 // Rules execute in order - last write wins
 ```
 
@@ -211,10 +215,11 @@ invoke.exe @target=server #issue=123 %env=prod
 **Prefix filtering for command-line arguments:**
 Map arguments to specific configuration types:
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppConfig>().FromCommandLine("app_"),
-    rule.For<DatabaseConfig>().FromCommandLine("db_")
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppConfig>().FromCommandLine("app_"),
+        rule.For<DatabaseConfig>().FromCommandLine("db_")
+    ]));
 ```
 ```bash
 dotnet run --app_host=localhost --db_connectionstring="Server=localhost"
@@ -283,11 +288,10 @@ rule.For<ApiSettings>().FromHttpPolling(accessor =>
 
 ### Interface Exposure
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromFile("appsettings.json")
-], setup => [
-    setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(
+        rule => [rule.For<AppSettings>().FromFile("appsettings.json")],
+        setup => [setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()]));
 
 // Both AppSettings and IAppSettings are injectable
 public class MyService(IAppSettings settings) { }
@@ -305,12 +309,13 @@ public class AppSettings
     public ILoggingConfig Logging { get; set; }  // Interface property!
 }
 
-builder.Services.AddCocoarConfiguration(rule => [
-    rule.For<AppSettings>().FromEnvironment()  // or FromFile, FromHttpPolling, etc.
-], setup => [
-    // Map interface to concrete type for deserialization
-    setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
-]);
+builder.Services.AddCocoarConfiguration(c => c
+    .UseConfiguration(
+        rule => [rule.For<AppSettings>().FromEnvironment()],  // or FromFile, FromHttpPolling, etc.
+        setup => [
+            // Map interface to concrete type for deserialization
+            setup.Interface<ILoggingConfig>().DeserializeTo<LoggingConfig>()
+        ]));
 ```
 
 **Why is this needed?** When loading configuration from JSON sources (files, environment variables, HTTP), properties typed as interfaces cannot be deserialized directly. This mapping tells the deserializer which concrete type to instantiate.
@@ -355,7 +360,17 @@ public class AppSettings
     public Secret<DatabaseCredentials> DatabaseSecret { get; set; }
 }
 
+// Configure secrets via the builder API
+var manager = ConfigManager.Create(c => c
+    .UseConfiguration(rule => [
+        rule.For<AppSettings>().FromFile("config.json")
+    ])
+    .UseSecretsSetup(secrets => secrets
+        .UseCertificateFromFile("secrets.pfx")
+        .WithKeyId("dev-secrets")));
+
 // Use secrets safely
+var settings = manager.GetConfig<AppSettings>();
 using var exposed = settings.DatabaseSecret.Open();
 var connectionString = BuildConnectionString(exposed.Value);
 // Secret automatically zeroized when disposed
@@ -398,6 +413,7 @@ Explore real-world scenarios in the [examples](src/Examples/) directory:
 | Testing with Configuration Overrides | [Testing Overrides](docs/testing-overrides-quickref.md) |
 | Intelligent Certificate Caching | [Certificate Caching](src/Cocoar.Configuration.Secrets/intelligent-certificate-caching.md) |
 | Provider Guidance | [Provider Guidance](docs/provider-guidance.md) |
+| Migration from v4.x | [Migration Guide v4→v5](docs/migration-v4-to-v5.md) |
 | Migration from v2.x | [Migration Guide v2→v3](docs/migration-v2-to-v3.md) |
 | Migration from v1.x | [Migration Guide v1→v2](docs/migration-v1-to-v2.md) |
 
@@ -412,12 +428,13 @@ Cocoar.Configuration provides first-class testing support with `CocoarTestConfig
 public async Task TestWithOverriddenConfig()
 {
     // Set test configuration BEFORE creating WebApplicationFactory
-    CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => testDbConfig)
     ]);
 
     await using var factory = new WebApplicationFactory<Program>();
     // Original rules are skipped - only test rules execute
+    // Scope is automatically cleared when disposed
 }
 ```
 

@@ -26,9 +26,9 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Register WITHOUT setup.ConcreteType<>() call
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
-        ]);
+        ]));
         
         // Assert - Type should still be injectable
         var sp = services.BuildServiceProvider();
@@ -46,11 +46,11 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Multiple rules, no explicit setup
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required(),
             rules.For<DatabaseConfig>().FromStaticJson("{\"Host\":\"localhost\",\"Port\":5432}").Required(),
             rules.For<FeatureFlags>().FromStaticJson("{\"EnableNewUI\":true,\"EnableBetaFeatures\":false}").Required()
-        ]);
+        ]));
         
         // Assert - All types should be injectable
         var sp = services.BuildServiceProvider();
@@ -73,10 +73,10 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
-        ]);
-        
+        ]));
+
         // Assert - Check that AppConfig is registered as Scoped
         var descriptor = services.FirstOrDefault(s => s.ServiceType == typeof(AppConfig));
         Assert.NotNull(descriptor);
@@ -89,9 +89,9 @@ public class AutomaticRegistrationTests
         // With Master Backplane architecture, configuration instances are cached globally.
         // All scopes receive the same cached instance.
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
-        ]);
+        ]));
 
         var sp = services.BuildServiceProvider();
 
@@ -120,12 +120,12 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
-        ]);
-        
+        ]));
+
         var sp = services.BuildServiceProvider();
-        
+
         // Act - Get instances from same scope
         using var scope = sp.CreateScope();
         var instance1 = scope.ServiceProvider.GetRequiredService<AppConfig>();
@@ -142,11 +142,11 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Explicit setup.ConcreteType() should take precedence
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ], setup => [
             setup.ConcreteType<AppConfig>().AsSingleton()
-        ]);
+        ]));
         
         var sp = services.BuildServiceProvider();
         
@@ -163,10 +163,10 @@ public class AutomaticRegistrationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
-        ]);
-        
+        ]));
+
         // Assert - IReactiveConfig<T> should also be available
         var sp = services.BuildServiceProvider();
         var reactiveConfig = sp.GetService<IReactiveConfig<AppConfig>>();
@@ -185,11 +185,11 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Explicitly disable auto-registration
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"TestApp\",\"Version\":1}").Required()
         ], setup => [
             setup.ConcreteType<AppConfig>().DisableAutoRegistration()
-        ]);
+        ]));
         
         // Assert - Type should NOT be registered
         var sp = services.BuildServiceProvider();
@@ -211,10 +211,10 @@ public class AutomaticRegistrationTests
         var services = new ServiceCollection();
         
         // Act - Same type from multiple rules (layering)
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromStaticJson("{\"Name\":\"BaseApp\",\"Version\":1}").Required(),
             rules.For<AppConfig>().FromStaticJson("{\"Version\":2}").Required() // Overrides Version
-        ]);
+        ]));
         
         // Assert - Should get merged config
         var sp = services.BuildServiceProvider();

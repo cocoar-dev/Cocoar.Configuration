@@ -8,10 +8,10 @@ namespace Examples.TestingOverridesExample.Tests;
 public class IntegrationTestsWithReplace : IDisposable
 {
     [Fact]
-    public async Task ReplaceAllRules_OverridesAllConfiguration()
+    public async Task ReplaceConfiguration_OverridesAllConfiguration()
     {
         // Arrange - Set test configuration BEFORE creating WebApplicationFactory
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=test-db;Database=TestDb;",
@@ -51,10 +51,10 @@ public class IntegrationTestsWithReplace : IDisposable
 public class IntegrationTestsWithAppend : IDisposable
 {
     [Fact]
-    public async Task AppendTestRules_OverridesSpecificValues()
+    public async Task AppendConfiguration_OverridesSpecificValues()
     {
         // Arrange - Append test rules (config.json runs first, then test rules override)
-        CocoarTestConfiguration.AppendTestRules(rule => [
+        CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=test-db;Database=TestDb;",
@@ -94,7 +94,7 @@ public class IntegrationTestsRealWorldScenario
         // Scenario: App normally polls HTTP endpoint that's unavailable in tests
         // Replace mode prevents HTTP provider from running at all
 
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<ApiSettings>().FromStatic(_ => new ApiSettings
             {
                 BaseUrl = "https://test.local",

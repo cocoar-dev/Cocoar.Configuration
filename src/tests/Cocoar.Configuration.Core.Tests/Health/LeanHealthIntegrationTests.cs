@@ -10,20 +10,19 @@ namespace Cocoar.Configuration.Core.Tests.Health;
 public class LeanHealthIntegrationTests
 {
     [Fact]
-    public void Initial_State_ShouldBeUnknown()
+    public void AfterCreate_ShouldBeHealthy()
     {
         var rule = BuildStaticRule(required:true);
-        using var mgr = new ConfigManager(new[]{rule}, logger: NullLogger.Instance);
+        using var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}).UseLogger(NullLogger.Instance));
         var health = mgr.GetHealthService();
-        Assert.Equal(HealthStatus.Unknown, health.Status);
+        Assert.Equal(HealthStatus.Healthy, health.Status);
     }
 
     [Fact]
     public void AfterInitialization_AllRequiredUp_ShouldBeHealthy()
     {
         var rule = BuildStaticRule(required:true);
-        using var mgr = new ConfigManager(new[]{rule}, logger: NullLogger.Instance);
-        mgr.Initialize();
+        using var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}).UseLogger(NullLogger.Instance));
         var snap = mgr.GetHealthService().Snapshot;
         Assert.Equal(HealthStatus.Healthy, snap.OverallStatus);
         Assert.All(snap.Rules, r => Assert.Equal(RuleResultStatus.Up, r.Status));
@@ -34,9 +33,8 @@ public class LeanHealthIntegrationTests
     {
         var ok = BuildStaticRule(required:true);
         var failing = BuildFailingRule(required:false, new InvalidOperationException("json parse failed"));
-        using var mgr = new ConfigManager(new[]{ok, failing}, logger: NullLogger.Instance);
         // Initialization will attempt recompute - second optional fails -> degraded
-        try { mgr.Initialize(); } catch { /* required rule didn't fail so ignore */ }
+        using var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{ok, failing}).UseLogger(NullLogger.Instance));
         var snap = mgr.GetHealthService().Snapshot;
         Assert.Equal(HealthStatus.Degraded, snap.OverallStatus);
         Assert.Equal(RuleResultStatus.Up, snap.Rules[0].Status);
@@ -44,21 +42,16 @@ public class LeanHealthIntegrationTests
     }
 
     [Fact]
-    public void RequiredFailure_ShouldYieldUnhealthy_AndPreserveConfigVersion()
+    public void RequiredFailure_ShouldThrowAndYieldUnhealthy()
     {
         var ok = BuildStaticRule(required:true);
         var failing = BuildFailingRule(required:true, new TimeoutException("timeout"));
-        using var mgr = new ConfigManager(new[]{ok, failing}, logger: NullLogger.Instance);
-        Assert.ThrowsAny<Exception>(()=> mgr.Initialize());
-        var snap = mgr.GetHealthService().Snapshot;
-        Assert.Equal(HealthStatus.Unhealthy, snap.OverallStatus);
-        Assert.Equal(RuleResultStatus.Up, snap.Rules[0].Status); // first succeeded then second failed abort
-        Assert.Equal(RuleResultStatus.Down, snap.Rules[1].Status);
-        Assert.Equal(0, snap.ConfigVersion); // failure should not advance version
+        Assert.ThrowsAny<Exception>(() =>
+            ConfigManager.Create(c => c.UseConfiguration(new[]{ok, failing}).UseLogger(NullLogger.Instance)));
     }
 
     [Fact]
-    public void MidSequenceRequiredFailure_ShouldMarkTrailingUnknown()
+    public void MidSequenceRequiredFailure_ShouldThrow()
     {
         // Build 5 rules where the 3rd fails required
         var r1 = BuildStaticRule(true);
@@ -66,15 +59,8 @@ public class LeanHealthIntegrationTests
         var failing = BuildFailingRule(true, new InvalidOperationException("boom"));
         var r4 = BuildStaticRule(true);
         var r5 = BuildStaticRule(true);
-        using var mgr = new ConfigManager(new[]{r1,r2,failing,r4,r5}, logger: NullLogger.Instance);
-        Assert.ThrowsAny<Exception>(()=> mgr.Initialize());
-        var snap = mgr.GetHealthService().Snapshot;
-        Assert.Equal(HealthStatus.Unhealthy, snap.OverallStatus);
-        Assert.Equal(RuleResultStatus.Up, snap.Rules[0].Status);
-        Assert.Equal(RuleResultStatus.Up, snap.Rules[1].Status);
-        Assert.Equal(RuleResultStatus.Down, snap.Rules[2].Status);
-        Assert.Equal(RuleResultStatus.Unknown, snap.Rules[3].Status);
-        Assert.Equal(RuleResultStatus.Unknown, snap.Rules[4].Status);
+        Assert.ThrowsAny<Exception>(() =>
+            ConfigManager.Create(c => c.UseConfiguration(new[]{r1,r2,failing,r4,r5}).UseLogger(NullLogger.Instance)));
     }
 
     [Fact]
@@ -91,8 +77,7 @@ public class LeanHealthIntegrationTests
             typeof(object),
             new(Required: true, UseWhen: _ => false) // logically required but inactive
         );
-        using var mgr = new ConfigManager(new[]{requiredRule, skippedRule}, logger: NullLogger.Instance);
-        mgr.Initialize();
+        using var mgr = ConfigManager.Create(c => c.UseConfiguration(new[]{requiredRule, skippedRule}).UseLogger(NullLogger.Instance));
         var snap = mgr.GetHealthService().Snapshot;
         Assert.Equal(2, snap.Rules.Count);
         Assert.Equal(HealthStatus.Healthy, snap.OverallStatus); // skipped does not degrade

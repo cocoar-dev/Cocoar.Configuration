@@ -40,10 +40,10 @@ This makes `IReactiveConfig<T>` **bulletproof** under real-world conditions.
 ### Dependency Injection (ASP.NET Core)
 
 ```csharp
-builder.Services.AddCocoarConfiguration(rule => [
+builder.Services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
     rule.For<AppSettings>().FromFile("appsettings.json"),
     rule.For<AppSettings>().FromEnvironment("APP_")
-]);
+]));
 
 // Automatically registers IReactiveConfig<AppSettings>
 ```
@@ -75,10 +75,10 @@ Console.WriteLine($"Current value: {reactive.CurrentValue}");
 If you expose a concrete type as an interface via the setup API, you can also request `IReactiveConfig<IInterface>`:
 
 ```csharp
-builder.Services.AddCocoarConfiguration(
+builder.Services.AddCocoarConfiguration(c => c.UseConfiguration(
     rule => [rule.For<AppSettings>().FromFile("appsettings.json")],
     setup => [setup.ConcreteType<AppSettings>().ExposeAs<IAppSettings>()]
-);
+));
 
 // Both work:
 var concrete = manager.GetReactiveConfig<AppSettings>();

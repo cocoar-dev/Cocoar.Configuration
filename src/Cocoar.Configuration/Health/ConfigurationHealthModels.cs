@@ -248,12 +248,31 @@ public sealed class ConfigHealthSnapshot(
     }
 }
 
+/// <summary>
+/// Provides health status and observable streams for the configuration system.
+/// Obtain an instance via <see cref="Core.ConfigManager.GetHealthService"/>.
+/// Both <see cref="SnapshotStream"/> and <see cref="StatusStream"/> use BehaviorSubject semantics —
+/// subscribers receive the current value immediately on subscribe, then on every subsequent change.
+/// </summary>
 public interface IConfigurationHealthService
 {
+    /// <summary>Current overall health status of the configuration system.</summary>
     HealthStatus Status { get; }
+
+    /// <summary>The most recent full health snapshot including per-rule details.</summary>
     ConfigHealthSnapshot Snapshot { get; }
+
+    /// <summary>
+    /// Observable stream of health snapshots. Replays the latest snapshot on subscribe (BehaviorSubject semantics).
+    /// </summary>
     IObservable<ConfigHealthSnapshot> SnapshotStream { get; }
+
+    /// <summary>
+    /// Observable stream of overall health status changes. Replays the latest status on subscribe (BehaviorSubject semantics).
+    /// </summary>
     IObservable<HealthStatus> StatusStream { get; }
+
+    /// <summary><c>true</c> when <see cref="Status"/> is <see cref="HealthStatus.Healthy"/>.</summary>
     bool IsHealthy { get; }
 }
 

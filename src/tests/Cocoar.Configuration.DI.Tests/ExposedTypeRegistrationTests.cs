@@ -23,14 +23,14 @@ public class ExposedTypeRegistrationTests
     {
         // With Master Backplane architecture, all scopes receive the same cached instance
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             // Provide the concrete mapping so ConfigManager can resolve the interface
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             // No lifetime capability specified for the exposed type => defaults to Scoped
             setup.ExposedType<ITestConfig>()
-        ]);
+        ]));
 
         using var sp = services.BuildServiceProvider();
         using var scope1 = sp.CreateScope();
@@ -54,13 +54,13 @@ public class ExposedTypeRegistrationTests
         // With Master Backplane architecture, all instances are the same cached object
         // regardless of DI lifetime settings
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new TestConfig("Hello"))).Required()
         ], setup => [
             setup.ConcreteType<TestConfig>().ExposeAs<ITestConfig>(),
             // Override default (non-keyed) to Singleton, disable default (redundant when overriding), and add a keyed transient
             setup.ExposedType<ITestConfig>().AsSingleton().DisableAutoRegistration().AsTransient("my-key")
-        ]);
+        ]));
 
         using var sp = services.BuildServiceProvider();
 

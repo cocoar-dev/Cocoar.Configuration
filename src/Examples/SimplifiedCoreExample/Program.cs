@@ -39,13 +39,13 @@ public static class Program
         Console.WriteLine();
 
         // 1. Build rules using the function-based API
-        var manager = new ConfigManager(rule => [
+        var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
             rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/app.json")),
-                
+
             rule.For<DatabaseConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/database.json")),
-                
+
             rule.For<FeatureConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/features.json"))
-        ]).Initialize();
+        ]));
         
         Console.WriteLine("📋 Configuration Manager initialized");
         Console.WriteLine();
@@ -83,13 +83,13 @@ public static class Program
             // 4. Demonstrate rule layering by creating a scenario with overrides
             Console.WriteLine("🔄 Demonstrating rule layering (later rules override earlier ones):");
             
-            var layeredManager = new ConfigManager(rule => [
+            var layeredManager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 // Base configuration
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/app.json")),
-                    
+
                 // Override via static JSON (simulating environment-specific override)
                 rule.For<AppConfig>().FromStaticJson("""{"Environment": "Production", "LogLevel": "Warning"}""")
-            ]).Initialize();
+            ]));
             
             var overriddenApp = layeredManager.GetConfig<AppConfig>();
             
@@ -102,7 +102,7 @@ public static class Program
             Console.WriteLine("📖 Key API Patterns in Simplified Core:");
             Console.WriteLine("   ✓ rule.For<ConcreteType>().FromFile(...)");
             Console.WriteLine("   ✓ rule.Static(...).For<ConcreteType>()");
-            Console.WriteLine("   ✓ new ConfigManager(rule => [...]).Initialize()");
+            Console.WriteLine("   ✓ ConfigManager.Create(c => c.UseConfiguration(rule => [...]))");
             Console.WriteLine("   ✓ manager.GetConfig<ConcreteType>()");
             Console.WriteLine("   ✗ No .As<Interface>() (removed from core)");
             Console.WriteLine("   ✗ No service lifetimes (moved to DI package)");

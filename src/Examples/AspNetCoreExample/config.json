@@ -1,0 +1,12 @@
+{
+  "App": {
+    "ApplicationName": "My ASP.NET Core App",
+    "Version": "1.0.0",
+    "IsProduction": false
+  },
+  "Database": {
+    "ConnectionString": "Server=localhost;Database=aspnetapp;Trusted_Connection=true",
+    "CommandTimeout": 30,
+    "EnableRetryOnFailure": true
+  }
+}

@@ -12,8 +12,7 @@ namespace Examples.TestingOverridesExample.Tests;
 public class SharedIntegrationTestFixture
 {
     /// <summary>
-    /// Pre-built test configuration context.
-    /// Using the factory method for cleaner initialization.
+    /// Pre-built test configuration context built via <see cref="TestOverrideBuilder"/> (fixture pattern).
     /// </summary>
     public TestConfigurationContext TestContext { get; } =
         TestConfigurationContext.Replace(rule => [
@@ -88,12 +87,12 @@ public class FixtureBasedIntegrationTests : IClassFixture<SharedIntegrationTestF
         // The configuration should be active in test methods
         Assert.True(CocoarTestConfiguration.IsActive);
         Assert.NotNull(CocoarTestConfiguration.Current);
-        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.ConfigurationMode);
     }
 }
 
 /// <summary>
-/// Demonstrates using TestConfigurationScope for automatic cleanup.
+/// Demonstrates using TestOverrideBuilder (disposable scope) for automatic cleanup.
 /// </summary>
 public class ScopeBasedTests
 {
@@ -104,11 +103,10 @@ public class ScopeBasedTests
         Assert.False(CocoarTestConfiguration.IsActive);
 
         // Act - Create scope
-        using (var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        using (var scope = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig { ConnectionString = "test" })
         ]))
         {
-            Assert.True(scope.IsActive);
             Assert.True(CocoarTestConfiguration.IsActive);
         }
 
@@ -124,7 +122,7 @@ public class ScopeBasedTests
 
         try
         {
-            using var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+            using var scope = CocoarTestConfiguration.ReplaceConfiguration(rule => [
                 rule.For<DbConfig>().FromStatic(_ => new DbConfig { ConnectionString = "test" })
             ]);
 
@@ -141,16 +139,16 @@ public class ScopeBasedTests
     }
 
     [Fact]
-    public void AppendTestRules_ReturnsScope()
+    public void AppendConfiguration_ReturnsScope()
     {
         Assert.False(CocoarTestConfiguration.IsActive);
 
-        using (var scope = CocoarTestConfiguration.AppendTestRules(rule => [
+        using (var scope = CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig { ConnectionString = "test" })
         ]))
         {
-            Assert.True(scope.IsActive);
-            Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current!.Mode);
+            Assert.True(CocoarTestConfiguration.IsActive);
+            Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current!.ConfigurationMode);
         }
 
         Assert.False(CocoarTestConfiguration.IsActive);
@@ -158,7 +156,7 @@ public class ScopeBasedTests
 }
 
 /// <summary>
-/// Tests for TestConfigurationContext factory methods.
+/// Tests for TestConfigurationContext factory methods and TestOverrideBuilder.
 /// </summary>
 public class TestConfigurationContextFactoryTests
 {
@@ -171,7 +169,7 @@ public class TestConfigurationContextFactoryTests
         ]);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
     }
 
@@ -184,7 +182,7 @@ public class TestConfigurationContextFactoryTests
         ]);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Append, context.Mode);
+        Assert.Equal(TestConfigurationMode.Append, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
     }
 
@@ -213,13 +211,6 @@ public class TestConfigurationContextFactoryTests
     }
 
     [Fact]
-    public void Constructor_ThrowsOnNullRules()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            new TestConfigurationContext(null!, TestConfigurationMode.Replace));
-    }
-
-    [Fact]
     public void Replace_ThrowsOnNullRules()
     {
         Assert.Throws<ArgumentNullException>(() =>
@@ -231,5 +222,13 @@ public class TestConfigurationContextFactoryTests
     {
         Assert.Throws<ArgumentNullException>(() =>
             TestConfigurationContext.Append(null!));
+    }
+
+    [Fact]
+    public void TestOverrideBuilder_ReplaceConfiguration_ThrowsOnNullRules()
+    {
+        // The public constructor is for the fixture pattern; null rules should throw
+        Assert.Throws<ArgumentNullException>(() =>
+            new TestOverrideBuilder().ReplaceConfiguration(null!));
     }
 }

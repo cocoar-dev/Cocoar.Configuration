@@ -1,0 +1,169 @@
+@page "/reactive"
+@implements IDisposable
+@inject IReactiveConfig<AppSettings> AppSettingsReactive
+@inject IReactiveConfig<DatabaseSettings> DbSettingsReactive
+@inject IReactiveConfig<(AppSettings App, DatabaseSettings Db)> TupleReactive
+@inject IConfigurationHealthService HealthService
+@inject NavigationManager Nav
+
+<h1>Reactive Demo</h1>
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    Edit the JSON below and click Save. The file watcher detects the change, the 500ms debounce fires,
+    rules recompute, and <code>IReactiveConfig&lt;T&gt;</code> emits new values.
+</p>
+
+<div class="grid-2" style="margin-bottom: 1.5rem;">
+    <div class="card">
+        <h3 style="margin-bottom: 0.5rem;">Edit app.json</h3>
+        <textarea @bind="appJsonEditor" />
+        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <button class="btn-primary" @onclick="SaveAppJson">Save app.json</button>
+            <button @onclick="ReloadAppJson">Reset</button>
+        </div>
+        @if (saveMessage != null)
+        {
+            <p style="margin-top: 0.5rem; color: var(--success); font-size: 0.85rem;">@saveMessage</p>
+        }
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 0.5rem;">Edit database.json</h3>
+        <textarea @bind="dbJsonEditor" />
+        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <button class="btn-primary" @onclick="SaveDbJson">Save database.json</button>
+            <button @onclick="ReloadDbJson">Reset</button>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Tuple Reactive: <code>IReactiveConfig&lt;(AppSettings, DatabaseSettings)&gt;</code></h3>
+    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+        Both configs update atomically in a single emission. No inconsistent intermediate state.
+    </p>
+    <div class="grid-2">
+        <div>
+            <h4 style="color: var(--accent); font-size: 0.85rem;">AppSettings (from tuple)</h4>
+            <table>
+                <tr><td>ApplicationName</td><td>@tupleValue.App.ApplicationName</td></tr>
+                <tr><td>Version</td><td>@tupleValue.App.Version</td></tr>
+                <tr><td>MaxRetries</td><td>@tupleValue.App.MaxRetries</td></tr>
+            </table>
+        </div>
+        <div>
+            <h4 style="color: var(--accent); font-size: 0.85rem;">DatabaseSettings (from tuple)</h4>
+            <table>
+                <tr><td>ConnectionString</td><td>@tupleValue.Db.ConnectionString</td></tr>
+                <tr><td>MaxPoolSize</td><td>@tupleValue.Db.MaxPoolSize</td></tr>
+                <tr><td>CommandTimeout</td><td>@tupleValue.Db.CommandTimeoutSeconds s</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 0.75rem;">Event Log</h3>
+    <div class="event-log">
+        @foreach (var entry in eventLog)
+        {
+            <div class="event-log-entry">
+                <span class="event-time">@entry.Time.ToString("HH:mm:ss.fff")</span>
+                <span class="event-type">@entry.Type</span>
+                <span class="event-detail">@entry.Detail</span>
+            </div>
+        }
+        @if (eventLog.Count == 0)
+        {
+            <div style="padding: 1rem; color: var(--text-muted);">Waiting for changes...</div>
+        }
+    </div>
+</div>
+
+@code {
+    private string appJsonEditor = "";
+    private string dbJsonEditor = "";
+    private string? saveMessage;
+    private (AppSettings App, DatabaseSettings Db) tupleValue;
+    private readonly List<EventEntry> eventLog = new();
+    private IDisposable? appSub;
+    private IDisposable? dbSub;
+    private IDisposable? tupleSub;
+    private IDisposable? healthSub;
+    private HttpClient? http;
+
+    private record EventEntry(DateTime Time, string Type, string Detail);
+
+    protected override async Task OnInitializedAsync()
+    {
+        http = new HttpClient { BaseAddress = new Uri(Nav.BaseUri) };
+        tupleValue = TupleReactive.CurrentValue;
+
+        await ReloadAppJson();
+        await ReloadDbJson();
+
+        appSub = AppSettingsReactive.Subscribe(v =>
+        {
+            AddEvent("AppSettings", $"Name={v.ApplicationName}, Version={v.Version}, Retries={v.MaxRetries}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        dbSub = DbSettingsReactive.Subscribe(v =>
+        {
+            AddEvent("DatabaseSettings", $"Pool={v.MaxPoolSize}, Timeout={v.CommandTimeoutSeconds}s, Retry={v.EnableRetryOnFailure}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        tupleSub = TupleReactive.Subscribe(v =>
+        {
+            tupleValue = v;
+            AddEvent("Tuple", $"Atomic update: App.Version={v.App.Version}, Db.Pool={v.Db.MaxPoolSize}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        healthSub = HealthService.StatusStream.Subscribe(s =>
+        {
+            AddEvent("Health", $"Status changed to {s}");
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void AddEvent(string type, string detail)
+    {
+        eventLog.Insert(0, new EventEntry(DateTime.Now, type, detail));
+        if (eventLog.Count > 50) eventLog.RemoveAt(eventLog.Count - 1);
+    }
+
+    private async Task SaveAppJson()
+    {
+        saveMessage = null;
+        var content = new StringContent(appJsonEditor, System.Text.Encoding.UTF8, "application/json");
+        await http!.PostAsync("/api/config/app", content);
+        saveMessage = "Saved! Watching for reactive update...";
+    }
+
+    private async Task SaveDbJson()
+    {
+        var content = new StringContent(dbJsonEditor, System.Text.Encoding.UTF8, "application/json");
+        await http!.PostAsync("/api/config/database", content);
+    }
+
+    private async Task ReloadAppJson()
+    {
+        if (http is not null)
+            appJsonEditor = await http.GetStringAsync("/api/config/app");
+    }
+
+    private async Task ReloadDbJson()
+    {
+        if (http is not null)
+            dbJsonEditor = await http.GetStringAsync("/api/config/database");
+    }
+
+    public void Dispose()
+    {
+        appSub?.Dispose();
+        dbSub?.Dispose();
+        tupleSub?.Dispose();
+        healthSub?.Dispose();
+        http?.Dispose();
+    }
+}

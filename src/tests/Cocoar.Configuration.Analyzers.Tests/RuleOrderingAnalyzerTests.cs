@@ -32,12 +32,12 @@ class Program
     void Configure()
     {
         var builder = new ServiceCollection();
-        builder.AddCocoarConfiguration(rule => [
+        builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<AppSettings>().FromFile(""app.json""),
             rule.For<DerivedConfig>()
                 .FromFile(""derived.json"")
                 .When(accessor => accessor.GetRequiredConfig<AppSettings>().IsEnabled)
-        ]);
+        ]));
     }
 }
 
@@ -70,12 +70,12 @@ class Program
     void Configure()
     {
         var builder = new ServiceCollection();
-        builder.AddCocoarConfiguration(rule => [
+        builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<DerivedConfig>()
                 .FromFile(""derived.json"")
                 .When(accessor => accessor.GetRequiredConfig<AppSettings>().IsEnabled),
             rule.For<AppSettings>().FromFile(""app.json"")
-        ]);
+        ]));
     }
 }
 

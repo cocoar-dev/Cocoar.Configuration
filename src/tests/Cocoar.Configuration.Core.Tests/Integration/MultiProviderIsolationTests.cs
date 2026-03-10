@@ -30,11 +30,11 @@ public class MultiProviderIsolationTests
 
         using var subject = new BehaviorSubject<string>(initialJson);
 
-        var configManager = new ConfigManager(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<AppConfig>().FromObservable(subject).Select("AppSettings"),
-                
+
             rules.For<DatabaseConfig>().FromObservable(subject).Select("DatabaseSettings")
-        ], debounceMilliseconds: 100).Initialize();
+        ]).UseDebounce(100));
         
         var appConfig = configManager.GetReactiveConfig<AppConfig>();
         var databaseConfig = configManager.GetReactiveConfig<DatabaseConfig>();
@@ -100,7 +100,7 @@ public class MultiProviderIsolationTests
         var subject2 = new BehaviorSubject<string>("""{"Rule2Value": 10}""");
         var subject3 = new BehaviorSubject<string>("""{"Rule3Value": 100}""");
 
-        var configManager = new ConfigManager(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<Dictionary<string, object>>().FromStaticJson("""{"Static": "Base", "Priority": 1}"""),
 
             rules.For<Dictionary<string, object>>().FromObservable(subject1),
@@ -108,7 +108,7 @@ public class MultiProviderIsolationTests
             rules.For<Dictionary<string, object>>().FromObservable(subject2),
 
             rules.For<Dictionary<string, object>>().FromObservable(subject3)
-        ], debounceMilliseconds: 30).Initialize();
+        ]).UseDebounce(30));
         
         var config = configManager.GetReactiveConfig<Dictionary<string, object>>();
 
@@ -174,10 +174,10 @@ public class MultiProviderIsolationTests
     {
         var subject = new BehaviorSubject<string>("""{"Value": 0, "Timestamp": "initial"}""");
 
-        var configManager = new ConfigManager(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             // Single observable rule to isolate emission behavior
             rules.For<Dictionary<string, object>>().FromObservable(subject)
-        ], debounceMilliseconds: 50).Initialize();
+        ]).UseDebounce(50));
         
         var config = configManager.GetReactiveConfig<Dictionary<string, object>>();
 
@@ -260,7 +260,7 @@ public class MultiProviderIsolationTests
             TestRules.StaticJson<ScalarMergeConfig>(scalarOverride)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<ScalarMergeConfig>();
         Assert.NotNull(config);
 
@@ -294,7 +294,7 @@ public class MultiProviderIsolationTests
             TestRules.StaticJson<ArrayMergeConfig>(objectOverride)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<ArrayMergeConfig>();
         Assert.NotNull(config);
 
@@ -332,7 +332,7 @@ public class MultiProviderIsolationTests
             TestRules.StaticJson<NullMergeConfig>(nullOverride)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
         var config = configManager.GetConfig<NullMergeConfig>();
         Assert.NotNull(config);
 
@@ -358,7 +358,7 @@ public class MultiProviderIsolationTests
             TestRules.ObservableString<SnapshotConfig>(observable)
         };
 
-        var configManager = new ConfigManager(rules).Initialize();
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules));
 
     var snapshot1 = configManager.GetConfig<SnapshotConfig>();
     Assert.NotNull(snapshot1);
@@ -405,14 +405,14 @@ public class MultiProviderIsolationTests
         }
         """;
 
-        var configManager = new ConfigManager(rules => [
+        var configManager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             // This rule selects a non-existent path - should contribute nothing
             rules.For<SelectMountConfig>().FromStaticJson(jsonWithoutPath)
                 .Select("NonExistentSection"),  // This path doesn't exist - selection will be empty
-            
+
             // Base rule to ensure we have some configuration
             rules.For<SelectMountConfig>().FromStaticJson("""{"DefaultValue": "present"}""")
-        ]).Initialize();
+        ]));
 
         var config = configManager.GetConfig<SelectMountConfig>();
         Assert.NotNull(config);
@@ -454,8 +454,8 @@ public class MultiProviderIsolationTests
         }
         """;
 
-        var configManager1 = new ConfigManager([TestRules.StaticJson<AppConfig>(config1)]).Initialize();
-        var configManager2 = new ConfigManager([TestRules.StaticJson<AppConfig>(config2)]).Initialize();
+        var configManager1 = ConfigManager.Create(c => c.UseConfiguration([TestRules.StaticJson<AppConfig>(config1)]));
+        var configManager2 = ConfigManager.Create(c => c.UseConfiguration([TestRules.StaticJson<AppConfig>(config2)]));
 
     var result1 = configManager1.GetConfig<AppConfig>();
     var result2 = configManager2.GetConfig<AppConfig>();

@@ -14,43 +14,77 @@ using Cocoar.Configuration.Utilities;
 
 namespace Cocoar.Configuration.Core;
 
-public class ConfigManager : IConfigurationAccessor, IDisposable
+public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncDisposable
 {
-    private readonly List<ConfigRule> _rules;
-    private readonly List<SetupDefinition> _setupDefinitions;
+    private List<ConfigRule> _rules = null!;
+    private List<SetupDefinition> _setupDefinitions = null!;
     private readonly List<RuleManager> _ruleManagers = new();
 
-    private readonly ConfigurationAccessor _accessor;
-    private readonly ReactiveConfigurationFactory _reactiveFactory;
-    private readonly ReactiveConfigManager _reactiveConfigManager;
+    private ConfigurationAccessor _accessor = null!;
+    private ReactiveConfigurationFactory _reactiveFactory = null!;
+    private ReactiveConfigManager _reactiveConfigManager = null!;
     private readonly ConfigManagerCapabilityScope _capabilityScope;
-    private readonly ConfigurationEngine _engine;
-    private readonly ConfigurationState _state;
-    private readonly ProviderRegistry _providerRegistry;
-    private readonly ExposureRegistry _bindingRegistry;
-    private readonly ILogger _logger;
-    private readonly int _debounceMilliseconds;
+    private ConfigurationEngine _engine = null!;
+    private ConfigurationState _state = null!;
+    private ProviderRegistry _providerRegistry = null!;
+    private ExposureRegistry _bindingRegistry = null!;
+    private ILogger _logger = NullLogger.Instance;
+    private int _debounceMilliseconds = 300;
 
-    private volatile bool _initialized;
+    private int _initialized;
 
     /// <summary>
-    /// Creates a new ConfigManager with a function-based rules builder.
-    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
+    /// Creates and initializes a new <see cref="ConfigManager"/> using the provided configuration.
     /// </summary>
-    public ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    /// <param name="configure">An action to configure the <see cref="ConfigManagerBuilder"/>.</param>
+    /// <returns>A fully initialized <see cref="ConfigManager"/> ready for use.</returns>
+    /// <example>
+    /// <code>
+    /// var manager = ConfigManager.Create(builder => builder
+    ///     .UseConfiguration(rules => [
+    ///         rules.For&lt;AppSettings&gt;().FromFile("appsettings.json")
+    ///     ]));
+    /// var settings = manager.GetConfig&lt;AppSettings&gt;();
+    /// </code>
+    /// </example>
+    public static ConfigManager Create(Action<ConfigManagerBuilder> configure)
     {
-        var rulesBuilder = new RulesBuilder();
-        var configuredRules = rules(rulesBuilder);
+        ArgumentNullException.ThrowIfNull(configure);
+        var manager = new ConfigManager();
+        var builder = new ConfigManagerBuilder(manager);
+        configure(builder);
+        return builder.Build();
+    }
 
-        // Apply test configuration overrides if present
-        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
-
+    /// <summary>
+    /// Creates a bare ConfigManager with only the CapabilityScope initialized.
+    /// Must be followed by <see cref="Configure"/> and <see cref="Initialize"/> to be fully operational.
+    /// </summary>
+    internal ConfigManager()
+    {
         _capabilityScope = new ConfigManagerCapabilityScope(this);
         _capabilityScope.Owner.Compose();
+    }
+
+    /// <summary>
+    /// Configures the ConfigManager with rules, setup, and infrastructure.
+    /// Called by <see cref="ConfigManagerBuilder.Build"/> after the user lambda
+    /// has had a chance to configure satellite capabilities on the scope.
+    /// </summary>
+    internal void Configure(
+        ConfigRule[] configuredRules,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null,
+        ILogger? logger = null,
+        Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null,
+        int debounceMilliseconds = 300)
+    {
+        // Apply test configuration overrides if present
+        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
 
         // Apply test setup overrides if present
         var effectiveSetup = ApplyTestSetupOverrides(setup);
         _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
+
         _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
@@ -66,52 +100,34 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         _engine = new ConfigurationEngine(_state, _logger);
     }
 
-    /// <summary>
-    /// Creates a new ConfigManager with a pre-built list of rules.
-    /// Automatically detects and applies test configuration overrides when CocoarTestConfiguration is active.
-    /// </summary>
-    public ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+    internal ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+        : this()
     {
-        var configuredRules = rules.ToArray();
+        var rulesBuilder = new RulesBuilder();
+        var configuredRules = rules(rulesBuilder);
+        Configure(configuredRules, setup, logger, providerFactory, debounceMilliseconds);
+    }
 
-        // Apply test configuration overrides if present
-        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
-
-        _capabilityScope = new ConfigManagerCapabilityScope(this);
-        _capabilityScope.Owner.Compose();
-
-        // Apply test setup overrides if present
-        var effectiveSetup = ApplyTestSetupOverrides(setup);
-        _setupDefinitions = effectiveSetup?.Invoke(new SetupBuilder(_capabilityScope)).Select(s => s.Build()).ToList() ?? new List<SetupDefinition>();
-        _logger = logger ?? NullLogger.Instance;
-        _debounceMilliseconds = debounceMilliseconds;
-
-        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
-        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
-        _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
-
-        _accessor = new(_state, _bindingRegistry, _logger);
-        _accessor.SetCapabilityScope(_capabilityScope);
-        _reactiveConfigManager = new(_logger, _bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, _logger, this, _bindingRegistry);
-
-        _engine = new ConfigurationEngine(_state, _logger);
+    internal ConfigManager(IEnumerable<ConfigRule> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
+        : this()
+    {
+        Configure(rules.ToArray(), setup, logger, providerFactory, debounceMilliseconds);
     }
 
     public IReadOnlyList<ConfigRule> Rules => _rules.AsReadOnly();
     internal IReadOnlyList<SetupDefinition> SetupDefinitions => _setupDefinitions.AsReadOnly();
 
-    public ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
+    internal ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
+    internal MasterBackplane Backplane => _state.Backplane;
 
-
-    public ConfigManager Initialize()
+    internal ConfigManager Initialize()
     {
-        if (_initialized)
+        if (_initialized != 0)
         {
             return this;
         }
 
-        if (!Interlocked.CompareExchange(ref _initialized, true, false))
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
         {
             _capabilityScope.Owner.TryGetComposer(out var composer);
             composer?.Build();
@@ -133,36 +149,137 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         return this;
     }
 
-    public T GetConfig<T>() => _accessor.GetConfig<T>();
-    public bool TryGetConfig<T>(out T? value) => _accessor.TryGetConfig(out value);
+    internal async Task<ConfigManager> InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        if (_initialized != 0)
+            return this;
+
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+        {
+            _capabilityScope.Owner.TryGetComposer(out var composer);
+            composer?.Build();
+            _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
+
+            await _engine.InitializeAndComputeAsync(
+                _rules,
+                _ruleManagers,
+                _providerRegistry,
+                this,
+                _bindingRegistry,
+                _capabilityScope,
+                ScheduleRecompute,
+                _debounceMilliseconds,
+                cancellationToken).ConfigureAwait(false);
+
+            _reactiveConfigManager.SetBackplane(_state.Backplane);
+        }
+        return this;
+    }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="ConfigManager"/> asynchronously.
+    /// Prefer this over <see cref="Create"/> in console apps or any context where
+    /// blocking the calling thread during provider I/O is undesirable.
+    /// </summary>
+    /// <param name="configure">An action to configure the <see cref="ConfigManagerBuilder"/>.</param>
+    /// <param name="cancellationToken">Token to cancel the initialization.</param>
+    public static async Task<ConfigManager> CreateAsync(
+        Action<ConfigManagerBuilder> configure,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var manager = new ConfigManager();
+        var builder = new ConfigManagerBuilder(manager);
+        configure(builder);
+        return await builder.BuildAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets a configuration instance of the specified type from the current snapshot.
+    /// </summary>
+    /// <typeparam name="T">The configuration type to retrieve. Must be a class.</typeparam>
+    /// <returns>The configuration instance, or null if not found.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public T? GetConfig<T>() where T : class
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _accessor.GetConfig<T>();
+    }
+
+    /// <summary>
+    /// Attempts to get a configuration instance without throwing.
+    /// </summary>
+    /// <typeparam name="T">The configuration type to retrieve. Must be a class.</typeparam>
+    /// <param name="value">The configuration instance if found; otherwise null.</param>
+    /// <returns>True if the configuration exists; false otherwise.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public bool TryGetConfig<T>(out T? value) where T : class
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _accessor.TryGetConfig(out value);
+    }
 
 #pragma warning disable CS0618 // Type or member is obsolete
     public T GetRequiredConfig<T>() => _accessor.GetRequiredConfig<T>();
 #pragma warning restore CS0618
 
+    /// <inheritdoc cref="GetConfig{T}"/>
     public object GetConfig(Type type) => _accessor.GetConfig(type);
+
+    /// <inheritdoc cref="TryGetConfig{T}(out T?)"/>
     public bool TryGetConfig(Type type, out object? value) => _accessor.TryGetConfig(type, out value);
 
 #pragma warning disable CS0618 // Type or member is obsolete
+    /// <inheritdoc cref="GetRequiredConfig{T}"/>
     public object GetRequiredConfig(Type type) => _accessor.GetRequiredConfig(type);
 #pragma warning restore CS0618
 
+    /// <summary>
+    /// Gets the current configuration snapshot for the specified type serialized as a <see cref="JsonElement"/>.
+    /// Returns <c>null</c> if no rule is registered for the type.
+    /// </summary>
+    /// <param name="type">The configuration type to retrieve.</param>
     public JsonElement? GetConfigAsJson(Type type) => _accessor.GetConfigAsJson(type);
 
-    public IReactiveConfig<T> GetReactiveConfig<T>() => _reactiveFactory.GetReactiveConfig<T>(() => GetConfig<T>());
+    /// <summary>
+    /// Gets a reactive wrapper for the specified configuration type.
+    /// The returned <see cref="IReactiveConfig{T}"/> emits the current value immediately on subscribe
+    /// and then on every subsequent configuration change (replay-1 / BehaviorSubject semantics).
+    /// </summary>
+    /// <typeparam name="T">The configuration type. Must be a class, interface (with ExposeAs), or ValueTuple.</typeparam>
+    /// <returns>A reactive configuration wrapper.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public IReactiveConfig<T> GetReactiveConfig<T>()
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _reactiveFactory.GetReactiveConfig<T>(() => (T)GetConfig(typeof(T)));
+    }
 
-    public IConfigurationHealthService GetHealthService() => _state.GetHealthService();
+    /// <summary>
+    /// Gets the health service for monitoring the configuration system's status.
+    /// </summary>
+    /// <returns>An <see cref="IConfigurationHealthService"/> providing health status and observable streams.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
+    public IConfigurationHealthService GetHealthService()
+    {
+        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+        return _state.GetHealthService();
+    }
 
     internal void ScheduleRecompute(int startIndex) =>
         _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 
+    /// <summary>
+    /// Disposes the configuration manager and all associated resources.
+    /// After disposal, configuration methods will throw <see cref="InvalidOperationException"/>.
+    /// </summary>
     public void Dispose()
     {
-        _engine.Dispose();
-        _reactiveConfigManager.Dispose();
-        _state.Dispose();
+        _engine?.Dispose();
+        _reactiveConfigManager?.Dispose();
+        _state?.Dispose();
 
         foreach (var rm in _ruleManagers.ToArray())
         {
@@ -170,26 +287,44 @@ public class ConfigManager : IConfigurationAccessor, IDisposable
         }
 
         _ruleManagers.Clear();
-        _initialized = false;
-        GC.SuppressFinalize(this);
+        Interlocked.Exchange(ref _initialized, 0);
+    }
+
+    /// <summary>
+    /// Asynchronously disposes the configuration manager, awaiting any in-flight recompute to finish.
+    /// Preferred over <see cref="Dispose"/> in ASP.NET Core and other async hosts, which call
+    /// <see cref="IAsyncDisposable.DisposeAsync"/> on singletons at shutdown.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_engine != null) await _engine.DisposeAsync().ConfigureAwait(false);
+        _reactiveConfigManager?.Dispose();
+        _state?.Dispose();
+
+        foreach (var rm in _ruleManagers.ToArray())
+        {
+            Safety.DisposeQuietly(rm);
+        }
+
+        _ruleManagers.Clear();
+        Interlocked.Exchange(ref _initialized, 0);
     }
 
     /// <summary>
     /// Applies test configuration overrides from AsyncLocal context if present.
     /// Supports both Replace (skip all configured rules) and Append (merge test rules at end) modes.
+    /// When <see cref="TestConfigurationContext.ConfigurationMode"/> is null no rules override is applied.
     /// </summary>
     private static ConfigRule[] ApplyTestConfigurationOverrides(ConfigRule[] configuredRules)
     {
         var testContext = CocoarTestConfiguration.Current;
-        if (testContext == null)
-        {
+        if (testContext?.Rules == null || testContext.ConfigurationMode == null)
             return configuredRules;
-        }
 
         var testRulesBuilder = new RulesBuilder();
         var testRules = testContext.Rules(testRulesBuilder);
 
-        return testContext.Mode switch
+        return testContext.ConfigurationMode switch
         {
             TestConfigurationMode.Replace => testRules,
             TestConfigurationMode.Append => configuredRules.Concat(testRules).ToArray(),

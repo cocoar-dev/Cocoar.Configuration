@@ -1,0 +1,7 @@
+{
+  "ConnectionString": "Server=localhost;Database=showcase;Trusted_Connection=true",
+  "MaxPoolSize": 100,
+  "CommandTimeoutSeconds": 30,
+  "EnableRetryOnFailure": true,
+  "ApiKey": "sk-demo-plaintext-secret-12345"
+}

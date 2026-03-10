@@ -1,0 +1,13 @@
+@code {
+    [Parameter] public HealthStatus Status { get; set; }
+
+    private string CssClass => Status switch
+    {
+        HealthStatus.Healthy => "badge badge-healthy",
+        HealthStatus.Degraded => "badge badge-degraded",
+        HealthStatus.Unhealthy => "badge badge-unhealthy",
+        _ => "badge badge-unknown"
+    };
+}
+
+<span class="@CssClass">@Status</span>

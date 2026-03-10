@@ -71,16 +71,14 @@ public static class Program
 
         try
         {           
-            var manager = new ConfigManager(rule => [
+            var manager = ConfigManager.Create(c => c.UseConfiguration(rule => [
                 rule.For<PaymentConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/payment.json")),
                 rule.For<FeatureToggleConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/features.json")),
                 rule.For<DatabaseConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("config/database.json"))
             ], setup => [
                 setup.ConcreteType<PaymentConfig>().ExposeAs<IPaymentConfig>(),
                 setup.ConcreteType<FeatureToggleConfig>().ExposeAs<IFeatureToggles>().ExposeAs<IReadOnlyFeatureToggles>()
-            ]);
-
-            manager.Initialize();
+            ]));
 
             Console.WriteLine("📋 ConfigManager initialized successfully!");
             Console.WriteLine();
@@ -131,7 +129,7 @@ public static class Program
             // 8. Show API patterns
             Console.WriteLine("📖 Key Exposure Patterns:");
             Console.WriteLine("   ✓ Setup.ConcreteType<T>().ExposeAs<IInterface>().Build()");
-            Console.WriteLine("   ✓ new ConfigManager(rules, configuredBuilders)");
+            Console.WriteLine("   ✓ ConfigManager.Create(c => c.UseConfiguration(rules, setup))");
             Console.WriteLine("   ✓ manager.GetConfig<IInterface>() // resolves via exposure");
             Console.WriteLine("   ✓ manager.GetConfig<ConcreteType>() // direct access");
             Console.WriteLine("   ✓ Multiple interfaces per concrete type");

@@ -28,84 +28,55 @@ public static class CocoarTestConfiguration
 
     /// <summary>
     /// Replaces all configured rules with test-specific rules.
-    /// Original rules are completely skipped - ideal when providers would fail in test environment.
+    /// Original rules are completely skipped — ideal when providers would fail in test environment.
+    /// Returns a <see cref="TestOverrideBuilder"/> that can be further composed (e.g. chaining
+    /// <c>.ReplaceSecretsSetup(...)</c>) and acts as a disposable scope.
     /// </summary>
     /// <param name="rules">Function to build test rules using the fluent API.</param>
     /// <param name="setup">Optional function to build test setup using the fluent API.</param>
-    /// <returns>A scope that clears the test configuration when disposed.</returns>
+    /// <returns>An auto-activating builder / disposable scope.</returns>
     /// <example>
     /// <code>
-    /// using var _ = CocoarTestConfiguration.ReplaceAllRules(
+    /// using var _ = CocoarTestConfiguration.ReplaceConfiguration(
     ///     rule => [
     ///         rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = testDb })
-    ///     ],
-    ///     setup => [
-    ///         setup.Secrets().AllowPlaintext()
     ///     ]);
-    /// // Test configuration automatically cleared when scope is disposed
     /// </code>
     /// </example>
-    public static TestConfigurationScope ReplaceAllRules(
+    public static TestOverrideBuilder ReplaceConfiguration(
         Func<RulesBuilder, ConfigRule[]> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
-    {
-        ArgumentNullException.ThrowIfNull(rules);
-        s_testContext.Value = new TestConfigurationContext(rules, TestConfigurationMode.Replace, setup);
-        return new TestConfigurationScope();
-    }
+        => new TestOverrideBuilder(autoActivate: true).ReplaceConfiguration(rules, setup);
 
     /// <summary>
     /// Appends test rules to the end of configured rules (last-write-wins).
     /// Original rules execute first, then test rules override specific values.
+    /// Returns a <see cref="TestOverrideBuilder"/> that can be further composed and acts as a disposable scope.
     /// </summary>
     /// <param name="rules">Function to build test rules using the fluent API.</param>
     /// <param name="setup">Optional function to build test setup using the fluent API.</param>
-    /// <returns>A scope that clears the test configuration when disposed.</returns>
+    /// <returns>An auto-activating builder / disposable scope.</returns>
     /// <example>
     /// <code>
-    /// using var _ = CocoarTestConfiguration.AppendTestRules(
+    /// using var _ = CocoarTestConfiguration.AppendConfiguration(
     ///     rule => [
     ///         rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = testDb })
-    ///     ],
-    ///     setup => [
-    ///         setup.Secrets().AllowPlaintext()
     ///     ]);
-    /// // Test configuration automatically cleared when scope is disposed
     /// </code>
     /// </example>
-    public static TestConfigurationScope AppendTestRules(
+    public static TestOverrideBuilder AppendConfiguration(
         Func<RulesBuilder, ConfigRule[]> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
-    {
-        ArgumentNullException.ThrowIfNull(rules);
-        s_testContext.Value = new TestConfigurationContext(rules, TestConfigurationMode.Append, setup);
-        return new TestConfigurationScope();
-    }
+        => new TestOverrideBuilder(autoActivate: true).AppendConfiguration(rules, setup);
 
     /// <summary>
-    /// Applies setup overrides only, keeping original rules unchanged.
-    /// Use this when you only need to override setup options like AllowPlaintext() without changing rules.
+    /// Replaces the secrets setup used during ConfigManager initialization.
+    /// Returns a <see cref="TestOverrideBuilder"/> that can be further composed and acts as a disposable scope.
     /// </summary>
-    /// <param name="setup">Function to build test setup using the fluent API.</param>
-    /// <returns>A scope that clears the test configuration when disposed.</returns>
-    /// <example>
-    /// <code>
-    /// using var _ = CocoarTestConfiguration.WithSetup(setup => [
-    ///     setup.Secrets().AllowPlaintext()
-    /// ]);
-    /// // Original rules are preserved, but setup includes test overrides
-    /// </code>
-    /// </example>
-    public static TestConfigurationScope WithSetup(Func<SetupBuilder, SetupDefinition[]> setup)
-    {
-        ArgumentNullException.ThrowIfNull(setup);
-        // Create context with empty rules in Append mode (original rules preserved)
-        s_testContext.Value = new TestConfigurationContext(
-            rules => [],
-            TestConfigurationMode.Append,
-            setup);
-        return new TestConfigurationScope();
-    }
+    /// <param name="configure">Raw delegate that receives a SecretsBuilder (typed by Secrets package extension).</param>
+    /// <returns>An auto-activating builder / disposable scope.</returns>
+    public static TestOverrideBuilder ReplaceSecretsSetup(Delegate configure)
+        => new TestOverrideBuilder(autoActivate: true).ReplaceSecretsSetupCore(configure);
 
     /// <summary>
     /// Applies an existing <see cref="TestConfigurationContext"/> to the current async context.
@@ -115,19 +86,10 @@ public static class CocoarTestConfiguration
     /// <returns>A scope that clears the test configuration when disposed.</returns>
     /// <example>
     /// <code>
-    /// public class IntegrationTestFixture
-    /// {
-    ///     public TestConfigurationContext TestContext { get; } =
-    ///         TestConfigurationContext.Replace(rule => [
-    ///             rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = "test-db" })
-    ///         ]);
-    /// }
-    ///
     /// public class MyTests : IClassFixture&lt;IntegrationTestFixture&gt;, IDisposable
     /// {
     ///     public MyTests(IntegrationTestFixture fixture)
     ///     {
-    ///         // Bridge the async context gap - one line!
     ///         CocoarTestConfiguration.Apply(fixture.TestContext);
     ///     }
     ///
@@ -161,11 +123,10 @@ public static class CocoarTestConfiguration
     public static bool IsActive => s_testContext.Value != null;
 
     /// <summary>
-    /// Optional custom serializer options for test scenarios.
-    /// Set by extension packages (e.g., Cocoar.Configuration.Secrets) to handle
-    /// special types during FromStatic serialization.
+    /// Sets the active context. Called by <see cref="TestOverrideBuilder"/> after each mutation.
     /// </summary>
-    public static JsonSerializerOptions? TestSerializerOptions { get; set; }
+    internal static void SetContext(TestConfigurationContext context) =>
+        s_testContext.Value = context;
 }
 
 /// <summary>
@@ -190,18 +151,20 @@ public enum TestConfigurationMode
 /// <remarks>
 /// Store instances of this class in test fixtures and use <see cref="CocoarTestConfiguration.Apply"/>
 /// in test class constructors to bridge the async context gap between fixture setup and test methods.
+/// Use <see cref="TestConfigurationContext.Replace"/> or <see cref="TestConfigurationContext.Append"/>
+/// as convenient factory methods, or build via <see cref="TestOverrideBuilder"/> for the fixture pattern.
 /// </remarks>
 public sealed class TestConfigurationContext
 {
     /// <summary>
-    /// Gets the rules builder function for this test configuration.
+    /// Gets the rules builder function for this test configuration, or null if no rules override is set.
     /// </summary>
-    public Func<RulesBuilder, ConfigRule[]> Rules { get; }
+    public Func<RulesBuilder, ConfigRule[]>? Rules { get; }
 
     /// <summary>
-    /// Gets the mode for this test configuration (Replace or Append).
+    /// Gets the mode for this test configuration (Replace or Append), or null if no rules override is set.
     /// </summary>
-    public TestConfigurationMode Mode { get; }
+    public TestConfigurationMode? ConfigurationMode { get; }
 
     /// <summary>
     /// Gets the optional setup builder function for this test configuration.
@@ -209,25 +172,31 @@ public sealed class TestConfigurationContext
     public Func<SetupBuilder, SetupDefinition[]>? Setup { get; }
 
     /// <summary>
-    /// Creates a new test configuration context.
+    /// Optional custom serializer options for this test configuration context.
     /// </summary>
-    /// <param name="rules">Function to build test rules using the fluent API.</param>
-    /// <param name="mode">The configuration override mode.</param>
-    /// <param name="setup">Optional function to build test setup using the fluent API.</param>
-    public TestConfigurationContext(
-        Func<RulesBuilder, ConfigRule[]> rules,
-        TestConfigurationMode mode,
-        Func<SetupBuilder, SetupDefinition[]>? setup = null)
+    public JsonSerializerOptions? SerializerOptions { get; set; }
+
+    /// <summary>
+    /// Raw secrets setup override delegate. Typed as <see cref="Delegate"/> to avoid a hard dependency
+    /// on the Secrets package from the core library. The Secrets package casts this to the correct type.
+    /// </summary>
+    internal Delegate? SecretsSetupOverride { get; init; }
+
+    internal TestConfigurationContext(
+        Func<RulesBuilder, ConfigRule[]>? rules = null,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null,
+        TestConfigurationMode? configurationMode = null,
+        Delegate? secretsSetupOverride = null)
     {
-        ArgumentNullException.ThrowIfNull(rules);
         Rules = rules;
-        Mode = mode;
         Setup = setup;
+        ConfigurationMode = configurationMode;
+        SecretsSetupOverride = secretsSetupOverride;
     }
 
     /// <summary>
     /// Creates a test configuration context that replaces all configured rules.
-    /// Original rules are completely skipped - ideal when providers would fail in test environment.
+    /// Original rules are completely skipped — ideal when providers would fail in the test environment.
     /// </summary>
     /// <param name="rules">Function to build test rules using the fluent API.</param>
     /// <param name="setup">Optional function to build test setup using the fluent API.</param>
@@ -240,9 +209,6 @@ public sealed class TestConfigurationContext
     ///         TestConfigurationContext.Replace(
     ///             rule => [
     ///                 rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { Connection = "test-db" })
-    ///             ],
-    ///             setup => [
-    ///                 setup.Secrets().AllowPlaintext()
     ///             ]);
     /// }
     /// </code>
@@ -250,7 +216,10 @@ public sealed class TestConfigurationContext
     public static TestConfigurationContext Replace(
         Func<RulesBuilder, ConfigRule[]> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
-        => new(rules, TestConfigurationMode.Replace, setup);
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        return new(rules, setup, TestConfigurationMode.Replace);
+    }
 
     /// <summary>
     /// Creates a test configuration context that appends test rules to configured rules.
@@ -267,9 +236,6 @@ public sealed class TestConfigurationContext
     ///         TestConfigurationContext.Append(
     ///             rule => [
     ///                 rule.For&lt;DbConfig&gt;().FromStatic(_ => new DbConfig { MaxConnections = 5 })
-    ///             ],
-    ///             setup => [
-    ///                 setup.Secrets().AllowPlaintext()
     ///             ]);
     /// }
     /// </code>
@@ -277,7 +243,100 @@ public sealed class TestConfigurationContext
     public static TestConfigurationContext Append(
         Func<RulesBuilder, ConfigRule[]> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
-        => new(rules, TestConfigurationMode.Append, setup);
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        return new(rules, setup, TestConfigurationMode.Append);
+    }
+}
+
+/// <summary>
+/// Fluent builder for composing test configuration overrides.
+/// Returned by <see cref="CocoarTestConfiguration.ReplaceConfiguration"/>,
+/// <see cref="CocoarTestConfiguration.AppendConfiguration"/>, and
+/// <see cref="CocoarTestConfiguration.ReplaceSecretsSetup"/>.
+/// When constructed via those static methods (auto-activate mode) each chained call immediately
+/// activates the accumulated context in the current async scope.
+/// Use <c>new TestOverrideBuilder()</c> (no-arg) for the fixture pattern — context is only activated
+/// when you later call <see cref="CocoarTestConfiguration.Apply"/>.
+/// Disposing a builder created in auto-activate mode calls <see cref="CocoarTestConfiguration.Clear"/>.
+/// </summary>
+public sealed class TestOverrideBuilder : IDisposable
+{
+    private readonly bool _autoActivate;
+    private Func<RulesBuilder, ConfigRule[]>? _rules;
+    private Func<SetupBuilder, SetupDefinition[]>? _setup;
+    private TestConfigurationMode? _configurationMode;
+    private Delegate? _secretsSetupOverride;
+
+    /// <summary>
+    /// Creates a builder for the fixture pattern. Does NOT auto-activate.
+    /// Call <see cref="Build"/> and then pass the result to <see cref="CocoarTestConfiguration.Apply"/>.
+    /// </summary>
+    public TestOverrideBuilder() { }
+
+    internal TestOverrideBuilder(bool autoActivate) => _autoActivate = autoActivate;
+
+    /// <summary>
+    /// Sets the rules override to Replace mode (original rules are skipped).
+    /// </summary>
+    public TestOverrideBuilder ReplaceConfiguration(
+        Func<RulesBuilder, ConfigRule[]> rules,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        _rules = rules;
+        _setup = setup ?? _setup;
+        _configurationMode = TestConfigurationMode.Replace;
+        if (_autoActivate) CocoarTestConfiguration.SetContext(Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the rules override to Append mode (test rules follow original rules, last-write-wins).
+    /// </summary>
+    public TestOverrideBuilder AppendConfiguration(
+        Func<RulesBuilder, ConfigRule[]> rules,
+        Func<SetupBuilder, SetupDefinition[]>? setup = null)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        _rules = rules;
+        _setup = setup ?? _setup;
+        _configurationMode = TestConfigurationMode.Append;
+        if (_autoActivate) CocoarTestConfiguration.SetContext(Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a raw secrets setup override delegate (used internally and by the Secrets package extension).
+    /// </summary>
+    internal TestOverrideBuilder ReplaceSecretsSetupCore(Delegate configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        _secretsSetupOverride = configure;
+        if (_autoActivate) CocoarTestConfiguration.SetContext(Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Called by the Secrets package extension to store a strongly-typed override.
+    /// </summary>
+    public void SetSecretsSetupOverride(Delegate configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        _secretsSetupOverride = configure;
+        if (_autoActivate) CocoarTestConfiguration.SetContext(Build());
+    }
+
+    /// <summary>
+    /// Builds a snapshot <see cref="TestConfigurationContext"/> without activating it.
+    /// </summary>
+    public TestConfigurationContext Build() =>
+        new(_rules, _setup, _configurationMode, _secretsSetupOverride);
+
+    /// <summary>
+    /// Clears the active test configuration context. Only meaningful in auto-activate mode.
+    /// </summary>
+    public void Dispose() => CocoarTestConfiguration.Clear();
 }
 
 /// <summary>
@@ -286,7 +345,7 @@ public sealed class TestConfigurationContext
 /// </summary>
 /// <example>
 /// <code>
-/// using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [...]);
+/// using var _ = CocoarTestConfiguration.Apply(context);
 /// // Test runs here
 /// // Configuration automatically cleared when scope is disposed
 /// </code>

@@ -17,11 +17,11 @@ public class ConfigureLifetimeAndKeyTests
     public void Reactive_Config_Registered_When_Opted_In()
     {
         var services = new ServiceCollection();
-        services.AddCocoarConfiguration(rules => [
+        services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             rules.For<AppImpl>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(new AppImpl(5))).Required()
         ], setup => [
             setup.ConcreteType<AppImpl>() // reactive always available
-        ]);
+        ]));
         var sp = services.BuildServiceProvider();
         var mgr = sp.GetRequiredService<ConfigManager>();
         var reactive = sp.GetRequiredService<IReactiveConfig<AppImpl>>();

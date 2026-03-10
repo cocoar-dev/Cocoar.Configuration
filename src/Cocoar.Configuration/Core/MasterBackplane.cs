@@ -148,8 +148,6 @@ internal sealed class MasterBackplane : IDisposable
         _snapshotSubject.OnCompleted();
         _snapshotSubject.Dispose();
         _typeProjectionCache.Clear();
-
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>

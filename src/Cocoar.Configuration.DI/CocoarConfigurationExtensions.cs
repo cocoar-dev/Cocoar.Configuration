@@ -1,10 +1,6 @@
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Health;
-using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Cocoar.Configuration.DI;
 
@@ -29,21 +25,17 @@ public static class CocoarConfigurationExtensions
     }
 
     /// <summary>
-    /// Adds Cocoar configuration to the service collection using a function-based rule API.
+    /// Adds Cocoar configuration to the service collection using the builder API.
+    /// Provides access to the full ConfigManagerBuilder for configuring rules, setup, secrets, logging, etc.
     /// Test configuration overrides are automatically applied via ConfigManager when CocoarTestConfiguration is active.
     /// </summary>
     public static IServiceCollection AddCocoarConfiguration(
         this IServiceCollection services,
-        Func<RulesBuilder, ConfigRule[]> rule,
-        Func<SetupBuilder, SetupDefinition[]>? setup = null,
-        ILogger? logger = null,
-        int debounceMilliseconds = 300)
+        Action<ConfigManagerBuilder> configure)
     {
         services.ThrowIfAlreadyRegistered();
 
-        var configManager = new ConfigManager(rule, setup, logger, debounceMilliseconds: debounceMilliseconds);
-        configManager.Initialize();
-
+        var configManager = ConfigManager.Create(configure);
         services.AddCocoarConfiguration(configManager);
         return services;
     }

@@ -1,67 +1,10 @@
 namespace Cocoar.Configuration.Health;
 
 /// <summary>
-/// Represents the overall health status of the configuration system.
-/// </summary>
-public enum ConfigurationHealthStatus
-{
-    /// <summary>
-    /// All required rules are healthy and functioning correctly.
-    /// </summary>
-    Healthy = 0,
-
-    /// <summary>
-    /// Some optional rules are failing, but all required rules are healthy.
-    /// </summary>
-    Degraded,
-
-    /// <summary>
-    /// One or more required rules are failing.
-    /// </summary>
-    Unhealthy,
-
-    /// <summary>
-    /// Configuration health is not yet determined.
-    /// </summary>
-    Unknown
-}
-
-/// <summary>
-/// Represents the evaluation state of a configuration rule.
-/// </summary>
-public enum RuleEvaluationState
-{
-    /// <summary>
-    /// Rule has not been evaluated yet.
-    /// </summary>
-    NotEvaluated = 0,
-
-    /// <summary>
-    /// Rule was skipped due to When predicate evaluation.
-    /// </summary>
-    Skipped,
-
-    /// <summary>
-    /// Rule evaluation is currently in progress.
-    /// </summary>
-    Evaluating,
-
-    /// <summary>
-    /// Rule was successfully evaluated.
-    /// </summary>
-    Success,
-
-    /// <summary>
-    /// Rule evaluation failed.
-    /// </summary>
-    Failed
-}
-
-/// <summary>
 /// Simple health information for a single configuration rule.
 /// </summary>
 public readonly record struct RuleHealthInfo(
-    RuleEvaluationState State,
+    RuleResultStatus Status,
     bool IsRequired,
     bool IsSkipped
 );
@@ -77,27 +20,27 @@ public class ConfigurationHealthInfo
     /// <summary>
     /// Overall health status calculated automatically from rule states.
     /// </summary>
-    public ConfigurationHealthStatus State
+    public HealthStatus State
     {
         get
         {
             if (Rules.Count == 0)
             {
-                return ConfigurationHealthStatus.Unknown;
+                return HealthStatus.Unknown;
             }
-            if (Rules.Any(r => r is { IsRequired: true, State: RuleEvaluationState.Failed }))
+            if (Rules.Any(r => r is { IsRequired: true, Status: RuleResultStatus.Down }))
             {
-                return ConfigurationHealthStatus.Unhealthy;
+                return HealthStatus.Unhealthy;
             }
-            if (Rules.Any(r => r.State is RuleEvaluationState.Evaluating or RuleEvaluationState.NotEvaluated))
+            if (Rules.Any(r => r.Status is RuleResultStatus.Unknown))
             {
-                return ConfigurationHealthStatus.Unknown;
+                return HealthStatus.Unknown;
             }
-            if (Rules.Any(r => r is { IsRequired: false, State: RuleEvaluationState.Failed }))
+            if (Rules.Any(r => r is { IsRequired: false, Status: RuleResultStatus.Down }))
             {
-                return ConfigurationHealthStatus.Degraded;
+                return HealthStatus.Degraded;
             }
-            return ConfigurationHealthStatus.Healthy;
+            return HealthStatus.Healthy;
         }
     }
 

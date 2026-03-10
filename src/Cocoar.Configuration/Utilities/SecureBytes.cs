@@ -131,7 +131,7 @@ internal sealed class SecureBytes : IDisposable
         try
         {
             // Use cryptographically secure zeroization
-            CryptographicOperations.ZeroMemory(_buffer.AsSpan(0, _length));
+            CryptographicOperations.ZeroMemory(_buffer);
             
             if (_isPooled)
             {
