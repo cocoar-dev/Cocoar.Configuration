@@ -18,7 +18,7 @@ public class Program
                 rule.For<StartUpConfiguration>().FromFile("config.json").Select("Startup"),
                 rule.For<StartUpConfiguration>().FromEnvironment(),
             ])
-            .WithSecretsSetup(secrets => secrets
+            .UseSecretsSetup(secrets => secrets
                 .UseCertificatesFromFolder("certs")));
 
         builder.AddCocoarConfiguration(configManager);

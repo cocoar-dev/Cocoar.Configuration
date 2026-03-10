@@ -23,7 +23,7 @@ var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
     ])
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")  // Password-less certificate
         .WithKeyId("dev-secrets")));
 

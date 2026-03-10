@@ -13,7 +13,7 @@ using Cocoar.Configuration.Testing;
 public async Task MyIntegrationTest()
 {
     // Set BEFORE creating ConfigManager/WebApplicationFactory
-    using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => testDbConfig)
     ]);
 
@@ -27,7 +27,7 @@ public async Task MyIntegrationTest()
 
 ### Replace Mode (Skip Original Rules)
 ```csharp
-using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [...]);
+using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [...]);
 ```
 - Original providers never execute (no I/O, no failures)
 - Complete test isolation
@@ -35,7 +35,7 @@ using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [...]);
 
 ### Append Mode (Last-Write-Wins)
 ```csharp
-using var _ = CocoarTestConfiguration.AppendTestRules(rule => [...]);
+using var _ = CocoarTestConfiguration.AppendConfiguration(rule => [...]);
 ```
 - Original rules run first, test rules override
 - Partial overrides only
@@ -62,61 +62,54 @@ bool isActive = CocoarTestConfiguration.IsActive;
 
 ---
 
-## Setup Overrides
+## Secrets Overrides
 
-In addition to overriding rules, you can override **setup** options like `AllowPlaintext()` for secrets. This is useful when your tests need different setup behavior than production.
+Override `UseSecretsSetup()` independently of rule mode using the `ReplaceSecretsSetup()` extension from `Cocoar.Configuration.Secrets`.
 
-### Setup-Only Override
+### Secrets Only (No Rule Override)
 ```csharp
-using var _ = CocoarTestConfiguration.WithSetup(setup => [
-    setup.ConcreteType<DbConfig>()
-]);
+using var _ = CocoarTestConfiguration.ReplaceSecretsSetup(
+    secrets => secrets.AllowPlaintext());
 ```
-- Keeps original rules unchanged
-- Only adds/overrides setup options
-- Use when: You just need to enable test-specific capabilities
+- Original rules run unchanged
+- Only secrets setup is replaced
+- Requires `Cocoar.Configuration.Secrets` package
 
-### Rules with Setup Override
-```csharp
-using var _ = CocoarTestConfiguration.ReplaceAllRules(
-    rules => [
-        rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test" })
-    ],
-    setup => [
-        setup.ConcreteType<DbConfig>()
-    ]);
-```
-- Replaces rules AND adds setup overrides
-- Setup is always merged (not replaced), so configured setup still runs first
+### Mix and Match — Per-Concern Independence
+Each concern (`ReplaceConfiguration`, `AppendConfiguration`, `ReplaceSecretsSetup`) is independent:
 
-### Fixture-Based Pattern with Setup
 ```csharp
-public class IntegrationTestFixture
-{
-    public TestConfigurationContext TestContext { get; } =
-        TestConfigurationContext.Replace(
-            rule => [
-                rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
-            ],
-            setup => [
-                setup.ConcreteType<DbConfig>()
-            ]);
-}
+// Replace rules AND replace secrets setup
+using var _ = CocoarTestConfiguration
+    .ReplaceConfiguration(rule => [
+        rule.For<DbConfig>().FromStatic(_ => testConfig)
+    ])
+    .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
+
+// Append rules AND replace secrets setup
+using var _ = CocoarTestConfiguration
+    .AppendConfiguration(rule => [
+        rule.For<FeatureFlags>().FromStatic(_ => new FeatureFlags { NewFeature = true })
+    ])
+    .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
+
+// Only replace secrets setup, keep original rules
+using var _ = CocoarTestConfiguration
+    .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
 ```
 
-### How Setup Merging Works
+### How Secrets Override Works
 
-Setup is always **merged** (appended), never replaced:
-1. Configured setup runs first
-2. Test setup runs after (last-write-wins for capabilities)
-
-This ensures you can override specific setup options without breaking core functionality.
+`UseSecretsSetup()` checks for a test override before applying the configured lambda.
+When a `ReplaceSecretsSetup` override is active, the test's configure delegate runs instead of the app's.
+Calling `UseSecretsSetup()` once — original behavior replaced, no accumulation issues.
 
 ---
 
 ## Works Everywhere
 
 - Direct `ConfigManager.Create(...)`
+- `ConfigManager.CreateAsync(...)`
 - `services.AddCocoarConfiguration(...)`
 - `builder.AddCocoarConfiguration(...)`
 - `new WebApplicationFactory<Program>()`
@@ -135,7 +128,7 @@ public class MyFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // This runs in async context A
-        CocoarTestConfiguration.ReplaceAllRules(rule => [...]);
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [...]);
     }
     // ...
 }
@@ -198,7 +191,7 @@ public class SimpleTests : IDisposable
     [Fact]
     public void Test()
     {
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
         ]);
 
@@ -297,7 +290,7 @@ The scope pattern provides exception-safe cleanup:
 [Fact]
 public async Task TestWithScope()
 {
-    using var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var scope = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test" })
     ]);
 
@@ -321,7 +314,7 @@ public async Task TestWithContainer()
 {
     await _postgres.StartAsync();
 
-    using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => new DbConfig
         {
             ConnectionString = _postgres.GetConnectionString()
@@ -340,7 +333,7 @@ public async Task TestWithContainer()
 [InlineData(false)]
 public async Task TestFeatureFlag(bool enabled)
 {
-    using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<FeatureFlags>().FromStatic(_ => new FeatureFlags
         {
             NewFeature = enabled
@@ -357,17 +350,15 @@ public async Task TestFeatureFlag(bool enabled)
 [Fact]
 public async Task TestWithPlaintextSecrets()
 {
-    // Enable plaintext secrets for testing without encryption
-    using var _ = CocoarTestConfiguration.ReplaceAllRules(
-        rule => [
+    // Replace rules AND allow plaintext secrets
+    using var _ = CocoarTestConfiguration
+        .ReplaceConfiguration(rule => [
             rule.For<ApiConfig>().FromStatic(_ => new ApiConfig
             {
                 ApiKey = new Secret<string>("test-api-key")
             })
-        ],
-        setup => [
-            setup.ConcreteType<DbConfig>()
-        ]);
+        ])
+        .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
 
     await using var factory = new WebApplicationFactory<Program>();
     // Tests can use plaintext secret values
@@ -398,6 +389,20 @@ var context = TestConfigurationContext.Append(
     setup => [setup.ConcreteType<DbConfig>()]);
 ```
 
+For the fixture pattern with secrets, use `TestOverrideBuilder`:
+```csharp
+public class IntegrationTestFixture
+{
+    public TestConfigurationContext TestContext { get; } =
+        new TestOverrideBuilder()
+            .ReplaceConfiguration(rule => [
+                rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
+            ])
+            .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext())
+            .Build();
+}
+```
+
 ---
 
 ## Example Project
@@ -412,3 +417,4 @@ var context = TestConfigurationContext.Append(
 - **Type-safe** - full IntelliSense
 - **Fast** - Replace mode skips I/O entirely
 - **Fixture-friendly** - Apply() bridges async context gap
+- **Per-concern** - mix Replace/Append for rules independently of secrets override

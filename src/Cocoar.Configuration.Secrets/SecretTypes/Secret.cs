@@ -98,12 +98,12 @@ public sealed class Secret<T> : ISecret<T>
                 "To fix, add secrets setup when creating ConfigManager:\n\n" +
                 "  ConfigManager.Create(c => c\n" +
                 "      .UseConfiguration(rules => [...])\n" +
-                "      .WithSecretsSetup(secrets => secrets\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
                 "          .UseCertificateFromFile(\"cert.pfx\")));\n\n" +
                 "Or with DI:\n\n" +
                 "  services.AddCocoarConfiguration(c => c\n" +
                 "      .UseConfiguration(rules => [...])\n" +
-                "      .WithSecretsSetup(secrets => secrets\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
                 "          .UseCertificateFromFile(\"cert.pfx\")));");
         }
 

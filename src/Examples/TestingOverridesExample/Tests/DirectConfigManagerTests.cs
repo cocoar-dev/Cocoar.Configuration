@@ -11,7 +11,7 @@ public class DirectConfigManagerTests : IDisposable
     public void DirectConfigManager_AppliesTestOverrides_ReplaceMode()
     {
         // Arrange - Set test configuration BEFORE creating ConfigManager
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 ConnectionString = "Server=test-direct;Database=DirectTest;",
@@ -35,7 +35,7 @@ public class DirectConfigManagerTests : IDisposable
     public void DirectConfigManager_AppliesTestOverrides_AppendMode()
     {
         // Arrange
-        CocoarTestConfiguration.AppendTestRules(rule => [
+        CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig
             {
                 MaxConnections = 999 // Override only MaxConnections

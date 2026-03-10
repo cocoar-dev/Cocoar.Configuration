@@ -17,7 +17,7 @@ Folder-based certificate mode (UseCertificatesFromFolder) provides intelligent c
 ```csharp
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(new[] { rule })
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificatesFromFolder(@"C:\certs",
             cacheDurationSeconds: 30)));  // 30 seconds (default)
 ```
@@ -45,13 +45,13 @@ var manager = ConfigManager.Create(c => c
 ```csharp
 // Critical secrets - no cache, load fresh every time
 // Folder structure: C:\certs\pci\pci-data\*.pfx
-.WithSecretsSetup(secrets => secrets
+.UseSecretsSetup(secrets => secrets
     .UseCertificatesFromFolder(@"C:\certs\pci",
         cacheDurationSeconds: 0))
 
 // Standard secrets - balanced 30-second cache
 // Folder structure: C:\certs\api\api-keys\*.pfx
-.WithSecretsSetup(secrets => secrets
+.UseSecretsSetup(secrets => secrets
     .UseCertificatesFromFolder(@"C:\certs\api",
         cacheDurationSeconds: 30))
 ```

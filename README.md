@@ -365,7 +365,7 @@ var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
         rule.For<AppSettings>().FromFile("config.json")
     ])
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")
         .WithKeyId("dev-secrets")));
 
@@ -428,12 +428,13 @@ Cocoar.Configuration provides first-class testing support with `CocoarTestConfig
 public async Task TestWithOverriddenConfig()
 {
     // Set test configuration BEFORE creating WebApplicationFactory
-    CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => testDbConfig)
     ]);
 
     await using var factory = new WebApplicationFactory<Program>();
     // Original rules are skipped - only test rules execute
+    // Scope is automatically cleared when disposed
 }
 ```
 

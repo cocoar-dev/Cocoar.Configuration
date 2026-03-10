@@ -122,7 +122,7 @@ Override configuration rules in tests without modifying application code:
 
 ```csharp
 // Replace all rules with test-specific rules (skips file I/O)
-using var _ = CocoarTestConfiguration.ReplaceAllRules(
+using var _ = CocoarTestConfiguration.ReplaceConfiguration(
     rules => [
         rules.For<AppSettings>().FromStatic(_ => new AppSettings { ApplicationName = "TestApp" })
     ]);

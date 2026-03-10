@@ -13,34 +13,34 @@ public class CocoarTestConfigurationTests
     }
 
     [Fact]
-    public void ReplaceAllRules_SetsContextInReplaceMode()
+    public void ReplaceConfiguration_SetsContextInReplaceMode()
     {
         // Act
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]);
 
         // Assert
         Assert.True(CocoarTestConfiguration.IsActive);
         Assert.NotNull(CocoarTestConfiguration.Current);
-        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.ConfigurationMode);
 
         // Cleanup
         CocoarTestConfiguration.Clear();
     }
 
     [Fact]
-    public void AppendTestRules_SetsContextInAppendMode()
+    public void AppendConfiguration_SetsContextInAppendMode()
     {
         // Act
-        CocoarTestConfiguration.AppendTestRules(rule => [
+        CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]);
 
         // Assert
         Assert.True(CocoarTestConfiguration.IsActive);
         Assert.NotNull(CocoarTestConfiguration.Current);
-        Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current!.Mode);
+        Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current!.ConfigurationMode);
 
         // Cleanup
         CocoarTestConfiguration.Clear();
@@ -50,7 +50,7 @@ public class CocoarTestConfigurationTests
     public void Clear_RemovesContext()
     {
         // Arrange
-        CocoarTestConfiguration.ReplaceAllRules(rule => [
+        CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]);
         Assert.True(CocoarTestConfiguration.IsActive);
@@ -64,15 +64,15 @@ public class CocoarTestConfigurationTests
     }
 
     [Fact]
-    public void ReplaceAllRules_ThrowsOnNullRules()
+    public void ReplaceConfiguration_ThrowsOnNullRules()
     {
-        Assert.Throws<ArgumentNullException>(() => CocoarTestConfiguration.ReplaceAllRules(null!));
+        Assert.Throws<ArgumentNullException>(() => CocoarTestConfiguration.ReplaceConfiguration(null!));
     }
 
     [Fact]
-    public void AppendTestRules_ThrowsOnNullRules()
+    public void AppendConfiguration_ThrowsOnNullRules()
     {
-        Assert.Throws<ArgumentNullException>(() => CocoarTestConfiguration.AppendTestRules(null!));
+        Assert.Throws<ArgumentNullException>(() => CocoarTestConfiguration.AppendConfiguration(null!));
     }
 
     private sealed class TestConfig
@@ -89,34 +89,34 @@ public class TestConfigurationScopeTests
     }
 
     [Fact]
-    public void ReplaceAllRules_ReturnsScope()
+    public void ReplaceConfiguration_ReturnsBuilder()
     {
         // Act
-        var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        var builder = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]);
 
-        // Assert
-        Assert.True(scope.IsActive);
+        // Assert — builder is active (auto-activated)
+        Assert.True(CocoarTestConfiguration.IsActive);
 
         // Cleanup
-        scope.Dispose();
+        builder.Dispose();
         Assert.False(CocoarTestConfiguration.IsActive);
     }
 
     [Fact]
-    public void AppendTestRules_ReturnsScope()
+    public void AppendConfiguration_ReturnsBuilder()
     {
         // Act
-        var scope = CocoarTestConfiguration.AppendTestRules(rule => [
+        var builder = CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]);
 
         // Assert
-        Assert.True(scope.IsActive);
+        Assert.True(CocoarTestConfiguration.IsActive);
 
         // Cleanup
-        scope.Dispose();
+        builder.Dispose();
         Assert.False(CocoarTestConfiguration.IsActive);
     }
 
@@ -127,11 +127,10 @@ public class TestConfigurationScopeTests
         Assert.False(CocoarTestConfiguration.IsActive);
 
         // Act & Assert
-        using (var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        using (var scope = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
         ]))
         {
-            Assert.True(scope.IsActive);
             Assert.True(CocoarTestConfiguration.IsActive);
         }
 
@@ -148,7 +147,7 @@ public class TestConfigurationScopeTests
         // Act
         try
         {
-            using var scope = CocoarTestConfiguration.ReplaceAllRules(rule => [
+            using var scope = CocoarTestConfiguration.ReplaceConfiguration(rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
             ]);
 
@@ -168,13 +167,13 @@ public class TestConfigurationScopeTests
     public void UsingPattern_WorksAsExpected()
     {
         // Arrange & Act
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "scoped-test" })
         ]);
 
         // Assert
         Assert.True(CocoarTestConfiguration.IsActive);
-        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current!.ConfigurationMode);
     }
 
     private sealed class TestConfig
@@ -186,29 +185,6 @@ public class TestConfigurationScopeTests
 public class TestConfigurationContextTests
 {
     [Fact]
-    public void Constructor_SetsPropertiesCorrectly()
-    {
-        // Arrange
-        Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
-            rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
-        ];
-
-        // Act
-        var context = new TestConfigurationContext(rules, TestConfigurationMode.Replace);
-
-        // Assert
-        Assert.Same(rules, context.Rules);
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
-    }
-
-    [Fact]
-    public void Constructor_ThrowsOnNullRules()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            new TestConfigurationContext(null!, TestConfigurationMode.Replace));
-    }
-
-    [Fact]
     public void Replace_CreatesContextInReplaceMode()
     {
         // Act
@@ -217,7 +193,7 @@ public class TestConfigurationContextTests
         ]);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
     }
 
@@ -230,7 +206,7 @@ public class TestConfigurationContextTests
         ]);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Append, context.Mode);
+        Assert.Equal(TestConfigurationMode.Append, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
     }
 
@@ -244,6 +220,78 @@ public class TestConfigurationContextTests
     public void Append_ThrowsOnNullRules()
     {
         Assert.Throws<ArgumentNullException>(() => TestConfigurationContext.Append(null!));
+    }
+
+    private sealed class TestConfig
+    {
+        public string Value { get; set; } = "";
+    }
+}
+
+public class TestOverrideBuilderTests
+{
+    [Fact]
+    public void Builder_ReplaceConfiguration_SetsReplaceMode()
+    {
+        // Arrange & Act
+        var context = new TestOverrideBuilder()
+            .ReplaceConfiguration(rule => [
+                rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
+            ])
+            .Build();
+
+        // Assert
+        Assert.Equal(TestConfigurationMode.Replace, context.ConfigurationMode);
+        Assert.NotNull(context.Rules);
+    }
+
+    [Fact]
+    public void Builder_AppendConfiguration_SetsAppendMode()
+    {
+        // Arrange & Act
+        var context = new TestOverrideBuilder()
+            .AppendConfiguration(rule => [
+                rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
+            ])
+            .Build();
+
+        // Assert
+        Assert.Equal(TestConfigurationMode.Append, context.ConfigurationMode);
+        Assert.NotNull(context.Rules);
+    }
+
+    [Fact]
+    public void Builder_ReplaceConfiguration_ThrowsOnNullRules()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new TestOverrideBuilder().ReplaceConfiguration(null!));
+    }
+
+    [Fact]
+    public void Builder_AppendConfiguration_ThrowsOnNullRules()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new TestOverrideBuilder().AppendConfiguration(null!));
+    }
+
+    [Fact]
+    public void Builder_Build_DoesNotActivate()
+    {
+        // Arrange
+        CocoarTestConfiguration.Clear();
+
+        // Act — fixture pattern: build without activating
+        var context = new TestOverrideBuilder()
+            .ReplaceConfiguration(rule => [
+                rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
+            ])
+            .Build();
+
+        // Assert — not yet active
+        Assert.False(CocoarTestConfiguration.IsActive);
+        Assert.NotNull(context);
+
+        CocoarTestConfiguration.Clear();
     }
 
     private sealed class TestConfig
@@ -362,7 +410,7 @@ public class ConfigManagerIntegrationTests
     public void ConfigManager_AppliesTestOverrides_ReplaceMode()
     {
         // Arrange
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 Connection = "test-connection",
@@ -390,7 +438,7 @@ public class ConfigManagerIntegrationTests
     public void ConfigManager_AppliesTestOverrides_AppendMode()
     {
         // Arrange
-        using var _ = CocoarTestConfiguration.AppendTestRules(rule => [
+        using var _ = CocoarTestConfiguration.AppendConfiguration(rule => [
             rule.For<TestConfig>().FromStatic(_ => new TestConfig
             {
                 MaxConnections = 999
@@ -478,46 +526,7 @@ public class SetupOverrideTests
     }
 
     [Fact]
-    public void WithSetup_SetsContextWithSetup()
-    {
-        // Arrange
-        Func<SetupBuilder, SetupDefinition[]> setup = builder => [];
-
-        // Act
-        using var _ = CocoarTestConfiguration.WithSetup(setup);
-
-        // Assert
-        Assert.True(CocoarTestConfiguration.IsActive);
-        Assert.NotNull(CocoarTestConfiguration.Current);
-        Assert.NotNull(CocoarTestConfiguration.Current!.Setup);
-        Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current.Mode);
-
-        // Cleanup
-        CocoarTestConfiguration.Clear();
-    }
-
-    [Fact]
-    public void WithSetup_ThrowsOnNullSetup()
-    {
-        Assert.Throws<ArgumentNullException>(() => CocoarTestConfiguration.WithSetup(null!));
-    }
-
-    [Fact]
-    public void WithSetup_ReturnsScope()
-    {
-        // Act
-        var scope = CocoarTestConfiguration.WithSetup(setup => []);
-
-        // Assert
-        Assert.True(scope.IsActive);
-
-        // Cleanup
-        scope.Dispose();
-        Assert.False(CocoarTestConfiguration.IsActive);
-    }
-
-    [Fact]
-    public void ReplaceAllRules_WithSetup_SetsContextWithBothRulesAndSetup()
+    public void ReplaceConfiguration_WithSetup_SetsContextWithBothRulesAndSetup()
     {
         // Arrange
         Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
@@ -526,21 +535,21 @@ public class SetupOverrideTests
         Func<SetupBuilder, SetupDefinition[]> setup = builder => [];
 
         // Act
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(rules, setup);
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(rules, setup);
 
         // Assert
         Assert.True(CocoarTestConfiguration.IsActive);
         Assert.NotNull(CocoarTestConfiguration.Current);
         Assert.NotNull(CocoarTestConfiguration.Current!.Rules);
         Assert.NotNull(CocoarTestConfiguration.Current.Setup);
-        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, CocoarTestConfiguration.Current.ConfigurationMode);
 
         // Cleanup
         CocoarTestConfiguration.Clear();
     }
 
     [Fact]
-    public void AppendTestRules_WithSetup_SetsContextWithBothRulesAndSetup()
+    public void AppendConfiguration_WithSetup_SetsContextWithBothRulesAndSetup()
     {
         // Arrange
         Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
@@ -549,14 +558,14 @@ public class SetupOverrideTests
         Func<SetupBuilder, SetupDefinition[]> setup = builder => [];
 
         // Act
-        using var _ = CocoarTestConfiguration.AppendTestRules(rules, setup);
+        using var _ = CocoarTestConfiguration.AppendConfiguration(rules, setup);
 
         // Assert
         Assert.True(CocoarTestConfiguration.IsActive);
         Assert.NotNull(CocoarTestConfiguration.Current);
         Assert.NotNull(CocoarTestConfiguration.Current!.Rules);
         Assert.NotNull(CocoarTestConfiguration.Current.Setup);
-        Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current.Mode);
+        Assert.Equal(TestConfigurationMode.Append, CocoarTestConfiguration.Current.ConfigurationMode);
 
         // Cleanup
         CocoarTestConfiguration.Clear();
@@ -571,41 +580,6 @@ public class SetupOverrideTests
 public class TestConfigurationContextSetupTests
 {
     [Fact]
-    public void Constructor_WithSetup_SetsAllProperties()
-    {
-        // Arrange
-        Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
-            rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
-        ];
-        Func<SetupBuilder, SetupDefinition[]> setup = builder => [];
-
-        // Act
-        var context = new TestConfigurationContext(rules, TestConfigurationMode.Replace, setup);
-
-        // Assert
-        Assert.Same(rules, context.Rules);
-        Assert.Same(setup, context.Setup);
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
-    }
-
-    [Fact]
-    public void Constructor_WithoutSetup_SetsSetupToNull()
-    {
-        // Arrange
-        Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
-            rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
-        ];
-
-        // Act
-        var context = new TestConfigurationContext(rules, TestConfigurationMode.Replace);
-
-        // Assert
-        Assert.Same(rules, context.Rules);
-        Assert.Null(context.Setup);
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
-    }
-
-    [Fact]
     public void Replace_WithSetup_CreatesContextWithSetup()
     {
         // Arrange
@@ -619,7 +593,7 @@ public class TestConfigurationContextSetupTests
             setup);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Replace, context.Mode);
+        Assert.Equal(TestConfigurationMode.Replace, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
         Assert.Same(setup, context.Setup);
     }
@@ -638,9 +612,29 @@ public class TestConfigurationContextSetupTests
             setup);
 
         // Assert
-        Assert.Equal(TestConfigurationMode.Append, context.Mode);
+        Assert.Equal(TestConfigurationMode.Append, context.ConfigurationMode);
         Assert.NotNull(context.Rules);
         Assert.Same(setup, context.Setup);
+    }
+
+    [Fact]
+    public void Builder_WithRulesAndSetup_BuiltContextHasBoth()
+    {
+        // Arrange
+        Func<Fluent.RulesBuilder, Rules.ConfigRule[]> rules = rule => [
+            rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
+        ];
+        Func<SetupBuilder, SetupDefinition[]> setup = builder => [];
+
+        // Act
+        var context = new TestOverrideBuilder()
+            .ReplaceConfiguration(rules, setup)
+            .Build();
+
+        // Assert
+        Assert.Same(rules, context.Rules);
+        Assert.Same(setup, context.Setup);
+        Assert.Equal(TestConfigurationMode.Replace, context.ConfigurationMode);
     }
 
     private sealed class TestConfig
@@ -657,11 +651,11 @@ public class ConfigManagerSetupIntegrationTests
     }
 
     [Fact]
-    public void ConfigManager_AppliesTestSetupOverrides_WithReplaceAllRules()
+    public void ConfigManager_AppliesTestSetupOverrides_WithReplaceConfiguration()
     {
         // Arrange
         var testSetupCalled = false;
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
             ],
@@ -683,11 +677,11 @@ public class ConfigManagerSetupIntegrationTests
     }
 
     [Fact]
-    public void ConfigManager_AppliesTestSetupOverrides_WithAppendTestRules()
+    public void ConfigManager_AppliesTestSetupOverrides_WithAppendConfiguration()
     {
         // Arrange
         var testSetupCalled = false;
-        using var _ = CocoarTestConfiguration.AppendTestRules(
+        using var _ = CocoarTestConfiguration.AppendConfiguration(
             rule => [],
             setup =>
             {
@@ -707,64 +701,11 @@ public class ConfigManagerSetupIntegrationTests
     }
 
     [Fact]
-    public void ConfigManager_AppliesTestSetupOverrides_WithSetupOnly()
-    {
-        // Arrange
-        var testSetupCalled = false;
-        using var _ = CocoarTestConfiguration.WithSetup(setup =>
-        {
-            testSetupCalled = true;
-            return [];
-        });
-
-        // Act
-        var configManager = ConfigManager.Create(c => c.UseConfiguration(
-            rule => [
-                rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
-            ],
-            setup => []));
-
-        // Assert - Original rules should still work
-        var config = configManager.GetRequiredConfig<TestConfig>();
-        Assert.Equal("original", config.Value);
-        Assert.True(testSetupCalled);
-    }
-
-    [Fact]
-    public void ConfigManager_MergesConfiguredAndTestSetup()
-    {
-        // Arrange
-        var configuredSetupCalled = false;
-        var testSetupCalled = false;
-
-        using var _ = CocoarTestConfiguration.WithSetup(setup =>
-        {
-            testSetupCalled = true;
-            return [];
-        });
-
-        // Act
-        var configManager = ConfigManager.Create(c => c.UseConfiguration(
-            rule => [
-                rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "original" })
-            ],
-            setup =>
-            {
-                configuredSetupCalled = true;
-                return [];
-            }));
-
-        // Assert - Both setups should be called (merged)
-        Assert.True(configuredSetupCalled);
-        Assert.True(testSetupCalled);
-    }
-
-    [Fact]
     public void ConfigManager_WorksWithoutSetup_WhenTestSetupIsNull()
     {
         // Arrange
         var configuredSetupCalled = false;
-        using var _ = CocoarTestConfiguration.ReplaceAllRules(
+        using var _ = CocoarTestConfiguration.ReplaceConfiguration(
             rule => [
                 rule.For<TestConfig>().FromStatic(_ => new TestConfig { Value = "test" })
             ]); // No setup parameter

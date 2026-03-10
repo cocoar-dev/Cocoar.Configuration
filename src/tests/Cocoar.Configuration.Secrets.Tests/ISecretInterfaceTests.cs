@@ -153,7 +153,7 @@ public class ISecretInterfaceTests
         var manager = ConfigManager.Create(c => c
             .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -179,7 +179,7 @@ public class ISecretInterfaceTests
         var manager = ConfigManager.Create(c => c
             .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -204,7 +204,7 @@ public class ISecretInterfaceTests
         var manager = ConfigManager.Create(c => c
             .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
-            .WithSecretsSetup(secrets => secrets)
+            .UseSecretsSetup(secrets => secrets)
         );
 
         // Act
@@ -229,7 +229,7 @@ public class ISecretInterfaceTests
         var manager = ConfigManager.Create(c => c
             .UseConfiguration(
                 rules => [rules.For<ConfigWithISecret>().FromStaticJson(json).Required()])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         var config = manager.GetConfig<ConfigWithISecret>();

@@ -43,7 +43,7 @@ class Program
             .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
             ])
-            .WithSecretsSetup(secrets => secrets
+            .UseSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(certPath)
                 .WithKeyId("dev-secrets")));
 

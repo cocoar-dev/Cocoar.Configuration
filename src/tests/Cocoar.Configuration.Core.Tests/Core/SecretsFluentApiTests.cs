@@ -6,7 +6,7 @@ using Cocoar.Configuration.Secrets.Protectors.Hybrid;
 namespace Cocoar.Configuration.Core.Tests.Core;
 
 /// <summary>
-/// Tests for the WithSecretsSetup() extension method on ConfigManagerBuilder.
+/// Tests for the UseSecretsSetup() extension method on ConfigManagerBuilder.
 /// </summary>
 public class SecretsFluentApiTests
 {
@@ -31,7 +31,7 @@ public class SecretsFluentApiTests
 
             var manager = ConfigManager.Create(c => c
                 .UseConfiguration(rules: Array.Empty<ConfigRule>())
-                .WithSecretsSetup(secrets => secrets
+                .UseSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath)
                     .WithKeyId(kid)));
 
@@ -67,7 +67,7 @@ public class SecretsFluentApiTests
 
             var manager = ConfigManager.Create(c => c
                 .UseConfiguration(rules: Array.Empty<ConfigRule>())
-                .WithSecretsSetup(secrets => secrets
+                .UseSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath)
                     .WithKeyId(kid)));
 
@@ -123,13 +123,13 @@ public class SecretsFluentApiTests
             // Act - create two different ConfigManagers with different secrets configurations
             var manager1 = ConfigManager.Create(c => c
                 .UseConfiguration(rules: Array.Empty<ConfigRule>())
-                .WithSecretsSetup(secrets => secrets
+                .UseSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath1)
                     .WithKeyId(kid1)));
 
             var manager2 = ConfigManager.Create(c => c
                 .UseConfiguration(rules: Array.Empty<ConfigRule>())
-                .WithSecretsSetup(secrets => secrets
+                .UseSecretsSetup(secrets => secrets
                     .UseCertificateFromFile(pfxPath2)
                     .WithKeyId(kid2)));
 

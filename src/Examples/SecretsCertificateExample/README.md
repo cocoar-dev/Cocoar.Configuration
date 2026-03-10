@@ -30,7 +30,7 @@ var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
     ])
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("certs/dev.pfx")
         .WithKeyId("dev-secrets")));
 ```
@@ -44,7 +44,7 @@ var manager = ConfigManager.Create(c => c
     ])
     // Folder-based with automatic rotation
     // Uses kid-based folders: C:\certs\prod\production-secrets\*.pfx
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificatesFromFolder(@"C:\certs\prod",
             cacheDurationSeconds: 30)));
 ```
@@ -57,7 +57,7 @@ var manager = ConfigManager.Create(c => c
         rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
     ])
     // Critical secrets - no cache, load fresh every time
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificatesFromFolder(@"C:\certs\pci",
             cacheDurationSeconds: 0)));  // Maximum security
 ```

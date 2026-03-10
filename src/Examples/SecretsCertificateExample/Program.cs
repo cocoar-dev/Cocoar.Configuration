@@ -49,7 +49,7 @@ class Program
             .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
             ])
-            .WithSecretsSetup(secrets => secrets
+            .UseSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(devCertPath)
                 .WithKeyId("dev-secrets")));
 
@@ -97,7 +97,7 @@ class Program
             .UseConfiguration(rule => [
                 rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.encrypted.json"))
             ])
-            .WithSecretsSetup(secrets => secrets
+            .UseSecretsSetup(secrets => secrets
                 .UseCertificateFromFile(prodCertPath)
                 .WithKeyId("prod-secrets")));
 

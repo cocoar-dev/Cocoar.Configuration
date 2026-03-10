@@ -43,7 +43,7 @@ public class ErrorMessageTests
                 rules => [
                     rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets) // Secrets enabled, but no certificates configured
+            .UseSecretsSetup(secrets => secrets) // Secrets enabled, but no certificates configured
         );
 
         // Act
@@ -83,7 +83,7 @@ public class ErrorMessageTests
         var manager = ConfigManager.Create(c => c
             .UseConfiguration(
                 rules => [rules.For<ConfigWithSecretString>().FromStaticJson(json).Required()])
-            .WithSecretsSetup(secrets => secrets)
+            .UseSecretsSetup(secrets => secrets)
         );
 
         var config = manager.GetConfig<ConfigWithSecretString>();
@@ -94,7 +94,7 @@ public class ErrorMessageTests
         // Assert - error should have code examples showing certificate setup
         Assert.Contains(".UseCertificateFromFile(", ex.Message);
         Assert.Contains(".WithKeyId(", ex.Message);
-        Assert.Contains(".WithSecretsSetup(", ex.Message);
+        Assert.Contains(".UseSecretsSetup(", ex.Message);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class ErrorMessageTests
         var ex = Assert.Throws<InvalidOperationException>(() => secret.Open());
 
         Assert.Contains("secrets infrastructure not configured", ex.Message);
-        Assert.Contains("WithSecretsSetup", ex.Message);
+        Assert.Contains("UseSecretsSetup", ex.Message);
         Assert.Contains("ConfigManager", ex.Message);
         Assert.Contains("AddCocoarConfiguration", ex.Message);
     }

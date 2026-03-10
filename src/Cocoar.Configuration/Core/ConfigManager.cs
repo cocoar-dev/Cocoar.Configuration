@@ -304,19 +304,18 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
     /// <summary>
     /// Applies test configuration overrides from AsyncLocal context if present.
     /// Supports both Replace (skip all configured rules) and Append (merge test rules at end) modes.
+    /// When <see cref="TestConfigurationContext.ConfigurationMode"/> is null no rules override is applied.
     /// </summary>
     private static ConfigRule[] ApplyTestConfigurationOverrides(ConfigRule[] configuredRules)
     {
         var testContext = CocoarTestConfiguration.Current;
-        if (testContext == null)
-        {
+        if (testContext?.Rules == null || testContext.ConfigurationMode == null)
             return configuredRules;
-        }
 
         var testRulesBuilder = new RulesBuilder();
         var testRules = testContext.Rules(testRulesBuilder);
 
-        return testContext.Mode switch
+        return testContext.ConfigurationMode switch
         {
             TestConfigurationMode.Replace => testRules,
             TestConfigurationMode.Append => configuredRules.Concat(testRules).ToArray(),

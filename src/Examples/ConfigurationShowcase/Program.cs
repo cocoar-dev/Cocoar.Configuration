@@ -72,7 +72,7 @@ builder.AddCocoarConfiguration(c => c
             // Interface deserialization pattern
             setup.Interface<INotificationSettings>().DeserializeTo<NotificationSettings>()
         ])
-    .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+    .UseSecretsSetup(secrets => secrets.AllowPlaintext())
     .UseDebounce(500));
 
 // Register tuple reactive config for the Reactive Demo page

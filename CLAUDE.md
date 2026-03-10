@@ -71,7 +71,7 @@ SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 
 **Provider Consistency** - All providers return empty `{}` on failure (not null). Optional rules degrade gracefully with C# defaults; required rules roll back the entire recompute.
 
-**Test Configuration** - `CocoarTestConfiguration` uses `AsyncLocal<T>` for test isolation. Supports `ReplaceAllRules()` (skip originals) and `AppendTestRules()` (override).
+**Test Configuration** - `CocoarTestConfiguration` uses `AsyncLocal<T>` for test isolation. Supports `ReplaceConfiguration()` (skip originals), `AppendConfiguration()` (last-write-wins), and `ReplaceSecretsSetup()` (independent secrets override). Each concern is independent — chain freely on the returned `TestOverrideBuilder`.
 
 ### Project Structure
 

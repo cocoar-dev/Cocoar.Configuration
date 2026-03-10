@@ -25,6 +25,7 @@ Set test configuration **before** creating `ConfigManager` (or `WebApplicationFa
 
 **Works universally:**
 - ✅ Direct `ConfigManager.Create(...)` instantiation
+- ✅ `ConfigManager.CreateAsync(...)` async factory
 - ✅ `services.AddCocoarConfiguration(...)` in DI
 - ✅ `builder.AddCocoarConfiguration(...)` in ASP.NET Core
 - ✅ `WebApplicationFactory<Program>` in integration tests
@@ -36,7 +37,7 @@ Set test configuration **before** creating `ConfigManager` (or `WebApplicationFa
 public async Task TestWithReplacedConfig()
 {
     // Set test configuration BEFORE creating ConfigManager
-    CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => new DbConfig {
             ConnectionString = testDb
         })
@@ -60,7 +61,7 @@ public async Task TestWithReplacedConfig()
 public async Task TestWithPartialOverride()
 {
     // Append test rules to end (last-write-wins)
-    CocoarTestConfiguration.AppendTestRules(rule => [
+    using var _ = CocoarTestConfiguration.AppendConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => new DbConfig {
             ConnectionString = testDb
         })
@@ -76,52 +77,61 @@ public async Task TestWithPartialOverride()
 - Other configs can come from original sources (files, environment)
 - Partial testing scenarios
 
-### Option 3: Setup-Only Override
+### Option 3: Replace Secrets Setup (Independent of Rule Mode)
 
 ```csharp
 [Fact]
-public async Task TestWithSetupOverride()
+public async Task TestWithPlaintextSecrets()
 {
-    // Override setup options only, keep original rules
-    CocoarTestConfiguration.WithSetup(setup => [
-        setup.ConcreteType<DbConfig>()
-    ]);
+    // Override secrets setup only — original rules still run
+    using var _ = CocoarTestConfiguration
+        .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
 
     await using var factory = new WebApplicationFactory<Program>();
-    // Original rules execute, but setup includes test overrides
+    // Secrets can now be provided as plaintext in test fixtures
 }
 ```
 
 **Use when:**
-- You need to enable test-specific capabilities (e.g., plaintext secrets)
+- You need to enable test-specific secrets behavior (e.g., plaintext)
 - Original rules should still execute
-- No rule changes needed
+- Requires `Cocoar.Configuration.Secrets` package
 
-### Option 4: Rules with Setup Override
+### Option 4: Mix and Match (Per-Concern Independence)
+
+Each concern is independent — combine freely:
 
 ```csharp
 [Fact]
-public async Task TestWithRulesAndSetup()
+public async Task TestWithRulesAndSecrets()
 {
-    // Override both rules AND setup
-    CocoarTestConfiguration.ReplaceAllRules(
-        rule => [
+    // Replace rules AND override secrets setup independently
+    using var _ = CocoarTestConfiguration
+        .ReplaceConfiguration(rule => [
             rule.For<DbConfig>().FromStatic(_ => new DbConfig {
                 ConnectionString = testDb
             })
-        ],
-        setup => [
-            setup.ConcreteType<DbConfig>()
-        ]);
+        ])
+        .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
 
     await using var factory = new WebApplicationFactory<Program>();
-    // Test rules execute with test setup options
 }
 ```
 
-**Use when:**
-- You need both rule overrides and setup overrides
-- Testing with plaintext secrets in test fixtures
+```csharp
+[Fact]
+public async Task TestAppendWithSecrets()
+{
+    // Append rules AND override secrets setup
+    using var _ = CocoarTestConfiguration
+        .AppendConfiguration(rule => [
+            rule.For<FeatureFlags>().FromStatic(_ => new FeatureFlags { NewFeature = true })
+        ])
+        .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext());
+
+    await using var factory = new WebApplicationFactory<Program>();
+}
+```
 
 ## Running the Example
 
@@ -136,7 +146,8 @@ dotnet test
 2. **AsyncLocal Context** - Test configuration flows through async/await automatically
 3. **No Application Changes** - `Program.cs` doesn't need test-aware code
 4. **Per-Test Isolation** - Each test can set different configuration
-5. **Clean Up** - Call `CocoarTestConfiguration.Clear()` or implement `IDisposable`
+5. **Per-Concern Independence** - Rules mode and secrets setup override independently
+6. **Clean Up** - `using var _` disposes the scope; or call `CocoarTestConfiguration.Clear()`
 
 ## Direct ConfigManager Usage
 
@@ -146,7 +157,7 @@ Test overrides also work when creating ConfigManager directly (without DI):
 [Fact]
 public void DirectConfigManagerTest()
 {
-    CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => testConfig)
     ]);
 
@@ -160,20 +171,21 @@ public void DirectConfigManagerTest()
 }
 ```
 
-## Using Scope Pattern (Recommended)
-
-The methods now return a `TestConfigurationScope` that clears configuration when disposed:
+Also works with `ConfigManager.CreateAsync()`:
 
 ```csharp
 [Fact]
-public async Task TestWithScope()
+public async Task DirectConfigManagerAsyncTest()
 {
-    using var _ = CocoarTestConfiguration.ReplaceAllRules(rule => [
+    using var _ = CocoarTestConfiguration.ReplaceConfiguration(rule => [
         rule.For<DbConfig>().FromStatic(_ => testConfig)
     ]);
 
-    await using var factory = new WebApplicationFactory<Program>();
-    // Configuration automatically cleared when scope is disposed
+    var configManager = await ConfigManager.CreateAsync(c => c.UseConfiguration(rule => [
+        rule.For<DbConfig>().FromFile("config.json") // SKIPPED in test
+    ]));
+
+    var config = configManager.GetConfig<DbConfig>()!;
 }
 ```
 
@@ -190,9 +202,6 @@ public class IntegrationTestFixture
             rule => [
                 rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" }),
                 rule.For<ApiSettings>().FromStatic(_ => new ApiSettings { BaseUrl = "https://test.api" })
-            ],
-            setup => [
-                setup.ConcreteType<DbConfig>()  // Enable plaintext secrets for all tests
             ]);
 }
 
@@ -224,34 +233,30 @@ public class MyTests : IClassFixture<IntegrationTestFixture>, IDisposable
 
 **Why Apply()?** AsyncLocal flows within the same async context, but xUnit runs fixture setup and test methods in separate contexts. `Apply()` bridges this gap.
 
-## Test Base Class Pattern
+## Fixture-Based Pattern with Secrets
+
+Use `TestOverrideBuilder` directly for fixture-based patterns that need secrets:
 
 ```csharp
-public abstract class IntegrationTestBase : IDisposable
+public class IntegrationTestFixture
 {
-    protected void UseTestConfig(Func<RulesBuilder, ConfigRule[]> rules)
-    {
-        CocoarTestConfiguration.ReplaceAllRules(rules);
-    }
-
-    public void Dispose()
-    {
-        CocoarTestConfiguration.Clear();
-    }
+    public TestConfigurationContext TestContext { get; } =
+        new TestOverrideBuilder()
+            .ReplaceConfiguration(rule => [
+                rule.For<DbConfig>().FromStatic(_ => new DbConfig { Connection = "test-db" })
+            ])
+            .ReplaceSecretsSetup(secrets => secrets.AllowPlaintext())
+            .Build();
 }
 
-public class MyTests : IntegrationTestBase
+public class MyTests : IClassFixture<IntegrationTestFixture>, IDisposable
 {
-    [Fact]
-    public async Task MyTest()
+    public MyTests(IntegrationTestFixture fixture)
     {
-        UseTestConfig(rule => [
-            rule.For<DbConfig>().FromStatic(_ => testConfig)
-        ]);
-
-        await using var factory = new WebApplicationFactory<Program>();
-        // Test runs with overridden config
+        CocoarTestConfiguration.Apply(fixture.TestContext);
     }
+
+    public void Dispose() => CocoarTestConfiguration.Clear();
 }
 ```
 
@@ -259,3 +264,4 @@ public class MyTests : IntegrationTestBase
 
 - [BasicUsage Example](../BasicUsage) - Simple configuration setup
 - [Cocoar.Configuration.Testing](../../Cocoar.Configuration/Testing) - Testing API reference
+- [Testing Overrides Quick Reference](../../../docs/testing-overrides-quickref.md) - Full patterns

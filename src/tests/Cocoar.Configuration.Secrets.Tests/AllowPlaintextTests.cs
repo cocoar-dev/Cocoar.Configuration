@@ -65,7 +65,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets) // No AllowPlaintext - default security
+            .UseSecretsSetup(secrets => secrets) // No AllowPlaintext - default security
         );
 
         // Act
@@ -91,7 +91,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -123,7 +123,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext(false))
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext(false))
         );
 
         // Act
@@ -149,7 +149,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -176,7 +176,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext(true))
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext(true))
         );
 
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -201,7 +201,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets
+            .UseSecretsSetup(secrets => secrets
                 .AllowPlaintext(false)  // First: disable
                 .AllowPlaintext(true))  // Second: enable (wins)
         );
@@ -244,7 +244,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithSecret>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         var config = manager.GetConfig<ConfigWithSecret>();
@@ -289,7 +289,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         ));
         Assert.Contains("Secret<Int32>", ex.Failures[0].Message);
     }
@@ -310,7 +310,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         var config = manager.GetConfig<ConfigWithNonNullableSecrets>();
@@ -335,7 +335,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNonNullableSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -368,7 +368,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -394,7 +394,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithRequiredNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -420,7 +420,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -449,7 +449,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -475,7 +475,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -501,7 +501,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -527,7 +527,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -553,7 +553,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act
@@ -589,7 +589,7 @@ public class AllowPlaintextTests
                 rules => [
                     rules.For<ConfigWithNullableInnerSecrets>().FromStaticJson(json).Required()
                 ])
-            .WithSecretsSetup(secrets => secrets.AllowPlaintext())
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
         );
 
         // Act

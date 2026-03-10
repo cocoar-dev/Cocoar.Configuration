@@ -136,12 +136,12 @@ var manager = new ConfigManager(
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(
         rule => [rule.For<AppConfig>().FromFile("config.json")])
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")
         .WithKeyId("dev-secrets")));
 ```
 
-> **Note:** Secrets setup is now a dedicated extension method `WithSecretsSetup()` on the builder,
+> **Note:** Secrets setup is now a dedicated extension method `UseSecretsSetup()` on the builder,
 > rather than part of the `setup` lambda. This provides better separation of concerns.
 
 ## DI and ASP.NET Core
@@ -177,7 +177,7 @@ services.AddCocoarConfiguration(c => c
     .UseConfiguration(rule => [
         rule.For<AppConfig>().FromFile("config.json")
     ])
-    .WithSecretsSetup(secrets => secrets
+    .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")
         .WithKeyId("dev-secrets")));
 ```
@@ -208,6 +208,7 @@ Then replace the closing `).Initialize()` with `))`.
 
 ### Pattern 2: Separate Initialize
 Remove the `.Initialize()` call and wrap the constructor in `ConfigManager.Create(c => c.UseConfiguration(...))`.
+
 
 ## What Stays the Same
 

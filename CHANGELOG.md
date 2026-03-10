@@ -8,7 +8,7 @@
 - New `ConfigManager.Create()` static factory method with fluent builder pattern for creating fully-initialized ConfigManager instances
 - Single entry point replaces split construction/initialization pattern (`new ConfigManager(...).Initialize()`)
 - Builder groups concerns logically: `.UseConfiguration()` for rules/setup, `.UseLogger()` for logging, `.UseDebounce()` for debounce timing
-- Satellite libraries can extend the builder via extension methods (e.g., `.WithSecretsSetup()`)
+- Satellite libraries can extend the builder via extension methods (e.g., `.UseSecretsSetup()`)
 
 **NEW: `ConfigManager.CreateAsync()` factory method**
 - Async counterpart to `ConfigManager.Create()` for console apps and scenarios where blocking the calling thread during provider I/O is undesirable
@@ -20,10 +20,18 @@
 - Previously, `ScheduleRecompute` wrapped async provider calls with `.GetAwaiter().GetResult()`; it now dispatches via `ScheduleAsync` and awaits the async recompute path end-to-end
 - No API changes; behavior is transparently improved for all callers
 
-**NEW: `WithSecretsSetup()` Extension Method**
+**NEW: `UseSecretsSetup()` Extension Method**
 - Dedicated builder extension for configuring secrets, replacing `setup.Secrets()` in the setup lambda
 - Leverages the Cocoar.Capabilities system for cross-assembly extensibility
 - Cleaner separation: secrets configuration is now independent of the setup pipeline
+
+**BREAKING: Testing API redesigned to be per-concern and fluent**
+- `ReplaceAllRules()` → `ReplaceConfiguration()` — returns `TestOverrideBuilder` (fluent, disposable)
+- `AppendTestRules()` → `AppendConfiguration()` — returns `TestOverrideBuilder` (fluent, disposable)
+- `WithSetup()` removed — setup-only override was broken and redundant in v5
+- New `ReplaceSecretsSetup()` extension on `TestOverrideBuilder` (from `Cocoar.Configuration.Secrets`) for independent secrets override
+- Per-concern independence: mix `ReplaceConfiguration().ReplaceSecretsSetup()` or `AppendConfiguration().ReplaceSecretsSetup()` freely
+- Fixture pattern: `new TestOverrideBuilder()` (public no-arg ctor) → call `.Build()` → pass to `CocoarTestConfiguration.Apply()`
 
 ### Changed
 
@@ -35,11 +43,11 @@
 - Old: `services.AddCocoarConfiguration(rule => [...], setup => [...])`
 - New: `services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [...], setup => [...]))`
 - Same change applies to `WebApplicationBuilder.AddCocoarConfiguration()`
-- Provides access to the full builder API in DI scenarios, including `.WithSecretsSetup()` and other satellite extensions
+- Provides access to the full builder API in DI scenarios, including `.UseSecretsSetup()` and other satellite extensions
 
 **BREAKING: Secrets setup moved from `setup` lambda to dedicated builder method**
 - Old: `setup => [setup.Secrets().UseCertificateFromFile("cert.pfx")]`
-- New: `.WithSecretsSetup(secrets => secrets.UseCertificateFromFile("cert.pfx"))`
+- New: `.UseSecretsSetup(secrets => secrets.UseCertificateFromFile("cert.pfx"))`
 
 ### Migration from v4.x
 
@@ -84,7 +92,7 @@ See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
 - New `AllowPlaintext()` fluent API to conditionally allow plaintext JSON values to be deserialized into `Secret<T>` properties
 - Useful for development and testing scenarios where encrypted envelopes are not available
 - **SECURITY WARNING**: Only enable in development/test environments; production should always use encrypted envelopes
-- Example: `.WithSecretsSetup(secrets => secrets.AllowPlaintext(builder.Environment.IsDevelopment()))` (v5.0+ syntax)
+- Example: `.UseSecretsSetup(secrets => secrets.AllowPlaintext(builder.Environment.IsDevelopment()))` (v5.0+ syntax)
 
 **NEW: Testing Setup Overrides**
 - Extended `CocoarTestConfiguration` to support setup overrides in addition to rule overrides

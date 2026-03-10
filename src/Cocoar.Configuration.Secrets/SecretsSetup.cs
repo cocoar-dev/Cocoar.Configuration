@@ -54,10 +54,10 @@ public sealed class SecretsBuilder : SetupDefinition
     /// // Conditional based on environment (ASP.NET Core)
     /// ConfigManager.Create(c => c
     ///     .UseConfiguration(rules => [...])
-    ///     .WithSecretsSetup(secrets => secrets.AllowPlaintext(isDevelopment)));
+    ///     .UseSecretsSetup(secrets => secrets.AllowPlaintext(isDevelopment)));
     ///
     /// // Always enable for tests
-    /// .WithSecretsSetup(secrets => secrets.AllowPlaintext())  // defaults to true
+    /// .UseSecretsSetup(secrets => secrets.AllowPlaintext())  // defaults to true
     /// </code>
     /// </example>
     public SecretsBuilder AllowPlaintext(bool allow = true)
