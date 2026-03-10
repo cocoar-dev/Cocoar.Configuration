@@ -12,25 +12,7 @@ public class FeatureFlagsBaseTests
     }
 
     [Fact]
-    public void Constructor_WithRegistry_RegistersItself()
-    {
-        var registry = new FeatureFlagsRegistry();
-        using var flags = new TestFeatureFlags(registry);
-
-        Assert.Single(registry.GetAll());
-        Assert.Same(flags, registry.Find<TestFeatureFlags>());
-    }
-
-    [Fact]
-    public void Constructor_WithNullRegistry_DoesNotThrow()
-    {
-        using var flags = new TestFeatureFlags(null);
-
-        Assert.NotNull(flags);
-    }
-
-    [Fact]
-    public void Constructor_WithoutRegistry_DoesNotThrow()
+    public void Constructor_DoesNotThrow()
     {
         using var flags = new TestFeatureFlags();
 
@@ -164,7 +146,7 @@ public class FeatureFlagsBaseTests
         public Flag<string, bool> ContextualFlag { get; }
         public Flag<bool> FlagWithCustomExpiry { get; }
 
-        public TestFeatureFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public TestFeatureFlags()
         {
             EnabledFlag = DefineFlag(nameof(EnabledFlag), () => true, description: "Test enabled flag");
             DisabledFlag = DefineFlag(nameof(DisabledFlag), () => false, description: "Test disabled flag");
@@ -183,15 +165,11 @@ public class FeatureFlagsBaseTests
     private class FutureExpiringFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
-
-        public FutureExpiringFlags() : base(null) { }
     }
 
     private class PastExpiringFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-
-        public PastExpiringFlags() : base(null) { }
     }
 
     private class MixedExpirationFlags : FeatureFlags
@@ -201,7 +179,7 @@ public class FeatureFlagsBaseTests
         public Flag<bool> ValidFlag { get; }
         public Flag<bool> ExpiredFlag { get; }
 
-        public MixedExpirationFlags() : base(null)
+        public MixedExpirationFlags()
         {
             ValidFlag = DefineFlag(nameof(ValidFlag), () => true, description: "Valid flag");
             ExpiredFlag = DefineFlag(

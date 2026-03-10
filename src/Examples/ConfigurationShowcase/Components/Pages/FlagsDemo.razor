@@ -129,10 +129,10 @@
 <div class="grid-2" style="margin-bottom: 1rem;">
     <div class="card">
         <h3 style="margin-bottom: 0.75rem;">Flags Registry</h3>
-        @foreach (var fc in FlagsRegistry.GetAll())
+        @foreach (var fc in FlagsRegistry.GetDescriptors())
         {
             <div style="margin-bottom: 0.5rem;">
-                <code>@fc.GetType().Name</code>
+                <code>@fc.Type.Name</code>
                 @if (fc.IsExpired)
                 {
                     <span class="badge badge-required" style="margin-left: 0.5rem;">Class expired</span>
@@ -142,19 +142,19 @@
                     <span class="badge badge-optional" style="margin-left: 0.5rem;">Active</span>
                 }
                 <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                    @fc.GetAllMetadata().Count() flags · @fc.GetExpiredFlags().Count() expired
+                    @fc.Flags.Count flags · @fc.Flags.Count(f => f.IsExpired) expired
                 </div>
             </div>
         }
     </div>
     <div class="card">
         <h3 style="margin-bottom: 0.75rem;">Entitlements Registry</h3>
-        @foreach (var ec in EntitlementsRegistry.GetAll())
+        @foreach (var ec in EntitlementsRegistry.GetDescriptors())
         {
             <div style="margin-bottom: 0.5rem;">
-                <code>@ec.GetType().Name</code>
+                <code>@ec.Type.Name</code>
                 <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                    @ec.GetAllMetadata().Count() entitlements · no expiry
+                    @ec.Entitlements.Count entitlements · no expiry
                 </div>
             </div>
         }

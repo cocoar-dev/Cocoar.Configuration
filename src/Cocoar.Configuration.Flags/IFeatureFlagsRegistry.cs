@@ -1,8 +1,8 @@
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Registry for <see cref="FeatureFlags"/> class instances.
-/// Provides a catalog of all registered feature flag classes in the application.
+/// Descriptor-based registry for <see cref="FeatureFlags"/> classes.
+/// Populated at startup via <c>UseFeatureFlags(f =&gt; f.Register&lt;T&gt;())</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -10,40 +10,24 @@ namespace Cocoar.Configuration.Flags;
 /// </para>
 /// <list type="bullet">
 ///   <item>Inventory of all feature flags in the application</item>
-///   <item>Health checks for expired feature flags</item>
+///   <item>Health checks for expired feature flag classes</item>
 ///   <item>Management UI (ConfigHub) displaying all flags</item>
 /// </list>
 /// </remarks>
 public interface IFeatureFlagsRegistry
 {
     /// <summary>
-    /// Registers a <see cref="FeatureFlags"/> instance.
+    /// Registers a <see cref="FeatureFlagClassDescriptor"/> for a feature flags class.
     /// </summary>
-    /// <param name="featureFlags">The feature flags instance to register.</param>
-    void Register(FeatureFlags featureFlags);
+    void RegisterDescriptor(FeatureFlagClassDescriptor descriptor);
 
     /// <summary>
-    /// Unregisters a <see cref="FeatureFlags"/> instance.
+    /// Gets all registered <see cref="FeatureFlagClassDescriptor"/> instances.
     /// </summary>
-    /// <param name="featureFlags">The feature flags instance to unregister.</param>
-    /// <returns>True if the instance was found and removed; otherwise false.</returns>
-    bool Unregister(FeatureFlags featureFlags);
+    IReadOnlyCollection<FeatureFlagClassDescriptor> GetDescriptors();
 
     /// <summary>
-    /// Gets all registered <see cref="FeatureFlags"/> instances.
+    /// Gets all <see cref="FeatureFlagClassDescriptor"/> instances whose class-level <c>ExpiresAt</c> has passed.
     /// </summary>
-    IReadOnlyCollection<FeatureFlags> GetAll();
-
-    /// <summary>
-    /// Finds a registered <see cref="FeatureFlags"/> instance by type.
-    /// </summary>
-    /// <typeparam name="T">The type of feature flags to retrieve.</typeparam>
-    /// <returns>The registered instance, or null if not found.</returns>
-    T? Find<T>() where T : FeatureFlags;
-
-    /// <summary>
-    /// Gets all expired <see cref="FeatureFlags"/> instances.
-    /// Useful for health checks and cleanup reminders.
-    /// </summary>
-    IReadOnlyCollection<FeatureFlags> GetExpired();
+    IReadOnlyCollection<FeatureFlagClassDescriptor> GetExpiredDescriptors();
 }

@@ -43,9 +43,7 @@ public class AppFeatureFlags : FeatureFlags
     /// <summary>Enables advanced analytics (currently expired — triggers Degraded health).</summary>
     public Flag<bool> AdvancedAnalyticsEnabled { get; }
 
-    public AppFeatureFlags(
-        IReactiveConfig<FeatureConfig> config,
-        IFeatureFlagsRegistry? registry = null) : base(registry)
+    public AppFeatureFlags(IReactiveConfig<FeatureConfig> config)
     {
         _config = config;
 
@@ -91,9 +89,7 @@ public class AppPlanEntitlements : Entitlements
     /// <summary>Maximum number of team members on the current plan.</summary>
     public Entitlement<int> MaxTeamMembers { get; }
 
-    public AppPlanEntitlements(
-        IReactiveConfig<PlanConfig> config,
-        IEntitlementsRegistry? registry = null) : base(registry)
+    public AppPlanEntitlements(IReactiveConfig<PlanConfig> config)
     {
         _config = config;
 

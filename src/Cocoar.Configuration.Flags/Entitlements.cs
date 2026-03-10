@@ -33,9 +33,7 @@ namespace Cocoar.Configuration.Flags;
 ///     public Entitlement&lt;int&gt; MaxUsers { get; }
 ///     public Entitlement&lt;TenantContext, bool&gt; HasFeature { get; }
 ///
-///     public PlanEntitlements(
-///         IReactiveConfig&lt;PlanConfig&gt; config,
-///         IEntitlementsRegistry? registry = null) : base(registry)
+///     public PlanEntitlements(IReactiveConfig&lt;PlanConfig&gt; config)
 ///     {
 ///         _config = config;
 ///
@@ -76,15 +74,6 @@ public abstract class Entitlements : IDisposable
     });
 
     private readonly List<Delegate> _entitlements = new();
-
-    /// <summary>
-    /// Creates a new <see cref="Entitlements"/> instance, optionally registering with the provided registry.
-    /// </summary>
-    /// <param name="registry">Optional registry for auto-registration. If provided, this instance will be registered.</param>
-    protected Entitlements(IEntitlementsRegistry? registry = null)
-    {
-        registry?.Register(this);
-    }
 
     /// <summary>
     /// Creates an entitlement delegate with metadata attached via Capabilities.

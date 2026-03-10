@@ -12,18 +12,25 @@ public static class ConfigManagerBuilderExtensions
     /// <summary>
     /// Configures feature flags for DI registration and health monitoring.
     /// <para>
-    /// Registers a singleton <see cref="IFeatureFlagsRegistry"/> and each flag class registered
-    /// via <see cref="FeatureFlagsSetupBuilder.Register{T}"/>. Expired flag classes will appear
-    /// as <see cref="Cocoar.Configuration.Health.HealthStatus.Degraded"/> in the health API.
+    /// The <paramref name="configure"/> delegate receives a <see cref="FeatureFlagsSetupBuilder"/>
+    /// where each flags class is registered explicitly via <c>Register&lt;T&gt;()</c>.
+    /// Descriptor metadata (expiry, flag names) is resolved from the source-generated
+    /// <c>CocoarFlagsDescriptors</c> dictionary in the caller's assembly.
+    /// </para>
+    /// <para>
+    /// Registers a singleton <see cref="IFeatureFlagsRegistry"/>. Each registered flag class
+    /// is added to DI with its specified <see cref="FlagLifetime"/> (default: Scoped).
+    /// Expired flag classes will appear as
+    /// <see cref="Cocoar.Configuration.Health.HealthStatus.Degraded"/> in the health API.
     /// </para>
     /// </summary>
     /// <example>
     /// <code>
     /// ConfigManager.Create(c => c
     ///     .UseConfiguration(rules => [...], setup => [...])
-    ///     .UseFeatureFlags(flags => flags
-    ///         .Register&lt;BillingFeatureFlags&gt;()
-    ///         .Register&lt;ShippingFeatureFlags&gt;()));
+    ///     .UseFeatureFlags(f => f
+    ///         .Register&lt;AppFeatureFlags&gt;()
+    ///         .Register&lt;AdminFlags&gt;(FlagLifetime.Singleton)));
     /// </code>
     /// </example>
     public static ConfigManagerBuilder UseFeatureFlags(
@@ -32,21 +39,20 @@ public static class ConfigManagerBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(configure);
 
-        var flagsBuilder = new FeatureFlagsSetupBuilder();
-        configure(flagsBuilder);
+        var setupBuilder = new FeatureFlagsSetupBuilder();
+        configure(setupBuilder);
+        var registrations = setupBuilder.Build();
 
         var registry = new FeatureFlagsRegistry();
-        var healthSource = new FeatureFlagsHealthSource(registry);
+        foreach (var r in registrations)
+            registry.RegisterDescriptor(r.Descriptor);
 
+        var healthSource = new FeatureFlagsHealthSource(registry);
         builder.SetFlagsHealthSource(healthSource);
 
         var scope = ConfigManagerBuilder.GetCapabilityScope(builder);
         scope.Compose(FlagsCapability.ScopeKey)
-            .WithPrimary(new FlagsCapability
-            {
-                Registry = registry,
-                Types = flagsBuilder.Types
-            })
+            .WithPrimary(new FlagsCapability { Registry = registry, Registrations = registrations })
             .Build();
 
         return builder;
@@ -55,8 +61,8 @@ public static class ConfigManagerBuilderExtensions
     /// <summary>
     /// Configures entitlements for DI registration.
     /// <para>
-    /// Registers a singleton <see cref="IEntitlementsRegistry"/> and each entitlement class
-    /// registered via <see cref="EntitlementsSetupBuilder.Register{T}"/>.
+    /// The <paramref name="configure"/> delegate receives an <see cref="EntitlementsSetupBuilder"/>
+    /// where each entitlements class is registered explicitly via <c>Register&lt;T&gt;()</c>.
     /// </para>
     /// </summary>
     /// <example>
@@ -64,7 +70,7 @@ public static class ConfigManagerBuilderExtensions
     /// ConfigManager.Create(c => c
     ///     .UseConfiguration(rules => [...], setup => [...])
     ///     .UseEntitlements(e => e
-    ///         .Register&lt;PlanEntitlements&gt;()));
+    ///         .Register&lt;AppPlanEntitlements&gt;()));
     /// </code>
     /// </example>
     public static ConfigManagerBuilder UseEntitlements(
@@ -73,18 +79,17 @@ public static class ConfigManagerBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(configure);
 
-        var entitlementsBuilder = new EntitlementsSetupBuilder();
-        configure(entitlementsBuilder);
+        var setupBuilder = new EntitlementsSetupBuilder();
+        configure(setupBuilder);
+        var registrations = setupBuilder.Build();
 
         var registry = new EntitlementsRegistry();
+        foreach (var r in registrations)
+            registry.RegisterDescriptor(r.Descriptor);
 
         var scope = ConfigManagerBuilder.GetCapabilityScope(builder);
         scope.Compose(EntitlementsCapability.ScopeKey)
-            .WithPrimary(new EntitlementsCapability
-            {
-                Registry = registry,
-                Types = entitlementsBuilder.Types
-            })
+            .WithPrimary(new EntitlementsCapability { Registry = registry, Registrations = registrations })
             .Build();
 
         return builder;

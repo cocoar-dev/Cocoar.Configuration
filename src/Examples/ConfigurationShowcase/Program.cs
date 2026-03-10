@@ -99,10 +99,8 @@ builder.AddCocoarConfiguration(c => c
             setup.Interface<INotificationSettings>().DeserializeTo<NotificationSettings>()
         ])
     .UseSecretsSetup(secrets => secrets.AllowPlaintext())
-    .UseFeatureFlags(flags => flags
-        .Register<AppFeatureFlags>())
-    .UseEntitlements(e => e
-        .Register<AppPlanEntitlements>())
+    .UseFeatureFlags(f => f.Register<AppFeatureFlags>())
+    .UseEntitlements(e => e.Register<AppPlanEntitlements>())
     .UseDebounce(500));
 
 // Register tuple reactive config for the Reactive Demo page

@@ -4,25 +4,25 @@ namespace Cocoar.Configuration.Flags.Internal;
 
 /// <summary>
 /// Provides expired feature flag data for <see cref="IFlagsHealthSource"/>.
-/// Wraps the <see cref="IFeatureFlagsRegistry"/> to return one health entry per
+/// Reads from the descriptor registry to return one health entry per
 /// expired flags class, driving <see cref="HealthStatus.Degraded"/> in snapshots.
 /// </summary>
 internal sealed class FeatureFlagsHealthSource(IFeatureFlagsRegistry registry) : IFlagsHealthSource
 {
     public IReadOnlyList<FlagClassHealthEntry> GetExpiredFeatureFlags()
     {
-        var expired = registry.GetExpired();
+        var expired = registry.GetExpiredDescriptors();
         if (expired.Count == 0) return [];
 
         var entries = new List<FlagClassHealthEntry>(expired.Count);
-        foreach (var flags in expired)
+        foreach (var descriptor in expired)
         {
             entries.Add(new FlagClassHealthEntry(
-                TypeName: flags.GetType().Name,
-                ExpiresAt: flags.ExpiresAt,
-                IsExpired: flags.IsExpired,
-                TotalFlags: flags.GetAllMetadata().Count(),
-                ExpiredFlags: flags.GetExpiredFlags().Count()));
+                TypeName: descriptor.Type.Name,
+                ExpiresAt: descriptor.ExpiresAt,
+                IsExpired: true,
+                TotalFlags: descriptor.Flags.Count,
+                ExpiredFlags: descriptor.Flags.Count(f => DateTimeOffset.UtcNow > f.ExpiresAt)));
         }
         return entries;
     }

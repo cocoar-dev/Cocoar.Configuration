@@ -36,9 +36,7 @@ namespace Cocoar.Configuration.Flags;
 ///     public Flag&lt;int&gt; FlowVersion { get; }
 ///     public Flag&lt;UserContext, bool&gt; EnabledForUser { get; }
 ///
-///     public BillingFeatureFlags(
-///         IReactiveConfig&lt;BillingConfig&gt; config,
-///         IFeatureFlagsRegistry? registry = null) : base(registry)
+///     public BillingFeatureFlags(IReactiveConfig&lt;BillingConfig&gt; config)
 ///     {
 ///         _config = config;
 ///
@@ -80,15 +78,6 @@ public abstract class FeatureFlags : IDisposable
     });
 
     private readonly List<Delegate> _flags = new();
-
-    /// <summary>
-    /// Creates a new <see cref="FeatureFlags"/> instance, optionally registering with the provided registry.
-    /// </summary>
-    /// <param name="registry">Optional registry for auto-registration. If provided, this instance will be registered.</param>
-    protected FeatureFlags(IFeatureFlagsRegistry? registry = null)
-    {
-        registry?.Register(this);
-    }
 
     /// <summary>
     /// When should these flags be removed from code?

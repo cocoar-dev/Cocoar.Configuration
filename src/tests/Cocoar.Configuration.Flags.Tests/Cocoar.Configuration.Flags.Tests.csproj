@@ -23,6 +23,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
     <ProjectReference Include="..\..\Cocoar.Configuration.Flags\Cocoar.Configuration.Flags.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.Flags.Generator\Cocoar.Configuration.Flags.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

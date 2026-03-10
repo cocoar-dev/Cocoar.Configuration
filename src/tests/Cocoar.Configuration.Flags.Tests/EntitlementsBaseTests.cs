@@ -12,25 +12,7 @@ public class EntitlementsBaseTests
     }
 
     [Fact]
-    public void Constructor_WithRegistry_RegistersItself()
-    {
-        var registry = new EntitlementsRegistry();
-        using var entitlements = new TestEntitlements(registry);
-
-        Assert.Single(registry.GetAll());
-        Assert.Same(entitlements, registry.Find<TestEntitlements>());
-    }
-
-    [Fact]
-    public void Constructor_WithNullRegistry_DoesNotThrow()
-    {
-        using var entitlements = new TestEntitlements(null);
-
-        Assert.NotNull(entitlements);
-    }
-
-    [Fact]
-    public void Constructor_WithoutRegistry_DoesNotThrow()
+    public void Constructor_DoesNotThrow()
     {
         using var entitlements = new TestEntitlements();
 
@@ -114,7 +96,7 @@ public class EntitlementsBaseTests
         public Entitlement<string> Tier { get; }
         public Entitlement<string, bool> HasFeature { get; }
 
-        public TestEntitlements(IEntitlementsRegistry? registry = null) : base(registry)
+        public TestEntitlements()
         {
             CanExport = DefineEntitlement(nameof(CanExport), () => true, description: "Can export data");
             MaxUsers = DefineEntitlement(nameof(MaxUsers), () => 100, description: "Maximum allowed users");

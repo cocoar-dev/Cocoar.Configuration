@@ -57,10 +57,13 @@ public class BuilderIntegrationTests
     // ──────────────────────────────────────────────
 
     [Fact]
-    public void FeatureFlagsHealthSource_WithExpiredRegistry_ReturnsEntries()
+    public void FeatureFlagsHealthSource_WithExpiredDescriptor_ReturnsEntries()
     {
         var registry = new FeatureFlagsRegistry();
-        using var flags = new ExpiredTestFlags(registry);
+        registry.RegisterDescriptor(new FeatureFlagClassDescriptor(
+            Type: typeof(ExpiredTestFlags),
+            ExpiresAt: new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            Flags: [new FlagDefinitionDescriptor("OldFeature", new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), null)]));
 
         var source = new FeatureFlagsHealthSource(registry);
         var expired = source.GetExpiredFeatureFlags();
@@ -74,10 +77,13 @@ public class BuilderIntegrationTests
     }
 
     [Fact]
-    public void FeatureFlagsHealthSource_WithNoExpiredFlags_ReturnsEmpty()
+    public void FeatureFlagsHealthSource_WithNoExpiredDescriptors_ReturnsEmpty()
     {
         var registry = new FeatureFlagsRegistry();
-        using var flags = new FutureTestFlags(registry);
+        registry.RegisterDescriptor(new FeatureFlagClassDescriptor(
+            Type: typeof(FutureTestFlags),
+            ExpiresAt: new DateTimeOffset(2099, 12, 31, 0, 0, 0, TimeSpan.Zero),
+            Flags: [new FlagDefinitionDescriptor("NewFeature", new DateTimeOffset(2099, 12, 31, 0, 0, 0, TimeSpan.Zero), null)]));
 
         var source = new FeatureFlagsHealthSource(registry);
 
@@ -88,8 +94,14 @@ public class BuilderIntegrationTests
     public void FeatureFlagsHealthSource_WithMixedRegistry_ReturnsOnlyExpired()
     {
         var registry = new FeatureFlagsRegistry();
-        using var expired = new ExpiredTestFlags(registry);
-        using var future = new FutureTestFlags(registry);
+        registry.RegisterDescriptor(new FeatureFlagClassDescriptor(
+            Type: typeof(ExpiredTestFlags),
+            ExpiresAt: new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            Flags: [new FlagDefinitionDescriptor("OldFeature", new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), null)]));
+        registry.RegisterDescriptor(new FeatureFlagClassDescriptor(
+            Type: typeof(FutureTestFlags),
+            ExpiresAt: new DateTimeOffset(2099, 12, 31, 0, 0, 0, TimeSpan.Zero),
+            Flags: [new FlagDefinitionDescriptor("NewFeature", new DateTimeOffset(2099, 12, 31, 0, 0, 0, TimeSpan.Zero), null)]));
 
         var source = new FeatureFlagsHealthSource(registry);
         var result = source.GetExpiredFeatureFlags();
@@ -107,13 +119,8 @@ public class BuilderIntegrationTests
     {
         using var manager = ConfigManager.Create(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<ExpiredTestFlags>()));
+            .UseFeatureFlags(f => f.Register<ExpiredTestFlags>()));
 
-        // Retrieve the pre-created registry from the scope and register a flag instance
-        var flagsCapability = GetFlagsCapability(manager.CapabilityScope);
-        using var _ = new ExpiredTestFlags(flagsCapability.Registry);
-
-        // Trigger a recompute so the health reporter republishes with the updated registry
         manager.ScheduleRecompute(0);
         if (manager.CurrentRecomputeTask is { } task) await task;
 
@@ -129,18 +136,14 @@ public class BuilderIntegrationTests
     {
         using var manager = ConfigManager.Create(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<FutureTestFlags>()));
-
-        var flagsCapability = GetFlagsCapability(manager.CapabilityScope);
-        using var _ = new FutureTestFlags(flagsCapability.Registry);
+            .UseFeatureFlags(f => f.Register<FutureTestFlags>()));
 
         manager.ScheduleRecompute(0);
         if (manager.CurrentRecomputeTask is { } task) await task;
 
         var snapshot = manager.GetHealthService().Snapshot;
 
-        // No expired flags → not in the list (OverallStatus is Unknown because no rules;
-        // that is pre-existing behaviour and unchanged by this feature)
+        // No expired flags → not in the list
         Assert.Empty(snapshot.ExpiredFeatureFlags);
     }
 
@@ -157,47 +160,32 @@ public class BuilderIntegrationTests
     }
 
     // ──────────────────────────────────────────────
-    // Helpers
+    // Test helpers
     // ──────────────────────────────────────────────
 
-    private static FlagsCapability GetFlagsCapability(ConfigManagerCapabilityScope scope)
-    {
-        if (scope.Compositions.TryGet(FlagsCapability.ScopeKey, out var bag)
-            && bag.TryGetPrimaryAs<FlagsCapability>(out var capability)
-            && capability is not null)
-        {
-            return capability;
-        }
-
-        throw new InvalidOperationException("FlagsCapability not found. Was UseFeatureFlags called?");
-    }
-
-    private sealed class ExpiredTestFlags : FeatureFlags
+    internal sealed class ExpiredTestFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public Flag<bool> OldFeature { get; }
 
-        public ExpiredTestFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public ExpiredTestFlags()
         {
             OldFeature = DefineFlag(nameof(OldFeature), () => true);
         }
     }
 
-    private sealed class FutureTestFlags : FeatureFlags
+    internal sealed class FutureTestFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
 
         public Flag<bool> NewFeature { get; }
 
-        public FutureTestFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public FutureTestFlags()
         {
             NewFeature = DefineFlag(nameof(NewFeature), () => true);
         }
     }
 
-    private sealed class SimpleTestEntitlements : Entitlements
-    {
-        public SimpleTestEntitlements(IEntitlementsRegistry? registry = null) : base(registry) { }
-    }
+    internal sealed class SimpleTestEntitlements : Entitlements { }
 }

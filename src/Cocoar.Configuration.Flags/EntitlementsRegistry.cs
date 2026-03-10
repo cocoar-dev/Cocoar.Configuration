@@ -8,31 +8,18 @@ namespace Cocoar.Configuration.Flags;
 /// </summary>
 public sealed class EntitlementsRegistry : IEntitlementsRegistry
 {
-    private readonly ConcurrentDictionary<Type, Entitlements> _registry = new();
+    private readonly ConcurrentDictionary<Type, EntitlementClassDescriptor> _registry = new();
 
     /// <inheritdoc />
-    public void Register(Entitlements entitlements)
+    public void RegisterDescriptor(EntitlementClassDescriptor descriptor)
     {
-        ArgumentNullException.ThrowIfNull(entitlements);
-        _registry[entitlements.GetType()] = entitlements;
+        ArgumentNullException.ThrowIfNull(descriptor);
+        _registry[descriptor.Type] = descriptor;
     }
 
     /// <inheritdoc />
-    public bool Unregister(Entitlements entitlements)
-    {
-        ArgumentNullException.ThrowIfNull(entitlements);
-        return _registry.TryRemove(entitlements.GetType(), out _);
-    }
-
-    /// <inheritdoc />
-    public IReadOnlyCollection<Entitlements> GetAll()
+    public IReadOnlyCollection<EntitlementClassDescriptor> GetDescriptors()
     {
         return _registry.Values.ToList().AsReadOnly();
-    }
-
-    /// <inheritdoc />
-    public T? Find<T>() where T : Entitlements
-    {
-        return _registry.TryGetValue(typeof(T), out var entitlements) ? (T)entitlements : null;
     }
 }

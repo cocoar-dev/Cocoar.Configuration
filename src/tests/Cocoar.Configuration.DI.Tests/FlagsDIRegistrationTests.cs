@@ -22,51 +22,85 @@ public class FlagsDIRegistrationTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<SimpleFeatureFlags>()));
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>(ServiceLifetime.Singleton)));
 
         using var sp = services.BuildServiceProvider();
 
         var registry = sp.GetService<IFeatureFlagsRegistry>();
         Assert.NotNull(registry);
 
-        // Singleton — same instance across resolutions
-        var registry2 = sp.GetService<IFeatureFlagsRegistry>();
-        Assert.Same(registry, registry2);
+        // Registry itself is always singleton regardless of flag lifetime
+        Assert.Same(registry, sp.GetService<IFeatureFlagsRegistry>());
     }
 
     [Fact]
-    public void UseFeatureFlags_RegisteredFlagClass_IsResolvableAsSingleton()
+    public void UseFeatureFlags_RegisteredFlagClass_WithSingletonLifetime_IsSingleton()
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<SimpleFeatureFlags>()));
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>(ServiceLifetime.Singleton)));
 
         using var sp = services.BuildServiceProvider();
 
         var flags = sp.GetService<SimpleFeatureFlags>();
         Assert.NotNull(flags);
-
-        // Singleton — same instance
-        var flags2 = sp.GetService<SimpleFeatureFlags>();
-        Assert.Same(flags, flags2);
+        Assert.Same(flags, sp.GetService<SimpleFeatureFlags>());
     }
 
     [Fact]
-    public void UseFeatureFlags_FlagClass_AutoRegistersInRegistry()
+    public void UseFeatureFlags_RegisteredFlagClass_WithTransientLifetime_IsTransient()
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<SimpleFeatureFlags>()));
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>(ServiceLifetime.Transient)));
+
+        using var sp = services.BuildServiceProvider();
+
+        var flags1 = sp.GetService<SimpleFeatureFlags>();
+        var flags2 = sp.GetService<SimpleFeatureFlags>();
+        Assert.NotNull(flags1);
+        Assert.NotNull(flags2);
+        Assert.NotSame(flags1, flags2);
+    }
+
+    [Fact]
+    public void UseFeatureFlags_RegisteredFlagClass_DefaultLifetime_IsScoped()
+    {
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration(c => c
+            .UseConfiguration(rules => [])
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>()));
+
+        using var sp = services.BuildServiceProvider();
+
+        // Same instance within one scope
+        using var scope1 = sp.CreateScope();
+        var a = scope1.ServiceProvider.GetRequiredService<SimpleFeatureFlags>();
+        var b = scope1.ServiceProvider.GetRequiredService<SimpleFeatureFlags>();
+        Assert.Same(a, b);
+
+        // Different instance in a different scope
+        using var scope2 = sp.CreateScope();
+        var c = scope2.ServiceProvider.GetRequiredService<SimpleFeatureFlags>();
+        Assert.NotSame(a, c);
+    }
+
+    [Fact]
+    public void UseFeatureFlags_FlagClass_DescriptorInRegistryFromStartup()
+    {
+        var services = new ServiceCollection();
+        services.AddCocoarConfiguration(c => c
+            .UseConfiguration(rules => [])
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>()));
 
         using var sp = services.BuildServiceProvider();
         var registry = sp.GetRequiredService<IFeatureFlagsRegistry>();
 
-        // Resolving the flag class triggers its constructor which registers itself
-        var flags = sp.GetRequiredService<SimpleFeatureFlags>();
-
-        Assert.Same(flags, registry.Find<SimpleFeatureFlags>());
+        // Descriptor is in the registry from startup — no instance required
+        var descriptor = registry.GetDescriptors().FirstOrDefault(d => d.Type == typeof(SimpleFeatureFlags));
+        Assert.NotNull(descriptor);
     }
 
     [Fact]
@@ -75,14 +109,15 @@ public class FlagsDIRegistrationTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags
+            .UseFeatureFlags(f => f
                 .Register<SimpleFeatureFlags>()
                 .Register<AnotherFeatureFlags>()));
 
         using var sp = services.BuildServiceProvider();
 
-        Assert.NotNull(sp.GetService<SimpleFeatureFlags>());
-        Assert.NotNull(sp.GetService<AnotherFeatureFlags>());
+        using var scope = sp.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetService<SimpleFeatureFlags>());
+        Assert.NotNull(scope.ServiceProvider.GetService<AnotherFeatureFlags>());
     }
 
     // ──────────────────────────────────────────────
@@ -105,12 +140,12 @@ public class FlagsDIRegistrationTests
     }
 
     [Fact]
-    public void UseEntitlements_RegisteredEntitlementClass_IsResolvableAsSingleton()
+    public void UseEntitlements_RegisteredEntitlementClass_WithSingletonLifetime_IsSingleton()
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseEntitlements(e => e.Register<SimpleEntitlements>()));
+            .UseEntitlements(e => e.Register<SimpleEntitlements>(ServiceLifetime.Singleton)));
 
         using var sp = services.BuildServiceProvider();
 
@@ -120,7 +155,7 @@ public class FlagsDIRegistrationTests
     }
 
     [Fact]
-    public void UseEntitlements_EntitlementClass_AutoRegistersInRegistry()
+    public void UseEntitlements_EntitlementClass_DescriptorInRegistryFromStartup()
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
@@ -129,9 +164,9 @@ public class FlagsDIRegistrationTests
 
         using var sp = services.BuildServiceProvider();
         var registry = sp.GetRequiredService<IEntitlementsRegistry>();
-        var entitlements = sp.GetRequiredService<SimpleEntitlements>();
 
-        Assert.Same(entitlements, registry.Find<SimpleEntitlements>());
+        var descriptor = registry.GetDescriptors().FirstOrDefault(d => d.Type == typeof(SimpleEntitlements));
+        Assert.NotNull(descriptor);
     }
 
     // ──────────────────────────────────────────────
@@ -144,8 +179,8 @@ public class FlagsDIRegistrationTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<SimpleFeatureFlags>())
-            .UseEntitlements(e => e.Register<SimpleEntitlements>()));
+            .UseFeatureFlags(f => f.Register<SimpleFeatureFlags>(ServiceLifetime.Singleton))
+            .UseEntitlements(e => e.Register<SimpleEntitlements>(ServiceLifetime.Singleton)));
 
         using var sp = services.BuildServiceProvider();
 
@@ -160,65 +195,59 @@ public class FlagsDIRegistrationTests
     // ──────────────────────────────────────────────
 
     [Fact]
-    public void UseFeatureFlags_WithExpiredFlags_HealthSnapshotShowsDegraded_AfterResolution()
+    public void UseFeatureFlags_WithExpiredDescriptor_RegistryReportsExpired()
     {
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c
             .UseConfiguration(rules => [])
-            .UseFeatureFlags(flags => flags.Register<ExpiredFeatureFlags>()));
+            .UseFeatureFlags(f => f.Register<ExpiredFeatureFlags>()));
 
         using var sp = services.BuildServiceProvider();
 
-        // Resolving the expired flag class registers it in the registry
-        var flags = sp.GetRequiredService<ExpiredFeatureFlags>();
-        Assert.True(flags.IsExpired);
-
         var registry = sp.GetRequiredService<IFeatureFlagsRegistry>();
-        Assert.Single(registry.GetExpired());
+        Assert.Single(registry.GetExpiredDescriptors());
+        Assert.Equal(typeof(ExpiredFeatureFlags), registry.GetExpiredDescriptors().First().Type);
     }
 
     // ──────────────────────────────────────────────
     // Test helpers
     // ──────────────────────────────────────────────
 
-    private sealed class SimpleFeatureFlags : FeatureFlags
+    internal sealed class SimpleFeatureFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
 
         public Flag<bool> Feature { get; }
 
-        public SimpleFeatureFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public SimpleFeatureFlags()
         {
             Feature = DefineFlag(nameof(Feature), () => true);
         }
     }
 
-    private sealed class AnotherFeatureFlags : FeatureFlags
+    internal sealed class AnotherFeatureFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
 
         public Flag<bool> Other { get; }
 
-        public AnotherFeatureFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public AnotherFeatureFlags()
         {
             Other = DefineFlag(nameof(Other), () => false);
         }
     }
 
-    private sealed class ExpiredFeatureFlags : FeatureFlags
+    internal sealed class ExpiredFeatureFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public Flag<bool> OldFeature { get; }
 
-        public ExpiredFeatureFlags(IFeatureFlagsRegistry? registry = null) : base(registry)
+        public ExpiredFeatureFlags()
         {
             OldFeature = DefineFlag(nameof(OldFeature), () => true);
         }
     }
 
-    private sealed class SimpleEntitlements : Entitlements
-    {
-        public SimpleEntitlements(IEntitlementsRegistry? registry = null) : base(registry) { }
-    }
+    internal sealed class SimpleEntitlements : Entitlements { }
 }

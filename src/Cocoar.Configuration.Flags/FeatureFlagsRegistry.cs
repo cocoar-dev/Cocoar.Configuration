@@ -8,37 +8,24 @@ namespace Cocoar.Configuration.Flags;
 /// </summary>
 public sealed class FeatureFlagsRegistry : IFeatureFlagsRegistry
 {
-    private readonly ConcurrentDictionary<Type, FeatureFlags> _registry = new();
+    private readonly ConcurrentDictionary<Type, FeatureFlagClassDescriptor> _registry = new();
 
     /// <inheritdoc />
-    public void Register(FeatureFlags featureFlags)
+    public void RegisterDescriptor(FeatureFlagClassDescriptor descriptor)
     {
-        ArgumentNullException.ThrowIfNull(featureFlags);
-        _registry[featureFlags.GetType()] = featureFlags;
+        ArgumentNullException.ThrowIfNull(descriptor);
+        _registry[descriptor.Type] = descriptor;
     }
 
     /// <inheritdoc />
-    public bool Unregister(FeatureFlags featureFlags)
-    {
-        ArgumentNullException.ThrowIfNull(featureFlags);
-        return _registry.TryRemove(featureFlags.GetType(), out _);
-    }
-
-    /// <inheritdoc />
-    public IReadOnlyCollection<FeatureFlags> GetAll()
+    public IReadOnlyCollection<FeatureFlagClassDescriptor> GetDescriptors()
     {
         return _registry.Values.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />
-    public T? Find<T>() where T : FeatureFlags
+    public IReadOnlyCollection<FeatureFlagClassDescriptor> GetExpiredDescriptors()
     {
-        return _registry.TryGetValue(typeof(T), out var flags) ? (T)flags : null;
-    }
-
-    /// <inheritdoc />
-    public IReadOnlyCollection<FeatureFlags> GetExpired()
-    {
-        return _registry.Values.Where(f => f.IsExpired).ToList().AsReadOnly();
+        return _registry.Values.Where(d => d.IsExpired).ToList().AsReadOnly();
     }
 }

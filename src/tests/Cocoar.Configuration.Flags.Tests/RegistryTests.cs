@@ -1,269 +1,148 @@
 namespace Cocoar.Configuration.Flags.Tests;
 
-public class FeatureFlagsRegistryTests : IDisposable
+public class FeatureFlagsRegistryTests
 {
-    private readonly List<FeatureFlags> _createdFlags = new();
+    private static readonly DateTimeOffset FutureExpiry = new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset PastExpiry = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Register_AddsToRegistry()
+    public void RegisterDescriptor_AddsToRegistry()
     {
         var registry = new FeatureFlagsRegistry();
-        var flags = CreateFlags<TestFeatureFlags>();
+        var descriptor = MakeFlagsDescriptor(typeof(TestFlags), FutureExpiry);
 
-        registry.Register(flags);
+        registry.RegisterDescriptor(descriptor);
 
-        Assert.Single(registry.GetAll());
-        Assert.Contains(flags, registry.GetAll());
+        Assert.Single(registry.GetDescriptors());
+        Assert.Contains(descriptor, registry.GetDescriptors());
     }
 
     [Fact]
-    public void Register_WithNull_ThrowsArgumentNullException()
+    public void RegisterDescriptor_WithNull_ThrowsArgumentNullException()
     {
         var registry = new FeatureFlagsRegistry();
 
-        Assert.Throws<ArgumentNullException>(() => registry.Register(null!));
+        Assert.Throws<ArgumentNullException>(() => registry.RegisterDescriptor(null!));
     }
 
     [Fact]
-    public void Register_SameTypeTwice_ReplacesInstance()
+    public void RegisterDescriptor_SameTypeTwice_ReplacesDescriptor()
     {
         var registry = new FeatureFlagsRegistry();
-        var flags1 = CreateFlags<TestFeatureFlags>();
-        var flags2 = CreateFlags<TestFeatureFlags>();
+        var d1 = MakeFlagsDescriptor(typeof(TestFlags), FutureExpiry);
+        var d2 = MakeFlagsDescriptor(typeof(TestFlags), new DateTimeOffset(2099, 6, 1, 0, 0, 0, TimeSpan.Zero));
 
-        registry.Register(flags1);
-        registry.Register(flags2);
+        registry.RegisterDescriptor(d1);
+        registry.RegisterDescriptor(d2);
 
-        Assert.Single(registry.GetAll());
-        Assert.Same(flags2, registry.Find<TestFeatureFlags>());
+        Assert.Single(registry.GetDescriptors());
+        Assert.Same(d2, registry.GetDescriptors().First());
     }
 
     [Fact]
-    public void Unregister_RemovesFromRegistry()
+    public void GetDescriptors_ReturnsAllRegistered()
     {
         var registry = new FeatureFlagsRegistry();
-        var flags = CreateFlags<TestFeatureFlags>();
-        registry.Register(flags);
+        var d1 = MakeFlagsDescriptor(typeof(TestFlags), FutureExpiry);
+        var d2 = MakeFlagsDescriptor(typeof(AnotherTestFlags), FutureExpiry);
 
-        var result = registry.Unregister(flags);
+        registry.RegisterDescriptor(d1);
+        registry.RegisterDescriptor(d2);
 
-        Assert.True(result);
-        Assert.Empty(registry.GetAll());
-    }
-
-    [Fact]
-    public void Unregister_NotRegistered_ReturnsFalse()
-    {
-        var registry = new FeatureFlagsRegistry();
-        var flags = CreateFlags<TestFeatureFlags>();
-
-        var result = registry.Unregister(flags);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void GetAll_ReturnsAllRegistered()
-    {
-        var registry = new FeatureFlagsRegistry();
-        var flags1 = CreateFlags<TestFeatureFlags>();
-        var flags2 = CreateFlags<AnotherFeatureFlags>();
-
-        registry.Register(flags1);
-        registry.Register(flags2);
-
-        var all = registry.GetAll();
+        var all = registry.GetDescriptors();
 
         Assert.Equal(2, all.Count);
-        Assert.Contains(flags1, all);
-        Assert.Contains(flags2, all);
+        Assert.Contains(d1, all);
+        Assert.Contains(d2, all);
     }
 
     [Fact]
-    public void Find_ReturnsTypedInstance()
+    public void GetExpiredDescriptors_ReturnsOnlyExpiredDescriptors()
     {
         var registry = new FeatureFlagsRegistry();
-        var flags = CreateFlags<TestFeatureFlags>();
-        registry.Register(flags);
+        var expired = MakeFlagsDescriptor(typeof(TestFlags), PastExpiry);
+        var valid = MakeFlagsDescriptor(typeof(AnotherTestFlags), FutureExpiry);
 
-        var result = registry.Find<TestFeatureFlags>();
+        registry.RegisterDescriptor(expired);
+        registry.RegisterDescriptor(valid);
 
-        Assert.Same(flags, result);
+        var result = registry.GetExpiredDescriptors();
+
+        Assert.Single(result);
+        Assert.Contains(expired, result);
+        Assert.DoesNotContain(valid, result);
     }
 
-    [Fact]
-    public void Find_NotRegistered_ReturnsNull()
-    {
-        var registry = new FeatureFlagsRegistry();
+    private static FeatureFlagClassDescriptor MakeFlagsDescriptor(Type type, DateTimeOffset expiresAt)
+        => new(type, expiresAt, []);
 
-        var result = registry.Find<TestFeatureFlags>();
-
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void GetExpired_ReturnsOnlyExpiredFlags()
-    {
-        var registry = new FeatureFlagsRegistry();
-        var expired = CreateFlags<ExpiredFeatureFlags>();
-        var valid = CreateFlags<TestFeatureFlags>();
-
-        registry.Register(expired);
-        registry.Register(valid);
-
-        var expiredFlags = registry.GetExpired();
-
-        Assert.Single(expiredFlags);
-        Assert.Contains(expired, expiredFlags);
-        Assert.DoesNotContain(valid, expiredFlags);
-    }
-
-    private T CreateFlags<T>() where T : FeatureFlags, new()
-    {
-        var flags = new T();
-        _createdFlags.Add(flags);
-        return flags;
-    }
-
-    public void Dispose()
-    {
-        foreach (var flags in _createdFlags)
-        {
-            flags.Dispose();
-        }
-    }
-
-    private class TestFeatureFlags : FeatureFlags
+    private class TestFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
-        public TestFeatureFlags() : base(null) { }
     }
 
-    private class AnotherFeatureFlags : FeatureFlags
+    private class AnotherTestFlags : FeatureFlags
     {
         public override DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
-        public AnotherFeatureFlags() : base(null) { }
-    }
-
-    private class ExpiredFeatureFlags : FeatureFlags
-    {
-        public override DateTimeOffset ExpiresAt => new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        public ExpiredFeatureFlags() : base(null) { }
     }
 }
 
-public class EntitlementsRegistryTests : IDisposable
+public class EntitlementsRegistryTests
 {
-    private readonly List<Entitlements> _createdEntitlements = new();
-
     [Fact]
-    public void Register_AddsToRegistry()
+    public void RegisterDescriptor_AddsToRegistry()
     {
         var registry = new EntitlementsRegistry();
-        var entitlements = CreateEntitlements<TestEntitlements>();
+        var descriptor = MakeEntitlementDescriptor(typeof(TestEntitlements));
 
-        registry.Register(entitlements);
+        registry.RegisterDescriptor(descriptor);
 
-        Assert.Single(registry.GetAll());
-        Assert.Contains(entitlements, registry.GetAll());
+        Assert.Single(registry.GetDescriptors());
+        Assert.Contains(descriptor, registry.GetDescriptors());
     }
 
     [Fact]
-    public void Register_WithNull_ThrowsArgumentNullException()
+    public void RegisterDescriptor_WithNull_ThrowsArgumentNullException()
     {
         var registry = new EntitlementsRegistry();
 
-        Assert.Throws<ArgumentNullException>(() => registry.Register(null!));
+        Assert.Throws<ArgumentNullException>(() => registry.RegisterDescriptor(null!));
     }
 
     [Fact]
-    public void Register_SameTypeTwice_ReplacesInstance()
+    public void RegisterDescriptor_SameTypeTwice_ReplacesDescriptor()
     {
         var registry = new EntitlementsRegistry();
-        var e1 = CreateEntitlements<TestEntitlements>();
-        var e2 = CreateEntitlements<TestEntitlements>();
+        var d1 = MakeEntitlementDescriptor(typeof(TestEntitlements));
+        var d2 = MakeEntitlementDescriptor(typeof(TestEntitlements));
 
-        registry.Register(e1);
-        registry.Register(e2);
+        registry.RegisterDescriptor(d1);
+        registry.RegisterDescriptor(d2);
 
-        Assert.Single(registry.GetAll());
-        Assert.Same(e2, registry.Find<TestEntitlements>());
+        Assert.Single(registry.GetDescriptors());
+        Assert.Same(d2, registry.GetDescriptors().First());
     }
 
     [Fact]
-    public void Unregister_RemovesFromRegistry()
+    public void GetDescriptors_ReturnsAllRegistered()
     {
         var registry = new EntitlementsRegistry();
-        var entitlements = CreateEntitlements<TestEntitlements>();
-        registry.Register(entitlements);
+        var d1 = MakeEntitlementDescriptor(typeof(TestEntitlements));
+        var d2 = MakeEntitlementDescriptor(typeof(AnotherEntitlements));
 
-        var result = registry.Unregister(entitlements);
+        registry.RegisterDescriptor(d1);
+        registry.RegisterDescriptor(d2);
 
-        Assert.True(result);
-        Assert.Empty(registry.GetAll());
-    }
-
-    [Fact]
-    public void GetAll_ReturnsAllRegistered()
-    {
-        var registry = new EntitlementsRegistry();
-        var e1 = CreateEntitlements<TestEntitlements>();
-        var e2 = CreateEntitlements<AnotherEntitlements>();
-
-        registry.Register(e1);
-        registry.Register(e2);
-
-        var all = registry.GetAll();
+        var all = registry.GetDescriptors();
 
         Assert.Equal(2, all.Count);
-        Assert.Contains(e1, all);
-        Assert.Contains(e2, all);
+        Assert.Contains(d1, all);
+        Assert.Contains(d2, all);
     }
 
-    [Fact]
-    public void Find_ReturnsTypedInstance()
-    {
-        var registry = new EntitlementsRegistry();
-        var entitlements = CreateEntitlements<TestEntitlements>();
-        registry.Register(entitlements);
+    private static EntitlementClassDescriptor MakeEntitlementDescriptor(Type type)
+        => new(type, []);
 
-        var result = registry.Find<TestEntitlements>();
-
-        Assert.Same(entitlements, result);
-    }
-
-    [Fact]
-    public void Find_NotRegistered_ReturnsNull()
-    {
-        var registry = new EntitlementsRegistry();
-
-        var result = registry.Find<TestEntitlements>();
-
-        Assert.Null(result);
-    }
-
-    private T CreateEntitlements<T>() where T : Entitlements, new()
-    {
-        var entitlements = new T();
-        _createdEntitlements.Add(entitlements);
-        return entitlements;
-    }
-
-    public void Dispose()
-    {
-        foreach (var entitlements in _createdEntitlements)
-        {
-            entitlements.Dispose();
-        }
-    }
-
-    private class TestEntitlements : Entitlements
-    {
-        public TestEntitlements() : base(null) { }
-    }
-
-    private class AnotherEntitlements : Entitlements
-    {
-        public AnotherEntitlements() : base(null) { }
-    }
+    private class TestEntitlements : Entitlements { }
+    private class AnotherEntitlements : Entitlements { }
 }

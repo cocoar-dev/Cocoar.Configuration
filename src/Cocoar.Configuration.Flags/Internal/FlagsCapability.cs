@@ -4,7 +4,8 @@ namespace Cocoar.Configuration.Flags.Internal;
 
 /// <summary>
 /// Capability stored on the ConfigManager's capability scope by <c>UseFeatureFlags</c>.
-/// Read by the DI emitter to register <see cref="IFeatureFlagsRegistry"/> and each flag class.
+/// Read by the DI emitter to register <see cref="IFeatureFlagsRegistry"/> and each flag class
+/// with their specified per-type lifetimes.
 /// </summary>
 internal sealed class FlagsCapability : IPrimaryCapability
 {
@@ -12,7 +13,7 @@ internal sealed class FlagsCapability : IPrimaryCapability
     internal static readonly FlagsCapabilityKey ScopeKey = new();
 
     public required FeatureFlagsRegistry Registry { get; init; }
-    public required IReadOnlyList<Type> Types { get; init; }
+    public required IReadOnlyList<FlagRegistration> Registrations { get; init; }
 }
 
 /// <summary>Unique key type for locating <see cref="FlagsCapability"/> on the scope.</summary>

@@ -2,17 +2,42 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>Feature Flags and Entitlements for Cocoar.Configuration. Provides delegate-based flags with metadata via Capabilities. Base classes for temporary feature flags (with expiration) and permanent entitlements. Reactive, type-safe, and designed for clean separation of technical vs business decisions.</Description>
-    <PackageTags>configuration;feature-flags;entitlements;flags;reactive;dotnet;strongly-typed;feature-toggles;capabilities</PackageTags>
+    <Description>Feature Flags and Entitlements for Cocoar.Configuration. Provides delegate-based flags with metadata via Capabilities. Base classes for temporary feature flags (with expiration) and permanent entitlements. Reactive, type-safe, and designed for clean separation of technical vs business decisions. Includes a Roslyn source generator that emits descriptor-based registry population at compile time.</Description>
+    <PackageTags>configuration;feature-flags;entitlements;flags;reactive;dotnet;strongly-typed;feature-toggles;capabilities;source-generator</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Cocoar.Configuration.Abstractions\Cocoar.Configuration.Abstractions.csproj" />
     <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+    <!-- Build dependency only — the generator DLL is bundled into this package's analyzers/dotnet/cs/ folder -->
+    <ProjectReference Include="..\Cocoar.Configuration.Flags.Generator\Cocoar.Configuration.Flags.Generator.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Cocoar.Capabilities" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
+
+
+  <!--
+    Bundle the source generator into this package's analyzers/dotnet/cs/ folder.
+    NuGet consumers get the generator automatically when they install Cocoar.Configuration.Flags —
+    no separate package install or OutputItemType="Analyzer" reference needed.
+  -->
+  <Target Name="IncludeGeneratorInPackage" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\Cocoar.Configuration.Flags.Generator\Cocoar.Configuration.Flags.Generator.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_FlagsGeneratorDll" />
+    </MSBuild>
+    <ItemGroup>
+      <None Include="@(_FlagsGeneratorDll)"
+            Pack="true"
+            PackagePath="analyzers/dotnet/cs"
+            Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>

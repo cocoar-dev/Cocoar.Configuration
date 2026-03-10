@@ -41,8 +41,8 @@ internal static class ServiceDescriptorEmitter
             return;
 
         services.AddSingleton<IFeatureFlagsRegistry>(capability.Registry);
-        foreach (var type in capability.Types)
-            services.AddSingleton(type);
+        foreach (var r in capability.Registrations)
+            services.Add(new ServiceDescriptor(r.Descriptor.Type, r.Descriptor.Type, r.Lifetime));
     }
 
     private static void EmitEntitlementsServices(IServiceCollection services, ConfigManager configManager)
@@ -53,8 +53,8 @@ internal static class ServiceDescriptorEmitter
             return;
 
         services.AddSingleton<IEntitlementsRegistry>(capability.Registry);
-        foreach (var type in capability.Types)
-            services.AddSingleton(type);
+        foreach (var r in capability.Registrations)
+            services.Add(new ServiceDescriptor(r.Descriptor.Type, r.Descriptor.Type, r.Lifetime));
     }
 
     private static void EmitConfigService(

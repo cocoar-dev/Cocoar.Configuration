@@ -150,38 +150,6 @@ public class ReactiveIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void FeatureFlags_WithRegistry_AutoRegisters()
-    {
-        // Arrange
-        var config = Substitute.For<IReactiveConfig<BillingConfig>>();
-        config.CurrentValue.Returns(new BillingConfig());
-        var registry = new FeatureFlagsRegistry();
-
-        // Act
-        var flags = Track(new BillingFeatureFlags(config, registry));
-
-        // Assert
-        Assert.Single(registry.GetAll());
-        Assert.Same(flags, registry.Find<BillingFeatureFlags>());
-    }
-
-    [Fact]
-    public void Entitlements_WithRegistry_AutoRegisters()
-    {
-        // Arrange
-        var config = Substitute.For<IReactiveConfig<PlanConfig>>();
-        config.CurrentValue.Returns(new PlanConfig());
-        var registry = new EntitlementsRegistry();
-
-        // Act
-        var entitlements = Track(new PlanEntitlements(config, registry));
-
-        // Assert
-        Assert.Single(registry.GetAll());
-        Assert.Same(entitlements, registry.Find<PlanEntitlements>());
-    }
-
-    [Fact]
     public void FeatureFlags_CanUseWithEntitlements_ForCompositeCheck()
     {
         // Arrange
@@ -315,9 +283,7 @@ public class ReactiveIntegrationTests : IDisposable
         public Flag<int> FlowVersion { get; }
         public Flag<UserContext, bool> EnabledForUser { get; }
 
-        public BillingFeatureFlags(
-            IReactiveConfig<BillingConfig> config,
-            IFeatureFlagsRegistry? registry = null) : base(registry)
+        public BillingFeatureFlags(IReactiveConfig<BillingConfig> config)
         {
             _config = config;
 
@@ -352,9 +318,7 @@ public class ReactiveIntegrationTests : IDisposable
         public Entitlement<int> MaxUsers { get; }
         public Entitlement<TenantContext, bool> HasFeature { get; }
 
-        public PlanEntitlements(
-            IReactiveConfig<PlanConfig> config,
-            IEntitlementsRegistry? registry = null) : base(registry)
+        public PlanEntitlements(IReactiveConfig<PlanConfig> config)
         {
             _config = config;
 

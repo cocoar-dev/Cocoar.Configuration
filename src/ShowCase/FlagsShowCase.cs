@@ -48,9 +48,7 @@ public class AppFeatureFlags : FeatureFlags
     /// <summary>Enables the beta checkout flow. Expires sooner than the class.</summary>
     public Flag<bool> BetaCheckoutEnabled { get; }
 
-    public AppFeatureFlags(
-        IReactiveConfig<FeatureConfig> config,
-        IFeatureFlagsRegistry? registry = null) : base(registry)
+    public AppFeatureFlags(IReactiveConfig<FeatureConfig> config)
     {
         _config = config;
 
@@ -87,9 +85,7 @@ public class AppPlanEntitlements : Entitlements
     /// <summary>Whether the current plan permits data export.</summary>
     public Entitlement<bool> CanExportData { get; }
 
-    public AppPlanEntitlements(
-        IReactiveConfig<PlanConfig> config,
-        IEntitlementsRegistry? registry = null) : base(registry)
+    public AppPlanEntitlements(IReactiveConfig<PlanConfig> config)
     {
         _config = config;
 

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <!-- IsRoslynComponent handles DLL placement; DevelopmentDependency prevents runtime dep -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- Required for analyzer projects to satisfy RS1036 -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- Generators don't need symbols -->
+    <IncludeSymbols>false</IncludeSymbols>
+    <!-- GenerateDocumentationFile from Directory.Build.props is fine -->
+  </PropertyGroup>
+
+  <!-- Analyzer release tracking files to satisfy RS2008 -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

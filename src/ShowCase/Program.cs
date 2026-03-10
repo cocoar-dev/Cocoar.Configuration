@@ -2,6 +2,7 @@ using System.Net;
 using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Providers;
+using Cocoar.Configuration.Secrets;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ShowCase;
@@ -37,10 +38,8 @@ public class Program
             ])
             .UseSecretsSetup(secrets => secrets
                 .UseCertificatesFromFolder("certs"))
-            .UseFeatureFlags(flags => flags
-                .Register<AppFeatureFlags>())
-            .UseEntitlements(e => e
-                .Register<AppPlanEntitlements>()));
+            .UseFeatureFlags(f => f.Register<AppFeatureFlags>())
+            .UseEntitlements(e => e.Register<AppPlanEntitlements>()));
 
         var app = builder.Build();
 
@@ -106,19 +105,19 @@ public class Program
                 ? "✅ Export started"
                 : "⛔ Export not available on your current plan (upgrade to Pro)");
 
-        // Registry overview — all registered flags classes and their expiry state
+        // Registry overview — all registered flag descriptors and their expiry state
         app.MapGet("/flags/registry", (IFeatureFlagsRegistry registry) =>
-            registry.GetAll().Select(f => new
+            registry.GetDescriptors().Select(d => new
             {
-                Type      = f.GetType().Name,
-                ExpiresAt = f.ExpiresAt,
-                IsExpired = f.IsExpired,
-                Flags     = f.GetAllMetadata().Select(m => new
+                Type      = d.Type.Name,
+                ExpiresAt = d.ExpiresAt,
+                IsExpired = d.IsExpired,
+                Flags     = d.Flags.Select(f => new
                 {
-                    m.Name,
-                    m.ExpiresAt,
-                    m.IsExpired,
-                    m.Description
+                    f.Name,
+                    f.ExpiresAt,
+                    f.IsExpired,
+                    f.Description
                 })
             }));
 
