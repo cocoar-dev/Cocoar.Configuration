@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+        <ProjectReference Include="..\Cocoar.Configuration.Flags\Cocoar.Configuration.Flags.csproj" />
     </ItemGroup>
 
     <ItemGroup>

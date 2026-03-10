@@ -7,6 +7,7 @@
     <Project Path="tests/Cocoar.Configuration.Analyzers.Tests/Cocoar.Configuration.Analyzers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Core.Tests/Cocoar.Configuration.Core.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.DI.Tests/Cocoar.Configuration.DI.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.Flags.Tests/Cocoar.Configuration.Flags.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Secrets.Tests/Cocoar.Configuration.Secrets.Tests.csproj" />
   </Folder>
@@ -31,6 +32,7 @@
   <Project Path="Cocoar.Configuration.Analyzers/Cocoar.Configuration.Analyzers.csproj" />
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
   <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />
+  <Project Path="Cocoar.Configuration.Flags/Cocoar.Configuration.Flags.csproj" />
   <Project Path="Cocoar.Configuration.HttpPolling/Cocoar.Configuration.HttpPolling.csproj" />
   <Project Path="Cocoar.Configuration.MicrosoftAdapter/Cocoar.Configuration.MicrosoftAdapter.csproj" />
   <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />

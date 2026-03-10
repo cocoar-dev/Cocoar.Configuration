@@ -154,13 +154,15 @@ public sealed class ConfigHealthSnapshot(
     long id,
     DateTime timestampUtc,
     long configVersion,
-    IReadOnlyList<RuleHealthEntry> rules)
+    IReadOnlyList<RuleHealthEntry> rules,
+    IReadOnlyList<FlagClassHealthEntry>? expiredFeatureFlags = null)
 {
     public long Id { get; } = id;
     public DateTime TimestampUtc { get; } = timestampUtc;
     public long ConfigVersion { get; } = configVersion;
-    public HealthStatus OverallStatus { get; } = DeriveStatus(rules);
+    public HealthStatus OverallStatus { get; } = DeriveStatus(rules, expiredFeatureFlags ?? []);
     public IReadOnlyList<RuleHealthEntry> Rules { get; } = rules;
+    public IReadOnlyList<FlagClassHealthEntry> ExpiredFeatureFlags { get; } = expiredFeatureFlags ?? [];
     public SummaryInfo Summary { get; } = BuildSummary(rules);
 
     public sealed class SummaryInfo(int total, int requiredFailed, int optionalFailed, int skipped, int deserializationFailures)
@@ -186,9 +188,11 @@ public sealed class ConfigHealthSnapshot(
         return new(total, requiredFailed, optionalFailed, skipped, deserializationFailures);
     }
 
-    private static HealthStatus DeriveStatus(IReadOnlyList<RuleHealthEntry> rules)
+    private static HealthStatus DeriveStatus(
+        IReadOnlyList<RuleHealthEntry> rules,
+        IReadOnlyList<FlagClassHealthEntry> expiredFlags)
     {
-        if (rules.Count == 0)
+        if (rules.Count == 0 && expiredFlags.Count == 0)
         {
             return HealthStatus.Unknown;
         }
@@ -233,8 +237,8 @@ public sealed class ConfigHealthSnapshot(
             return HealthStatus.Unhealthy;
         }
 
-        // Deserialization failures cause Degraded status
-        if (anyDeserializationFailure || anyOptionalDown)
+        // Deserialization failures, optional rule failures, or expired flags all cause Degraded
+        if (anyDeserializationFailure || anyOptionalDown || expiredFlags.Count > 0)
         {
             return HealthStatus.Degraded;
         }
@@ -294,7 +298,8 @@ internal sealed class ConfigurationHealthService(ConfigHealthSnapshot initial)
 
         if (current.OverallStatus == snapshot.OverallStatus && current.ConfigVersion == snapshot.ConfigVersion)
         {
-            var same = current.Rules.Count == snapshot.Rules.Count;
+            var same = current.Rules.Count == snapshot.Rules.Count
+                && current.ExpiredFeatureFlags.Count == snapshot.ExpiredFeatureFlags.Count;
             if (same)
             {
                 for (var i = 0; i < current.Rules.Count; i++)

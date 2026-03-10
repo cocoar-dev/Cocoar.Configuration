@@ -1,0 +1,12 @@
+@code {
+    [Parameter] public bool IsExpired { get; set; }
+}
+
+@if (IsExpired)
+{
+    <span class="badge badge-required">Expired</span>
+}
+else
+{
+    <span class="badge badge-optional">Active</span>
+}

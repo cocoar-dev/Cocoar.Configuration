@@ -76,7 +76,8 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         Func<SetupBuilder, SetupDefinition[]>? setup = null,
         ILogger? logger = null,
         Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null,
-        int debounceMilliseconds = 300)
+        int debounceMilliseconds = 300,
+        IFlagsHealthSource? flagsHealthSource = null)
     {
         // Apply test configuration overrides if present
         _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
@@ -88,7 +89,7 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
-        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
+        _state = new ConfigurationState(_ruleManagers, _rules, _logger, flagsHealthSource);
         _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
         _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
 

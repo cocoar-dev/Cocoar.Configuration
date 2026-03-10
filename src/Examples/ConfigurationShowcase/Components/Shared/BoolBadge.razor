@@ -1,0 +1,12 @@
+@code {
+    [Parameter] public bool Value { get; set; }
+}
+
+@if (Value)
+{
+    <span class="badge badge-optional">true</span>
+}
+else
+{
+    <span class="badge">false</span>
+}

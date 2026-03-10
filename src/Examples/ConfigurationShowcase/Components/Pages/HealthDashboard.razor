@@ -75,6 +75,24 @@
     </div>
 }
 
+@if (snapshot.ExpiredFeatureFlags.Any())
+{
+    <div class="card" style="margin-top: 1rem; border-color: var(--warning);">
+        <h3 style="color: var(--warning); margin-bottom: 0.5rem;">⚠️ Expired Feature Flags</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+            Health is <strong>Degraded</strong> while expired flag classes remain in code.
+            Visit the <a href="flags">Flags &amp; Entitlements</a> page for details.
+        </p>
+        @foreach (var entry in snapshot.ExpiredFeatureFlags)
+        {
+            <p>
+                <strong>@entry.TypeName</strong> — expired @entry.ExpiresAt.ToString("yyyy-MM-dd")
+                <span style="color: var(--text-secondary);">(@entry.ExpiredFlags/@entry.TotalFlags flags past deadline)</span>
+            </p>
+        }
+    </div>
+}
+
 @code {
     private ConfigHealthSnapshot snapshot = default!;
     private IDisposable? sub;

@@ -11,13 +11,16 @@ internal sealed class ConfigurationHealthReporter : IDisposable
 {
     private readonly List<RuleManager> _ruleManagers;
     private readonly ConfigurationHealthService _healthService;
+    private readonly IFlagsHealthSource? _flagsHealthSource;
     private long _healthSequence;
 
     public ConfigurationHealthReporter(
         List<RuleManager> ruleManagers,
-        List<ConfigRule> rules)
+        List<ConfigRule> rules,
+        IFlagsHealthSource? flagsHealthSource = null)
     {
         _ruleManagers = ruleManagers;
+        _flagsHealthSource = flagsHealthSource;
 
         var initialEntries = rules.Select((r, i) => new RuleHealthEntry(
             index: i,
@@ -99,7 +102,8 @@ internal sealed class ConfigurationHealthReporter : IDisposable
 
     private void PublishHealthSnapshot(List<RuleHealthEntry> entries, long configVersion)
     {
-        var snapshot = new ConfigHealthSnapshot(++_healthSequence, DateTime.UtcNow, configVersion, entries);
+        var expiredFlags = _flagsHealthSource?.GetExpiredFeatureFlags();
+        var snapshot = new ConfigHealthSnapshot(++_healthSequence, DateTime.UtcNow, configVersion, entries, expiredFlags);
         _healthService.Publish(snapshot);
     }
 

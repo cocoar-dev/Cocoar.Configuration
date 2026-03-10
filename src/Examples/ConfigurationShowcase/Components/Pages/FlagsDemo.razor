@@ -1,0 +1,201 @@
+@page "/flags"
+@implements IDisposable
+@inject AppFeatureFlags Flags
+@inject AppPlanEntitlements Entitlements
+@inject IFeatureFlagsRegistry FlagsRegistry
+@inject IEntitlementsRegistry EntitlementsRegistry
+@inject IConfigurationHealthService HealthService
+
+<h1>Flags &amp; Entitlements</h1>
+<p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+    Feature flags and plan entitlements evaluated from live reactive config.
+    Edit the static JSON values in <code>Program.cs</code> to see them react.
+</p>
+
+@* ── Feature flags ──────────────────────────────────────────────────────────── *@
+
+<div class="card" style="margin-bottom: 1rem;">
+    <h3 style="margin-bottom: 0.25rem;">Feature Flags — <code>AppFeatureFlags</code></h3>
+    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+        Temporary. Class expires <strong>@Flags.ExpiresAt.ToString("yyyy-MM-dd")</strong>.
+        <span style="margin-left: 0.5rem;"><HealthStatusBadge Status="@(snapshot.ExpiredFeatureFlags.Any() ? Cocoar.Configuration.Health.HealthStatus.Degraded : Cocoar.Configuration.Health.HealthStatus.Healthy)" /></span>
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Flag</th>
+                <th>Value</th>
+                <th>Expires</th>
+                <th>Expired?</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="@(Flags.GetMetadata(Flags.NewDashboardEnabled)?.IsExpired == true ? "color: var(--warning);" : "")">
+                <td><strong>NewDashboardEnabled</strong></td>
+                <td><BoolBadge Value="@Flags.NewDashboardEnabled()" /></td>
+                <td>@Flags.GetMetadata(Flags.NewDashboardEnabled)?.ExpiresAt.ToString("yyyy-MM-dd")</td>
+                <td><ExpiredBadge IsExpired="@(Flags.GetMetadata(Flags.NewDashboardEnabled)?.IsExpired == true)" /></td>
+                <td style="color: var(--text-secondary);">@Flags.GetMetadata(Flags.NewDashboardEnabled)?.Description</td>
+            </tr>
+            <tr style="@(Flags.GetMetadata(Flags.BetaCheckoutEnabled)?.IsExpired == true ? "color: var(--warning);" : "")">
+                <td><strong>BetaCheckoutEnabled</strong></td>
+                <td><BoolBadge Value="@Flags.BetaCheckoutEnabled()" /></td>
+                <td>@Flags.GetMetadata(Flags.BetaCheckoutEnabled)?.ExpiresAt.ToString("yyyy-MM-dd")</td>
+                <td><ExpiredBadge IsExpired="@(Flags.GetMetadata(Flags.BetaCheckoutEnabled)?.IsExpired == true)" /></td>
+                <td style="color: var(--text-secondary);">@Flags.GetMetadata(Flags.BetaCheckoutEnabled)?.Description</td>
+            </tr>
+            <tr style="@(Flags.GetMetadata(Flags.AdvancedAnalyticsEnabled)?.IsExpired == true ? "color: var(--warning);" : "")">
+                <td><strong>AdvancedAnalyticsEnabled</strong></td>
+                <td><BoolBadge Value="@Flags.AdvancedAnalyticsEnabled()" /></td>
+                <td>@Flags.GetMetadata(Flags.AdvancedAnalyticsEnabled)?.ExpiresAt.ToString("yyyy-MM-dd")</td>
+                <td><ExpiredBadge IsExpired="@(Flags.GetMetadata(Flags.AdvancedAnalyticsEnabled)?.IsExpired == true)" /></td>
+                <td style="color: var(--text-secondary);">@Flags.GetMetadata(Flags.AdvancedAnalyticsEnabled)?.Description</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+@* ── Entitlements ───────────────────────────────────────────────────────────── *@
+
+<div class="card" style="margin-bottom: 1rem;">
+    <h3 style="margin-bottom: 0.25rem;">Entitlements — <code>AppPlanEntitlements</code></h3>
+    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+        Permanent. No expiry — these reflect business rules that live as long as the plan tiers do.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Entitlement</th>
+                <th>Value</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>MaxApiCallsPerMinute</strong></td>
+                <td><code>@Entitlements.MaxApiCallsPerMinute()</code></td>
+                <td style="color: var(--text-secondary);">@Entitlements.GetMetadata(Entitlements.MaxApiCallsPerMinute)?.Description</td>
+            </tr>
+            <tr>
+                <td><strong>CanExportData</strong></td>
+                <td><BoolBadge Value="@Entitlements.CanExportData()" /></td>
+                <td style="color: var(--text-secondary);">@Entitlements.GetMetadata(Entitlements.CanExportData)?.Description</td>
+            </tr>
+            <tr>
+                <td><strong>MaxTeamMembers</strong></td>
+                <td><code>@Entitlements.MaxTeamMembers()</code></td>
+                <td style="color: var(--text-secondary);">@Entitlements.GetMetadata(Entitlements.MaxTeamMembers)?.Description</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+@* ── Simulated gates ────────────────────────────────────────────────────────── *@
+
+<div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Checkout Path</h3>
+        <p style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+            Driven by <code>BetaCheckoutEnabled</code>
+        </p>
+        @if (Flags.BetaCheckoutEnabled())
+        {
+            <span class="badge badge-optional">🚀 Beta checkout flow active</span>
+        }
+        else
+        {
+            <span class="badge">Standard checkout flow</span>
+        }
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Data Export</h3>
+        <p style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+            Driven by <code>CanExportData</code> entitlement
+        </p>
+        @if (Entitlements.CanExportData())
+        {
+            <span class="badge badge-optional">✅ Export available on this plan</span>
+        }
+        else
+        {
+            <span class="badge badge-required">⛔ Export not available — upgrade to Pro</span>
+        }
+    </div>
+</div>
+
+@* ── Registry overview ──────────────────────────────────────────────────────── *@
+
+<div class="grid-2" style="margin-bottom: 1rem;">
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Flags Registry</h3>
+        @foreach (var fc in FlagsRegistry.GetAll())
+        {
+            <div style="margin-bottom: 0.5rem;">
+                <code>@fc.GetType().Name</code>
+                @if (fc.IsExpired)
+                {
+                    <span class="badge badge-required" style="margin-left: 0.5rem;">Class expired</span>
+                }
+                else
+                {
+                    <span class="badge badge-optional" style="margin-left: 0.5rem;">Active</span>
+                }
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                    @fc.GetAllMetadata().Count() flags · @fc.GetExpiredFlags().Count() expired
+                </div>
+            </div>
+        }
+    </div>
+    <div class="card">
+        <h3 style="margin-bottom: 0.75rem;">Entitlements Registry</h3>
+        @foreach (var ec in EntitlementsRegistry.GetAll())
+        {
+            <div style="margin-bottom: 0.5rem;">
+                <code>@ec.GetType().Name</code>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                    @ec.GetAllMetadata().Count() entitlements · no expiry
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* ── Expired flags health ───────────────────────────────────────────────────── *@
+
+@if (snapshot.ExpiredFeatureFlags.Any())
+{
+    <div class="card" style="border-color: var(--warning);">
+        <h3 style="color: var(--warning); margin-bottom: 0.5rem;">⚠️ Expired Feature Flags — Action Required</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+            These flag classes have passed their expiry date. Flags still work, but the health status is
+            <strong>Degraded</strong> until the dead code is removed.
+        </p>
+        @foreach (var entry in snapshot.ExpiredFeatureFlags)
+        {
+            <div style="margin-bottom: 0.5rem;">
+                <strong>@entry.TypeName</strong> — expired <strong>@entry.ExpiresAt.ToString("yyyy-MM-dd")</strong>
+                <span style="color: var(--text-secondary); font-size: 0.85rem; margin-left: 0.5rem;">
+                    (@entry.ExpiredFlags / @entry.TotalFlags flags past deadline)
+                </span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private ConfigHealthSnapshot snapshot = default!;
+    private IDisposable? sub;
+
+    protected override void OnInitialized()
+    {
+        snapshot = HealthService.Snapshot;
+        sub = HealthService.SnapshotStream.Subscribe(s =>
+        {
+            snapshot = s;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose() => sub?.Dispose();
+}

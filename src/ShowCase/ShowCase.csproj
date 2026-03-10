@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Cocoar.Configuration.AspNetCore\Cocoar.Configuration.AspNetCore.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration.Flags\Cocoar.Configuration.Flags.csproj" />
     <ProjectReference Include="..\Cocoar.Configuration.Secrets\Cocoar.Configuration.Secrets.csproj" />
   </ItemGroup>
 

@@ -1,5 +1,6 @@
 using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Reactive;
 using Cocoar.Configuration.Secrets;
@@ -61,7 +62,32 @@ builder.AddCocoarConfiguration(c => c
                 {
                     var app = accessor.GetConfig<AppSettings>();
                     return app.EnableDetailedErrors;
-                })
+                }),
+
+            // --- Feature flags config ---
+            // Flip NewDashboard / BetaCheckout / AdvancedAnalytics to see flags react
+            rule.For<FeatureConfig>()
+                .FromStaticJson("""
+                {
+                    "NewDashboard": false,
+                    "BetaCheckout": true,
+                    "AdvancedAnalytics": false
+                }
+                """)
+                .Named("FeatureConfig (static)"),
+
+            // --- Plan entitlements config ---
+            // Change Plan / CanExportData / MaxApiCallsPerMinute / MaxTeamMembers
+            rule.For<PlanConfig>()
+                .FromStaticJson("""
+                {
+                    "Plan": "starter",
+                    "MaxApiCallsPerMinute": 100,
+                    "CanExportData": false,
+                    "MaxTeamMembers": 5
+                }
+                """)
+                .Named("PlanConfig (static)")
         ],
         setup: setup =>
         [
@@ -73,6 +99,10 @@ builder.AddCocoarConfiguration(c => c
             setup.Interface<INotificationSettings>().DeserializeTo<NotificationSettings>()
         ])
     .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+    .UseFeatureFlags(flags => flags
+        .Register<AppFeatureFlags>())
+    .UseEntitlements(e => e
+        .Register<AppPlanEntitlements>())
     .UseDebounce(500));
 
 // Register tuple reactive config for the Reactive Demo page

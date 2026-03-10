@@ -19,7 +19,7 @@ public static class CocoarConfigurationExtensions
 
         // Build registration plan and apply it
         var plan = ServiceRegistrationPlanner.CreatePlan(configManager);
-        ServiceDescriptorEmitter.Emit(services, plan);
+        ServiceDescriptorEmitter.Emit(services, plan, configManager);
 
         return services;
     }

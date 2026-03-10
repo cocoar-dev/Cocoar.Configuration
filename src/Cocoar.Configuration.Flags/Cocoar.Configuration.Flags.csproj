@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Feature Flags and Entitlements for Cocoar.Configuration. Provides delegate-based flags with metadata via Capabilities. Base classes for temporary feature flags (with expiration) and permanent entitlements. Reactive, type-safe, and designed for clean separation of technical vs business decisions.</Description>
+    <PackageTags>configuration;feature-flags;entitlements;flags;reactive;dotnet;strongly-typed;feature-toggles;capabilities</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cocoar.Configuration.Abstractions\Cocoar.Configuration.Abstractions.csproj" />
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cocoar.Capabilities" />
+  </ItemGroup>
+
+</Project>

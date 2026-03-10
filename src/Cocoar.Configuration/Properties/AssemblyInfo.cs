@@ -6,6 +6,8 @@ using Cocoar.Configuration.Reactive;
 [assembly: InternalsVisibleTo("Cocoar.Configuration.Core.Tests")]
 [assembly: InternalsVisibleTo("Cocoar.Configuration.DI")]
 [assembly: InternalsVisibleTo("Cocoar.Configuration.Secrets")]
+[assembly: InternalsVisibleTo("Cocoar.Configuration.Flags")]
+[assembly: InternalsVisibleTo("Cocoar.Configuration.Flags.Tests")]
 
 // Type forwarding for types moved to Cocoar.Configuration.Abstractions
 [assembly: TypeForwardedTo(typeof(IConfigurationAccessor))]
