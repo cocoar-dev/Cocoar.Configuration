@@ -28,7 +28,7 @@ Then configure the manager:
 ```csharp
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
-        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.dev.json"))
+        rule.For<AppConfig>().FromFile("appsettings.dev.json")
     ])
     .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("certs/dev.pfx")
@@ -40,7 +40,7 @@ var manager = ConfigManager.Create(c => c
 ```csharp
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
-        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.prod.json"))
+        rule.For<AppConfig>().FromFile("appsettings.prod.json")
     ])
     // Folder-based with automatic rotation
     // Uses kid-based folders: C:\certs\prod\production-secrets\*.pfx
@@ -54,7 +54,7 @@ var manager = ConfigManager.Create(c => c
 ```csharp
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
-        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
+        rule.For<AppConfig>().FromFile("appsettings.json")
     ])
     // Critical secrets - no cache, load fresh every time
     .UseSecretsSetup(secrets => secrets

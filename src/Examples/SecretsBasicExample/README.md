@@ -21,7 +21,7 @@ dotnet run --project Examples\SecretsBasicExample\SecretsBasicExample.csproj
 ```csharp
 var manager = ConfigManager.Create(c => c
     .UseConfiguration(rule => [
-        rule.For<AppConfig>().FromFile(_ => FileSourceRuleOptions.FromFilePath("appsettings.json"))
+        rule.For<AppConfig>().FromFile("appsettings.json")
     ])
     .UseSecretsSetup(secrets => secrets
         .UseCertificateFromFile("secrets.pfx")  // Password-less certificate

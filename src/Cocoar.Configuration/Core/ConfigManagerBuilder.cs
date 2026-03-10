@@ -63,6 +63,13 @@ public sealed class ConfigManagerBuilder
         return this;
     }
 
+    /// <summary>
+    /// Configures the rules using a pre-built collection of <see cref="ConfigRule"/> instances.
+    /// Use this overload when rules are constructed programmatically rather than via the fluent builder.
+    /// </summary>
+    /// <param name="rules">A pre-built collection of configuration rules.</param>
+    /// <param name="setup">An optional function to configure DI bindings and type exposure.</param>
+    /// <returns>This builder for chaining.</returns>
     public ConfigManagerBuilder UseConfiguration(
         IEnumerable<ConfigRule> rules,
         Func<SetupBuilder, SetupDefinition[]>? setup = null)
@@ -97,6 +104,12 @@ public sealed class ConfigManagerBuilder
         return this;
     }
 
+    /// <summary>
+    /// Overrides the default provider factory used to instantiate configuration providers.
+    /// Intended for testing and advanced scenarios where provider construction needs to be intercepted.
+    /// </summary>
+    /// <param name="factory">A factory function receiving the provider type and its configuration, returning the provider instance.</param>
+    /// <returns>This builder for chaining.</returns>
     public ConfigManagerBuilder UseProviderFactory(
         Func<Type, IProviderConfiguration, ConfigurationProvider> factory)
     {
