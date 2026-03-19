@@ -8,7 +8,7 @@ Feature flags are `partial class` types that implement `IFeatureFlags<TConfig>` 
 public partial class AppFeatureFlags : IFeatureFlags<AppSettings>
 {
     // Required: when should these flags be cleaned up?
-    public override DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>Enables the new onboarding flow.</summary>
     public FeatureFlag<bool> NewOnboarding => () => Config.EnableNewOnboarding;
@@ -60,7 +60,7 @@ A flag class can depend on multiple configuration types using a tuple:
 ```csharp
 public partial class RolloutFlags : IFeatureFlags<(FeatureConfig, TenantConfig)>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>Enables new checkout when both feature and tenant allow it.</summary>
     public FeatureFlag<bool> NewCheckout => () =>
@@ -76,7 +76,7 @@ You can also use named tuple elements for readability:
 ```csharp
 public partial class RolloutFlags : IFeatureFlags<(FeatureConfig Features, TenantConfig Tenant)>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
 
     public FeatureFlag<bool> NewCheckout => () =>
         Config.Features.NewCheckoutEnabled &&
@@ -104,7 +104,7 @@ public FeatureFlag<ExperimentConfig> ExperimentSettings => () => Config.Experime
 Every feature flag class must declare when its flags should be cleaned up:
 
 ```csharp
-public override DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+public DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 ```
 
 This is a **class-level** expiration. A flag class groups flags belonging to one feature — the expiry date applies to the entire feature, not individual flags. When the feature is fully rolled out, the whole class should be removed.

@@ -189,9 +189,9 @@ public class ContextResolverRegistrationTests
 
     internal sealed class NotAResolver { }
 
-    internal sealed class TestContextFlags : FeatureFlags
+    internal sealed class TestContextFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> NoContextFeatureFlag { get; }
         public FeatureFlag<TestContext, bool> ContextFeatureFlag { get; }

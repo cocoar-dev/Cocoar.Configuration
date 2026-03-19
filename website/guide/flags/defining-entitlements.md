@@ -97,13 +97,13 @@ The key difference from feature flags: entitlements have **no expiration**. They
 // Feature flag — temporary, must expire
 public partial class BetaFlags : IFeatureFlags<BetaConfig>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 6, 1, ...);
+    public DateTimeOffset ExpiresAt => new(2026, 6, 1, ...);
 }
 
 // Entitlement — permanent, no expiry
 public partial class PlanEntitlements : IEntitlements<PlanConfig>
 {
-    // No ExpiresAt to override
+    // No ExpiresAt needed
 }
 ```
 

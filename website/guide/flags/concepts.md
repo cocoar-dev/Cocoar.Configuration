@@ -28,7 +28,7 @@ They represent temporary, operational toggles — rollouts, A/B tests, kill swit
 ```csharp
 public partial class BillingFlags : IFeatureFlags<BillingConfig>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>Enables the redesigned billing dashboard.</summary>
     public FeatureFlag<bool> NewDashboard => () => Config.UseNewDashboard;

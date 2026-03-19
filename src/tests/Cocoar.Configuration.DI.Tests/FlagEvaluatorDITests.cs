@@ -462,9 +462,9 @@ public class FlagEvaluatorDITests
         }
     }
 
-    internal sealed class EvalTestFlags : FeatureFlags
+    internal sealed class EvalTestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> DirectFeatureFlag { get; }
         public FeatureFlag<EvalTestContext, bool> ContextualFeatureFlag { get; }
@@ -478,9 +478,9 @@ public class FlagEvaluatorDITests
     }
 
     // E-01: FeatureFlag class whose lambda deliberately throws
-    internal sealed class ThrowingFlags : FeatureFlags
+    internal sealed class ThrowingFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
         public FeatureFlag<EvalTestContext, bool> Boom { get; }
 
         public ThrowingFlags()
@@ -492,9 +492,9 @@ public class FlagEvaluatorDITests
     // G-01: Two nested classes with identical Name for collision testing
     internal class OuterA
     {
-        internal sealed class DuplicateNameFlags : FeatureFlags
+        internal sealed class DuplicateNameFlags
         {
-            public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
             public FeatureFlag<EvalTestContext, bool> ContextualFeatureFlag { get; }
 
             public DuplicateNameFlags()
@@ -506,9 +506,9 @@ public class FlagEvaluatorDITests
 
     internal class OuterB
     {
-        internal sealed class DuplicateNameFlags : FeatureFlags
+        internal sealed class DuplicateNameFlags
         {
-            public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
             public FeatureFlag<EvalTestContext, bool> ContextualFeatureFlag { get; }
 
             public DuplicateNameFlags()
@@ -519,9 +519,9 @@ public class FlagEvaluatorDITests
     }
 
     // G-01: Same Name but only has FeatureFlag<bool> (no contextual), so no collision
-    internal sealed class SameNameNoContextFlags : FeatureFlags
+    internal sealed class SameNameNoContextFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
         public FeatureFlag<bool> DirectOnly { get; }
 
         public SameNameNoContextFlags()
@@ -531,9 +531,9 @@ public class FlagEvaluatorDITests
     }
 
     // T-08: FeatureFlag class with zero FeatureFlag<> properties
-    internal sealed class EmptyFlags : FeatureFlags
+    internal sealed class EmptyFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
         // No FeatureFlag<> properties at all
     }
 }

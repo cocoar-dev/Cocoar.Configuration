@@ -6,8 +6,8 @@
 
 **Feature Flags & Entitlements**
 - Strongly-typed feature flags and entitlements built into the core `Cocoar.Configuration` package
-- `FeatureFlags` base class with `FeatureFlag<T>` properties — bare lambdas directly assignable
-- `Entitlements` base class with `Entitlement<T>` properties
+- `IFeatureFlags<TConfig>` interface with `FeatureFlag<T>` properties — bare lambdas directly assignable
+- `IEntitlements<TConfig>` interface with `Entitlement<T>` properties
 - Fluent registration: `.UseFeatureFlags(f => f.Register<T>())` and `.UseEntitlements(e => e.Register<T>())`
 - `IFeatureFlagsDescriptors` / `IEntitlementsDescriptors` for descriptor metadata
 - Health integration — expired flag classes report `Degraded` automatically

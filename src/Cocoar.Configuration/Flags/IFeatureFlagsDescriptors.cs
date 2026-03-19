@@ -1,7 +1,7 @@
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Read-only catalog of registered <see cref="FeatureFlags"/> classes.
+/// Read-only catalog of registered feature flag classes.
 /// Populated at startup from source-generator output — no runtime reflection required.
 /// </summary>
 /// <remarks>

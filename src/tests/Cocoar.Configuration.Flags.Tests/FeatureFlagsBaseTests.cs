@@ -3,15 +3,6 @@ namespace Cocoar.Configuration.Flags.Tests;
 public class FeatureFlagsBaseTests
 {
     [Fact]
-    public void FeatureFlags_CanBeInherited()
-    {
-        var flags = new TestFeatureFlags();
-
-        Assert.NotNull(flags);
-        Assert.IsAssignableFrom<FeatureFlags>(flags);
-    }
-
-    [Fact]
     public void Constructor_DoesNotThrow()
     {
         var flags = new TestFeatureFlags();
@@ -65,9 +56,10 @@ public class FeatureFlagsBaseTests
 
     #region Test Classes
 
-    private class TestFeatureFlags : FeatureFlags
+    private class TestFeatureFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
 
         public FeatureFlag<bool> EnabledFeatureFlag { get; }
         public FeatureFlag<bool> DisabledFeatureFlag { get; }
@@ -85,14 +77,16 @@ public class FeatureFlagsBaseTests
         }
     }
 
-    private class FutureExpiringFlags : FeatureFlags
+    private class FutureExpiringFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
     }
 
-    private class PastExpiringFlags : FeatureFlags
+    private class PastExpiringFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
     }
 
     #endregion

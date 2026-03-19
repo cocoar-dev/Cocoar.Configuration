@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <IsRoslynComponent>true</IsRoslynComponent>
-    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -37,5 +37,12 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- Pack analyzer DLL into analyzers/dotnet/cs/ folder only (not lib/) -->
+  <ItemGroup>
+    <None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+  </ItemGroup>
 
 </Project>

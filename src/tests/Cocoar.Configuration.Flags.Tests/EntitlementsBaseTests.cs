@@ -3,31 +3,11 @@ namespace Cocoar.Configuration.Flags.Tests;
 public class EntitlementsBaseTests
 {
     [Fact]
-    public void Entitlements_CanBeInherited()
-    {
-        var entitlements = new TestEntitlements();
-
-        Assert.NotNull(entitlements);
-        Assert.IsAssignableFrom<Entitlements>(entitlements);
-    }
-
-    [Fact]
     public void Constructor_DoesNotThrow()
     {
         var entitlements = new TestEntitlements();
 
         Assert.NotNull(entitlements);
-    }
-
-    [Fact]
-    public void Entitlements_HaveNoExpiration()
-    {
-        var type = typeof(Entitlements);
-        var expiresAtProperty = type.GetProperty("ExpiresAt");
-        var isExpiredProperty = type.GetProperty("IsExpired");
-
-        Assert.Null(expiresAtProperty);
-        Assert.Null(isExpiredProperty);
     }
 
     [Fact]
@@ -52,7 +32,7 @@ public class EntitlementsBaseTests
 
     #region Test Classes
 
-    private class TestEntitlements : Entitlements
+    private class TestEntitlements
     {
         private readonly List<string> _enabledFeatures = new() { "export", "reports" };
 

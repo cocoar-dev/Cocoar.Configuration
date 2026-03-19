@@ -20,7 +20,7 @@ The core library. Includes providers, reactive engine, secrets, feature flags, a
 
 - **Target:** .NET 8.0 / .NET 9.0
 - **Dependencies:** Cocoar.Configuration.Abstractions, Cocoar.Configuration.Analyzers (build-time), Cocoar.Capabilities, Cocoar.FileSystem, Cocoar.Json.Mutable, Microsoft.Extensions.Logging.Abstractions
-- **Key types:** `ConfigManager`, `Secret<T>`, `IFeatureFlags<TConfig>`, `IEntitlements<TConfig>`, `FeatureFlags`, `Entitlements`, `FeatureFlag<T>`, `Entitlement<T>`
+- **Key types:** `ConfigManager`, `Secret<T>`, `IFeatureFlags<TConfig>`, `IEntitlements<TConfig>`, `FeatureFlag<T>`, `Entitlement<T>`
 
 ```xml
 <PackageReference Include="Cocoar.Configuration" Version="5.*" />

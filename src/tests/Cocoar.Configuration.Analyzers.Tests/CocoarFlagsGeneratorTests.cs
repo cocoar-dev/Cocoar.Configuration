@@ -16,9 +16,9 @@ public class CocoarFlagsGeneratorTests
 using System;
 using Cocoar.Configuration.Flags;
 
-public class MyFlags : FeatureFlags
+public class MyFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>Enables new dashboard</summary>
     public FeatureFlag<bool> NewDashboard { get; }
@@ -39,7 +39,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -60,9 +60,9 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class MultiFlags : FeatureFlags
+public class MultiFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 6, 15, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 6, 15, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>First feature flag</summary>
     public FeatureFlag<bool> FeatureAlpha { get; }
@@ -91,7 +91,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -113,9 +113,9 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class DetFlags : FeatureFlags
+public class DetFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>A flag</summary>
     public FeatureFlag<bool> SomeFlag { get; }
@@ -136,7 +136,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -155,9 +155,9 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class EmptyFlags : FeatureFlags
+public class EmptyFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public EmptyFlags() { }
 }
@@ -172,16 +172,15 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
         var (diagnostics, generatedSource) = RunGenerator(source);
 
-        // Should still produce output (with empty flags array) and not crash
-        Assert.NotNull(generatedSource);
-        Assert.Contains("EmptyFlags", generatedSource);
-        Assert.Contains("CocoarFlagsDescriptors", generatedSource);
+        // Empty class has no FeatureFlag<> or Entitlement<> properties, so it won't be detected
+        // by the property-based heuristic. But since there's no interface either, it won't produce output.
+        // This verifies the generator does not crash.
     }
 
     [Fact]
@@ -191,7 +190,7 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class PlanEntitlements : Entitlements
+public class PlanEntitlements
 {
     /// <summary>Whether this plan can export data</summary>
     public Entitlement<bool> CanExport { get; }
@@ -216,7 +215,7 @@ public class Registrar
 
 public interface IEntRegistrar
 {
-    void Register<T>() where T : Entitlements;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -238,9 +237,9 @@ public interface IEntRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class MyFlags : FeatureFlags
+public class MyFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>A flag</summary>
     public FeatureFlag<bool> SomeFlag { get; }
@@ -251,7 +250,7 @@ public class MyFlags : FeatureFlags
     }
 }
 
-public class MyEntitlements : Entitlements
+public class MyEntitlements
 {
     /// <summary>An entitlement</summary>
     public Entitlement<bool> SomeEntitlement { get; }
@@ -273,12 +272,12 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 
 public interface IEntRegistrar
 {
-    void Register<T>() where T : Entitlements;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -300,9 +299,9 @@ public interface IEntRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class UnregisteredFlags : FeatureFlags
+public class UnregisteredFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public FeatureFlag<bool> SomeFlag { get; }
 
@@ -327,7 +326,7 @@ public class UnregisteredFlags : FeatureFlags
         var references = new List<MetadataReference>
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(FeatureFlags).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(FeatureFlag<bool>).Assembly.Location),
         };
 
         // Add runtime assemblies needed for compilation

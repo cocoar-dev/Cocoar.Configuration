@@ -17,11 +17,11 @@ public static class ConfigManagerFlagsExtensions
         typeof(ConfigManager).GetMethod(nameof(ConfigManager.GetReactiveConfig))!;
 
     /// <summary>
-    /// Resolves the singleton instance of the specified <see cref="FeatureFlags"/> subclass.
+    /// Resolves the singleton instance of the specified feature flag class.
     /// The instance is constructed once and cached for the lifetime of the manager.
     /// </summary>
-    /// <typeparam name="T">A <see cref="FeatureFlags"/> subclass registered via <c>UseFeatureFlags</c>.</typeparam>
-    public static T GetFeatureFlags<T>(this ConfigManager manager) where T : FeatureFlags
+    /// <typeparam name="T">A feature flag class registered via <c>UseFeatureFlags</c>.</typeparam>
+    public static T GetFeatureFlags<T>(this ConfigManager manager) where T : class
     {
         var setup = manager.FlagsSetup
             ?? throw new InvalidOperationException(
@@ -31,11 +31,11 @@ public static class ConfigManagerFlagsExtensions
     }
 
     /// <summary>
-    /// Resolves the singleton instance of the specified <see cref="Entitlements"/> subclass.
+    /// Resolves the singleton instance of the specified entitlement class.
     /// The instance is constructed once and cached for the lifetime of the manager.
     /// </summary>
-    /// <typeparam name="T">An <see cref="Entitlements"/> subclass registered via <c>UseEntitlements</c>.</typeparam>
-    public static T GetEntitlements<T>(this ConfigManager manager) where T : Entitlements
+    /// <typeparam name="T">An entitlement class registered via <c>UseEntitlements</c>.</typeparam>
+    public static T GetEntitlements<T>(this ConfigManager manager) where T : class
     {
         var setup = manager.EntitlementsSetup
             ?? throw new InvalidOperationException(

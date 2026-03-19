@@ -14,14 +14,15 @@ public partial class GeneratedFlagsTests
     // ──────────────────────────────────────────────
 
     [Fact]
-    public void GeneratedFlags_Compiles_AndIsAssignableToFeatureFlags()
+    public void GeneratedFlags_Compiles_AndHasExpiresAt()
     {
         var reactive = Substitute.For<IReactiveConfig<TestFlagConfig>>();
         reactive.CurrentValue.Returns(new TestFlagConfig());
 
         var flags = new TestGeneratedFlags(reactive);
 
-        Assert.IsAssignableFrom<FeatureFlags>(flags);
+        Assert.NotNull(flags);
+        Assert.Equal(new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero), flags.ExpiresAt);
     }
 
     [Fact]
@@ -72,14 +73,14 @@ public partial class GeneratedFlagsTests
     // ──────────────────────────────────────────────
 
     [Fact]
-    public void GeneratedEntitlements_Compiles_AndIsAssignableToEntitlements()
+    public void GeneratedEntitlements_Compiles_Successfully()
     {
         var reactive = Substitute.For<IReactiveConfig<TestEntitlementConfig>>();
         reactive.CurrentValue.Returns(new TestEntitlementConfig());
 
         var entitlements = new TestGeneratedEntitlements(reactive);
 
-        Assert.IsAssignableFrom<Entitlements>(entitlements);
+        Assert.NotNull(entitlements);
     }
 
     [Fact]
@@ -141,7 +142,7 @@ public partial class GeneratedFlagsTests
 
     public partial class TestGeneratedFlags : IFeatureFlags<TestFlagConfig>
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> IsEnabled => () => Config.Enabled;
         public FeatureFlag<int> MaxItems => () => Config.MaxItems;
@@ -167,9 +168,10 @@ public partial class GeneratedFlagsTests
     // Test classes: old pattern (regression)
     // ──────────────────────────────────────────────
 
-    public class OldStyleFlags : FeatureFlags
+    public class OldStyleFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
 
         public FeatureFlag<bool> IsEnabled { get; }
         public FeatureFlag<int> MaxItems { get; }

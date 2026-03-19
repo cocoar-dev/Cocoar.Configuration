@@ -14,8 +14,6 @@ namespace Cocoar.Configuration.Flags.Generator;
 [Generator]
 public sealed class CocoarFlagsGenerator : IIncrementalGenerator
 {
-    private const string FeatureFlagsBaseTypeFqn = "Cocoar.Configuration.Flags.FeatureFlags";
-    private const string EntitlementsBaseTypeFqn = "Cocoar.Configuration.Flags.Entitlements";
     private const string IFeatureFlagsFqn = "Cocoar.Configuration.Flags.IFeatureFlags";
     private const string IEntitlementsFqn = "Cocoar.Configuration.Flags.IEntitlements";
 
@@ -100,7 +98,7 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
         {
             // Return a ClassInfo with only a diagnostic — no members, no code generation
             return new ClassInfo(
-                isFlags: InheritsFrom(typeSymbol, FeatureFlagsBaseTypeFqn),
+                isFlags: ImplementsInterface(typeSymbol, IFeatureFlagsFqn),
                 fullTypeName: typeSymbol.ToDisplayString(),
                 expiresAt: DateTimeOffset.MinValue,
                 members: new List<MemberInfo>(),
@@ -113,7 +111,7 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
                 });
         }
 
-        if (InheritsFrom(typeSymbol, FeatureFlagsBaseTypeFqn))
+        if (HasFlagProperties(typeSymbol) || ImplementsInterface(typeSymbol, IFeatureFlagsFqn))
         {
             // Iterate ALL partial declarations to collect every FeatureFlag<> property
             var allMembers = new List<MemberInfo>();
@@ -152,7 +150,7 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
             return new ClassInfo(true, fullTypeName, expiresAt, dedupedMembers, diagnostics);
         }
 
-        if (InheritsFrom(typeSymbol, EntitlementsBaseTypeFqn))
+        if (HasEntitlementProperties(typeSymbol) || ImplementsInterface(typeSymbol, IEntitlementsFqn))
         {
             // Iterate ALL partial declarations to collect every Entitlement<> property
             var allMembers = new List<MemberInfo>();
@@ -186,14 +184,51 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static bool InheritsFrom(INamedTypeSymbol symbol, string baseTypeFqn)
+    private static bool ImplementsInterface(INamedTypeSymbol symbol, string interfaceFqn)
     {
-        var current = symbol.BaseType;
-        while (current != null)
+        foreach (var iface in symbol.AllInterfaces)
         {
-            if (current.ToDisplayString() == baseTypeFqn)
+            var name = iface.IsGenericType
+                ? iface.ConstructedFrom.ToDisplayString()
+                : iface.ToDisplayString();
+            if (name == interfaceFqn + "<TConfig>")
                 return true;
-            current = current.BaseType;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether the type has any FeatureFlag&lt;&gt; properties (used to detect
+    /// flag classes that don't implement IFeatureFlags&lt;T&gt; but use FeatureFlag properties directly).
+    /// </summary>
+    private static bool HasFlagProperties(INamedTypeSymbol symbol)
+    {
+        foreach (var member in symbol.GetMembers())
+        {
+            if (member is IPropertySymbol prop && prop.Type is INamedTypeSymbol propType && propType.IsGenericType)
+            {
+                var typeName = propType.ConstructedFrom.Name;
+                if (typeName == "FeatureFlag")
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether the type has any Entitlement&lt;&gt; properties (used to detect
+    /// entitlement classes that don't implement IEntitlements&lt;T&gt; but use Entitlement properties directly).
+    /// </summary>
+    private static bool HasEntitlementProperties(INamedTypeSymbol symbol)
+    {
+        foreach (var member in symbol.GetMembers())
+        {
+            if (member is IPropertySymbol prop && prop.Type is INamedTypeSymbol propType && propType.IsGenericType)
+            {
+                var typeName = propType.ConstructedFrom.Name;
+                if (typeName == "Entitlement")
+                    return true;
+            }
         }
         return false;
     }
@@ -546,9 +581,6 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
                 ? null
                 : symbol.ContainingNamespace.ToDisplayString();
 
-            var baseTypeFqn = isFlags ? FeatureFlagsBaseTypeFqn : EntitlementsBaseTypeFqn;
-            var alreadyInheritsBase = InheritsFrom(symbol, baseTypeFqn);
-
             // Collect containing type hierarchy for nested classes
             var containingTypes = new List<string>();
             var outer = symbol.ContainingType;
@@ -563,7 +595,6 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
                 namespaceName: containingNamespace,
                 configTypeFqn: configTypeFqn,
                 isFlags: isFlags,
-                alreadyInheritsBase: alreadyInheritsBase,
                 containingTypes: containingTypes);
         }
 
@@ -598,20 +629,23 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
         var indent = new string(' ', indentLevel * 4);
         var memberIndent = new string(' ', (indentLevel + 1) * 4);
 
-        var baseClause = "";
-        if (!info.AlreadyInheritsBase)
-        {
-            baseClause = info.IsFlags
-                ? " : global::Cocoar.Configuration.Flags.FeatureFlags"
-                : " : global::Cocoar.Configuration.Flags.Entitlements";
-        }
-
-        sb.AppendLine($"{indent}partial class {info.ClassName}{baseClause}");
+        sb.AppendLine($"{indent}partial class {info.ClassName}");
         sb.AppendLine($"{indent}{{");
         sb.AppendLine($"{memberIndent}private readonly global::Cocoar.Configuration.Reactive.IReactiveConfig<{info.ConfigTypeFqn}> _reactive;");
         sb.AppendLine();
         sb.AppendLine($"{memberIndent}protected {info.ConfigTypeFqn} Config => _reactive.CurrentValue;");
         sb.AppendLine();
+
+        if (info.IsFlags)
+        {
+            sb.AppendLine($"{memberIndent}/// <summary>");
+            sb.AppendLine($"{memberIndent}/// Is this feature flag class past its expiration?");
+            sb.AppendLine($"{memberIndent}/// When true, the flags still work but the code should be cleaned up.");
+            sb.AppendLine($"{memberIndent}/// </summary>");
+            sb.AppendLine($"{memberIndent}public bool IsExpired => global::System.DateTimeOffset.UtcNow > ExpiresAt;");
+            sb.AppendLine();
+        }
+
         sb.AppendLine($"{memberIndent}public {info.ClassName}(global::Cocoar.Configuration.Reactive.IReactiveConfig<{info.ConfigTypeFqn}> reactive)");
         sb.AppendLine($"{memberIndent}{{");
         sb.AppendLine($"{memberIndent}    _reactive = reactive;");
@@ -672,16 +706,14 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
         public string? NamespaceName { get; }
         public string ConfigTypeFqn { get; }
         public bool IsFlags { get; }
-        public bool AlreadyInheritsBase { get; }
         public List<string> ContainingTypes { get; }
 
-        public PartialClassInfo(string className, string? namespaceName, string configTypeFqn, bool isFlags, bool alreadyInheritsBase, List<string> containingTypes)
+        public PartialClassInfo(string className, string? namespaceName, string configTypeFqn, bool isFlags, List<string> containingTypes)
         {
             ClassName = className;
             NamespaceName = namespaceName;
             ConfigTypeFqn = configTypeFqn;
             IsFlags = isFlags;
-            AlreadyInheritsBase = alreadyInheritsBase;
             ContainingTypes = containingTypes;
         }
     }

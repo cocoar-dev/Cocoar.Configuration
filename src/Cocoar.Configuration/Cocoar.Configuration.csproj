@@ -15,13 +15,20 @@
     <PackageReference Include="Cocoar.FileSystem" />
     <PackageReference Include="Cocoar.Json.Mutable" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <!-- Analyzer included for compile-time validation -->
-    <!-- Note: Using ProjectReference until analyzer is published to NuGet -->
+    <!-- Analyzer included for compile-time validation (build-time only) -->
     <ProjectReference Include="..\Cocoar.Configuration.Analyzers\Cocoar.Configuration.Analyzers.csproj">
-      <PrivateAssets>none</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>analyzers</IncludeAssets>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+  </ItemGroup>
+
+  <!-- Embed analyzer DLL into this package so consumers get analyzers transitively -->
+  <ItemGroup>
+    <None Include="..\Cocoar.Configuration.Analyzers\bin\$(Configuration)\netstandard2.0\Cocoar.Configuration.Analyzers.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
   </ItemGroup>
 
 

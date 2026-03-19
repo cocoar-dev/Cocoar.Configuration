@@ -287,9 +287,9 @@ public class AppFeatureFlags : FeatureFlags
 }
 
 // v5.0
-public class AppFeatureFlags : FeatureFlags
+public partial class AppFeatureFlags : IFeatureFlags<AppConfig>
 {
-    public FeatureFlag<bool> DarkMode { get; set; } = () => false;
+    public FeatureFlag<bool> DarkMode => () => Config.DarkModeEnabled;
 }
 ```
 

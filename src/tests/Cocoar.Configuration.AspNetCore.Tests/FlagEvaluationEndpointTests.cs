@@ -66,9 +66,9 @@ public class FlagEvaluationEndpointTests : IAsyncDisposable
             => Task.FromResult(new TestContext(request.UserId));
     }
 
-    public class TestFlags : FeatureFlags
+    public class TestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> SimpleFeatureFlag { get; }
         public FeatureFlag<int> IntFeatureFlag { get; }

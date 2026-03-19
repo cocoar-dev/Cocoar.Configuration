@@ -54,14 +54,14 @@ public class FeatureFlagsDescriptorsTests
     private static FeatureFlagClassDescriptor MakeFlagsDescriptor(Type type, DateTimeOffset expiresAt)
         => new(type, expiresAt, []);
 
-    private class TestFlags : FeatureFlags
+    private class TestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
     }
 
-    private class AnotherTestFlags : FeatureFlags
+    private class AnotherTestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
     }
 }
 
@@ -91,6 +91,6 @@ public class EntitlementsDescriptorsTests
     private static EntitlementClassDescriptor MakeEntitlementDescriptor(Type type)
         => new(type, []);
 
-    private class TestEntitlements : Entitlements { }
-    private class AnotherEntitlements : Entitlements { }
+    private class TestEntitlements { }
+    private class AnotherEntitlements { }
 }

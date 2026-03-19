@@ -9,7 +9,7 @@ Every feature flags class declares an expiration date:
 ```csharp
 public partial class BillingFlags : IFeatureFlags<BillingConfig>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
     // ...
 }
 ```

@@ -5,7 +5,7 @@ namespace Cocoar.Configuration.Flags;
 /// <see cref="IContextResolver{TRequest,TContext}"/>.
 /// <para>
 /// Feature flags are <b>temporary</b> — they represent in-progress rollouts or experiments
-/// that should eventually be removed or converted to <see cref="Entitlements"/>.
+/// that should eventually be removed or converted to entitlements.
 /// Use <see cref="IEntitlementEvaluator"/> for permanent capability checks.
 /// </para>
 /// <para>

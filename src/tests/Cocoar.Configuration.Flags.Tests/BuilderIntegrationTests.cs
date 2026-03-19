@@ -102,9 +102,9 @@ public class BuilderIntegrationTests
     // Test helpers
     // ──────────────────────────────────────────────
 
-    internal sealed class ExpiredTestFlags : FeatureFlags
+    internal sealed class ExpiredTestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> OldFeature { get; }
 
@@ -114,9 +114,9 @@ public class BuilderIntegrationTests
         }
     }
 
-    internal sealed class FutureTestFlags : FeatureFlags
+    internal sealed class FutureTestFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> NewFeature { get; }
 
@@ -126,5 +126,5 @@ public class BuilderIntegrationTests
         }
     }
 
-    internal sealed class SimpleTestEntitlements : Entitlements { }
+    internal sealed class SimpleTestEntitlements { }
 }

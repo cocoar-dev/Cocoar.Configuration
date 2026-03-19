@@ -1,7 +1,7 @@
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Compile-time descriptor for a <see cref="FeatureFlags"/> subclass.
+/// Compile-time descriptor for a feature flag class.
 /// Populated at startup by the source generator via <c>CocoarFlagsDescriptors.Flags</c>.
 /// </summary>
 public sealed record FeatureFlagClassDescriptor(

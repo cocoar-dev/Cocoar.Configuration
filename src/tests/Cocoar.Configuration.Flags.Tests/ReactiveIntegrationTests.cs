@@ -241,9 +241,10 @@ public class ReactiveIntegrationTests
         public string Feature { get; init; } = string.Empty;
     }
 
-    public class BillingFeatureFlags : FeatureFlags
+    public class BillingFeatureFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2025, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2025, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        public bool IsExpired => DateTimeOffset.UtcNow > ExpiresAt;
 
         public FeatureFlag<bool> NewFlowEnabled { get; }
         public FeatureFlag<int> FlowVersion { get; }
@@ -258,7 +259,7 @@ public class ReactiveIntegrationTests
         }
     }
 
-    public class PlanEntitlements : Entitlements
+    public class PlanEntitlements
     {
         public Entitlement<bool> CanExport { get; }
         public Entitlement<int> MaxUsers { get; }

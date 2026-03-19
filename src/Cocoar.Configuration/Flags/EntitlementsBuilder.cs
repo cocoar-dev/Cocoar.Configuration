@@ -3,7 +3,7 @@ using Cocoar.Configuration.Flags.Internal;
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Builder for registering <see cref="Entitlements"/> subclasses using collection expressions.
+/// Builder for registering entitlement classes using collection expressions.
 /// Passed to the <c>UseEntitlements</c> extension method.
 /// </summary>
 /// <example>
@@ -17,7 +17,7 @@ namespace Cocoar.Configuration.Flags;
 public sealed class EntitlementsBuilder
 {
     /// <summary>
-    /// Registers an <see cref="Entitlements"/> subclass.
+    /// Registers an entitlement class.
     /// <para>
     /// Entitlement classes are <b>pure functions over reactive config state</b> -- they hold
     /// no per-request state and their only valid dependencies are
@@ -29,7 +29,7 @@ public sealed class EntitlementsBuilder
     /// (no entitlements) is used as a fallback.
     /// </summary>
     public EntitlementRegistration Register<T>()
-        where T : Entitlements
+        where T : class
     {
         var descriptor = DescriptorLookup.GetEntitlementsDescriptor(typeof(T))
             ?? new EntitlementClassDescriptor(typeof(T), []);

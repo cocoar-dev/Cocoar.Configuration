@@ -195,9 +195,9 @@ public class FlagsDIRegistrationTests
     // Test helpers
     // ──────────────────────────────────────────────
 
-    internal sealed class SimpleFeatureFlags : FeatureFlags
+    internal sealed class SimpleFeatureFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 12, 31, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> Feature { get; }
 
@@ -207,9 +207,9 @@ public class FlagsDIRegistrationTests
         }
     }
 
-    internal sealed class AnotherFeatureFlags : FeatureFlags
+    internal sealed class AnotherFeatureFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2099, 6, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> Other { get; }
 
@@ -219,9 +219,9 @@ public class FlagsDIRegistrationTests
         }
     }
 
-    internal sealed class ExpiredFeatureFlags : FeatureFlags
+    internal sealed class ExpiredFeatureFlags
     {
-        public override DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public DateTimeOffset ExpiresAt => new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public FeatureFlag<bool> OldFeature { get; }
 
@@ -231,5 +231,5 @@ public class FlagsDIRegistrationTests
         }
     }
 
-    internal sealed class SimpleEntitlements : Entitlements { }
+    internal sealed class SimpleEntitlements { }
 }

@@ -3,7 +3,7 @@ using Cocoar.Configuration.Flags.Internal;
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Represents a registered <see cref="Entitlements"/> subclass, returned by
+/// Represents a registered entitlement class, returned by
 /// <see cref="EntitlementsBuilder.Register{T}"/>. Carries the descriptor metadata
 /// and any resolver registrations attached by DI extension methods.
 /// </summary>

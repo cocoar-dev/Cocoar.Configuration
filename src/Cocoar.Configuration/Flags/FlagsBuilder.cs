@@ -3,7 +3,7 @@ using Cocoar.Configuration.Flags.Internal;
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Builder for registering <see cref="FeatureFlags"/> subclasses using collection expressions.
+/// Builder for registering feature flag classes using collection expressions.
 /// Passed to the <c>UseFeatureFlags</c> extension method.
 /// </summary>
 /// <example>
@@ -17,7 +17,7 @@ namespace Cocoar.Configuration.Flags;
 public sealed class FlagsBuilder
 {
     /// <summary>
-    /// Registers a <see cref="FeatureFlags"/> subclass.
+    /// Registers a feature flag class.
     /// <para>
     /// Feature flag classes are <b>pure functions over reactive config state</b> -- they hold
     /// no per-request state and their only valid dependencies are
@@ -30,7 +30,7 @@ public sealed class FlagsBuilder
     /// (no flags, non-expired) is used as a fallback.
     /// </summary>
     public FlagRegistration Register<T>()
-        where T : FeatureFlags
+        where T : class
     {
         var descriptor = DescriptorLookup.GetFlagsDescriptor(typeof(T))
             ?? new FeatureFlagClassDescriptor(typeof(T), DateTimeOffset.MaxValue, []);

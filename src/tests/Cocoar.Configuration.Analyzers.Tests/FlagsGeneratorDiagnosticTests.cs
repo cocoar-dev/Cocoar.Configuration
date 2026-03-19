@@ -17,9 +17,9 @@ public class FlagsGeneratorDiagnosticTests
 using System;
 using Cocoar.Configuration.Flags;
 
-public class BadFlags : FeatureFlags
+public class BadFlags
 {
-    public override DateTimeOffset ExpiresAt => GetExpiry();
+    public DateTimeOffset ExpiresAt => GetExpiry();
 
     private static DateTimeOffset GetExpiry() => DateTimeOffset.UtcNow.AddYears(1);
 
@@ -41,7 +41,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -59,9 +59,9 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public abstract class AbstractFlags : FeatureFlags
+public abstract class AbstractFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public FeatureFlag<bool> SomeFlag { get; }
 }
@@ -76,7 +76,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -94,7 +94,7 @@ public interface IFlagRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public abstract class AbstractEntitlements : Entitlements
+public abstract class AbstractEntitlements
 {
     public Entitlement<bool> CanExport { get; }
 }
@@ -109,7 +109,7 @@ public class Registrar
 
 public interface IEntRegistrar
 {
-    void Register<T>() where T : Entitlements;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -127,9 +127,9 @@ public interface IEntRegistrar
 using System;
 using Cocoar.Configuration.Flags;
 
-public class GoodFlags : FeatureFlags
+public class GoodFlags
 {
-    public override DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 6, 15, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new DateTimeOffset(2099, 6, 15, 0, 0, 0, TimeSpan.Zero);
 
     /// <summary>A good flag</summary>
     public FeatureFlag<bool> GoodFlag { get; }
@@ -150,7 +150,7 @@ public class Registrar
 
 public interface IFlagRegistrar
 {
-    void Register<T>() where T : FeatureFlags;
+    void Register<T>() where T : class;
 }
 ";
 
@@ -170,7 +170,7 @@ public interface IFlagRegistrar
         var references = new List<MetadataReference>
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(FeatureFlags).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(FeatureFlag<bool>).Assembly.Location),
         };
 
         // Add runtime assemblies needed for compilation

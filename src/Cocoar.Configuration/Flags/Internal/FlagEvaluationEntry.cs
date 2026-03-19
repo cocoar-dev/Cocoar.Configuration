@@ -8,7 +8,7 @@ namespace Cocoar.Configuration.Flags.Internal;
 /// from the resolver cascade and stored in <see cref="FlagsSetupData.EvaluationEntries"/>.
 /// Includes compiled delegates that replace per-request reflection.
 /// </summary>
-/// <param name="FlagClassType">The <see cref="FeatureFlags"/> or <see cref="Entitlements"/> subclass that owns the property.</param>
+/// <param name="FlagClassType">The feature flag or entitlement class that owns the property.</param>
 /// <param name="Property">The <c>FeatureFlag&lt;TContext, TResult&gt;</c> property info.</param>
 /// <param name="ContextType">The <c>TContext</c> type extracted from the flag property's generic args.</param>
 /// <param name="Resolver">The winning resolver registration after cascade resolution.</param>

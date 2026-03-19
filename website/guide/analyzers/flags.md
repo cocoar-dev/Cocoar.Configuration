@@ -8,17 +8,17 @@
 
 ```csharp
 // ❌ Warning: ExpiresAt can't be determined at compile time
-public class MyFlags : FeatureFlags
+public partial class MyFlags : IFeatureFlags<MyConfig>
 {
-    public override DateTimeOffset ExpiresAt => DateTimeOffset.UtcNow.AddMonths(6);
+    public DateTimeOffset ExpiresAt => DateTimeOffset.UtcNow.AddMonths(6);
 }
 ```
 
 ```csharp
 // ✓ Compliant: Static literal
-public class MyFlags : FeatureFlags
+public partial class MyFlags : IFeatureFlags<MyConfig>
 {
-    public override DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+    public DateTimeOffset ExpiresAt => new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
 }
 ```
 
@@ -32,14 +32,14 @@ If the generator can't determine `ExpiresAt`, it defaults to `DateTimeOffset.Min
 
 ```csharp
 // ❌ Warning: Can't instantiate abstract class
-public abstract class BaseFlags : FeatureFlags { }
+public abstract partial class BaseFlags : IFeatureFlags<AppConfig> { }
 
 .UseFeatureFlags(f => f.Register<BaseFlags>())
 ```
 
 ```csharp
 // ✓ Fix: Register the concrete subclass
-public class AppFlags : BaseFlags { }
+public partial class AppFlags : IFeatureFlags<AppConfig> { }
 
 .UseFeatureFlags(f => f.Register<AppFlags>())
 ```
@@ -52,7 +52,7 @@ A flag or entitlement property has no `<summary>` XML doc comment. Descriptions 
 
 ```csharp
 // ℹ️ Info: No description
-public class AppFlags : FeatureFlags
+public partial class AppFlags : IFeatureFlags<AppConfig>
 {
     public FeatureFlag<bool> NewDashboard { get; }
 }
@@ -60,7 +60,7 @@ public class AppFlags : FeatureFlags
 
 ```csharp
 // ✓ Fix: Add a summary
-public class AppFlags : FeatureFlags
+public partial class AppFlags : IFeatureFlags<AppConfig>
 {
     /// <summary>Enables the redesigned billing dashboard.</summary>
     public FeatureFlag<bool> NewDashboard { get; }

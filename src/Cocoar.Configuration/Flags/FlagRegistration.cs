@@ -3,7 +3,7 @@ using Cocoar.Configuration.Flags.Internal;
 namespace Cocoar.Configuration.Flags;
 
 /// <summary>
-/// Represents a registered <see cref="FeatureFlags"/> subclass, returned by
+/// Represents a registered feature flag class, returned by
 /// <see cref="FlagsBuilder.Register{T}"/>. Carries the descriptor metadata
 /// and any resolver registrations attached by DI extension methods.
 /// </summary>

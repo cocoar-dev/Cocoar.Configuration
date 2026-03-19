@@ -427,7 +427,7 @@ public sealed class EntitlementEvaluatorDITests
         }
     }
 
-    internal sealed class EvalTestEntitlements : Entitlements
+    internal sealed class EvalTestEntitlements
     {
         public Entitlement<bool> DirectEntitlement { get; }
         public Entitlement<EvalTestContext, bool> ContextualEntitlement { get; }
@@ -439,7 +439,7 @@ public sealed class EntitlementEvaluatorDITests
         }
     }
 
-    internal sealed class ThrowingEntitlements : Entitlements
+    internal sealed class ThrowingEntitlements
     {
         public Entitlement<EvalTestContext, bool> Boom { get; }
 
@@ -451,7 +451,7 @@ public sealed class EntitlementEvaluatorDITests
 
     internal class OuterA
     {
-        internal sealed class DuplicateNameEntitlements : Entitlements
+        internal sealed class DuplicateNameEntitlements
         {
             public Entitlement<EvalTestContext, bool> ContextualEntitlement { get; }
 
@@ -464,7 +464,7 @@ public sealed class EntitlementEvaluatorDITests
 
     internal class OuterB
     {
-        internal sealed class DuplicateNameEntitlements : Entitlements
+        internal sealed class DuplicateNameEntitlements
         {
             public Entitlement<EvalTestContext, bool> ContextualEntitlement { get; }
 
@@ -475,7 +475,7 @@ public sealed class EntitlementEvaluatorDITests
         }
     }
 
-    internal sealed class SameNameNoContextEntitlements : Entitlements
+    internal sealed class SameNameNoContextEntitlements
     {
         public Entitlement<bool> DirectOnly { get; }
 
@@ -485,5 +485,5 @@ public sealed class EntitlementEvaluatorDITests
         }
     }
 
-    internal sealed class EmptyEntitlements : Entitlements { }
+    internal sealed class EmptyEntitlements { }
 }

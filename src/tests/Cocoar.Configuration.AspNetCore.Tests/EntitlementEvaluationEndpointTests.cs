@@ -67,7 +67,7 @@ public sealed class EntitlementEvaluationEndpointTests : IAsyncDisposable
             => Task.FromResult(new TestContext(request.TenantId));
     }
 
-    public class TestEntitlements : Entitlements
+    public class TestEntitlements
     {
         public Entitlement<bool> CanExport { get; }
         public Entitlement<int> MaxUsers { get; }
