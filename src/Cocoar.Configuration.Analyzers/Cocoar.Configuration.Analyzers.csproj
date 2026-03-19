@@ -13,10 +13,10 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <!-- Analyzers don't need symbols -->
     <IncludeSymbols>false</IncludeSymbols>
-    <!-- Do NOT put build output in lib/ — we pack it into analyzers/ explicitly -->
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <!-- Suppress empty package warning (content is added via Target) -->
-    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <!-- Place build output in analyzers/ instead of lib/ -->
+    <BuildOutputTargetFolder>analyzers/dotnet/cs</BuildOutputTargetFolder>
+    <!-- Suppress NU5128 (expected for analyzer packages targeting netstandard2.0) -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,12 +39,5 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>
-
-  <!-- Place analyzer DLL into analyzers/dotnet/cs/ in the NuGet package -->
-  <Target Name="PackAnalyzerDll" AfterTargets="Build">
-    <ItemGroup>
-      <TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="analyzers/dotnet/cs" />
-    </ItemGroup>
-  </Target>
 
 </Project>
