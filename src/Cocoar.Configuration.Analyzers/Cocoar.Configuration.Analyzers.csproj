@@ -6,14 +6,17 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <IsRoslynComponent>true</IsRoslynComponent>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <!-- Required for analyzer projects to satisfy RS1036 -->
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <!-- Analyzers don't need symbols - prevents snupkg validation errors when referenced by other packages -->
+    <!-- Analyzers don't need symbols -->
     <IncludeSymbols>false</IncludeSymbols>
+    <!-- Do NOT put build output in lib/ — we pack it into analyzers/ explicitly -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- Suppress empty package warning (content is added via Target) -->
+    <NoPackageAnalysis>true</NoPackageAnalysis>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,12 +40,11 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- Pack analyzer DLL into analyzers/dotnet/cs/ folder only (not lib/) -->
-  <ItemGroup>
-    <None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs"
-          Visible="false" />
-  </ItemGroup>
+  <!-- Place analyzer DLL into analyzers/dotnet/cs/ in the NuGet package -->
+  <Target Name="PackAnalyzerDll" AfterTargets="Build">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(TargetPath)" PackagePath="analyzers/dotnet/cs" />
+    </ItemGroup>
+  </Target>
 
 </Project>
