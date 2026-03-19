@@ -4,50 +4,76 @@
 
 ### Added
 
-**NEW: ConfigManager Builder API**
-- New `ConfigManager.Create()` static factory method with fluent builder pattern for creating fully-initialized ConfigManager instances
-- Single entry point replaces split construction/initialization pattern (`new ConfigManager(...).Initialize()`)
-- Builder groups concerns logically: `.UseConfiguration()` for rules/setup, `.UseLogger()` for logging, `.UseDebounce()` for debounce timing
-- Satellite libraries can extend the builder via extension methods (e.g., `.UseSecretsSetup()`)
-
-**NEW: `ConfigManager.CreateAsync()` factory method**
-- Async counterpart to `ConfigManager.Create()` for console apps and scenarios where blocking the calling thread during provider I/O is undesirable
-- Supports cancellation via `CancellationToken` — passes through to every provider call during startup
-- Uses a fully async initialization pipeline; no sync-over-async anywhere on the hot path
-
-**IMPROVED: Runtime recomputes are now fully async**
-- Provider-triggered recomputes (file changes, HTTP polls, observable emissions) now yield the calling threadpool thread during async I/O instead of occupying it for the full duration
-- Previously, `ScheduleRecompute` wrapped async provider calls with `.GetAwaiter().GetResult()`; it now dispatches via `ScheduleAsync` and awaits the async recompute path end-to-end
-- No API changes; behavior is transparently improved for all callers
-
-**NEW: `UseSecretsSetup()` Extension Method**
-- Dedicated builder extension for configuring secrets, replacing `setup.Secrets()` in the setup lambda
-- Leverages the Cocoar.Capabilities system for cross-assembly extensibility
-- Cleaner separation: secrets configuration is now independent of the setup pipeline
-
-**BREAKING: Testing API redesigned to be per-concern and fluent**
-- `ReplaceAllRules()` → `ReplaceConfiguration()` — returns `TestOverrideBuilder` (fluent, disposable)
-- `AppendTestRules()` → `AppendConfiguration()` — returns `TestOverrideBuilder` (fluent, disposable)
-- `WithSetup()` removed — setup-only override was broken and redundant in v5
-- New `ReplaceSecretsSetup()` extension on `TestOverrideBuilder` (from `Cocoar.Configuration.Secrets`) for independent secrets override
-- Per-concern independence: mix `ReplaceConfiguration().ReplaceSecretsSetup()` or `AppendConfiguration().ReplaceSecretsSetup()` freely
-- Fixture pattern: `new TestOverrideBuilder()` (public no-arg ctor) → call `.Build()` → pass to `CocoarTestConfiguration.Apply()`
+- .NET 8 LTS support — all library packages multi-target net8.0 and net9.0
+- Feature Flags & Entitlements framework (`FeatureFlag<T>`, `Entitlement<T>`, `IFeatureFlags<TConfig>`, `IEntitlements<TConfig>`)
+- Source generator for feature flag/entitlement classes (produces constructor and `Config` property)
+- `IFeatureFlagEvaluator` / `IEntitlementEvaluator` for contextual evaluation (Scoped)
+- `IContextResolver<TRequest, TContext>` for bridging HTTP requests to domain context
+- REST evaluation endpoints: `MapFeatureFlagEndpoints()`, `MapEntitlementEndpoints()`
+- Flag expiry tracking and health degradation (`ExpiresAt`, `IFeatureFlagsDescriptors`)
+- `IFlagsHealthSource` for flags contributing to health status
+- SSE (Server-Sent Events) support in HTTP provider (`serverSentEvents: true`)
+- One-time HTTP fetch mode (no polling, no SSE)
+- `FromIConfiguration(IConfiguration)` — simplified Microsoft adapter API
+- `FromHttp()` — simplified HTTP provider API with simple overload
+- Resolver registration via `[]` collection expressions and `ResolverBuilder`
+- Resolver lifetime customization (`.AsSingleton()`, `.AsScoped()`, `.AsTransient()`) via Capabilities
+- OpenTelemetry metrics: `cocoar.config.health.status`, `cocoar.config.recompute.count`, `cocoar.config.recompute.duration`, `cocoar.config.provider.errors`, `cocoar.config.flags.evaluations`
+- Activity source `Cocoar.Configuration` for distributed tracing
+- ASP.NET Core health check integration (`AddCocoarConfigurationHealthCheck()`)
+- `where T : class` constraint on `TypedRuleBuilder<T>` — configuration types must be reference types
+- Roslyn analyzer diagnostics: COCFLAG001 (non-static ExpiresAt), COCFLAG002 (abstract type registered), COCFLAG003 (missing description)
+- File provider security: symlink/reparse point rejection, improved path traversal defense
+- VitePress documentation site with complete guide, reference, and roadmap sections
+- `llms.txt` and `llms-full.txt` export for LLM consumption
+- How-To guide: Migrating from IOptions
+- Certificate management guide
+- `ConfigManager.Create()` static factory with fluent builder pattern
+- `ConfigManager.CreateAsync()` async factory with `CancellationToken` support
+- `UseSecretsSetup()` builder extension for secrets configuration
+- Testing API: `ReplaceConfiguration()`, `AppendConfiguration()`, `ReplaceSecretsSetup()` with fluent `TestOverrideBuilder`
 
 ### Changed
 
-**BREAKING: ConfigManager constructors and `Initialize()` are now `internal`**
-- Use `ConfigManager.Create(c => c.UseConfiguration(...))` instead of `new ConfigManager(...).Initialize()`
-- See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for detailed migration instructions
+- `Flag<T>` renamed to `FeatureFlag<T>` (and `Flag<TContext, TResult>` to `FeatureFlag<TContext, TResult>`)
+- Package `Cocoar.Configuration.HttpPolling` renamed to `Cocoar.Configuration.Http`
+- `FromHttpPolling()` renamed to `FromHttp()`
+- `FromMicrosoftSource()` deprecated in favor of `FromIConfiguration()`
+- `HttpPollingRuleOptions` replaced by `HttpRuleOptions`
+- Default resolver lifetime changed from Transient to Scoped
+- File path resolution now uses `AppContext.BaseDirectory` (was `Assembly.GetEntryAssembly().Location`)
+- Health API simplified: `ConfigManager.HealthStatus` and `ConfigManager.IsHealthy` properties (was `GetHealthService()`)
+- Resolver registration moved from Core to DI package
+- `UseFeatureFlags()` / `UseEntitlements()` now use `[]` collection expression pattern
+- DI package no longer depends on ASP.NET Core FrameworkReference
+- ConfigManager constructors and `Initialize()` are now `internal` — use `ConfigManager.Create()` instead
+- `AddCocoarConfiguration()` now uses the builder API: `c => c.UseConfiguration(rule => [...], setup => [...])`
+- Secrets setup moved from `setup` lambda to dedicated `.UseSecretsSetup()` builder method
+- Runtime recomputes are now fully async (no sync-over-async in the recompute pipeline)
+- Package consolidation: 10+ packages reduced to 7 (Secrets, Flags, X509Encryption merged into core; Secrets.Abstractions merged into Abstractions; Flags.Generator merged into Analyzers)
+- Testing API: `ReplaceAllRules()` renamed to `ReplaceConfiguration()`, `AppendTestRules()` renamed to `AppendConfiguration()`
 
-**BREAKING: `AddCocoarConfiguration()` now uses the builder API**
-- Old: `services.AddCocoarConfiguration(rule => [...], setup => [...])`
-- New: `services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [...], setup => [...]))`
-- Same change applies to `WebApplicationBuilder.AddCocoarConfiguration()`
-- Provides access to the full builder API in DI scenarios, including `.UseSecretsSetup()` and other satellite extensions
+### Removed
 
-**BREAKING: Secrets setup moved from `setup` lambda to dedicated builder method**
-- Old: `setup => [setup.Secrets().UseCertificateFromFile("cert.pfx")]`
-- New: `.UseSecretsSetup(secrets => secrets.UseCertificateFromFile("cert.pfx"))`
+- `Cocoar.Configuration.Secrets` package (merged into `Cocoar.Configuration`)
+- `Cocoar.Configuration.Secrets.Abstractions` package (merged into `Cocoar.Configuration.Abstractions`)
+- `Cocoar.Configuration.HttpPolling` package (renamed to `Cocoar.Configuration.Http`)
+- System.Reactive dependency (replaced with lightweight internal reactive primitives)
+- COCFG004 analyzer diagnostic (enforced by `where T : class` constraint instead)
+- `IConfigurationHealthService` interface (replaced with `ConfigManager.HealthStatus` property)
+- `FeatureFlagsSetupBuilder`, `FlagClassRegistrationBuilder`, `EntitlementClassRegistrationBuilder` (replaced by `FlagsBuilder`, `EntitlementsBuilder`, `ResolverBuilder`)
+- `RegisterGlobalContextResolver()`, `WithContextResolver()` (replaced by `resolvers.Global<T>()`, `resolvers.For<T>()`)
+- `WithSetup()` testing method (was broken and redundant in v5)
+
+### Fixed
+
+- CLI exit codes now consistent across all commands (0=success, 1=argument, 2=IO, 3=crypto, 4=general)
+- File provider symlink escape vulnerability
+- Provider consistency for optional rules (always returns `{}`, never null)
+- `Secret<T>.Open()` now deserializes directly from UTF-8 bytes instead of creating an intermediate string
+- `SecretJsonConverter` uses `JsonElement.Deserialize<T>()` instead of `GetRawText()` to avoid plaintext string intermediates
+- `X509HybridCrypto.Encrypt()` zeros the heap copy of the Data Encryption Key in the `finally` block
+- `ConfigSnapshotBuilder.CreateJsonPreview()` shows only property names (not values) to prevent secret leakage
 
 ### Migration from v4.x
 
@@ -66,7 +92,7 @@ var manager = ConfigManager.Create(c => c
     .UseLogger(myLogger));
 ```
 
-See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
+See [Migration Guide v4→v5](website/guide/migration/v4-to-v5.md) for all patterns.
 
 ## [4.2.1] - 2026-02-03
 
@@ -101,7 +127,7 @@ See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
   - `TestConfigurationContext.Replace()` and `Append()` factory methods now accept optional setup parameter
   - Enables test-time setup options like `setup.Secrets().AllowPlaintext()` without modifying application code
   - Setup overrides are always merged (appended) to configured setup, using last-write-wins for capabilities
-  - See [Testing Overrides Documentation](docs/testing-overrides-quickref.md) for usage patterns
+  - See [Testing Overrides Documentation](website/guide/testing/overrides.md) for usage patterns
 
 ### Fixed
 - **Deserialization failure logging**: `GetConfig<T>()` now logs an error (EventId 5100) when deserialization fails due to missing `required` properties or type mismatches, instead of silently returning `null`. This helps diagnose configuration issues while maintaining backward-compatible behavior (still returns `null`, `GetRequiredConfig<T>()` still throws).
@@ -138,7 +164,7 @@ See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
 - Uses `AsyncLocal<T>` for automatic test isolation across parallel tests
 - Works universally with direct `ConfigManager` instantiation, DI, AspNetCore, and `WebApplicationFactory`
 - Zero application code changes required - detection happens in ConfigManager constructors
-- Comprehensive documentation in [Testing Overrides](docs/testing-overrides-quickref.md)
+- Comprehensive documentation in [Testing Overrides](website/guide/testing/overrides.md)
 - Example project demonstrating usage patterns
 
 **NEW: Cocoar.Configuration.Secrets Package [Developer Preview]**
@@ -181,7 +207,7 @@ See [Migration Guide v4→v5](docs/migration-v4-to-v5.md) for all patterns.
 - **COCFG004**: Enforces type safety in configuration accessors
 - **COCFG005**: Identifies duplicate unconditional rules for the same type
 - **COCFG006**: Suggests optimal ordering for static/seed rules vs dynamic rules
-- Includes code fix provider for automatic rule reordering (COCFG002)
+
 
 ### Changed
 
@@ -349,7 +375,7 @@ builder.AddCocoarConfiguration(rule => [
 ]);
 ```
 
-See [Migration Guide v2→v3](docs/migration-v2-to-v3.md) for detailed migration instructions.
+See [Migration Guide v2→v3](website/guide/migration/v2-to-v3.md) for detailed migration instructions.
 
 ## [2.0.0] - 2025-09-30
 
@@ -382,8 +408,6 @@ builder.AddCocoarConfiguration(rule => [
 ]);
 ```
 
-See [Migration Guide v1→v2](docs/migration-v1-to-v2.md) for detailed migration instructions.
-
 ## [1.1.0] - 2025-09-25
 
 `IReactiveConfig<T>` now supports tuples as the generic type, e.g.
@@ -403,8 +427,8 @@ This marks the first stable release of Cocoar.Configuration with production-read
 - **Reactive Configuration**: Auto-registered `IReactiveConfig<T>` for every configuration type in dependency injection
 - **Enhanced Documentation**:
   - Streamlined README with practical examples and accurate feature descriptions
-  - Dedicated health monitoring guide (`docs/health-monitoring.md`)
-  - Reactive configuration guide (`docs/reactive-config.md`)
+  - Dedicated health monitoring guide (`website/guide/health/overview.md`)
+  - Reactive configuration guide (`website/guide/reactive/basics.md`)
 
 ### Testing Improvements
 - **Integration Tests**: Multi-provider composition, rule ordering, recompute pipeline validation

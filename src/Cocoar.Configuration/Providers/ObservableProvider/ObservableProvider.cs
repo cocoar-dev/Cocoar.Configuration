@@ -1,6 +1,3 @@
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Reactive.Threading.Tasks;
 using System.Text.Json;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Providers.Abstractions;
@@ -10,10 +7,15 @@ namespace Cocoar.Configuration.Providers;
 public sealed class ObservableProvider<T>(ObservableProviderOptions<T> options)
     : ConfigurationProvider<ObservableProviderOptions<T>, ObservableProviderQuery>(options)
 {
-    public override Task<byte[]> FetchConfigurationBytesAsync(ObservableProviderQuery query, CancellationToken ct = default)
+    public override async Task<byte[]> FetchConfigurationBytesAsync(ObservableProviderQuery query, CancellationToken ct = default)
     {
-        var observable = ProviderOptions.Observable.Select(ConvertToBytes);
-        return observable.FirstAsync().ToTask(ct);
+        var tcs = new TaskCompletionSource<byte[]>();
+        using var ctr = ct.Register(() => tcs.TrySetCanceled(ct));
+        IDisposable? sub = null;
+        sub = ProviderOptions.Observable.Subscribe(
+            value => { tcs.TrySetResult(ConvertToBytes(value)); sub?.Dispose(); },
+            ex => { tcs.TrySetException(ex); sub?.Dispose(); });
+        return await tcs.Task.ConfigureAwait(false);
     }
 
     public override IObservable<byte[]> ChangesAsBytes(ObservableProviderQuery query)
@@ -50,6 +52,7 @@ public static class ObservableRulesExtensions
     /// </summary>
     public static ProviderRuleBuilder<ObservableProvider<TValue>, ObservableProviderOptions<TValue>, ObservableProviderQuery>
         FromObservable<T, TValue>(this TypedRuleBuilder<T> builder, IObservable<TValue> observable)
+        where T : class
     {
         return new(
             _ => new ObservableProviderOptions<TValue>(observable),
@@ -63,6 +66,7 @@ public static class ObservableRulesExtensions
     /// </summary>
     public static ProviderRuleBuilder<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>
         FromObservable<T>(this TypedRuleBuilder<T> builder, IObservable<string> jsonObservable)
+        where T : class
     {
         return new(
             _ => new ObservableProviderOptions<string>(jsonObservable),
@@ -76,10 +80,11 @@ public static class ObservableRulesExtensions
     /// </summary>
     public static ProviderRuleBuilder<ObservableProvider<string>, ObservableProviderOptions<string>, ObservableProviderQuery>
         FromObservable<T>(this TypedRuleBuilder<T> builder, string initialJsonString)
+        where T : class
     {
         using var document = JsonDocument.Parse(initialJsonString);
 
-        var subject = new BehaviorSubject<string>(initialJsonString);
+        var subject = new SimpleBehaviorSubject<string>(initialJsonString);
 
         return new(
             _ => new ObservableProviderOptions<string>(subject),

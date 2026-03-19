@@ -1,4 +1,3 @@
-using System.Reactive.Linq;
 using System.Text.Json;
 using Cocoar.Configuration.Providers.Abstractions;
 
@@ -23,5 +22,5 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     }
 
     public override IObservable<byte[]> ChangesAsBytes(StaticJsonProviderQueryOptions queryOptions)
-        => Observable.Empty<byte[]>();
+        => ObservableHelpers.Empty<byte[]>();
 }

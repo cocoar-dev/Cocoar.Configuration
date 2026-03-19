@@ -1,5 +1,4 @@
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.Health;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.DI;
@@ -15,11 +14,10 @@ public static class CocoarConfigurationExtensions
         // Register core services
         services.AddSingleton(configManager);
         services.AddSingleton<IConfigurationAccessor>(sp => sp.GetRequiredService<ConfigManager>());
-        services.AddSingleton<IConfigurationHealthService>(sp => sp.GetRequiredService<ConfigManager>().GetHealthService());
 
         // Build registration plan and apply it
         var plan = ServiceRegistrationPlanner.CreatePlan(configManager);
-        ServiceDescriptorEmitter.Emit(services, plan);
+        ServiceDescriptorEmitter.Emit(services, plan, configManager);
 
         return services;
     }

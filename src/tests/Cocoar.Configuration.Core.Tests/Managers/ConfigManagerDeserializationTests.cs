@@ -89,9 +89,9 @@ public class ConfigManagerDeserializationTests : IDisposable
                 TrackForDisposal(configManager);
             });
 
-        // The exception should include a JSON preview
+        // The exception should include a JSON preview with property names (not values, for secret safety)
         Assert.NotNull(exception.Failures[0].JsonPreview);
-        Assert.Contains("42", exception.Failures[0].JsonPreview);
+        Assert.Contains("Value", exception.Failures[0].JsonPreview);
     }
 
     [Fact]

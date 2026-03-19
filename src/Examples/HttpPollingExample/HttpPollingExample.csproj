@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsExampleProject>true</IsExampleProject>
@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />
-    <ProjectReference Include="..\..\Cocoar.Configuration.HttpPolling\Cocoar.Configuration.HttpPolling.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.Http\Cocoar.Configuration.Http.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />

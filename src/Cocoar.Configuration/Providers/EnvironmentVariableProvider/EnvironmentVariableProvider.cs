@@ -156,5 +156,5 @@ public sealed class EnvironmentVariableProvider(EnvironmentVariableProviderOptio
     }
 
     public override IObservable<byte[]> ChangesAsBytes(EnvironmentVariableProviderQueryOptions queryOptions)
-        => System.Reactive.Linq.Observable.Never<byte[]>();
+        => ObservableHelpers.Never<byte[]>();
 }

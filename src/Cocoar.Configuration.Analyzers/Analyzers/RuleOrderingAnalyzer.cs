@@ -6,6 +6,18 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Cocoar.Configuration.Analyzers.Analyzers;
 
+/// <summary>
+/// Validates that configuration rules are ordered correctly.
+/// When a rule uses <c>GetConfig&lt;T&gt;()</c> in its provider factory or <c>.When()</c> predicate,
+/// the type <c>T</c> must have been registered by an earlier rule.
+///
+/// Algorithm:
+/// 1. Find the rules collection expression: <c>rule => [...]</c>
+/// 2. Walk each element in order — each element is one rule
+/// 3. For each rule, extract <c>T</c> from <c>rule.For&lt;T&gt;()</c>
+/// 4. Scan all lambda arguments in the rule's method chain for <c>GetConfig&lt;X&gt;()</c> calls
+/// 5. Check that <c>X</c> was registered by an earlier rule
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class RuleOrderingAnalyzer : DiagnosticAnalyzer
 {
@@ -23,176 +35,137 @@ public class RuleOrderingAnalyzer : DiagnosticAnalyzer
     private void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        // Only analyze invocations that look like AddCocoarConfiguration to avoid scanning unrelated calls.
-        // Fallback heuristic: if semantic model cannot resolve symbol, fall back to simple name text match.
-        if (!IsAddCocoarConfigurationCall(invocation, context.SemanticModel) && !LooksLikeAddCocoarConfiguration(invocation))
-        {
+
+        if (invocation.Expression is not MemberAccessExpressionSyntax ma)
             return;
-        }
 
-        var lambdas = invocation.DescendantNodes().OfType<SimpleLambdaExpressionSyntax>();
-        foreach (var lambda in lambdas)
+        // Only trigger on UseConfiguration (not AddCocoarConfiguration to avoid double-firing)
+        if (ma.Name.Identifier.Text is not "UseConfiguration")
+            return;
+
+        // Find collection expressions: rule => [...]
+        foreach (var lambda in invocation.DescendantNodes().OfType<SimpleLambdaExpressionSyntax>())
         {
-            // Only analyze lambdas whose body is a collection expression (rule => [...])
-            // Skip outer builder lambdas (c => c.UseConfiguration(...))
-            if (lambda.ExpressionBody is not CollectionExpressionSyntax)
-                continue;
-
-            AnalyzeRuleOrdering(lambda, context);
-        }
-    }
-
-    private static bool IsAddCocoarConfigurationCall(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
-    {
-        var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
-        if (memberAccess == null)
-        {
-            return false;
-        }
-
-        var methodSymbol = semanticModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
-        return methodSymbol?.Name == "AddCocoarConfiguration";
-    }
-
-    private static bool LooksLikeAddCocoarConfiguration(InvocationExpressionSyntax invocation)
-    {
-        if (invocation.Expression is MemberAccessExpressionSyntax ma)
-        {
-            return ma.Name.Identifier.Text == "AddCocoarConfiguration";
-        }
-        return false;
-    }
-
-    private static void AnalyzeRuleOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
-    {
-        var configuredTypes = new HashSet<string>();
-
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>().ToList();
-
-        foreach (var inv in invocations)
-        {
-            var ruleInfo = ExtractRuleInfo(inv, context.SemanticModel);
-            if (ruleInfo == null)
+            if (lambda.ExpressionBody is CollectionExpressionSyntax collection)
             {
-                continue;
+                AnalyzeRuleCollection(collection, context);
             }
+        }
+    }
 
-            var dependencies = ExtractDependencies(inv, context.SemanticModel);
+    private static void AnalyzeRuleCollection(CollectionExpressionSyntax collection, SyntaxNodeAnalysisContext context)
+    {
+        var registeredTypes = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var dependency in dependencies)
+        foreach (var element in collection.Elements)
+        {
+            if (element is not ExpressionElementSyntax exprElement)
+                continue;
+
+            // Extract For<T> type from this rule expression
+            var (typeName, location) = ExtractForType(exprElement.Expression, context.SemanticModel);
+            if (typeName == null || location == null)
+                continue;
+
+            // Find all GetConfig<X>() dependencies in this rule's lambdas
+            var dependencies = ExtractDependencies(exprElement.Expression, context.SemanticModel);
+
+            foreach (var dep in dependencies)
             {
-                if (!configuredTypes.Contains(dependency))
+                if (!registeredTypes.Contains(dep))
                 {
-                    var diagnostic = Diagnostic.Create(
+                    context.ReportDiagnostic(Diagnostic.Create(
                         DiagnosticDescriptors.RuleOrderingViolation,
-                        ruleInfo.Location,
-                        ruleInfo.ConfigurationType.Name,
-                        dependency);
-
-                    context.ReportDiagnostic(diagnostic);
+                        location,
+                        typeName,
+                        dep));
                 }
             }
 
-            configuredTypes.Add(ruleInfo.ConfigurationType.ToDisplayString());
+            registeredTypes.Add(typeName);
         }
     }
 
-    private static RuleInfo? ExtractRuleInfo(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    /// <summary>
+    /// Extracts the type name from <c>rule.For&lt;T&gt;()</c> in the expression.
+    /// </summary>
+    private static (string? TypeName, Location? Location) ExtractForType(
+        ExpressionSyntax expression, SemanticModel semanticModel)
     {
-        var memberAccess = invocation.Expression as MemberAccessExpressionSyntax;
-        if (memberAccess?.Name.Identifier.Text != "For")
+        // Walk all invocations in this expression to find For<T>()
+        foreach (var inv in expression.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
         {
-            return null;
+            if (inv.Expression is MemberAccessExpressionSyntax ma &&
+                ma.Name is GenericNameSyntax { Identifier.Text: "For" } genericName)
+            {
+                var typeArg = genericName.TypeArgumentList.Arguments.FirstOrDefault();
+                if (typeArg == null) continue;
+
+                // Semantic resolution
+                var typeInfo = semanticModel.GetTypeInfo(typeArg);
+                if (typeInfo.Type != null && typeInfo.Type.Kind != SymbolKind.ErrorType)
+                    return (typeInfo.Type.ToDisplayString(), inv.GetLocation());
+
+                // Syntax fallback (for test fixtures with incomplete references)
+                return (typeArg.ToString(), inv.GetLocation());
+            }
         }
 
-        if (memberAccess.Name is not GenericNameSyntax genericName)
-        {
-            return null;
-        }
-
-        var typeArg = genericName.TypeArgumentList.Arguments.FirstOrDefault();
-        if (typeArg == null)
-        {
-            return null;
-        }
-
-        var typeInfo = semanticModel.GetTypeInfo(typeArg);
-        if (typeInfo.Type == null)
-        {
-            return null;
-        }
-
-        return new RuleInfo
-        {
-            ConfigurationType = typeInfo.Type,
-            Location = invocation.GetLocation()
-        };
+        return (null, null);
     }
 
-    private static List<string> ExtractDependencies(InvocationExpressionSyntax invocation, SemanticModel semanticModel)
+    /// <summary>
+    /// Finds all <c>GetConfig&lt;X&gt;()</c> calls in lambda arguments of this rule's method chain.
+    /// Scans the first lambda argument of every method in the chain — this naturally covers
+    /// provider factories (<c>From*(accessor => ...)</c>) and <c>.When(accessor => ...)</c>
+    /// without needing to know method names.
+    /// </summary>
+    private static List<string> ExtractDependencies(ExpressionSyntax ruleExpression, SemanticModel semanticModel)
     {
         var dependencies = new List<string>();
 
-        var parent = invocation.Parent;
-        while (parent != null)
+        foreach (var inv in ruleExpression.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
         {
-            if (parent is InvocationExpressionSyntax parentInv)
+            // Skip For<T>() itself
+            if (inv.Expression is MemberAccessExpressionSyntax ma &&
+                ma.Name.Identifier.Text == "For")
+                continue;
+
+            // Check each argument for lambdas containing GetConfig<X>()
+            foreach (var arg in inv.ArgumentList.Arguments)
             {
-                var memberAccess = parentInv.Expression as MemberAccessExpressionSyntax;
-
-                if (memberAccess?.Name.Identifier.Text == "When")
+                SyntaxNode? lambdaBody = arg.Expression switch
                 {
-                    var lambdaArg = parentInv.ArgumentList.Arguments.FirstOrDefault()?.Expression as SimpleLambdaExpressionSyntax;
-                    if (lambdaArg != null)
-                    {
-                        dependencies.AddRange(ExtractGetRequiredConfigTypes(lambdaArg, semanticModel));
-                    }
-                }
+                    SimpleLambdaExpressionSyntax simple => (SyntaxNode?)simple.Body ?? simple.ExpressionBody,
+                    ParenthesizedLambdaExpressionSyntax paren => (SyntaxNode?)paren.Body ?? paren.ExpressionBody,
+                    _ => null
+                };
 
-                if (memberAccess?.Name.Identifier.Text is "FromHttpPolling" or "FromStatic")
+                if (lambdaBody == null) continue;
+
+                foreach (var getConfigCall in lambdaBody.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
                 {
-                    var lambdaArg = parentInv.ArgumentList.Arguments.FirstOrDefault()?.Expression as SimpleLambdaExpressionSyntax;
-                    if (lambdaArg != null)
+                    if (getConfigCall.Expression is MemberAccessExpressionSyntax getConfigMa &&
+                        getConfigMa.Name is GenericNameSyntax { Identifier.Text: "GetConfig" } getConfigGeneric)
                     {
-                        dependencies.AddRange(ExtractGetRequiredConfigTypes(lambdaArg, semanticModel));
+                        var typeArg = getConfigGeneric.TypeArgumentList.Arguments.FirstOrDefault();
+                        if (typeArg == null) continue;
+
+                        var typeInfo = semanticModel.GetTypeInfo(typeArg);
+                        if (typeInfo.Type != null && typeInfo.Type.Kind != SymbolKind.ErrorType)
+                        {
+                            dependencies.Add(typeInfo.Type.ToDisplayString());
+                        }
+                        else
+                        {
+                            // Syntax fallback
+                            dependencies.Add(typeArg.ToString());
+                        }
                     }
                 }
             }
-            parent = parent.Parent;
         }
 
         return dependencies;
-    }
-
-    private static List<string> ExtractGetRequiredConfigTypes(SimpleLambdaExpressionSyntax lambda, SemanticModel semanticModel)
-    {
-        var types = new List<string>();
-
-        var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
-
-        foreach (var inv in invocations)
-        {
-            var memberAccess = inv.Expression as MemberAccessExpressionSyntax;
-            if (memberAccess?.Name is GenericNameSyntax { Identifier.Text: "GetRequiredConfig" } genericName)
-            {
-                var typeArg = genericName.TypeArgumentList.Arguments.FirstOrDefault();
-                if (typeArg != null)
-                {
-                    var typeInfo = semanticModel.GetTypeInfo(typeArg);
-                    if (typeInfo.Type != null)
-                    {
-                        types.Add(typeInfo.Type.ToDisplayString());
-                    }
-                }
-            }
-        }
-
-        return types;
-    }
-
-    private class RuleInfo
-    {
-        public required ITypeSymbol ConfigurationType { get; init; }
-        public required Location Location { get; init; }
     }
 }

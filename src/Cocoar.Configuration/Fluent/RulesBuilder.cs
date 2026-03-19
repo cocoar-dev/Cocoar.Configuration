@@ -15,7 +15,7 @@ public sealed class RulesBuilder
     /// <typeparam name="T">The configuration type this rule will populate.</typeparam>
     /// <returns>A typed rule builder for specifying the configuration source.</returns>
 #pragma warning disable CA1822 // Mark members as static - intentionally instance method for fluent API consistency
-    public TypedRuleBuilder<T> For<T>() => new();
+    public TypedRuleBuilder<T> For<T>() where T : class => new();
 #pragma warning restore CA1822
 }
 
@@ -32,6 +32,7 @@ public static class TypedRuleBuilderExtensions
         this TypedRuleBuilder<T> builder,
         Func<IConfigurationAccessor, TInstanceOptions> instanceOptions,
         Func<IConfigurationAccessor, TQueryOptions> queryOptions)
+    where T : class
     where TProvider : ConfigurationProvider<TInstanceOptions, TQueryOptions>
     where TInstanceOptions : IProviderConfiguration
     where TQueryOptions : IProviderQuery

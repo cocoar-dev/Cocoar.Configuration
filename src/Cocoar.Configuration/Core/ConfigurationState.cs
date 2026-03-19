@@ -31,7 +31,7 @@ internal static partial class ConfigurationStateLog
 internal class ConfigurationState : IDisposable
 {
     private readonly ConfigJsonRepository _jsonRepository = new();
-    private readonly ConfigurationHealthReporter _healthReporter;
+    private readonly ConfigurationHealthTracker _tracker;
     private readonly ILogger _logger;
     private long _configVersion;
 
@@ -40,10 +40,10 @@ internal class ConfigurationState : IDisposable
     private bool _isStartupPhase = true;
     private IReadOnlyList<DeserializationFailure> _lastDeserializationFailures = [];
 
-    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules, ILogger logger)
+    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules, ILogger logger, IFlagsHealthSource? flagsHealthSource = null)
     {
         _logger = logger;
-        _healthReporter = new ConfigurationHealthReporter(ruleManagers, rules);
+        _tracker = new ConfigurationHealthTracker(ruleManagers, flagsHealthSource);
     }
 
     /// <summary>
@@ -171,24 +171,14 @@ internal class ConfigurationState : IDisposable
 
     public JsonElement? GetConfigurationAsJson(Type type) => _jsonRepository.GetConfigurationAsJson(type);
 
-    public IConfigurationHealthService GetHealthService() => _healthReporter.HealthService;
+    public HealthStatus HealthStatus => _tracker.Status;
+    public bool IsHealthy => _tracker.Status == HealthStatus.Healthy;
+    internal string HealthDescription => _tracker.Description;
 
-    public void ReportSuccessfulRecompute(int startIndex)
-        => _healthReporter.ReportSuccessfulRecompute(startIndex, _configVersion);
-
-    public void ReportFailedRecompute(int startIndex, Exception exception)
-        => _healthReporter.ReportFailedRecompute(startIndex, exception, _configVersion);
-
-    /// <summary>
-    /// Reports deserialization failures to the health service.
-    /// Call this after a runtime deserialization failure to update health status.
-    /// </summary>
-    public void ReportDeserializationFailures(IReadOnlyList<DeserializationFailure> failures)
-        => _healthReporter.ReportDeserializationFailures(failures, _configVersion);
+    public void UpdateHealth() => _tracker.UpdateAfterRecompute();
 
     public void Dispose()
     {
-        _healthReporter.Dispose();
         _backplane?.Dispose();
     }
 }

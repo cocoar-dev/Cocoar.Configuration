@@ -11,6 +11,7 @@ public static class EnvironmentVariableRulesExtensions
     public static
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
             EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder, string? environmentPrefix = null)
+        where T : class
         => new(
             cm => new(),
             cm => new(environmentPrefix),
@@ -24,6 +25,7 @@ public static class EnvironmentVariableRulesExtensions
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
             EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder,
             Func<IConfigurationAccessor, EnvironmentVariableRuleOptions> optionsFactory)
+        where T : class
         => new(
             cm => new(),
             cm => new(optionsFactory(cm).EnvironmentPrefix),

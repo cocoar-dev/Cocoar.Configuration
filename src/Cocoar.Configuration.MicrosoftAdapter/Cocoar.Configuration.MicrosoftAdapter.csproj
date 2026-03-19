@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <Description>Adapter for bridging Microsoft.Extensions.Configuration (IConfiguration) with Cocoar.Configuration, enabling gradual migration and coexistence with existing Microsoft configuration sources while leveraging reactive updates.</Description>
     <PackageTags>configuration;microsoft-extensions;iconfiguration;adapter;bridge;migration;compatibility;interop</PackageTags>
@@ -14,6 +13,5 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
     <PackageReference Include="Microsoft.Extensions.Primitives" />
-    <PackageReference Include="System.Reactive" />
   </ItemGroup>
 </Project>

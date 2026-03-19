@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>HTTP configuration provider for Cocoar.Configuration supporting one-time fetch, polling, and Server-Sent Events (SSE) with automatic fallback for resilient distributed configuration management.</Description>
+    <PackageTags>configuration;http;polling;sse;server-sent-events;remote-config;distributed;resilience;retry;http-client</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+  </ItemGroup>
+
+
+  <!-- Exclude duplicate Fluent sources; use root-level builder files -->
+  <ItemGroup>
+    <Compile Remove="Fluent\**\*.cs" />
+  </ItemGroup>
+
+</Project>

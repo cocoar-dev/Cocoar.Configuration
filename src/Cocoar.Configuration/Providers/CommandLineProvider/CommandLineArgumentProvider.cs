@@ -134,5 +134,5 @@ public sealed class CommandLineArgumentProvider(CommandLineProviderOptions optio
     }
 
     public override IObservable<byte[]> ChangesAsBytes(CommandLineProviderQueryOptions queryOptions)
-        => System.Reactive.Linq.Observable.Never<byte[]>();
+        => ObservableHelpers.Never<byte[]>();
 }

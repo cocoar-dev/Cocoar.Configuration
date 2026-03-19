@@ -1,6 +1,5 @@
 using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.DI.Capabilities;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.DI.Extensions;

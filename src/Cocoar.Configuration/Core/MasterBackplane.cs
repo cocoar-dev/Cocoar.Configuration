@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using Cocoar.Configuration.Infrastructure;
 
 namespace Cocoar.Configuration.Core;
@@ -11,16 +9,20 @@ namespace Cocoar.Configuration.Core;
 /// </summary>
 internal sealed class MasterBackplane : IDisposable
 {
-    private readonly BehaviorSubject<ConfigSnapshot> _snapshotSubject;
+    private readonly SimpleBehaviorSubject<ConfigSnapshot> _snapshotSubject;
     private readonly ExposureRegistry _bindingRegistry;
     private readonly ConcurrentDictionary<Type, object> _typeProjectionCache = new();
+#if NET9_0_OR_GREATER
     private readonly Lock _publishLock = new();
+#else
+    private readonly object _publishLock = new();
+#endif
     private bool _disposed;
 
     public MasterBackplane(ExposureRegistry bindingRegistry)
     {
         _bindingRegistry = bindingRegistry;
-        _snapshotSubject = new BehaviorSubject<ConfigSnapshot>(ConfigSnapshot.Empty);
+        _snapshotSubject = new SimpleBehaviorSubject<ConfigSnapshot>(ConfigSnapshot.Empty);
     }
 
     /// <summary>
@@ -32,7 +34,7 @@ internal sealed class MasterBackplane : IDisposable
     /// Observable stream of configuration snapshots.
     /// Emits whenever a new snapshot is published.
     /// </summary>
-    public IObservable<ConfigSnapshot> SnapshotStream => _snapshotSubject.AsObservable();
+    public IObservable<ConfigSnapshot> SnapshotStream => _snapshotSubject;
 
     /// <summary>
     /// Publishes a new configuration snapshot atomically.
@@ -142,11 +144,15 @@ internal sealed class MasterBackplane : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        lock (_publishLock)
+        {
+            if (_disposed) return;
+            _disposed = true;
 
-        _snapshotSubject.OnCompleted();
-        _snapshotSubject.Dispose();
+            _snapshotSubject.OnCompleted();
+            _snapshotSubject.Dispose();
+        }
+
         _typeProjectionCache.Clear();
     }
 

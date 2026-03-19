@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsTestProject>true</IsTestProject>
@@ -19,5 +19,8 @@
     <ProjectReference Include="..\..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
     <ProjectReference Include="..\..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />
     <ProjectReference Include="..\..\Cocoar.Configuration.MicrosoftAdapter\Cocoar.Configuration.MicrosoftAdapter.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.Analyzers\Cocoar.Configuration.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
+using Cocoar.Configuration.Flags.Internal;
 using Cocoar.Configuration.Fluent;
 using Cocoar.Configuration.Testing;
 using Microsoft.Extensions.Logging;
@@ -76,7 +77,8 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         Func<SetupBuilder, SetupDefinition[]>? setup = null,
         ILogger? logger = null,
         Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null,
-        int debounceMilliseconds = 300)
+        int debounceMilliseconds = 300,
+        IFlagsHealthSource? flagsHealthSource = null)
     {
         // Apply test configuration overrides if present
         _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
@@ -88,7 +90,7 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
-        _state = new ConfigurationState(_ruleManagers, _rules, _logger);
+        _state = new ConfigurationState(_ruleManagers, _rules, _logger, flagsHealthSource);
         _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
         _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
 
@@ -118,6 +120,16 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
     internal IReadOnlyList<SetupDefinition> SetupDefinitions => _setupDefinitions.AsReadOnly();
 
     internal ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
+
+    /// <summary>
+    /// Set by <c>UseFeatureFlags</c>. Null when feature flags have not been configured.
+    /// </summary>
+    internal FlagsSetupData? FlagsSetup { get; set; }
+
+    /// <summary>
+    /// Set by <c>UseEntitlements</c>. Null when entitlements have not been configured.
+    /// </summary>
+    internal EntitlementsSetupData? EntitlementsSetup { get; set; }
     internal MasterBackplane Backplane => _state.Backplane;
 
     internal ConfigManager Initialize()
@@ -255,16 +267,28 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         return _reactiveFactory.GetReactiveConfig<T>(() => (T)GetConfig(typeof(T)));
     }
 
-    /// <summary>
-    /// Gets the health service for monitoring the configuration system's status.
-    /// </summary>
-    /// <returns>An <see cref="IConfigurationHealthService"/> providing health status and observable streams.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if <see cref="Configure"/> has not been called.</exception>
-    public IConfigurationHealthService GetHealthService()
+    /// <summary>Current overall health status of the configuration system.</summary>
+    public HealthStatus HealthStatus
     {
-        if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
-        return _state.GetHealthService();
+        get
+        {
+            if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+            return _state.HealthStatus;
+        }
     }
+
+    /// <summary><c>true</c> when <see cref="HealthStatus"/> is <see cref="Health.HealthStatus.Healthy"/>.</summary>
+    public bool IsHealthy
+    {
+        get
+        {
+            if (_initialized == 0) throw new InvalidOperationException("ConfigManager has not been initialized. Call Configure() first.");
+            return _state.IsHealthy;
+        }
+    }
+
+    /// <summary>Human-readable description of the current health state (e.g. "1 required rule(s) failed").</summary>
+    internal string HealthDescription => _state.HealthDescription;
 
     internal void ScheduleRecompute(int startIndex) =>
         _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
@@ -351,7 +375,11 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         {
             var configuredDefs = configuredSetup?.Invoke(builder) ?? [];
             var testDefs = testContext.Setup(builder);
+#if NET9_0_OR_GREATER
             return [.. configuredDefs, .. testDefs];
+#else
+            return configuredDefs.Concat(testDefs).ToArray();
+#endif
         };
     }
 }

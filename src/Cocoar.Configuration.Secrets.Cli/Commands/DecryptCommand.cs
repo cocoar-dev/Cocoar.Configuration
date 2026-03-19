@@ -70,10 +70,31 @@ internal static class DecryptCommand
                 DecryptAsync(file!, path!, cert!, password, replace).GetAwaiter().GetResult();
                 return 0;
             }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 1;
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 2;
+            }
+            catch (IOException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 2;
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: Decryption failed. Check certificate and encrypted value.");
+                Console.Error.WriteLine($"   Details: {ex.Message}");
+                return 3;
+            }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Error: {ex.Message}");
-                return 1;
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 4;
             }
         });
 
@@ -236,6 +257,13 @@ internal static class DecryptCommand
             }
         } while (key.Key != ConsoleKey.Enter);
 
-        return password.ToString();
+        var result = password.ToString();
+
+        // Zero the StringBuilder buffer so the password doesn't linger in heap memory
+        for (var i = 0; i < password.Length; i++)
+            password[i] = '\0';
+        password.Clear();
+
+        return result;
     }
 }

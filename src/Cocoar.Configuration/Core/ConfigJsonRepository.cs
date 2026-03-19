@@ -96,18 +96,15 @@ internal sealed class ConfigJsonRepository
 
     /// <summary>
     /// Tries to get a configuration value by type.
-    /// Thread-safe to avoid race conditions with volatile fields.
+    /// Captures <see cref="CurrentConfigurations"/> once to avoid reading different dictionaries
+    /// if a commit occurs between the existence check and the value read.
     /// </summary>
     public bool TryGetConfiguration(Type type, out MutableJsonObject? value)
     {
-        var foundType = FindRegistration(type);
-        if (foundType != null)
+        var currentConfigs = CurrentConfigurations;
+        if (currentConfigs.ContainsKey(type) && currentConfigs.TryGetValue(type, out value))
         {
-            var currentConfigs = CurrentConfigurations;
-            if (currentConfigs.TryGetValue(foundType, out value))
-            {
-                return true;
-            }
+            return true;
         }
 
         value = default;

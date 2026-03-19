@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Diagnostics;
 using Cocoar.Configuration.Helper;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Providers.Abstractions;
@@ -211,6 +212,10 @@ internal sealed class RuleManager : IDisposable
     {
         LastOutcome = RuleExecutionOutcome.Failed;
         LastFailureException = ex;
+
+        CocoarMetrics.ProviderErrors.Add(1,
+            new KeyValuePair<string, object?>("provider_type", _rule.ProviderType.Name),
+            new KeyValuePair<string, object?>("required", Required.ToString()));
 
         if (Required)
         {

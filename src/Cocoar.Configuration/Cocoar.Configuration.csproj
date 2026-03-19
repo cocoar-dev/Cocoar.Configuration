@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>Reactive, strongly-typed configuration layering for .NET with health monitoring, file resilience, and zero-downtime updates. Core library providing ConfigManager, providers (file, environment, command-line, observable), and differential updates.</Description>
-    <PackageTags>configuration;reactive;dotnet;aspnetcore;strongly-typed;health-monitoring;resilience;zero-downtime;file-watching;differential-updates</PackageTags>
+    <Description>Reactive, strongly-typed configuration for .NET. Layered rules, atomic updates, feature flags, entitlements, memory-safe secrets (RSA-OAEP + AES-256-GCM), health monitoring, and providers (file, environment, command-line, static, observable).</Description>
+    <PackageTags>configuration;reactive;dotnet;strongly-typed;feature-flags;entitlements;secrets;health-monitoring;providers</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,8 +15,6 @@
     <PackageReference Include="Cocoar.FileSystem" />
     <PackageReference Include="Cocoar.Json.Mutable" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <PackageReference Include="System.Reactive" />
-    
     <!-- Analyzer included for compile-time validation -->
     <!-- Note: Using ProjectReference until analyzer is published to NuGet -->
     <ProjectReference Include="..\Cocoar.Configuration.Analyzers\Cocoar.Configuration.Analyzers.csproj">

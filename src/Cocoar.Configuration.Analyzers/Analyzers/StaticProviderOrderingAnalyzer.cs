@@ -56,12 +56,12 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeProviderOrdering(SimpleLambdaExpressionSyntax lambda, SyntaxNodeAnalysisContext context)
     {
         var rules = new List<(bool isStatic, Location location)>();
-        
+
         var invocations = lambda.DescendantNodes().OfType<InvocationExpressionSyntax>();
-        
+
         foreach (var inv in invocations)
         {
-            var providerInfo = ExtractProviderInfo(inv);
+            var providerInfo = ExtractProviderInfo(inv, context.SemanticModel);
             if (providerInfo.HasValue)
             {
                 rules.Add(providerInfo.Value);
@@ -91,25 +91,22 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static (bool isStatic, Location location)? ExtractProviderInfo(InvocationExpressionSyntax invocation)
+    private static (bool isStatic, Location location)? ExtractProviderInfo(
+        InvocationExpressionSyntax invocation, SemanticModel semanticModel)
     {
-        // Look for provider methods in the chain
+        // Walk the invocation chain to find the provider method — the first method
+        // called on TypedRuleBuilder<T> (returned by rule.For<T>())
         var parent = invocation;
         while (parent != null)
         {
-            if (parent is InvocationExpressionSyntax parentInv)
+            if (parent.Expression is MemberAccessExpressionSyntax memberAccess)
             {
-                var memberAccess = parentInv.Expression as MemberAccessExpressionSyntax;
-                if (memberAccess != null)
+                var symbol = semanticModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                if (symbol != null && IsExtensionOnTypedRuleBuilder(symbol))
                 {
-                    var methodName = memberAccess.Name.Identifier.Text;
-                    
-                    // Check if this is a provider method
-                    if (IsProviderMethod(methodName))
-                    {
-                        bool isStatic = methodName.IndexOf("Static", StringComparison.OrdinalIgnoreCase) >= 0;
-                        return (isStatic, parentInv.GetLocation());
-                    }
+                    var methodName = symbol.Name;
+                    bool isStatic = methodName.IndexOf("Static", StringComparison.OrdinalIgnoreCase) >= 0;
+                    return (isStatic, parent.GetLocation());
                 }
             }
             parent = parent.Parent as InvocationExpressionSyntax;
@@ -118,14 +115,19 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private static bool IsProviderMethod(string methodName)
+    /// <summary>
+    /// Checks if the method is an extension method whose first parameter is TypedRuleBuilder&lt;T&gt;.
+    /// This is the architectural definition of a provider method — no naming convention needed.
+    /// </summary>
+    private static bool IsExtensionOnTypedRuleBuilder(IMethodSymbol method)
     {
-        return methodName is "FromFile" 
-            or "FromEnvironment" 
-            or "FromCommandLine"
-            or "FromStatic" 
-            or "FromObservable"
-            or "FromHttpPolling"
-            or "FromMicrosoftConfiguration";
+        if (!method.IsExtensionMethod) return false;
+
+        var receiverType = method.ReducedFrom?.Parameters.FirstOrDefault()?.Type
+                           ?? method.Parameters.FirstOrDefault()?.Type;
+        if (receiverType is not INamedTypeSymbol namedType) return false;
+
+        return namedType.Name == "TypedRuleBuilder"
+               && namedType.ContainingNamespace?.ToString() == "Cocoar.Configuration.Fluent";
     }
 }
