@@ -18,16 +18,21 @@ v5.0 introduces the **ConfigManager Builder API**, **package consolidation** (10
 ## Package Changes
 
 ```bash
-# Remove old packages
+# Remove old/merged packages
 dotnet remove package Cocoar.Configuration.Secrets
 dotnet remove package Cocoar.Configuration.Secrets.Abstractions
 dotnet remove package Cocoar.Configuration.HttpPolling
+dotnet remove package Cocoar.Configuration.Analyzers    # Now bundled in Cocoar.Configuration
 
 # Update/add new packages
-dotnet add package Cocoar.Configuration              # Now includes Secrets + Flags
+dotnet add package Cocoar.Configuration              # Now includes Secrets + Flags + Analyzers
 dotnet add package Cocoar.Configuration.Abstractions  # Now includes Secrets.Abstractions
 dotnet add package Cocoar.Configuration.Http          # Was HttpPolling
 ```
+
+:::warning Remove Cocoar.Configuration.Analyzers
+The analyzers and source generator are now bundled inside the `Cocoar.Configuration` package. If you keep a separate `Cocoar.Configuration.Analyzers` PackageReference, you will get **duplicate type errors** (CS0101/CS0102) because the source generator runs twice. Remove the separate reference.
+:::
 
 Same types, same namespaces — just fewer packages to install.
 

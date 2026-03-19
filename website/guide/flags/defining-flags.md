@@ -135,3 +135,7 @@ public class CheckoutService(AppFeatureFlags flags)
 
 Flag classes are **Singleton** — safe to inject anywhere. The delegate reads from `Config` (backed by `IReactiveConfig<T>.CurrentValue`), which always reflects the latest configuration.
 
+:::warning Namespace collision with Config property
+The source generator creates a `Config` property on your class. If your namespace contains `.Config` (e.g., `MyApp.Config`), the compiler may confuse the namespace with the property. Avoid naming namespaces `Config` when using `IFeatureFlags<T>` or `IEntitlements<T>`.
+:::
+

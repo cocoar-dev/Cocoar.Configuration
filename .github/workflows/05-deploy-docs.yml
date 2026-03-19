@@ -1,0 +1,93 @@
+name: Deploy Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. v5.0). Leave empty to use GitVersion major.minor.'
+        required: false
+
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy Docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install GitVersion
+        if: inputs.version == ''
+        uses: gittools/actions/gitversion/setup@v4
+        with:
+          versionSpec: '6.x'
+
+      - name: Calculate version
+        if: inputs.version == ''
+        id: gv
+        uses: gittools/actions/gitversion/execute@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "value=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=v${{ steps.gv.outputs.Major }}.${{ steps.gv.outputs.Minor }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build VitePress
+        working-directory: website
+        run: npx vitepress build
+
+      - name: Export docs (llms.txt + markdown)
+        working-directory: website
+        run: node scripts/export-md.mjs
+
+      - name: Copy exports into dist
+        run: |
+          cp website/dist/llms.txt website/.vitepress/dist/
+          cp website/dist/llms-full.txt website/.vitepress/dist/
+          cp website/dist/cocoar-configuration-docs.md website/.vitepress/dist/
+
+      - name: Package
+        run: cd website/.vitepress/dist && zip -r $GITHUB_WORKSPACE/docs.zip .
+
+      - name: Upload to Shelf
+        env:
+          KEY: ${{ secrets.SHELF_API_KEY }}
+          URL: ${{ secrets.SHELF_BASE_URL }}
+          VER: ${{ steps.version.outputs.value }}
+        run: |
+          echo "Deploying configuration docs $VER to $URL"
+          curl -f -X POST \
+            -H "Authorization: Bearer $KEY" \
+            -H "Content-Type: application/zip" \
+            --data-binary @$GITHUB_WORKSPACE/docs.zip \
+            "${URL}/api/products/configuration/versions/${VER}"
+
+      - name: Deployment summary
+        run: |
+          echo "### Docs Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Product:** configuration" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.value }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ secrets.SHELF_BASE_URL }}/configuration/" >> $GITHUB_STEP_SUMMARY
