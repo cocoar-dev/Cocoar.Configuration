@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Cocoar.Capabilities;
+using Cocoar.Configuration.Diagnostics;
 using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Utilities;
@@ -89,7 +91,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             RecomputeAllConfigurationsSafe(ruleManagers, configAccessor);
             CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
 
-            _state.ReportSuccessfulRecompute(0);
+            _state.UpdateHealth();
 
             // Mark startup complete - future failures will preserve last good config
             _state.MarkStartupComplete();
@@ -98,7 +100,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         catch (Exception ex)
         {
             _logger.InitializationFailed(ex);
-            _state.ReportFailedRecompute(0, ex);
+            _state.UpdateHealth();
             throw;
         }
     }
@@ -117,16 +119,13 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             try
             {
                 await RecomputeAllConfigurationsSafeAsync(ruleManagers, configAccessor, startIndex, ct).ConfigureAwait(false);
-                _state.ReportSuccessfulRecompute(startIndex);
-
-                if (_state.LastDeserializationFailures.Count > 0)
-                    _state.ReportDeserializationFailures(_state.LastDeserializationFailures);
+                _state.UpdateHealth();
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 _logger.RuntimeRecomputeFailed(ex);
-                _state.ReportFailedRecompute(startIndex, ex);
+                _state.UpdateHealth();
             }
         });
     }
@@ -158,14 +157,14 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             await RecomputeAllConfigurationsSafeAsync(ruleManagers, configAccessor, 0, cancellationToken).ConfigureAwait(false);
             CreateChangeSubscriptions(ruleManagers, scheduleRecomputeCallback, debounceMilliseconds);
 
-            _state.ReportSuccessfulRecompute(0);
+            _state.UpdateHealth();
             _state.MarkStartupComplete();
             _logger.StartupComplete();
         }
         catch (Exception ex)
         {
             _logger.InitializationFailed(ex);
-            _state.ReportFailedRecompute(0, ex);
+            _state.UpdateHealth();
             throw;
         }
     }
@@ -182,20 +181,39 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         _recomputeSemaphore.Wait(cancellationToken);
         try
         {
+            using var activity = CocoarMetrics.ActivitySource.StartActivity("cocoar.config.recompute");
+            activity?.SetTag("rule_count", ruleManagers.Count);
+            activity?.SetTag("start_index", startIndex);
+
             _logger.RecomputeStarted();
+            var sw = Stopwatch.StartNew();
             try
             {
                 RecomputeAllConfigurations(ruleManagers, configAccessor, startIndex, cancellationToken);
+                sw.Stop();
+                activity?.SetTag("status", "success");
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "success"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
             }
             catch (OperationCanceledException)
             {
+                sw.Stop();
+                activity?.SetTag("status", "cancelled");
+                activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "cancelled"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
                 _logger.RecomputeCancelled();
-                _state.RollbackUpdate();
+                RollbackSafely();
                 throw;
             }
-            catch
+            catch (Exception ex)
             {
-                _state.RollbackUpdate();
+                sw.Stop();
+                activity?.SetTag("status", "failure");
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "failure"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
+                RollbackSafely();
                 throw;
             }
             finally
@@ -221,20 +239,39 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         await _recomputeSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var activity = CocoarMetrics.ActivitySource.StartActivity("cocoar.config.recompute");
+            activity?.SetTag("rule_count", ruleManagers.Count);
+            activity?.SetTag("start_index", startIndex);
+
             _logger.RecomputeStarted();
+            var sw = Stopwatch.StartNew();
             try
             {
                 await RecomputeAllConfigurationsAsync(ruleManagers, configAccessor, startIndex, cancellationToken).ConfigureAwait(false);
+                sw.Stop();
+                activity?.SetTag("status", "success");
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "success"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
             }
             catch (OperationCanceledException)
             {
+                sw.Stop();
+                activity?.SetTag("status", "cancelled");
+                activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "cancelled"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
                 _logger.RecomputeCancelled();
-                _state.RollbackUpdate();
+                RollbackSafely();
                 throw;
             }
-            catch
+            catch (Exception ex)
             {
-                _state.RollbackUpdate();
+                sw.Stop();
+                activity?.SetTag("status", "failure");
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                CocoarMetrics.RecomputeCount.Add(1, new KeyValuePair<string, object?>("status", "failure"));
+                CocoarMetrics.RecomputeDuration.Record(sw.Elapsed.TotalMilliseconds);
+                RollbackSafely();
                 throw;
             }
             finally
@@ -245,6 +282,18 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         finally
         {
             _recomputeSemaphore.Release();
+        }
+    }
+
+    private void RollbackSafely()
+    {
+        try
+        {
+            _state.RollbackUpdate();
+        }
+        catch (Exception rollbackEx)
+        {
+            _logger.RuntimeRecomputeFailed(rollbackEx);
         }
     }
 
@@ -344,6 +393,11 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var ruleManager = orderedManagers[i];
+            using var ruleActivity = CocoarMetrics.ActivitySource.StartActivity("cocoar.config.rule");
+            ruleActivity?.SetTag("rule_type", ruleManager.TypeDefinition.Name);
+            ruleActivity?.SetTag("rule_index", i);
+            ruleActivity?.SetTag("required", ruleManager.Required);
+
             var bytes = ruleManager.ComputeAsync(configAccessor, cancellationToken).GetAwaiter().GetResult();
 
             ProcessRuleResult(ruleManager, bytes, mergedConfigs);
@@ -362,6 +416,11 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             var ruleManager = orderedManagers[i];
+            using var ruleActivity = CocoarMetrics.ActivitySource.StartActivity("cocoar.config.rule");
+            ruleActivity?.SetTag("rule_type", ruleManager.TypeDefinition.Name);
+            ruleActivity?.SetTag("rule_index", i);
+            ruleActivity?.SetTag("required", ruleManager.Required);
+
             var bytes = await ruleManager.ComputeAsync(configAccessor, cancellationToken).ConfigureAwait(false);
 
             ProcessRuleResult(ruleManager, bytes, mergedConfigs);

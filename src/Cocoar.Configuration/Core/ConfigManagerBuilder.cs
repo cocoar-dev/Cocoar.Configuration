@@ -1,5 +1,6 @@
 using Cocoar.Configuration.Configure;
 using Cocoar.Configuration.Fluent;
+using Cocoar.Configuration.Health;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public sealed class ConfigManagerBuilder
     private ILogger? _logger;
     private int _debounceMilliseconds = 300;
     private Func<Type, IProviderConfiguration, ConfigurationProvider>? _providerFactory;
+    private IFlagsHealthSource? _flagsHealthSource;
 
     private readonly List<Action<ConfigManager>> _afterBuildActions = new();
 
@@ -33,6 +35,16 @@ public sealed class ConfigManagerBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
         return builder._manager.CapabilityScope;
+    }
+
+    /// <summary>
+    /// Gets the <see cref="ConfigManager"/> being built.
+    /// Used by same-assembly extensions (e.g. Flags, Secrets) to set data directly on the manager.
+    /// </summary>
+    internal static ConfigManager GetManager(ConfigManagerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder._manager;
     }
 
     /// <summary>
@@ -118,6 +130,18 @@ public sealed class ConfigManagerBuilder
     }
 
     /// <summary>
+    /// Sets the flags health source used by the health reporter to include
+    /// expired feature flags in health snapshots.
+    /// Called by <c>UseFeatureFlags</c> in <c>Cocoar.Configuration.Flags</c>.
+    /// </summary>
+    internal ConfigManagerBuilder SetFlagsHealthSource(IFlagsHealthSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        _flagsHealthSource = source;
+        return this;
+    }
+
+    /// <summary>
     /// Registers an action that runs after ConfigManager is fully initialized.
     /// Used by satellite libraries to perform post-init work
     /// (e.g., constructing feature flags).
@@ -148,7 +172,8 @@ public sealed class ConfigManagerBuilder
             _setup,
             _logger,
             _providerFactory,
-            _debounceMilliseconds);
+            _debounceMilliseconds,
+            _flagsHealthSource);
 
         _manager.Initialize();
 
@@ -177,7 +202,8 @@ public sealed class ConfigManagerBuilder
             _setup,
             _logger,
             _providerFactory,
-            _debounceMilliseconds);
+            _debounceMilliseconds,
+            _flagsHealthSource);
 
         await _manager.InitializeAsync(cancellationToken).ConfigureAwait(false);
 

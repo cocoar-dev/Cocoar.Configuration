@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Infrastructure;
 using Microsoft.Extensions.Logging;

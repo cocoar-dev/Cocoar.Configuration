@@ -39,7 +39,7 @@ public class ConfigManagerIsolationTests : IDisposable
     }
 
     // Helper to create static rules using fluent API
-    private static ConfigRule CreateStaticRule<T>(T config)
+    private static ConfigRule CreateStaticRule<T>(T config) where T : class
     {
         var rulesBuilder = new RulesBuilder();
         return rulesBuilder.For<T>().FromStaticJson(JsonSerializer.Serialize(config)).Required();

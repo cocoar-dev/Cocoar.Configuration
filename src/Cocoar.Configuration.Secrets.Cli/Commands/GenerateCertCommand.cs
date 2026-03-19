@@ -155,6 +155,12 @@ internal static class GenerateCertCommand
             Console.Error.WriteLine($"❌ Error: {ex.Message}");
             return Task.FromResult(2);
         }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            Console.Error.WriteLine($"❌ Error: Certificate generation failed.");
+            Console.Error.WriteLine($"   Details: {ex.Message}");
+            return Task.FromResult(3);
+        }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"❌ Error: {ex.Message}");

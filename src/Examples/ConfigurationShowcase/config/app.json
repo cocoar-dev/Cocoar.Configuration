@@ -1,9 +1,0 @@
-{
-  "AppSettings": {
-    "ApplicationName": "Configuration Showcase",
-    "Version": "5.0.0",
-    "MaxRetries": 3,
-    "EnableDetailedErrors": true,
-    "WelcomeMessage": "Welcome to the Cocoar.Configuration v5.0 Showcase!"
-  }
-}

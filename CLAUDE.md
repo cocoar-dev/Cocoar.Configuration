@@ -29,14 +29,15 @@ dotnet pack ./src -c Release
 
 ## Architecture Overview
 
-**Cocoar.Configuration** is a reactive, strongly-typed configuration library for .NET 9.0. The architecture follows a modular, capabilities-driven design.
+**Cocoar.Configuration** is a reactive, strongly-typed configuration library for .NET 8.0+. The architecture follows a modular, capabilities-driven design.
 
 ### Core Components
 
-- **ConfigManager** (`src/Cocoar.Configuration/Core/`) - Central orchestrator that manages configuration lifecycle, rule execution, and reactive updates. Always created via `ConfigManager.Create()` or `ConfigManager.CreateAsync()` — constructors are internal.
-- **ConfigManagerBuilder** (`src/Cocoar.Configuration/Core/`) - Fluent builder returned by `Create`/`CreateAsync`. Satellite libraries extend it via extension methods (e.g. `.UseSecretsSetup()`).
+- **ConfigManager** (`src/Cocoar.Configuration/Core/`) - Central orchestrator that manages configuration lifecycle, rule execution, and reactive updates. Always created via `ConfigManager.Create()` or `ConfigManager.CreateAsync()` — constructors are internal. Both take an `Action<ConfigManagerBuilder>` lambda and return a fully initialized `ConfigManager`.
+- **ConfigManagerBuilder** (`src/Cocoar.Configuration/Core/`) - Fluent builder received as parameter in `Create`/`CreateAsync` lambdas. Satellite libraries extend it via extension methods (e.g. `.UseSecretsSetup()`, `.UseFeatureFlags()`, `.UseEntitlements()`).
+- **Feature Flags & Entitlements** (`src/Cocoar.Configuration/Flags/`) - Source-generated pattern: `partial class` implements `IFeatureFlags<TConfig>` or `IEntitlements<TConfig>`, generator produces constructor and `Config` property (reads `IReactiveConfig<T>.CurrentValue`). Multi-config via tuples (`IFeatureFlags<(T1, T2)>`). These interfaces are the only supported way to define flags and entitlements.
 - **Providers** (`src/Cocoar.Configuration/Providers/`) - Abstract configuration sources (File, Environment, CommandLine, HTTP, Static, Observable)
-- **Fluent Builders** (`src/Cocoar.Configuration/Fluent/`) - `RulesBuilder` for defining configuration rules with `.For<T>().FromFile()` pattern
+- **Fluent Builders** (`src/Cocoar.Configuration/Fluent/`) - `RulesBuilder` for defining configuration rules with `.For<T>().FromFile()` pattern. `TypedRuleBuilder<T>` has a `where T : class` constraint — configuration types must be reference types.
 - **SetupBuilder** (`src/Cocoar.Configuration/Configure/`) - DI registration with `.ConcreteType<T>()` and `.Interface<T>()` patterns
 
 ### Recompute Pipeline
@@ -48,7 +49,7 @@ The configuration engine follows a transactional recompute model:
 3. **Async Dispatch** - `ScheduleAsync` dispatches a fully async recompute; the threadpool thread is released during provider I/O (no sync-over-async)
 4. **Rule Execution** - Rules execute sequentially via `RuleManager` instances
 5. **Atomic Commit** - `ConfigurationState` commits all changes atomically or rolls back entirely
-6. **Reactive Notification** - `ReactiveConfigManager` emits to subscribers (hash-based change detection)
+6. **Reactive Notification** - `ReactiveConfigManager` emits to subscribers (reference-equality change detection)
 
 ### RuleManager Coordination
 
@@ -69,6 +70,8 @@ capabilityScope.Compose(this).WithPrimary(new ConcreteTypePrimary<T>(...));
 SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 ```
 
+**Zero External Dependencies** - Shipped packages have no non-Microsoft dependencies. The reactive internals (`Reactive/Internal/`) are lightweight replacements for the subset of System.Reactive the library used (Subject, BehaviorSubject, Select/Where/DistinctUntilChanged). This is intentional — do not add System.Reactive back. The public API (`IReactiveConfig<T> : IObservable<T>`) uses only BCL types; consumers are free to use System.Reactive on their side. Test projects still reference System.Reactive as a test dependency.
+
 **Reactive Tuples** - `IReactiveConfig<(T1, T2)>` provides atomic multi-config updates. Multiple configs always update together, preventing inconsistent state.
 
 **Provider Consistency** - All providers return empty `{}` on failure (not null). Optional rules degrade gracefully with C# defaults; required rules roll back the entire recompute.
@@ -79,14 +82,14 @@ SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 
 | Project | Purpose |
 |---------|---------|
-| `Cocoar.Configuration.Abstractions` | Lightweight interfaces (`IConfigurationAccessor`, `IReactiveConfig<T>`) |
-| `Cocoar.Configuration` | Main library with providers, builders, and reactive engine |
-| `Cocoar.Configuration.Secrets` | Memory-safe `Secret<T>` with RSA-OAEP + AES-256-GCM encryption |
-| `Cocoar.Configuration.DI` | `AddCocoarConfiguration()` for Microsoft.Extensions.DI |
-| `Cocoar.Configuration.AspNetCore` | ASP.NET Core integration and health endpoints |
-| `Cocoar.Configuration.HttpPolling` | Remote config polling provider |
+| `Cocoar.Configuration.Abstractions` | Lightweight interfaces (`IConfigurationAccessor`, `IReactiveConfig<T>`, `ISecret<T>`, `SecretLease<T>`) |
+| `Cocoar.Configuration` | Main library: providers, builders, reactive engine, secrets (`Secret<T>`, X.509 encryption), feature flags, entitlements |
+| `Cocoar.Configuration.DI` | `AddCocoarConfiguration()` for Microsoft.Extensions.DI (no ASP.NET Core dependency) |
+| `Cocoar.Configuration.AspNetCore` | ASP.NET Core integration, health endpoints, feature flag/entitlement REST endpoints |
+| `Cocoar.Configuration.Http` | Remote config provider (polling, SSE, one-time fetch) |
 | `Cocoar.Configuration.MicrosoftAdapter` | Bridge to existing `IConfiguration` sources |
-| `Cocoar.Configuration.Analyzers` | Roslyn analyzers (COCFG001-006) with quick fixes |
+| `Cocoar.Configuration.Analyzers` | Roslyn analyzers (COCFG001, 002, 003, 005, 006) and source generator (COCFLAG001-003). COCFG004 was removed — enforced by `where T : class` constraint instead. |
+| `Cocoar.Configuration.Secrets.Cli` | Global .NET tool for encrypting/decrypting secrets in config files |
 
 ### DI Registration (Deterministic Ordering)
 
@@ -117,10 +120,9 @@ Read these ADRs to understand important design choices:
 
 ## Documentation
 
-- `/docs/` - Health monitoring, testing patterns, ADRs, migration guides
-- `/docs/adr/` - Architecture Decision Records (ADR-001 through ADR-003)
-- Project READMEs in `src/Cocoar.Configuration.Secrets/` and `src/Cocoar.Configuration.Analyzers/`
-- Examples in `src/Examples/` demonstrate real-world usage patterns
+- `website/` - VitePress documentation site (single source of truth for user-facing docs)
+- `docs/adr/` - Architecture Decision Records (ADR-001 through ADR-003)
+- `src/Examples/` - Runnable example projects demonstrating individual features
 
 ## Local Working Files
 

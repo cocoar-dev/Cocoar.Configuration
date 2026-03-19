@@ -34,22 +34,7 @@ public sealed class MicrosoftConfigurationSourceProvider(
 
     public override IObservable<byte[]> ChangesAsBytes(MicrosoftConfigurationSourceProviderQueryOptions query)
     {
-        return System.Reactive.Linq.Observable.Create<byte[]>(observer =>
-        {
-            var provider = BuildProvider();
-
-            void publish()
-            {
-                var root = new ConfigurationRoot(new[] { provider });
-                var dict = Flatten(root, query.ConfigurationPrefix);
-                var bytes = DictToJsonBytes(dict);
-                observer.OnNext(bytes);
-            }
-
-            var token = provider.GetReloadToken();
-            var reg = token.RegisterChangeCallback(_ => publish(), null);
-            return System.Reactive.Disposables.Disposable.Create(() => reg.Dispose());
-        });
+        return new ChangeTokenObservable(this, query);
     }
 
     private static Dictionary<string, string?> Flatten(IConfigurationRoot root, string? ConfigurationPrefix)
@@ -117,16 +102,79 @@ public sealed class MicrosoftConfigurationSourceProvider(
     /// Helper method to create a Microsoft configuration source rule for testing purposes.
     /// </summary>
     public static Cocoar.Configuration.Rules.ConfigRule CreateRule<T>(
-        Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory, 
+        Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory,
         bool required = false)
     {
-        return Cocoar.Configuration.Rules.ConfigRule.Create<MicrosoftConfigurationSourceProvider, 
-            MicrosoftConfigurationSourceProviderOptions, 
+        return Cocoar.Configuration.Rules.ConfigRule.Create<MicrosoftConfigurationSourceProvider,
+            MicrosoftConfigurationSourceProviderOptions,
             MicrosoftConfigurationSourceProviderQueryOptions>(
             cm => optionsFactory(cm).ToProviderOptions(),
             cm => optionsFactory(cm).ToQueryOptions(),
             typeof(T),
             new Cocoar.Configuration.Rules.ConfigRuleOptions(Required: required, UseWhen: null)
         );
+    }
+
+    /// <summary>
+    /// Wraps IChangeToken from a Microsoft configuration provider as an IObservable.
+    /// Re-registers the change token after each callback (IChangeToken is single-fire).
+    /// </summary>
+    private sealed class ChangeTokenObservable(
+        MicrosoftConfigurationSourceProvider owner,
+        MicrosoftConfigurationSourceProviderQueryOptions query) : IObservable<byte[]>
+    {
+        public IDisposable Subscribe(IObserver<byte[]> observer)
+        {
+            var state = new ChangeTokenState(owner, query, observer);
+            state.Register();
+            return state;
+        }
+
+        private sealed class ChangeTokenState : IDisposable
+        {
+            private readonly MicrosoftConfigurationSourceProvider _owner;
+            private readonly MicrosoftConfigurationSourceProviderQueryOptions _query;
+            private readonly IObserver<byte[]> _observer;
+            private readonly IConfigurationProvider _provider;
+            private IDisposable? _registration;
+            private int _disposed;
+
+            public ChangeTokenState(
+                MicrosoftConfigurationSourceProvider owner,
+                MicrosoftConfigurationSourceProviderQueryOptions query,
+                IObserver<byte[]> observer)
+            {
+                _owner = owner;
+                _query = query;
+                _observer = observer;
+                _provider = owner.BuildProvider();
+            }
+
+            public void Register()
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+                var token = _provider.GetReloadToken();
+                _registration = token.RegisterChangeCallback(_ => OnChange(), null);
+            }
+
+            private void OnChange()
+            {
+                if (Volatile.Read(ref _disposed) != 0) return;
+
+                var root = new ConfigurationRoot(new[] { _provider });
+                var dict = Flatten(root, _query.ConfigurationPrefix);
+                var bytes = DictToJsonBytes(dict);
+                try { _observer.OnNext(bytes); } catch { /* observer fault must not break re-registration */ }
+
+                // IChangeToken is single-fire — re-register for the next change
+                Register();
+            }
+
+            public void Dispose()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+                _registration?.Dispose();
+            }
+        }
     }
 }

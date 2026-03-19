@@ -213,12 +213,41 @@ internal static class CertInfoCommand
 
             return Task.FromResult(0);
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"✗ Error: {ex.Message}");
             Console.ResetColor();
             return Task.FromResult(1);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return Task.FromResult(2);
+        }
+        catch (IOException ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return Task.FromResult(2);
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: Failed to read certificate. Check password and file format.");
+            Console.WriteLine($"  Details: {ex.Message}");
+            Console.ResetColor();
+            return Task.FromResult(3);
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"✗ Error: {ex.Message}");
+            Console.ResetColor();
+            return Task.FromResult(4);
         }
     }
 }

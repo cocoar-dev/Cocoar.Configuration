@@ -1,16 +1,13 @@
-using System;
-using System.IO;
 using System.Collections.Immutable;
-using System.Threading.Tasks;
+using Cocoar.Configuration.Analyzers.Analyzers;
+using Cocoar.Configuration.DI;
+using Cocoar.Configuration.Rules;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
-using Cocoar.Configuration.Analyzers.Analyzers;
-using Cocoar.Configuration.Rules;
-using Cocoar.Configuration.DI;
 
 
 namespace Cocoar.Configuration.Analyzers.Tests;
@@ -36,17 +33,17 @@ class Program
             rule.For<AppSettings>().FromFile(""app.json""),
             rule.For<DerivedConfig>()
                 .FromFile(""derived.json"")
-                .When(accessor => accessor.GetRequiredConfig<AppSettings>().IsEnabled)
+                .When(accessor => accessor.GetConfig<AppSettings>().IsEnabled)
         ]));
     }
 }
 
-public class AppSettings 
-{ 
+public class AppSettings
+{
     public bool IsEnabled { get; set; }
 }
 
-public class DerivedConfig 
+public class DerivedConfig
 {
 }
 ";
@@ -73,18 +70,18 @@ class Program
         builder.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
             rule.For<DerivedConfig>()
                 .FromFile(""derived.json"")
-                .When(accessor => accessor.GetRequiredConfig<AppSettings>().IsEnabled),
+                .When(accessor => accessor.GetConfig<AppSettings>().IsEnabled),
             rule.For<AppSettings>().FromFile(""app.json"")
         ]));
     }
 }
 
-public class AppSettings 
-{ 
+public class AppSettings
+{
     public bool IsEnabled { get; set; }
 }
 
-public class DerivedConfig 
+public class DerivedConfig
 {
 }
 ";

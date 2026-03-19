@@ -452,9 +452,8 @@ public class StaticJsonProviderIsolationTests
         using var manager = ConfigManager.Create(c => c.UseConfiguration(rules => [
             rules.For<TestConfig>().FromStaticJson(json).Required()
         ]));
-        var health = manager.GetHealthService().Snapshot;
-        
-        Assert.True(health.Rules[0].Required);
+        // Simplified health API - just verify the health status is Healthy
+        Assert.Equal(Cocoar.Configuration.Health.HealthStatus.Healthy, manager.HealthStatus);
     }
     [Fact]
     [Trait("Type", "Unit")]

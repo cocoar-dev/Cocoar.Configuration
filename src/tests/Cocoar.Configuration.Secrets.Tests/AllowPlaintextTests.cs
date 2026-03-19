@@ -604,4 +604,75 @@ public class AllowPlaintextTests
     }
 
     #endregion
+
+    #region Secret in Accessor (config-aware rules)
+
+    public record SecretConfig
+    {
+        public Secret<string>? AuthToken { get; init; }
+    }
+
+    public record AppConfig
+    {
+        public string? Endpoint { get; init; }
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "Secrets")]
+    public void Secret_InAccessor_CanBeOpenedByLaterRule()
+    {
+        // Arrange — Rule 1 loads a secret, Rule 2 reads it via accessor
+        var secretsJson = """{"AuthToken":"my-secret-token"}""";
+
+        var manager = ConfigManager.Create(c => c
+            .UseConfiguration(
+                rules => [
+                    rules.For<SecretConfig>().FromStaticJson(secretsJson).Required(),
+                    rules.For<AppConfig>().FromStatic(accessor =>
+                    {
+                        var secrets = accessor.GetConfig<SecretConfig>()!;
+                        using var lease = secrets.AuthToken!.Open();
+                        return new AppConfig { Endpoint = $"https://api.example.com?token={lease.Value}" };
+                    })
+                ])
+            .UseSecretsSetup(secrets => secrets.AllowPlaintext())
+        );
+
+        // Act
+        var appConfig = manager.GetConfig<AppConfig>();
+
+        // Assert — The secret was successfully opened in the accessor factory
+        Assert.NotNull(appConfig);
+        Assert.Equal("https://api.example.com?token=my-secret-token", appConfig!.Endpoint);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Component", "Secrets")]
+    public void Secret_InAccessor_WithoutAllowPlaintext_ThrowsOnOpen()
+    {
+        // Arrange — Without AllowPlaintext, opening a plaintext secret in accessor should fail
+        var secretsJson = """{"AuthToken":"my-secret-token"}""";
+
+        // The InvalidOperationException from Secret.Open() propagates through the
+        // static rule factory, causing the recompute to fail
+        Assert.ThrowsAny<Exception>(() =>
+            ConfigManager.Create(c => c
+                .UseConfiguration(
+                    rules => [
+                        rules.For<SecretConfig>().FromStaticJson(secretsJson).Required(),
+                        rules.For<AppConfig>().FromStatic(accessor =>
+                        {
+                            var secrets = accessor.GetConfig<SecretConfig>()!;
+                            using var lease = secrets.AuthToken!.Open(); // Throws — plaintext not allowed
+                            return new AppConfig { Endpoint = lease.Value };
+                        })
+                    ])
+                .UseSecretsSetup(secrets => secrets) // No AllowPlaintext
+            )
+        );
+    }
+
+    #endregion
 }

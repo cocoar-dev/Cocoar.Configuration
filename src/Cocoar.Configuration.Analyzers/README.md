@@ -7,10 +7,9 @@ Roslyn analyzers for Cocoar.Configuration that provide **compile-time validation
 - **COCFG001**: Detects secret property path conflicts
 - **COCFG002**: Validates rule dependency ordering
 - **COCFG003**: Checks required rule configuration
-- **COCFG004**: Type safety validation in configuration accessors
 - **COCFG005**: Detects duplicate unconditional rules (last-write-wins warning)
 - **COCFG006**: Static provider ordering suggestions
-- **Code Fixes**: Automatic fixes for common issues (rule reordering, secret type conversion)
+- **Compile-time diagnostics**: Catches configuration mistakes before runtime
 
 ## Installation
 
@@ -26,7 +25,7 @@ Roslyn analyzers for Cocoar.Configuration that provide **compile-time validation
 ✅ **Compile-time validation** - Catch configuration errors while coding  
 ✅ **IDE integration** - Red squiggles in Visual Studio, Rider, VS Code  
 ✅ **Zero runtime cost** - No reflection or analysis at startup  
-✅ **Automatic fixes** - Quick actions to fix common issues  
+✅ **Actionable messages** - Clear guidance on how to fix each issue
 ✅ **CI/CD integration** - Build fails on misconfiguration  
 
 ## Diagnostics
@@ -72,19 +71,6 @@ rule.For<AppSettings>()
 // COCFG003: File 'missing.json' not found - app will fail to start
 ```
 
-### COCFG004: Type Safety Violation
-
-**Severity:** Error
-
-Detects when configuration accessor attempts to access a property that doesn't exist.
-
-```csharp
-// ❌ Error:
-rule.For<AppSettings>()
-    .When(accessor => accessor.GetRequiredConfig<DatabaseConfig>().ConnectionTimeout > 30)
-// COCFG004: Property 'ConnectionTimeout' does not exist on type 'DatabaseConfig'
-```
-
 ### COCFG005: Duplicate Unconditional Rules
 
 **Severity:** Info
@@ -112,15 +98,6 @@ rule.For<FeatureFlags>().FromStatic("""{"Feature1": true}"""),
 // COCFG006: Static rule found after dynamic rules. 
 // Consider moving static rules first.
 ```
-
-## Code Fixes
-
-The analyzer provides automatic fixes:
-
-- **Reorder rules** - Fix COCFG002 by moving dependent rules after their dependencies
-- **Convert to Secret<T>** - Fix COCFG001 by changing property type to Secret<string>
-- **Remove duplicate rules** - Fix COCFG005 by removing redundant rule definitions
-- **Reorder static providers** - Fix COCFG006 by moving static rules before dynamic rules
 
 ## Migration from Runtime Analysis
 

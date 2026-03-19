@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.Http;
 using Cocoar.Configuration.Providers.Tests.Helpers;
 using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
@@ -22,7 +22,7 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task FetchConfigurationAsync_PerformsHttpOnEveryCall()
     {
 
@@ -37,7 +37,7 @@ public class HttpProviderBattleTests : IDisposable
         });
 
         var provider = CreateProvider(handler);
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
 
     var first = await provider.FetchConfigurationBytesAsync(query);
@@ -50,13 +50,13 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task FetchConfigurationAsync_ThrowsException_OnHttpError()
     {
 
         var handler = new StaticHandler(new(HttpStatusCode.NotFound));
         var provider = CreateProvider(handler);
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
 
         await Assert.ThrowsAsync<HttpRequestException>(
@@ -65,7 +65,7 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task FetchConfigurationAsync_ThrowsJsonException_OnInvalidJson()
     {
 
@@ -74,7 +74,7 @@ public class HttpProviderBattleTests : IDisposable
             Content = new StringContent("{ invalid json }", Encoding.UTF8, "application/json")
         });
         var provider = CreateProvider(handler);
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
         // Provider is byte-only and does not validate JSON; fetching should not throw.
         var bytes = await provider.FetchConfigurationBytesAsync(query);
@@ -86,7 +86,7 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task FetchConfigurationAsync_IncludesCustomHeaders()
     {
 
@@ -101,8 +101,8 @@ public class HttpProviderBattleTests : IDisposable
         });
 
         var provider = CreateProvider(handler);
-        var query = new HttpPollingProviderQueryOptions("/api/config", 
-            new Dictionary<string, string> 
+        var query = new HttpProviderQueryOptions("https://example.com/api/config",
+            new Dictionary<string, string>
             {
                 ["Authorization"] = "Bearer token123",
                 ["X-Client-Version"] = "1.0.0"
@@ -119,8 +119,8 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
-    public void Constructor_BuildsCorrectUrl_WithBaseAddress()
+    [Trait("Provider", "HttpProvider")]
+    public void Constructor_BuildsCorrectUrl_WithAbsoluteUrl()
     {
 
         Uri? capturedUri = null;
@@ -134,11 +134,11 @@ public class HttpProviderBattleTests : IDisposable
         });
 
 
-        var provider = new HttpPollingProvider(
-            new("https://api.example.com", TimeSpan.FromMilliseconds(100), handler));
+        var provider = new HttpProvider(
+            new(pollInterval: TimeSpan.FromMilliseconds(100), handler: handler));
         _disposables.Add(provider);
-        
-        var query = new HttpPollingProviderQueryOptions("/v1/config");
+
+        var query = new HttpProviderQueryOptions("https://api.example.com/v1/config");
         _ = provider.FetchConfigurationBytesAsync(query);
 
 
@@ -147,43 +147,15 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
-    public void Constructor_UsesAbsoluteUrl_IgnoresBaseAddress()
-    {
-
-        Uri? capturedUri = null;
-        var handler = new RequestCapturingHandler(req =>
-        {
-            capturedUri = req.RequestUri;
-            return new(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            };
-        });
-
-        var provider = new HttpPollingProvider(
-            new("https://base.example.com", TimeSpan.FromMilliseconds(100), handler));
-        _disposables.Add(provider);
-
-
-        var query = new HttpPollingProviderQueryOptions("https://other.example.com/config");
-        _ = provider.FetchConfigurationBytesAsync(query);
-
-
-        Assert.Equal("https://other.example.com/config", capturedUri?.ToString());
-    }
-
-    [Fact]
-    [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task Changes_DoesNotEmit_OnException()
     {
         // Use a very high threshold so we don't emit the sentinel during this short test window
         var handler = new ExceptionHandler(new HttpRequestException("Network error"));
-        var provider = new HttpPollingProvider(
-            new("https://example.com", TimeSpan.FromMilliseconds(50), int.MaxValue, handler));
+        var provider = new HttpProvider(
+            new(pollInterval: TimeSpan.FromMilliseconds(50), errorConsecutiveFailureThreshold: int.MaxValue, handler: handler));
         _disposables.Add(provider);
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
 
         var emissions = new List<JsonElement>();
@@ -200,14 +172,14 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task Changes_EmitsSentinel_AfterConsecutiveFailures()
     {
         var handler = new ExceptionHandler(new HttpRequestException("Network error"));
-        var provider = new HttpPollingProvider(
-            new("https://example.com", TimeSpan.FromMilliseconds(30), 3, handler));
+        var provider = new HttpProvider(
+            new(pollInterval: TimeSpan.FromMilliseconds(30), errorConsecutiveFailureThreshold: 3, handler: handler));
         _disposables.Add(provider);
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
         var emissionCount = 0;
         using var subscription = provider.ChangesAsBytes(query)
@@ -224,7 +196,7 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task Changes_Emits_OnEveryPollInterval()
     {
 
@@ -237,7 +209,7 @@ public class HttpProviderBattleTests : IDisposable
         });
         var handler = new QueueHandler(responses);
         var provider = CreateProvider(handler, TimeSpan.FromMilliseconds(80));
-        var query = new HttpPollingProviderQueryOptions("/api/config");
+        var query = new HttpProviderQueryOptions("https://example.com/api/config");
 
 
         var emissions = new List<JsonElement>();
@@ -258,7 +230,7 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task Changes_DifferentQueries_EmitIndependently()
     {
 
@@ -270,8 +242,8 @@ public class HttpProviderBattleTests : IDisposable
         });
 
         var provider = CreateProvider(handler, TimeSpan.FromMilliseconds(50));
-        var query1 = new HttpPollingProviderQueryOptions("/api/config1");
-        var query2 = new HttpPollingProviderQueryOptions("/api/config2");
+        var query1 = new HttpProviderQueryOptions("https://example.com/api/config1");
+        var query2 = new HttpProviderQueryOptions("https://example.com/api/config2");
 
 
         JsonElement? emission1 = null, emission2 = null;
@@ -291,13 +263,13 @@ public class HttpProviderBattleTests : IDisposable
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public void Dispose_CleansUpResources_Safely()
     {
 
         var handler = new StaticHandler(CreateJsonResponse("{}"));
-        var provider = new HttpPollingProvider(
-            new("https://example.com", TimeSpan.FromMilliseconds(50), handler));
+        var provider = new HttpProvider(
+            new(pollInterval: TimeSpan.FromMilliseconds(50), handler: handler));
 
 
         provider.Dispose();
@@ -309,10 +281,10 @@ public class HttpProviderBattleTests : IDisposable
 
     #region Test Infrastructure
 
-    private HttpPollingProvider CreateProvider(HttpMessageHandler handler, TimeSpan? pollInterval = null)
+    private HttpProvider CreateProvider(HttpMessageHandler handler, TimeSpan? pollInterval = null)
     {
-        var provider = new HttpPollingProvider(
-            new("https://example.com", pollInterval ?? TimeSpan.FromSeconds(1), handler));
+        var provider = new HttpProvider(
+            new(pollInterval: pollInterval ?? TimeSpan.FromSeconds(1), handler: handler));
         _disposables.Add(provider);
         return provider;
     }
@@ -362,9 +334,9 @@ public class HttpProviderBattleTests : IDisposable
     private sealed class QueueHandler : HttpMessageHandler
     {
         private readonly Queue<HttpResponseMessage> _responses;
-        private HttpResponseMessage _lastResponse = new(HttpStatusCode.OK) 
-        { 
-            Content = new StringContent("{}", Encoding.UTF8, "application/json") 
+        private HttpResponseMessage _lastResponse = new(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json")
         };
 
         public QueueHandler(Queue<HttpResponseMessage> responses) => _responses = responses;

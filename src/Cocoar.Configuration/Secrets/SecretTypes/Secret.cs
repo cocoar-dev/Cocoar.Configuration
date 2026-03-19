@@ -1,0 +1,206 @@
+using System.Text.Json;
+using Cocoar.Configuration.Secrets.Core;
+using Cocoar.Configuration.X509Encryption;
+
+namespace Cocoar.Configuration.Secrets.SecretTypes;
+
+public sealed class Secret<T> : ISecret<T>
+{
+    private byte[]? _plainBytes;
+    private SecretEnvelopeWrapper? _envelope;
+    private SecretsDecryptorResolver? _resolver;
+    private bool _disposed;
+    private readonly bool _blockPlaintextAccess;
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
+
+    internal Secret(T plain, SecretsDecryptorResolver? resolver = null, bool allowPlaintext = false)
+    {
+        // Serialize directly to UTF-8 bytes — never create an intermediate string.
+        _plainBytes = JsonSerializer.SerializeToUtf8Bytes(plain);
+        _resolver = resolver;
+        _blockPlaintextAccess = !allowPlaintext; // Block access if plaintext is NOT explicitly allowed
+    }
+
+    internal Secret(SecretEnvelopeWrapper envelope, SecretsDecryptorResolver? resolver = null)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        _envelope = envelope;
+        _resolver = resolver;
+        _blockPlaintextAccess = false;
+    }
+
+    public override string ToString() => "***";
+
+    public SecretLease<T> Open()
+    {
+        lock (_lock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            ValidatePlaintextAccess();
+
+            // Get decrypted bytes - decrypt at the LAST possible moment
+            byte[] bytes;
+            bool needsCleanup;
+
+            if (_plainBytes is { } plain)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    $"Cocoar.Configuration: Secret<{typeof(T).Name}>.Open() is accessing a plaintext secret. " +
+                    "This is acceptable for development and testing but should not occur in production. " +
+                    "Use encrypted envelopes for production deployments.");
+                bytes = plain;
+                needsCleanup = false;
+            }
+            else if (_envelope is { } env)
+            {
+                // CRITICAL: Decrypt here, right before deserialization
+                bytes = DecryptEnvelope(env);
+                needsCleanup = true;
+            }
+            else
+            {
+                throw new ObjectDisposedException(nameof(Secret<T>));
+            }
+
+            // Deserialize and create lease immediately after decryption
+            try
+            {
+                return DeserializeAndCreateLease(bytes, needsCleanup);
+            }
+            catch
+            {
+                if (needsCleanup)
+                {
+                    Array.Clear(bytes, 0, bytes.Length);
+                }
+                throw;
+            }
+        }
+    }
+
+    private void ValidatePlaintextAccess()
+    {
+        if (_blockPlaintextAccess)
+        {
+            throw new InvalidOperationException(
+                $"Secret<{typeof(T).Name}> was deserialized from plaintext JSON instead of an encrypted envelope. " +
+                "Pre-encrypted envelopes are required for security. Ensure your configuration source delivers " +
+                "secrets in encrypted envelope format with the '_cocoar_secret' marker.");
+        }
+    }
+
+    private byte[] DecryptEnvelope(SecretEnvelopeWrapper env)
+    {
+        if (_resolver is null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot decrypt Secret<{typeof(T).Name}>: secrets infrastructure not configured.\n\n" +
+                "To fix, add secrets setup when creating ConfigManager:\n\n" +
+                "  ConfigManager.Create(c => c\n" +
+                "      .UseConfiguration(rules => [...])\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));\n\n" +
+                "Or with DI:\n\n" +
+                "  services.AddCocoarConfiguration(c => c\n" +
+                "      .UseConfiguration(rules => [...])\n" +
+                "      .UseSecretsSetup(secrets => secrets\n" +
+                "          .UseCertificateFromFile(\"cert.pfx\")));");
+        }
+
+        var protector = _resolver.ResolveForKid(env.Kid);
+        var envelopeJson = env.Data.GetRawText();
+        var envelope = protector.DeserializeEnvelope(envelopeJson);
+
+        return protector.UnprotectInternal(envelope, env.Kid);
+    }
+
+    private static SecretLease<T> DeserializeAndCreateLease(byte[] bytes, bool needsCleanup)
+    {
+        // byte[] — uses Utf8JsonReader directly with zero-copy Base64 decode.
+        // All allocations tracked for cleanup. See ByteArraySecretDeserializer.
+        if (typeof(T) == typeof(byte[]))
+        {
+            return ByteArraySecretDeserializer.Deserialize<T>(bytes, needsCleanup);
+        }
+
+        // Deserialize directly from UTF-8 bytes — no intermediate string allocation.
+        // Security at rest: before Open(), secrets exist only as encrypted envelopes.
+        // At Open() time, the consumer needs the value (to pass to HttpClient, DB, etc.)
+        // so converting to T is unavoidable. The decrypted bytes are zeroed on lease dispose.
+        var value = JsonSerializer.Deserialize<T>(new ReadOnlySpan<byte>(bytes));
+
+        if (value is null)
+        {
+            if (TypeAcceptsNull())
+            {
+                return new SecretLease<T>(value!, CreateCleanupAction(bytes, needsCleanup));
+            }
+
+            throw new JsonException($"Failed to deserialize secret value of type {typeof(T).Name} - result was null");
+        }
+
+        return new SecretLease<T>(value, CreateCleanupAction(bytes, needsCleanup));
+    }
+
+    /// <summary>
+    /// Returns true if type T can legally hold a null value.
+    /// This includes reference types (string?, object?) and nullable value types (int?, bool?).
+    /// </summary>
+    private static bool TypeAcceptsNull()
+    {
+        // Reference types where default is null
+        if (!typeof(T).IsValueType)
+            return true;
+        // Nullable<T> value types (int?, bool?, etc.)
+        return Nullable.GetUnderlyingType(typeof(T)) != null;
+    }
+
+    private static Action CreateCleanupAction(byte[] bytes, bool needsCleanup)
+    {
+        return needsCleanup
+            ? () => Array.Clear(bytes, 0, bytes.Length)
+            : () => { };
+    }
+
+    public void Dispose()
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+
+            if (_plainBytes is { } bytes)
+            {
+                Array.Clear(bytes, 0, bytes.Length);
+                _plainBytes = null;
+            }
+
+            _envelope = null;
+            _disposed = true;
+        }
+    }
+
+    /// <summary>
+    /// Creates a Secret from plaintext value. For testing/development only.
+    /// Use pre-encrypted envelopes in production.
+    /// </summary>
+    internal static Secret<T> FromPlain(T value) => new(value, resolver: null, allowPlaintext: true);
+
+    internal static Secret<T> FromEnvelope(JsonElement element)
+    {
+        if (!SecretEnvelopeWrapper.TryParse(element, out var env) || env is null)
+            throw new FormatException($"Invalid secret envelope for Secret<{typeof(T).Name}>");
+
+        return new Secret<T>(env, resolver: null);
+    }
+}
+
+
+public static class Secret
+{
+    public static Secret<T> FromPlain<T>(T value) => Secret<T>.FromPlain(value);
+}

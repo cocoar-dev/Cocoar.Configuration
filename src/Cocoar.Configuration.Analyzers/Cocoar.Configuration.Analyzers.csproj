@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
@@ -27,17 +27,8 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <PackageId>Cocoar.Configuration.Analyzers</PackageId>
-    <Version>3.0.0</Version>
-    <Authors>COCOAR</Authors>
-    <Company>COCOAR</Company>
-    <Description>Roslyn analyzers for Cocoar.Configuration that provide compile-time validation of configuration rules, secret path conflicts, and dependency ordering.</Description>
-    <PackageTags>configuration;analyzer;roslyn;cocoar;diagnostics</PackageTags>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/cocoar-dev/cocoar.configuration</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/cocoar-dev/cocoar.configuration</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>Roslyn analyzers and source generator for Cocoar.Configuration. Compile-time validation of configuration rules, secret path conflicts, dependency ordering, and feature flag metadata generation.</Description>
+    <PackageTags>configuration;analyzer;roslyn;cocoar;diagnostics;source-generator</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

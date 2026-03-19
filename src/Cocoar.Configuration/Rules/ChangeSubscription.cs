@@ -1,5 +1,3 @@
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Utilities;
 
@@ -11,14 +9,14 @@ namespace Cocoar.Configuration.Rules;
 /// </summary>
 internal sealed class ChangeSubscription : IDisposable
 {
-    private readonly Subject<bool> _changes = new();
+    private readonly SimpleSubject<bool> _changes = new();
     private IDisposable? _subscription;
     private string? _queryKey;
 
     /// <summary>
     /// Observable stream of change notifications.
     /// </summary>
-    public IObservable<bool> Changes => _changes.AsObservable();
+    public IObservable<bool> Changes => _changes;
 
     /// <summary>
     /// Gets the current query key used for the subscription.
@@ -51,7 +49,13 @@ internal sealed class ChangeSubscription : IDisposable
             .ChangesAsBytes(queryOptions)
             .Subscribe(
                 bytes => onChangeCallback(bytes),
-                _ => PublishChangeSafely());
+                _ =>
+                {
+                    // Provider errored — unsubscribe the dead subscription before
+                    // notifying, so the next recompute re-subscribes cleanly.
+                    Unsubscribe();
+                    PublishChangeSafely();
+                });
 
         return true; // Subscription was recreated
     }

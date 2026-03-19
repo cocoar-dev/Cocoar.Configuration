@@ -10,6 +10,7 @@ public static class FileSourceRulesExtensions
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
         FromFile<T>(this TypedRuleBuilder<T> builder, string filePath)
+        where T : class
         => new(
             cm => FileSourceRuleOptions.FromFilePath(filePath).ToProviderOptions(),
             cm => FileSourceRuleOptions.FromFilePath(filePath).ToQueryOptions(),
@@ -21,6 +22,7 @@ public static class FileSourceRulesExtensions
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
         FromFile<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, FileSourceRuleOptions> optionsFactory)
+        where T : class
         => new(
             cm => optionsFactory(cm).ToProviderOptions(),
             cm => optionsFactory(cm).ToQueryOptions(),

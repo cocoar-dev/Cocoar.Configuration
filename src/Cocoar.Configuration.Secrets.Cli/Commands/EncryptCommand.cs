@@ -79,10 +79,31 @@ internal static class EncryptCommand
                 EncryptValueAsync(file!, path!, value, cert!, password, kid!, create).GetAwaiter().GetResult();
                 return 0;
             }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 1;
+            }
+            catch (FileNotFoundException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 2;
+            }
+            catch (IOException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 2;
+            }
+            catch (System.Security.Cryptography.CryptographicException ex)
+            {
+                Console.Error.WriteLine($"❌ Error: Encryption failed. Check certificate and file format.");
+                Console.Error.WriteLine($"   Details: {ex.Message}");
+                return 3;
+            }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Error: {ex.Message}");
-                return 1;
+                Console.Error.WriteLine($"❌ Error: {ex.Message}");
+                return 4;
             }
         });
 
@@ -183,6 +204,13 @@ internal static class EncryptCommand
             }
         } while (key.Key != ConsoleKey.Enter);
 
-        return password.ToString();
+        var result = password.ToString();
+
+        // Zero the StringBuilder buffer so the password doesn't linger in heap memory
+        for (var i = 0; i < password.Length; i++)
+            password[i] = '\0';
+        password.Clear();
+
+        return result;
     }
 }

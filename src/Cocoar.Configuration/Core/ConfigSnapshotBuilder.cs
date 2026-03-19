@@ -175,11 +175,18 @@ internal sealed class ConfigSnapshotBuilder
 
     private static string? CreateJsonPreview(JsonElement element)
     {
+        // Only include top-level property NAMES, never values.
+        // Values could contain plaintext secrets (when AllowPlaintext is enabled)
+        // or encrypted envelopes. Neither should persist as strings in memory.
         try
         {
-            var json = element.ToString();
-            if (json == null) return null;
-            return json.Length > 500 ? json[..500] + "..." : json;
+            if (element.ValueKind != JsonValueKind.Object) return "{...}";
+            var keys = new List<string>();
+            foreach (var prop in element.EnumerateObject())
+            {
+                keys.Add(prop.Name);
+            }
+            return keys.Count > 0 ? $"{{ {string.Join(", ", keys)} }}" : "{}";
         }
         catch
         {

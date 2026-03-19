@@ -19,10 +19,7 @@ public class EnvironmentProviderUnitTests
         var prefix = "COCOAR_TEST_APP_" + Guid.NewGuid().ToString("N") + "_"; // unique prefix with no variables
         var rule = EnvironmentVariableProvider.CreateRule<object>(prefix, required: true);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        var snap = manager.GetHealthService().Snapshot;
-        Assert.Equal(Health.HealthStatus.Healthy, snap.OverallStatus); // Fetch succeeded with empty object
-        Assert.Single(snap.Rules);
-        Assert.Equal(Health.RuleResultStatus.Up, snap.Rules[0].Status);
+        Assert.Equal(Health.HealthStatus.Healthy, manager.HealthStatus); // Fetch succeeded with empty object
     }
 
     [Fact]
@@ -40,9 +37,7 @@ public class EnvironmentProviderUnitTests
         var cfg = manager.GetConfig<SimpleValueConfig>();
         Assert.NotNull(cfg);
         Assert.Equal(200, cfg!.Value);
-        var snap = manager.GetHealthService().Snapshot;
-        Assert.Equal(Health.HealthStatus.Healthy, snap.OverallStatus);
-        Assert.Equal(Health.RuleResultStatus.Up, snap.Rules[0].Status);
+        Assert.Equal(Health.HealthStatus.Healthy, manager.HealthStatus);
     }
 
     [Fact]
@@ -169,9 +164,9 @@ public class EnvironmentProviderUnitTests
         var prefix = "MYAPP";
         // Literal single underscore remains in key part
         using var s1 = EnvScope.Set("MYAPP_FOO_BAR", "x");
-        // Double underscore ⇒ nesting
+        // Double underscore => nesting
         using var s2 = EnvScope.Set("MYAPP__Logging__Level", "Debug");
-        // Colon separator ⇒ nesting
+        // Colon separator => nesting
         using var s3 = EnvScope.Set("MYAPP:Data:ConnectionString", "cs");
 
         var rule = EnvironmentVariableProvider.CreateRule<Dictionary<string, object>>(prefix, required: true);
@@ -179,7 +174,7 @@ public class EnvironmentProviderUnitTests
 
         var cfg = manager.GetConfig<Dictionary<string, object>>();
         Assert.NotNull(cfg);
-        
+
         // Single underscore remains literal
         Assert.True(cfg!.TryGetValue("FOO_BAR", out var fooBar));
         Assert.Equal("x", fooBar.ToString());

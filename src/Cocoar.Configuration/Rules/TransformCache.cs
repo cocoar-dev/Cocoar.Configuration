@@ -10,6 +10,11 @@ namespace Cocoar.Configuration.Rules;
 /// </summary>
 internal sealed class TransformCache : IDisposable
 {
+#if NET9_0_OR_GREATER
+    private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
     private SecureBytes? _cachedBytes;
     private string? _lastTransformKey;
     private string? _lastSelectionHash;
@@ -33,19 +38,19 @@ internal sealed class TransformCache : IDisposable
     /// <summary>
     /// Checks if the cache has valid bytes and is not dirty.
     /// </summary>
-    public bool HasValidCache => !_dirty && _cachedBytes is not null;
+    public bool HasValidCache { get { lock (_lock) return !_dirty && _cachedBytes is not null; } }
 
     /// <summary>
     /// Checks if cache is dirty but has bytes that can be reused (no transform change).
     /// </summary>
-    public bool CanReuseWithoutFetch => _dirty && _cachedBytes is not null && !_dirtyFromTransformChange;
+    public bool CanReuseWithoutFetch { get { lock (_lock) return _dirty && _cachedBytes is not null && !_dirtyFromTransformChange; } }
 
     /// <summary>
     /// Gets the cached bytes as read-only memory. Returns empty if no cache.
     /// </summary>
     public ReadOnlyMemory<byte> GetCachedBytes()
     {
-        return _cachedBytes?.AsReadOnlyMemory() ?? ReadOnlyMemory<byte>.Empty;
+        lock (_lock) return _cachedBytes?.AsReadOnlyMemory() ?? ReadOnlyMemory<byte>.Empty;
     }
 
     /// <summary>
@@ -53,14 +58,17 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void UpdateTransformKey(string newTransformKey)
     {
-        if (_lastTransformKey == newTransformKey)
+        lock (_lock)
         {
-            return;
-        }
+            if (_lastTransformKey == newTransformKey)
+            {
+                return;
+            }
 
-        _dirty = true;
-        _dirtyFromTransformChange = true;
-        _lastTransformKey = newTransformKey;
+            _dirty = true;
+            _dirtyFromTransformChange = true;
+            _lastTransformKey = newTransformKey;
+        }
     }
 
     /// <summary>
@@ -68,17 +76,20 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void StoreTransformedBytes(byte[] transformedBytes)
     {
-        if (_cachedBytes is null)
+        lock (_lock)
         {
-            _cachedBytes = SecureBytes.From(transformedBytes);
-        }
-        else
-        {
-            _cachedBytes.Replace(transformedBytes);
-        }
+            if (_cachedBytes is null)
+            {
+                _cachedBytes = SecureBytes.From(transformedBytes);
+            }
+            else
+            {
+                _cachedBytes.Replace(transformedBytes);
+            }
 
-        _dirty = false;
-        _dirtyFromTransformChange = false;
+            _dirty = false;
+            _dirtyFromTransformChange = false;
+        }
     }
 
     /// <summary>
@@ -90,29 +101,31 @@ internal sealed class TransformCache : IDisposable
         try
         {
             var transformed = JsonTransform.SelectAndMount(rawBytes, selectPath, mountPath);
-            
             var hash = ComputeSelectionHash(transformed);
-            
-            if (_lastSelectionHash is not null &&
-                string.Equals(hash, _lastSelectionHash, StringComparison.Ordinal))
-            {
-                return false; // No change
-            }
 
-            _lastSelectionHash = hash;
-            
-            if (_cachedBytes is null)
+            lock (_lock)
             {
-                _cachedBytes = SecureBytes.From(transformed);
+                if (_lastSelectionHash is not null &&
+                    string.Equals(hash, _lastSelectionHash, StringComparison.Ordinal))
+                {
+                    return false; // No change
+                }
+
+                _lastSelectionHash = hash;
+
+                if (_cachedBytes is null)
+                {
+                    _cachedBytes = SecureBytes.From(transformed);
+                }
+                else
+                {
+                    _cachedBytes.Replace(transformed);
+                }
+                _dirty = true;
+                _dirtyFromTransformChange = false;
+
+                return true; // Data changed
             }
-            else
-            {
-                _cachedBytes.Replace(transformed);
-            }
-            _dirty = true;
-            _dirtyFromTransformChange = false;
-            
-            return true; // Data changed
         }
         catch
         {
@@ -125,7 +138,7 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void MarkClean()
     {
-        _dirty = false;
+        lock (_lock) _dirty = false;
     }
 
     /// <summary>
@@ -133,10 +146,13 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void Invalidate()
     {
-        _lastSelectionHash = null;
-        _dirty = true;
-        _cachedBytes?.Dispose();
-        _cachedBytes = null;
+        lock (_lock)
+        {
+            _lastSelectionHash = null;
+            _dirty = true;
+            _cachedBytes?.Dispose();
+            _cachedBytes = null;
+        }
     }
 
     /// <summary>
@@ -145,7 +161,7 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void ClearCachedBytes()
     {
-        _cachedBytes?.Clear();
+        lock (_lock) _cachedBytes?.Clear();
     }
 
     /// <summary>
@@ -154,13 +170,16 @@ internal sealed class TransformCache : IDisposable
     /// </summary>
     public void UpdateCachedBytes(byte[] encryptedBytes)
     {
-        if (_cachedBytes == null)
+        lock (_lock)
         {
-            _cachedBytes = SecureBytes.From(encryptedBytes);
-        }
-        else
-        {
-            _cachedBytes.Replace(encryptedBytes);
+            if (_cachedBytes == null)
+            {
+                _cachedBytes = SecureBytes.From(encryptedBytes);
+            }
+            else
+            {
+                _cachedBytes.Replace(encryptedBytes);
+            }
         }
     }
 

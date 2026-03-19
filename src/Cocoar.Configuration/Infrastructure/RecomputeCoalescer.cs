@@ -15,20 +15,81 @@ internal static partial class RecomputeCoalescerLog
 /// Coalesces many incoming change signals into minimal recompute invocations while
 /// preserving earliest-index semantics and providing an initial debounce plus trailing pass.
 /// </summary>
-internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int initialDebounceMs, int trailingMs)
-    : IDisposable
+internal sealed class RecomputeCoalescer : IDisposable
 {
-    private readonly int _initialDebounceMs = Math.Max(0, initialDebounceMs);
-    private readonly int _trailingMs = Math.Max(0, trailingMs);
+    private readonly ILogger _logger;
+    private readonly Action<int> _invoke;
+    private readonly int _initialDebounceMs;
+    private readonly int _trailingMs;
 
     private int _earliestPending = int.MaxValue;
     private int _earliestDuringRun = int.MaxValue;
     // 0 = false, 1 = true. Int is used (not bool) to support Interlocked.Exchange/CompareExchange atomics.
     private int _running;
 
-    private System.Timers.Timer? _trailingTimer;
-    private System.Timers.Timer? _initialTimer; // One-shot timer for initial debounce.
+    // Timers are created once and reused (stopped/started) to avoid GC pressure
+    // under high-frequency file changes (P-03).
+    private readonly System.Timers.Timer? _initialTimer;
+    private readonly System.Timers.Timer? _trailingTimer;
+#if NET9_0_OR_GREATER
     private readonly Lock _lock = new();
+#else
+    private readonly object _lock = new();
+#endif
+
+    public RecomputeCoalescer(ILogger logger, Action<int> invoke, int initialDebounceMs, int trailingMs)
+    {
+        _logger = logger;
+        _invoke = invoke;
+        _initialDebounceMs = Math.Max(0, initialDebounceMs);
+        _trailingMs = Math.Max(0, trailingMs);
+
+        if (_initialDebounceMs > 0)
+        {
+            _initialTimer = new(_initialDebounceMs) { AutoReset = false };
+            _initialTimer.Elapsed += (_, _) =>
+            {
+                try
+                {
+                    if (Volatile.Read(ref _running) == 0)
+                    {
+                        var startIdx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
+                        if (startIdx != int.MaxValue)
+                        {
+                            StartPass(startIdx);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.InitialDebounceFailed(ex);
+                }
+            };
+        }
+
+        if (_trailingMs > 0)
+        {
+            _trailingTimer = new(_trailingMs) { AutoReset = false };
+            _trailingTimer.Elapsed += (_, _) =>
+            {
+                try
+                {
+                    if (Volatile.Read(ref _running) == 0)
+                    {
+                        var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
+                        if (idx != int.MaxValue)
+                        {
+                            StartPass(idx);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.TrailingTriggerFailed(ex);
+                }
+            };
+        }
+    }
 
     public void Signal(int index)
     {
@@ -40,7 +101,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
                 current = Volatile.Read(ref _earliestDuringRun);
                 if (index >= current)
                 {
-                    return; 
+                    return;
                 }
             } while (Interlocked.CompareExchange(ref _earliestDuringRun, index, current) != current);
 
@@ -73,7 +134,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
 
     private void ScheduleInitialOrImmediate()
     {
-        if (_initialDebounceMs <= 0)
+        if (_initialTimer == null)
         {
             var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
             if (idx != int.MaxValue)
@@ -86,43 +147,14 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
 
         lock (_lock)
         {
-            _initialTimer?.Dispose();
-            _initialTimer = new(_initialDebounceMs) { AutoReset = false };
-            _initialTimer.Elapsed += (_, _) =>
-            {
-                try
-                {
-                    // Double-check that we're still idle before starting pass
-                    // Another thread might have started a pass in the meantime
-                    if (Volatile.Read(ref _running) == 0)
-                    {
-                        var startIdx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
-                        if (startIdx != int.MaxValue)
-                        {
-                            StartPass(startIdx);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.InitialDebounceFailed(ex);
-                }
-                finally
-                {
-                    lock (_lock)
-                    {
-                        _initialTimer?.Dispose();
-                        _initialTimer = null;
-                    }
-                }
-            };
+            _initialTimer.Stop();
             _initialTimer.Start();
         }
     }
 
     private void ScheduleTrailing()
     {
-        if (_trailingMs <= 0)
+        if (_trailingTimer == null)
         {
             var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
             if (idx != int.MaxValue)
@@ -135,43 +167,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
 
         lock (_lock)
         {
-            if (_trailingTimer == null)
-            {
-                _trailingTimer = new(_trailingMs) { AutoReset = false };
-                _trailingTimer.Elapsed += (_, _) =>
-                {
-                    try
-                    {
-                        // Double-check that we're still idle before starting pass
-                        // Another thread might have started a pass in the meantime
-                        if (Volatile.Read(ref _running) == 0)
-                        {
-                            var idx = Interlocked.Exchange(ref _earliestPending, int.MaxValue);
-                            if (idx != int.MaxValue)
-                            {
-                                StartPass(idx);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.TrailingTriggerFailed(ex);
-                    }
-                    finally
-                    {
-                        lock (_lock)
-                        {
-                            _trailingTimer?.Dispose();
-                            _trailingTimer = null;
-                        }
-                    }
-                };
-            }
-            else
-            {
-                _trailingTimer.Stop();
-            }
-
+            _trailingTimer.Stop();
             _trailingTimer.Start();
         }
     }
@@ -182,10 +178,10 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
         // where Signal() might miss events during the state transition
         Interlocked.Exchange(ref _running, 1);
         Interlocked.Exchange(ref _earliestDuringRun, int.MaxValue);
-        
+
         try
         {
-            invoke(idx);
+            _invoke(idx);
         }
         finally
         {
@@ -213,9 +209,7 @@ internal sealed class RecomputeCoalescer(ILogger logger, Action<int> invoke, int
         lock (_lock)
         {
             _initialTimer?.Dispose();
-            _initialTimer = null;
             _trailingTimer?.Dispose();
-            _trailingTimer = null;
         }
     }
 }

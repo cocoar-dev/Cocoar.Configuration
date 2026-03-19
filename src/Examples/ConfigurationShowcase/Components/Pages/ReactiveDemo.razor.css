@@ -1,8 +1,0 @@
-h4 {
-    margin-bottom: 0.5rem;
-}
-
-td:first-child {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-}

@@ -22,31 +22,29 @@ public static class Program
 {
     public static void Main(string[] args)
     {
+        // Build an IConfiguration from any Microsoft configuration sources
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Database:ConnectionString"] = "Server=localhost;Database=MyApp;Trusted_Connection=true;",
+                ["Database:EnableRetries"] = "true",
+                ["Database:CommandTimeout"] = "45",
+                ["App:ApplicationName"] = "Microsoft Adapter Demo",
+                ["App:Version"] = "2.1.0"
+            })
+            .Build();
+
         var services = new ServiceCollection();
 
         services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
 
-            rule.For<DatabaseSettings>().FromMicrosoftSource(_ => new(
-                    new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["Database:ConnectionString"] = "Server=localhost;Database=MyApp;Trusted_Connection=true;",
-                        ["Database:EnableRetries"] = "true",
-                        ["Database:CommandTimeout"] = "45",
-                        ["App:ApplicationName"] = "Microsoft Adapter Demo",
-                        ["App:Version"] = "2.1.0"
-                    }).Sources[0],
-                    configurationPrefix: "Database"
-                ))
+            // Simple: pass IConfiguration directly, use .Select() to scope to a section
+            rule.For<DatabaseSettings>()
+                .FromIConfiguration(configuration).Select("Database")
                 .Required(),
 
-            rule.For<AppSettings>().FromMicrosoftSource(_ => new(
-                    new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-                    {
-                        ["App:ApplicationName"] = "Microsoft Adapter Demo",
-                        ["App:Version"] = "2.1.0"
-                    }).Sources[0],
-                    configurationPrefix: "App"
-                ))
+            rule.For<AppSettings>()
+                .FromIConfiguration(configuration).Select("App")
                 .Required()
 
         ]));

@@ -4,7 +4,7 @@ using System.Text.Json;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Fluent;
-using Cocoar.Configuration.HttpPolling;
+using Cocoar.Configuration.Http;
 using Cocoar.Configuration.MicrosoftAdapter;
 using Cocoar.Configuration.Providers.Tests.Helpers;
 using Microsoft.Extensions.Configuration;
@@ -17,7 +17,7 @@ public class HttpProviderSmokeTests
 {
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task FetchConfigurationAsync_ReadsJson_FromHandler()
     {
         var handler = new FakeHandler(new(HttpStatusCode.OK)
@@ -25,9 +25,9 @@ public class HttpProviderSmokeTests
             Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
         });
         var provider =
-            new HttpPollingProvider(new("https://example.com", TimeSpan.FromMilliseconds(50),
-                handler));
-        var result = await provider.FetchConfigurationBytesAsync(new("/api/config"));
+            new HttpProvider(new(pollInterval: TimeSpan.FromMilliseconds(50),
+                handler: handler));
+        var result = await provider.FetchConfigurationBytesAsync(new("https://example.com/api/config"));
         Assert.Equal(JsonValueKind.Object, result.ToJsonElement().ValueKind);
         Assert.True(result.ToJsonElement().TryGetProperty("Value", out var v));
         Assert.Equal(1, v.GetInt32());
@@ -35,7 +35,7 @@ public class HttpProviderSmokeTests
 
     [Fact]
     [Trait("Type", "Integration")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task ConfigManager_Recompute_OnChange_Required()
     {
         // two responses: first value=1 then value=2
@@ -51,15 +51,14 @@ public class HttpProviderSmokeTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
-            rules.For<MyHttpPollingSettings>().FromMicrosoftSource(cm => new(
+            rules.For<MyHttpSettings>().FromMicrosoftSource(cm => new(
                     new ConfigurationBuilder()
-                        .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "/api/config" })
+                        .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "https://example.com/api/config" })
                         .Sources[0],
                     configurationPrefix: "Remote"
                 )),
-            rules.For<MyCfg>().FromHttpPolling(configManager => new(
-                    urlPathOrAbsolute: configManager.GetRequiredConfig<MyHttpPollingSettings>().Url,
-                    baseAddress: "https://example.com",
+            rules.For<MyCfg>().FromHttp(configManager => new(
+                    url: configManager.GetRequiredConfig<MyHttpSettings>().Url,
                     // Give CI plenty of time; we will actively wait for the change
                     pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler
@@ -88,7 +87,7 @@ public class HttpProviderSmokeTests
 
     [Fact]
     [Trait("Type", "Unit")]
-    [Trait("Provider", "HttpPollingProvider")]
+    [Trait("Provider", "HttpProvider")]
     public async Task Changes_DoesNotEmit_OnSubscribe()
     {
 
@@ -98,16 +97,42 @@ public class HttpProviderSmokeTests
         });
         // Use a large interval so even on slow CI a short wait won't reach first tick
         var provider =
-            new HttpPollingProvider(new("https://example.com", TimeSpan.FromSeconds(2),
-                handler));
+            new HttpProvider(new(pollInterval: TimeSpan.FromSeconds(2),
+                handler: handler));
 
         var emitted = false;
         using var sub = provider
-            .ChangesAsBytes(new("/api/config"))
+            .ChangesAsBytes(new("https://example.com/api/config"))
             .Subscribe(_ => emitted = true);
 
         // Wait well below the 2s poll interval to validate no immediate emission on subscribe
         await Task.Delay(500);
+        Assert.False(emitted);
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "HttpProvider")]
+    public async Task OneTimeFetch_Changes_ReturnsNever()
+    {
+        var handler = new FakeHandler(new(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json")
+        });
+        // No poll interval, no SSE — one-time fetch mode
+        var provider = new HttpProvider(new(handler: handler));
+
+        var emitted = false;
+        using var sub = provider
+            .ChangesAsBytes(new("https://example.com/api/config"))
+            .Subscribe(_ => emitted = true);
+
+        // Fetch still works for initial load
+        var result = await provider.FetchConfigurationBytesAsync(new("https://example.com/api/config"));
+        Assert.Equal(1, result.ToJsonElement().GetProperty("Value").GetInt32());
+
+        // But changes never fires
+        await Task.Delay(300);
         Assert.False(emitted);
     }
 
@@ -116,9 +141,9 @@ public class HttpProviderSmokeTests
         public int Value { get; set; }
     }
 
-    public class MyHttpPollingSettings : MyCfg
+    public class MyHttpSettings : MyCfg
     {
-        public string Url { get; set; } = "/api/config";
+        public string Url { get; set; } = "https://example.com/api/config";
     }
 
     private sealed class FakeHandler : HttpMessageHandler

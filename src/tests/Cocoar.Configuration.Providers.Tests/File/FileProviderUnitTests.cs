@@ -13,7 +13,7 @@ public class FileProviderUnitTests
     private sealed class AppConfig { public string? Name { get; set; } public int Value { get; set; } }
     private sealed class NestedConfig { public AppConfig App { get; set; } = new(); }
 
-    private static ConfigRule CreateFileRule<T>(string filePath, string? selectPath = null, bool required = false)
+    private static ConfigRule CreateFileRule<T>(string filePath, string? selectPath = null, bool required = false) where T : class
     {
         var rulesBuilder = new RulesBuilder();
         var builder = rulesBuilder.For<T>().FromFile(filePath);
@@ -30,13 +30,8 @@ public class FileProviderUnitTests
         var path = Path.Combine(Path.GetTempPath(), "cocoar_missing_" + Guid.NewGuid().ToString("N") + ".json");
         var rule = CreateFileRule<object>(path, required: false); // explicitly optional
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        var snap = manager.GetHealthService().Snapshot;
-        
-        // Optional rule fails but doesn't make the system unhealthy - shows as Down but overall Degraded
-        Assert.Single(snap.Rules);
-        Assert.Equal(Health.RuleResultStatus.Down, snap.Rules[0].Status);
-        Assert.False(snap.Rules[0].Required); // Confirm it's optional
-        Assert.Equal(Health.HealthStatus.Degraded, snap.OverallStatus); // Optional failure = Degraded
+        // Optional rule fails but doesn't make the system unhealthy - Degraded
+        Assert.Equal(Health.HealthStatus.Degraded, manager.HealthStatus);
     }
 
     [Fact]
@@ -62,15 +57,13 @@ public class FileProviderUnitTests
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        
+
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);
         Assert.Equal("TestApp", config!.Name);
         Assert.Equal(42, config.Value);
-        
-        var snap = manager.GetHealthService().Snapshot;
-        Assert.Equal(Health.HealthStatus.Healthy, snap.OverallStatus);
-        Assert.Equal(Health.RuleResultStatus.Up, snap.Rules[0].Status);
+
+        Assert.Equal(Health.HealthStatus.Healthy, manager.HealthStatus);
     }
 
     [Fact]
@@ -99,15 +92,13 @@ public class FileProviderUnitTests
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, required: true);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        
+
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);
         Assert.Null(config!.Name); // Default value
         Assert.Equal(0, config.Value); // Default value
-        
-        var snap = manager.GetHealthService().Snapshot;
-        Assert.Equal(Health.HealthStatus.Healthy, snap.OverallStatus);
-        Assert.Equal(Health.RuleResultStatus.Up, snap.Rules[0].Status);
+
+        Assert.Equal(Health.HealthStatus.Healthy, manager.HealthStatus);
     }
 
     [Fact]
@@ -120,7 +111,7 @@ public class FileProviderUnitTests
 
         var rule = CreateFileRule<NestedConfig>(file.FilePath, required: true);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        
+
         var config = manager.GetConfig<NestedConfig>();
         Assert.NotNull(config);
         Assert.Equal("Nested", config!.App.Name);
@@ -133,14 +124,14 @@ public class FileProviderUnitTests
     public void FileWithSelect_ExtractsSection()
     {
         using var file = TempFileHelper.Create();
-        file.WriteJson(new { 
+        file.WriteJson(new {
             Database = new { ConnectionString = "test" },
             App = new { Name = "SectionTest", Value = 200 }
         });
 
         var rule = CreateFileRule<AppConfig>(file.FilePath, selectPath: "App", required: true);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(new[]{rule}));
-        
+
         var config = manager.GetConfig<AppConfig>();
         Assert.NotNull(config);
         Assert.Equal("SectionTest", config!.Name);

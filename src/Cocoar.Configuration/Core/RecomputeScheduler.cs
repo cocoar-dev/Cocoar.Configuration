@@ -8,7 +8,11 @@ namespace Cocoar.Configuration.Core;
 /// </summary>
 internal sealed class RecomputeScheduler : IDisposable, IAsyncDisposable
 {
+#if NET9_0_OR_GREATER
     private readonly Lock _recomputeGate = new();
+#else
+    private readonly object _recomputeGate = new();
+#endif
     private CancellationTokenSource? _recomputeCts;
     private Task? _currentRecomputeTask;
     private bool _disposed;

@@ -2,11 +2,9 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>Dependency injection integration for Cocoar.Configuration with Microsoft.Extensions.DependencyInjection. Fluent API for registering configuration types with customizable lifetimes (singleton, scoped, transient) and keyed services.</Description>
-    <PackageTags>configuration;dependency-injection;di;microsoft-extensions;fluent-api;service-registration;ioc;keyed-services</PackageTags>
-  </PropertyGroup>    <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    </ItemGroup>
+    <Description>Dependency injection integration for Cocoar.Configuration. Configuration type registration, lifetime customization, keyed services, and context resolver registration for feature flags and entitlements.</Description>
+    <PackageTags>configuration;dependency-injection;di;microsoft-extensions;service-registration;feature-flags;resolvers</PackageTags>
+  </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />

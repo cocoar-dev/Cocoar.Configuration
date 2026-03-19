@@ -10,7 +10,7 @@ public class TupleReactiveConfigGuardTests
     private interface IApp { int V { get; } }
     private record App(int V) : IApp;
 
-    private static ConfigRule CreateStaticRule<T>(T value)
+    private static ConfigRule CreateStaticRule<T>(T value) where T : class
     {
         var rulesBuilder = new RulesBuilder();
         return rulesBuilder.For<T>().FromStaticJson(System.Text.Json.JsonSerializer.Serialize(value)).Required();

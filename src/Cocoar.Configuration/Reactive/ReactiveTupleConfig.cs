@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Cocoar.Configuration.Core;
@@ -68,15 +66,8 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
 
         // Create observable from the backplane's snapshot stream
         // This provides atomicity - all tuple elements update together
-        _observable = CreateTupleObservable(configManager)
-            .Catch<TTuple, Exception>(ex =>
-            {
-                _logger.TupleStreamErrorIgnored(ex, typeof(TTuple).Name);
-                return Observable.Empty<TTuple>();
-            })
-            .Retry()
-            .Publish()
-            .RefCount();
+        // Source (MasterBackplane) never errors, so no Catch/Retry needed
+        _observable = CreateTupleObservable(configManager);
 
         _subscription = _observable.Subscribe(_ => { }, _ => { });
     }
@@ -108,7 +99,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
     {
         // Access the backplane through the state (after initialization)
         // The backplane provides atomic updates for all types
-        return Observable.Create<TTuple>(observer =>
+        return ObservableHelpers.Create<TTuple>(observer =>
         {
             TTuple? previousTuple = null;
 

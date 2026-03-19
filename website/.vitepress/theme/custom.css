@@ -1,0 +1,214 @@
+/**
+ * Cocoar.Configuration — VitePress Brand Theme
+ *
+ * Colors extracted from social-preview.png:
+ *   Primary blue:  #1183CD (from logo SVGs)
+ *   Dark text:     #292F3B (from logo molecule path)
+ *   Accent blue:   #0E6DB0 (darker hover)
+ *   Light surface:  #f6f8fa
+ */
+
+/* ─── Color palette ────────────────────────────────────── */
+
+:root {
+  /* Brand blue mapped to VitePress color system */
+  --vp-c-brand-1: #1183CD;
+  --vp-c-brand-2: #0E6DB0;
+  --vp-c-brand-3: #1183CD;
+  --vp-c-brand-soft: rgba(26, 143, 227, 0.14);
+
+  /* Tip/info containers use brand blue */
+  --vp-c-tip-1: var(--vp-c-brand-1);
+  --vp-c-tip-soft: var(--vp-c-brand-soft);
+
+  /* Slightly warmer background for a softer feel */
+  --vp-c-bg-soft: #f6f8fa;
+}
+
+.dark {
+  --vp-c-brand-1: #4AADFF;
+  --vp-c-brand-2: #1183CD;
+  --vp-c-brand-3: #4AADFF;
+  --vp-c-brand-soft: rgba(74, 173, 255, 0.14);
+
+  --vp-c-bg-soft: #1a1e24;
+}
+
+/* ─── Hero section ─────────────────────────────────────── */
+
+.VPHero .name {
+  color: #1183CD !important;
+  background: none !important;
+  -webkit-text-fill-color: #1183CD !important;
+}
+
+.dark .VPHero .name {
+  color: #4AADFF !important;
+  background: none !important;
+  -webkit-text-fill-color: #4AADFF !important;
+}
+
+.VPHero .text {
+  color: #292F3B !important;
+}
+
+.dark .VPHero .text {
+  color: #f1f5f9 !important;
+}
+
+.VPHero .tagline {
+  color: #64748b !important;
+}
+
+/* Hero image — layer icon from the brand */
+.VPHero .VPImage {
+  max-height: 240px;
+}
+
+
+/* ─── Feature cards ────────────────────────────────────── */
+
+.VPFeatures .VPFeature {
+  border: 1px solid transparent !important;
+  transition: border-color 0.25s, box-shadow 0.25s !important;
+}
+
+.VPFeatures .VPFeature:hover {
+  border-color: var(--vp-c-brand-1) !important;
+  box-shadow: 0 2px 12px rgba(26, 143, 227, 0.08) !important;
+}
+
+/* Feature icons in brand blue */
+.VPFeatures .VPFeature .icon svg {
+  color: var(--vp-c-brand-1);
+}
+
+/* ─── Sidebar ──────────────────────────────────────────── */
+
+.VPSidebar .group .title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Active link gets a subtle left border */
+.VPSidebarItem.is-active > .item > .link > .text {
+  font-weight: 600;
+}
+
+/* ─── Sidebar "Advanced" badges ────────────────────────── */
+
+/* Sidebar badge icons — inline SVG via CSS mask */
+
+.badge-adv,
+.badge-lic {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  vertical-align: middle;
+  margin-left: 2px;
+  cursor: help;
+  position: relative;
+}
+
+/* Advanced: text badge */
+.badge-adv {
+  width: auto;
+  height: auto;
+  padding: 0px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.5;
+  border-radius: 3px;
+  background-color: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+.badge-adv::after {
+  content: 'ADV';
+}
+
+/* Licensed: shield icon (ready for future use) */
+.badge-lic {
+  background-color: #e5a00d;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+}
+
+.dark .badge-lic {
+  background-color: #f0b429;
+}
+
+/* ─── VitePress Badge overrides (match sidebar badges) ─── */
+
+.VPBadge.info {
+  background-color: var(--vp-c-brand-soft) !important;
+  color: var(--vp-c-brand-1) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em;
+  padding: 1px 5px !important;
+  border-radius: 3px !important;
+}
+
+/* ─── Content ──────────────────────────────────────────── */
+
+/* Inline code gets a blue tint */
+.vp-doc :not(pre) > code {
+  color: var(--vp-c-brand-1) !important;
+}
+
+.dark .vp-doc :not(pre) > code {
+  color: var(--vp-c-brand-3) !important;
+}
+
+/* Code block filename badge */
+.vp-doc div[class*='language-'] > span.lang {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+
+/* ─── Custom containers ────────────────────────────────── */
+
+/* Info/tip containers use brand blue instead of default */
+.vp-doc .custom-block.info {
+  border-color: var(--vp-c-brand-1);
+}
+
+.vp-doc .custom-block.tip {
+  border-color: var(--vp-c-brand-1);
+}
+
+/* ─── Footer ───────────────────────────────────────────── */
+
+.VPFooter {
+  border-top-color: var(--vp-c-brand-soft) !important;
+}
+
+/* ─── Nav logo text ────────────────────────────────────── */
+
+.VPNavBarTitle .title {
+  font-weight: 700 !important;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Tables — cleaner look ────────────────────────────── */
+
+.vp-doc table {
+  border-collapse: collapse;
+}
+
+.vp-doc table th {
+  background-color: var(--vp-c-bg-soft);
+  font-weight: 600;
+}
+
+/* ─── Badge tweaks ─────────────────────────────────────── */
+
+.VPBadge.tip {
+  background-color: var(--vp-c-brand-1);
+}

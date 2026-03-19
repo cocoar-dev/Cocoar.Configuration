@@ -15,6 +15,7 @@ public static class StaticRulesExtensions
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
     > FromStaticJson<T>(this TypedRuleBuilder<T> builder, string jsonString)
+    where T : class
     {
         using var document = JsonDocument.Parse(jsonString);
         var jsonElement = document.RootElement.Clone();
@@ -34,6 +35,7 @@ public static class StaticRulesExtensions
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
     > FromStatic<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, T> factory)
+    where T : class
     {
         return new(
             cm =>

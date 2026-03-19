@@ -34,7 +34,7 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "A configuration rule uses GetRequiredConfig<T> for a type that hasn't been loaded yet, which will cause a runtime exception.",
+        description: "A configuration rule uses GetConfig<T> for a type that hasn't been loaded yet, which will cause a runtime exception.",
         helpLinkUri: "https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/analyzers/COCFG002.md");
 
     /// <summary>
@@ -51,19 +51,9 @@ internal static class DiagnosticDescriptors
         description: "A required configuration rule references a file or resource that doesn't exist in the project, which will cause startup failure.",
         helpLinkUri: "https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/analyzers/COCFG003.md");
 
-    /// <summary>
-    /// CA004: Type safety violation in configuration accessor.
-    /// GetRequiredConfig is called with a type that doesn't have a matching property.
-    /// </summary>
-    public static readonly DiagnosticDescriptor ConfigurationAccessorTypeSafety = new(
-        id: "COCFG004",
-        title: "Configuration accessor type safety violation",
-        messageFormat: "Property '{0}' does not exist on type '{1}'",
-        category: Category,
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        description: "A configuration accessor attempts to access a property that doesn't exist on the specified type.",
-        helpLinkUri: "https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/analyzers/COCFG004.md");
+    // COCFG004 was removed — the `where T : class` constraint on TypedRuleBuilder<T> and
+    // IConfigurationAccessor.GetConfig<T>() now enforces type safety at compile time.
+    // The diagnostic ID is reserved to avoid reuse.
 
     /// <summary>
     /// CA005: Duplicate unconditional rules for same type.
@@ -90,6 +80,6 @@ internal static class DiagnosticDescriptors
         category: Category,
         defaultSeverity: DiagnosticSeverity.Info,
         isEnabledByDefault: true,
-        description: "Static or seed rules (FromStatic, FromObservable) should generally appear before dynamic rules (FromFile, FromHttpPolling) that may depend on their configuration.",
+        description: "Static or seed rules (FromStatic, FromObservable) should generally appear before dynamic rules (FromFile, FromHttp) that may depend on their configuration.",
         helpLinkUri: "https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/analyzers/COCFG006.md");
 }

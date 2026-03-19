@@ -12,25 +12,25 @@ public static class TestRules
 {
     private static readonly RulesBuilder Builder = new();
 
-    public static ConfigRule StaticJson<T>(string json, bool required = false)
+    public static ConfigRule StaticJson<T>(string json, bool required = false) where T : class
     {
         var rule = Builder.For<T>().FromStaticJson(json);
         return required ? rule.Required() : rule;
     }
 
-    public static ConfigRule Observable<T>(System.IObservable<T> observable, bool required = false)
+    public static ConfigRule Observable<T>(System.IObservable<T> observable, bool required = false) where T : class
     {
         var rule = Builder.For<T>().FromObservable(observable);
         return required ? rule.Required() : rule;
     }
 
-    public static ConfigRule ObservableString<T>(System.IObservable<string> jsonObservable, bool required = false)
+    public static ConfigRule ObservableString<T>(System.IObservable<string> jsonObservable, bool required = false) where T : class
     {
         var rule = Builder.For<T>().FromObservable(jsonObservable);
         return required ? rule.Required() : rule;
     }
 
-    public static ConfigRule File<T>(string filePath, string? selectPath = null, bool required = false)
+    public static ConfigRule File<T>(string filePath, string? selectPath = null, bool required = false) where T : class
     {
         var builder = Builder.For<T>().FromFile(filePath);
         if (selectPath != null)
@@ -41,7 +41,7 @@ public static class TestRules
         return required ? rule.Required() : rule;
     }
 
-    public static ConfigRule Environment<T>(string? prefix = null, bool required = false)
+    public static ConfigRule Environment<T>(string? prefix = null, bool required = false) where T : class
     {
         var rule = Builder.For<T>().FromEnvironment(prefix);
         return required ? rule.Required() : rule;
