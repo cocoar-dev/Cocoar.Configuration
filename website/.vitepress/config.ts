@@ -12,7 +12,10 @@ export default defineConfig({
   ],
 
   vite: {
-    plugins: [llmstxt()],
+    plugins: [llmstxt({
+      excludeUnnecessaryFiles: false,
+      ignoreFiles: ['changelog.md'],
+    })],
   },
 
   themeConfig: {
