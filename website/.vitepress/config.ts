@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import llmstxt from 'vitepress-plugin-llms'
 
 export default defineConfig({
   title: 'Cocoar.Configuration',
@@ -6,7 +7,13 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo_light.svg' }],
+    ['link', { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'LLM documentation (summary)' }],
+    ['link', { rel: 'alternate', type: 'text/plain', href: '/llms-full.txt', title: 'LLM documentation (full)' }],
   ],
+
+  vite: {
+    plugins: [llmstxt()],
+  },
 
   themeConfig: {
     logo: {
@@ -21,6 +28,7 @@ export default defineConfig({
       { text: 'Reference', link: '/reference/packages' },
       { text: 'Roadmap', link: '/roadmap/overview' },
       { text: 'Changelog', link: '/changelog' },
+      { text: 'LLM Docs', link: '/llms-full.txt', target: '_blank' },
       { text: 'NuGet', link: 'https://www.nuget.org/packages/Cocoar.Configuration' },
     ],
 

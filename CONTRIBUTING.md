@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Cocoar.Configuration!
 
 ## Getting started
 - Fork the repository and create a feature branch.
-- Ensure you have the .NET SDK specified in `global.json`.
+- Ensure you have the .NET 8+ SDK installed.
 - Run the test suite locally before opening a PR.
 
 ## Coding guidelines
@@ -14,7 +14,7 @@ Thanks for your interest in contributing to Cocoar.Configuration!
 - Keep provider options deterministic (stable keys) to preserve instance pooling.
 
 ## Testing
-- Run unit tests under `src/tests/Cocoar.Configuration.Tests`.
+- Run all tests: `dotnet test ./src -c Release --filter "Type!=Performance"`
 - For change-driven providers (file/HTTP), prefer deterministic waits (poll loops with upper bounds) to avoid flakiness.
 
 ## Commit/PR
@@ -22,4 +22,4 @@ Thanks for your interest in contributing to Cocoar.Configuration!
 - Describe user-facing changes and migration notes if any.
 
 ## License
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the [Apache-2.0 License](LICENSE).

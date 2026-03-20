@@ -5,14 +5,10 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview",
-    "export:pdf": "node scripts/export-pdf.mjs",
-    "export:md": "node scripts/export-md.mjs"
+    "preview": "vitepress preview"
   },
   "devDependencies": {
-    "highlight.js": "^11.11.1",
-    "markdown-it": "^14.1.1",
-    "puppeteer-core": "^24.39.1",
-    "vitepress": "^1.6.3"
+    "vitepress": "^1.6.3",
+    "vitepress-plugin-llms": "latest"
   }
 }
