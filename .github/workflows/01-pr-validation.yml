@@ -3,6 +3,9 @@ name: PR Validation
 on:
   pull_request:
     branches: [ develop ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/**'
 
 jobs:
   test-multiplatform:

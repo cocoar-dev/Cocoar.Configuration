@@ -3,6 +3,9 @@ name: Develop - Push
 on:
   push:
     branches: [ develop ]
+    paths:
+      - 'src/**'
+      - '.github/workflows/**'
 
 jobs:
   test-multiplatform:
