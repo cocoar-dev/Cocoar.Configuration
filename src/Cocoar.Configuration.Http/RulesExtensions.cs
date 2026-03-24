@@ -16,7 +16,7 @@ public static class RulesExtensions
     /// <param name="fallbackPollInterval">When SSE is enabled, falls back to polling at this interval on sustained SSE failure.</param>
     /// <param name="headers">Optional HTTP headers sent with every request.</param>
     public static ProviderRuleBuilder<HttpProvider, HttpProviderOptions, HttpProviderQueryOptions>
-        FromHttp<T>(this TypedRuleBuilder<T> builder,
+        FromHttp<T>(this TypedProviderBuilder<T> builder,
             string url,
             TimeSpan? pollInterval = null,
             bool serverSentEvents = false,
@@ -40,7 +40,7 @@ public static class RulesExtensions
     /// <param name="builder">The typed rule builder.</param>
     /// <param name="optionsFactory">Factory that receives the current configuration accessor and returns HTTP rule options.</param>
     public static ProviderRuleBuilder<HttpProvider, HttpProviderOptions, HttpProviderQueryOptions>
-        FromHttp<T>(this TypedRuleBuilder<T> builder,
+        FromHttp<T>(this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, HttpRuleOptions> optionsFactory)
         where T : class
         => new(

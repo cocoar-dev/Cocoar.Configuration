@@ -53,6 +53,7 @@ export default defineConfig({
             { text: 'Setup & Type Exposure', link: '/guide/configuration/setup' },
             { text: 'Config-Aware Rules <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/configuration/config-aware' },
             { text: 'Conditional Rules <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/configuration/conditional-rules' },
+            { text: 'Aggregate Rules <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/configuration/aggregate-rules' },
           ],
         },
         {

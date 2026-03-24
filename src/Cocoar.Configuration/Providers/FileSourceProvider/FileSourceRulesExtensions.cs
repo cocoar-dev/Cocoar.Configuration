@@ -9,7 +9,7 @@ public static class FileSourceRulesExtensions
     /// Creates a file-based configuration rule from a file path.
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        FromFile<T>(this TypedRuleBuilder<T> builder, string filePath)
+        FromFile<T>(this TypedProviderBuilder<T> builder, string filePath)
         where T : class
         => new(
             cm => FileSourceRuleOptions.FromFilePath(filePath).ToProviderOptions(),
@@ -21,7 +21,7 @@ public static class FileSourceRulesExtensions
     /// Creates a file-based configuration rule with custom options.
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        FromFile<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, FileSourceRuleOptions> optionsFactory)
+        FromFile<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, FileSourceRuleOptions> optionsFactory)
         where T : class
         => new(
             cm => optionsFactory(cm).ToProviderOptions(),

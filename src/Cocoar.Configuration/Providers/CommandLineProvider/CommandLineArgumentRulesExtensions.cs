@@ -7,7 +7,7 @@ public static class CommandLineArgumentRulesExtensions
 {
     public static
         ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
-            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder, string prefix, string[]? switchPrefixes = null)
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedProviderBuilder<T> builder, string prefix, string[]? switchPrefixes = null)
         where T : class
         => new(
             cm => new(),
@@ -17,7 +17,7 @@ public static class CommandLineArgumentRulesExtensions
 
     public static
         ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
-            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder, string[] switchPrefixes)
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedProviderBuilder<T> builder, string[] switchPrefixes)
         where T : class
         => new(
             cm => new(),
@@ -27,7 +27,7 @@ public static class CommandLineArgumentRulesExtensions
 
     public static
         ProviderRuleBuilder<CommandLineArgumentProvider, CommandLineProviderOptions,
-            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedRuleBuilder<T> builder,
+            CommandLineProviderQueryOptions> FromCommandLine<T>(this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, CommandLineRuleOptions> optionsFactory)
         where T : class
         => new(

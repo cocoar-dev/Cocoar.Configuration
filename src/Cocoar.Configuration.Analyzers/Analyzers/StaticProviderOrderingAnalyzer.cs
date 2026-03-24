@@ -116,7 +116,8 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Checks if the method is an extension method whose first parameter is TypedRuleBuilder&lt;T&gt;.
+    /// Checks if the method is an extension method whose first parameter is
+    /// TypedRuleBuilder&lt;T&gt; or TypedProviderBuilder&lt;T&gt;.
     /// This is the architectural definition of a provider method — no naming convention needed.
     /// </summary>
     private static bool IsExtensionOnTypedRuleBuilder(IMethodSymbol method)
@@ -127,7 +128,7 @@ public class StaticProviderOrderingAnalyzer : DiagnosticAnalyzer
                            ?? method.Parameters.FirstOrDefault()?.Type;
         if (receiverType is not INamedTypeSymbol namedType) return false;
 
-        return namedType.Name == "TypedRuleBuilder"
+        return (namedType.Name == "TypedRuleBuilder" || namedType.Name == "TypedProviderBuilder")
                && namedType.ContainingNamespace?.ToString() == "Cocoar.Configuration.Fluent";
     }
 }

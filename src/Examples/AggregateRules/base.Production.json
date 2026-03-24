@@ -1,0 +1,4 @@
+{
+  "ConnectionString": "Server=db-prod.internal;Database=myapp;Encrypt=true;",
+  "MaxPoolSize": 200
+}

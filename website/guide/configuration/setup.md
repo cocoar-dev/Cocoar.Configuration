@@ -14,16 +14,22 @@ builder.AddCocoarConfiguration(c => c
     ]));
 ```
 
-Both `AppSettings` and `DatabaseConfig` are registered as **Scoped** in DI. You can inject them directly — no `IOptions<T>` wrapper:
+Both `AppSettings` and `DatabaseConfig` are automatically registered as **Scoped** in DI. You can inject them directly — no `IOptions<T>` wrapper, no setup needed:
 
 ```csharp
 public class MyService(AppSettings settings, DatabaseConfig db)
 {
-    // Just use them
+    // Just use them — resolved from ConfigManager's cache, no recomputation
 }
 ```
 
-For many applications, this is all you need. Setup is only required when you want to customize how types are exposed.
+::: tip You probably don't need setup
+For most applications, auto-registration is all you need. **Don't add `setup.ConcreteType<T>()` just to register a type** — it's already registered if it has rules. Setup is only needed when you want to:
+- Expose a type through an interface (`.ExposeAs<I>()`)
+- Change the DI lifetime (`.AsSingleton()`, `.AsTransient()`)
+- Map interfaces for deserialization (`.Interface<I>().DeserializeTo<T>()`)
+- Disable auto-registration (`.DisableAutoRegistration()`)
+:::
 
 ## The Setup Lambda
 
@@ -141,8 +147,12 @@ setup => [
 | Method | Lifetime | Use When |
 |---|---|---|
 | `.AsScoped()` | Scoped | Default — stable snapshot per request |
-| `.AsSingleton()` | Singleton | Config rarely changes, shared across requests |
-| `.AsTransient()` | Transient | New instance per injection |
+| `.AsSingleton()` | Singleton | Changes should be visible immediately, even mid-request |
+| `.AsTransient()` | Transient | New instance per injection (rarely needed) |
+
+::: warning Don't default to Singleton
+Scoped resolution is a dictionary lookup — there is no performance cost. Singleton is **not** an optimization: the DI container caches the first result forever, so config changes are never visible. Stick with the default Scoped unless you have a specific reason. For live updates in long-lived services, use `IReactiveConfig<T>`.
+:::
 
 ### Keyed Services <Badge type="info" text="ADV" />
 

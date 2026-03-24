@@ -10,7 +10,7 @@ public static class EnvironmentVariableRulesExtensions
     /// </summary>
     public static
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
-            EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder, string? environmentPrefix = null)
+            EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedProviderBuilder<T> builder, string? environmentPrefix = null)
         where T : class
         => new(
             cm => new(),
@@ -23,7 +23,7 @@ public static class EnvironmentVariableRulesExtensions
     /// </summary>
     public static
         ProviderRuleBuilder<EnvironmentVariableProvider, EnvironmentVariableProviderOptions,
-            EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedRuleBuilder<T> builder,
+            EnvironmentVariableProviderQueryOptions> FromEnvironment<T>(this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, EnvironmentVariableRuleOptions> optionsFactory)
         where T : class
         => new(

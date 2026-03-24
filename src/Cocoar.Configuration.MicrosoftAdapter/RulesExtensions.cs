@@ -18,7 +18,7 @@ public static class RulesExtensions
     public static
         ProviderRuleBuilder<MicrosoftConfigurationProvider, MicrosoftConfigurationProviderOptions,
             MicrosoftConfigurationProviderQueryOptions> FromIConfiguration<T>(
-            this TypedRuleBuilder<T> builder,
+            this TypedProviderBuilder<T> builder,
             IConfiguration configuration)
         where T : class
         => new(
@@ -33,7 +33,7 @@ public static class RulesExtensions
     [Obsolete("Use FromIConfiguration(IConfiguration) instead.")]
     public static
         ProviderRuleBuilder<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
-            MicrosoftConfigurationSourceProviderQueryOptions> FromMicrosoftSource<T>(this TypedRuleBuilder<T> builder,
+            MicrosoftConfigurationSourceProviderQueryOptions> FromMicrosoftSource<T>(this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory)
         where T : class
         => new(

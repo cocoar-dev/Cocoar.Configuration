@@ -14,7 +14,7 @@ public static class StaticRulesExtensions
         StaticJsonProvider,
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
-    > FromStaticJson<T>(this TypedRuleBuilder<T> builder, string jsonString)
+    > FromStaticJson<T>(this TypedProviderBuilder<T> builder, string jsonString)
     where T : class
     {
         using var document = JsonDocument.Parse(jsonString);
@@ -34,7 +34,7 @@ public static class StaticRulesExtensions
         StaticJsonProvider,
         StaticJsonProviderOptions,
         StaticJsonProviderQueryOptions
-    > FromStatic<T>(this TypedRuleBuilder<T> builder, Func<IConfigurationAccessor, T> factory)
+    > FromStatic<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, T> factory)
     where T : class
     {
         return new(

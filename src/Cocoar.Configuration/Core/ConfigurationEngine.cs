@@ -67,7 +67,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     /// </summary>
     public void InitializeAndCompute(
         List<ConfigRule> rules,
-        List<RuleManager> ruleManagers,
+        List<IRuleManager> ruleManagers,
         ProviderRegistry providerRegistry,
         IConfigurationAccessor configAccessor,
         ExposureRegistry bindingRegistry,
@@ -83,7 +83,13 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         _state.InitializeBackplane(bindingRegistry);
 
         ruleManagers.Clear();
-        ruleManagers.AddRange(rules.Select(rule => new RuleManager(rule, _logger, providerRegistry)));
+        foreach (var rule in rules)
+        {
+            if (rule is AggregateConfigRule aggregate)
+                ruleManagers.Add(new AggregateRuleManager(aggregate, _logger, providerRegistry));
+            else
+                ruleManagers.Add(new RuleManager(rule, _logger, providerRegistry));
+        }
 
         try
         {
@@ -110,7 +116,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     /// Cancels any in-flight recompute and starts a new one.
     /// </summary>
     public void ScheduleRecompute(
-        List<RuleManager> ruleManagers,
+        List<IRuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex)
     {
@@ -135,7 +141,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     /// </summary>
     public async Task InitializeAndComputeAsync(
         List<ConfigRule> rules,
-        List<RuleManager> ruleManagers,
+        List<IRuleManager> ruleManagers,
         ProviderRegistry providerRegistry,
         IConfigurationAccessor configAccessor,
         ExposureRegistry bindingRegistry,
@@ -150,7 +156,13 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         _state.InitializeBackplane(bindingRegistry);
 
         ruleManagers.Clear();
-        ruleManagers.AddRange(rules.Select(rule => new RuleManager(rule, _logger, providerRegistry)));
+        foreach (var rule in rules)
+        {
+            if (rule is AggregateConfigRule aggregate)
+                ruleManagers.Add(new AggregateRuleManager(aggregate, _logger, providerRegistry));
+            else
+                ruleManagers.Add(new RuleManager(rule, _logger, providerRegistry));
+        }
 
         try
         {
@@ -173,7 +185,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     /// Recomputes all configurations starting from the given index, with semaphore protection and error handling.
     /// </summary>
     public void RecomputeAllConfigurationsSafe(
-        IReadOnlyList<RuleManager> ruleManagers,
+        IReadOnlyList<IRuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -231,7 +243,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     /// Async version of RecomputeAllConfigurationsSafe.
     /// </summary>
     public async Task RecomputeAllConfigurationsSafeAsync(
-        IReadOnlyList<RuleManager> ruleManagers,
+        IReadOnlyList<IRuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -298,7 +310,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private void RecomputeAllConfigurations(
-        IReadOnlyList<RuleManager> ruleManagers,
+        IReadOnlyList<IRuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -310,7 +322,6 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
 
         RestorePrefixContributions(ruleManagers, startIndex, mergedConfigs, cancellationToken);
         RecomputeSuffix(ruleManagers, startIndex, configAccessor, mergedConfigs, cancellationToken);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         // Use new method with eager deserialization
@@ -326,7 +337,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private async Task RecomputeAllConfigurationsAsync(
-        IReadOnlyList<RuleManager> ruleManagers,
+        IReadOnlyList<IRuleManager> ruleManagers,
         IConfigurationAccessor configAccessor,
         int startIndex = 0,
         CancellationToken cancellationToken = default)
@@ -338,7 +349,6 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
 
         RestorePrefixContributions(ruleManagers, startIndex, mergedConfigs, cancellationToken);
         await RecomputeSuffixAsync(ruleManagers, startIndex, configAccessor, mergedConfigs, cancellationToken).ConfigureAwait(false);
-
         cancellationToken.ThrowIfCancellationRequested();
 
         // Use new method with eager deserialization
@@ -354,7 +364,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private void RestorePrefixContributions(
-        IReadOnlyList<RuleManager> orderedManagers,
+        IReadOnlyList<IRuleManager> orderedManagers,
         int startIndex,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
         CancellationToken cancellationToken)
@@ -382,7 +392,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private void RecomputeSuffix(
-        IReadOnlyList<RuleManager> orderedManagers,
+        IReadOnlyList<IRuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -405,7 +415,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private async Task RecomputeSuffixAsync(
-        IReadOnlyList<RuleManager> orderedManagers,
+        IReadOnlyList<IRuleManager> orderedManagers,
         int startIndex,
         IConfigurationAccessor configAccessor,
         Dictionary<Type, MutableJsonObject> mergedConfigs,
@@ -428,7 +438,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private void ProcessRuleResult(
-        RuleManager ruleManager,
+        IRuleManager ruleManager,
         ReadOnlyMemory<byte>? bytes,
         Dictionary<Type, MutableJsonObject> mergedConfigs)
     {
@@ -485,7 +495,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     private void CreateChangeSubscriptions(
-        IReadOnlyList<RuleManager> ruleManagers,
+        IReadOnlyList<IRuleManager> ruleManagers,
         Action<int> recomputeFromIndexCallback,
         int debounceMilliseconds)
     {

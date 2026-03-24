@@ -1,17 +1,59 @@
 # Lifetimes & Registration
 
+## How Resolution Works
+
+Understanding this is key: **DI resolution does not recompute or re-deserialize configuration.**
+
+When you inject `AppSettings`, here's what happens:
+
+1. DI calls the registered factory
+2. Factory calls `ConfigManager.GetConfig<AppSettings>()`
+3. ConfigManager returns the **already-deserialized, cached instance**
+
+That's it. No JSON parsing, no provider calls, no computation. The `ConfigManager` holds the current instance in memory and updates it only when a provider signals a change (file modified, HTTP poll, etc.). Resolution is a dictionary lookup — effectively free.
+
+::: tip Key Insight
+**Scoped ≠ recomputed per request.** Scoped means the DI factory calls `ConfigManager.GetConfig<T>()` once per scope and caches the result. That call is a dictionary lookup — no parsing, no computation.
+
+**This is why Scoped is the correct default.** Each scope gets the current instance at scope creation. When configuration changes, the next scope gets the new instance automatically. Switching to Singleton does **not** improve performance — it makes things worse: the factory is called once at startup, and the DI container caches that result forever. After a configuration change, Singleton consumers still see the old instance.
+:::
+
 ## Default Lifetimes
 
 | Service | Lifetime | Why |
 |---|---|---|
-| Configuration types (`AppSettings`, etc.) | **Scoped** | Consistent snapshot per request (like `IOptionsSnapshot<T>`) |
+| Configuration types (`AppSettings`, etc.) | **Scoped** | Consistent snapshot per request |
 | `IReactiveConfig<T>` | **Singleton** | Live subscription to changes |
 | Feature flag / entitlement classes | **Singleton** | Pure functions over reactive config |
 | `IFeatureFlagEvaluator` / `IEntitlementEvaluator` | **Scoped** | Needs request-scoped `IServiceProvider` for resolvers |
 | Context resolvers | **Scoped** | May depend on scoped services (e.g., `DbContext`); customizable via `.AsSingleton()`, `.AsTransient()` |
 | `IFeatureFlagsDescriptors` / `IEntitlementsDescriptors` | **Singleton** | Immutable metadata |
 
-Config types are Scoped by default: each request gets a consistent snapshot from the start of that request. If the configuration changes mid-request, the change is not visible until the next request. This matches `IOptionsSnapshot<T>` behavior in Microsoft.Extensions.Options.
+## Injection Patterns
+
+Choose based on what you need:
+
+```csharp
+// 1. Direct injection (most common) — stable snapshot within scope
+public class OrderService(AppSettings settings)
+{
+    // settings is the same instance for the entire request
+}
+
+// 2. IReactiveConfig<T> — live updates, for long-lived services
+public class BackgroundMonitor(IReactiveConfig<AppSettings> config)
+{
+    // config.CurrentValue always returns the latest
+    // config.Subscribe(...) emits on every change
+}
+
+// 3. IConfigurationAccessor — access any config type dynamically
+public class PluginHost(IConfigurationAccessor accessor)
+{
+    var db = accessor.GetConfig<DatabaseConfig>();
+    var app = accessor.GetConfig<AppSettings>();
+}
+```
 
 ## Customizing Lifetimes
 
@@ -23,7 +65,11 @@ Register a configuration type as Singleton instead of the default Scoped:
 setup.ConcreteType<AppSettings>().AsSingleton()
 ```
 
-Use this when the type has no per-request variation and you want to avoid repeated resolution.
+The DI container calls the factory once and caches the result. **After a configuration change, Singleton consumers keep the old instance.** Only use this for config types that genuinely never change at runtime. For live updates, use `IReactiveConfig<T>` instead.
+
+::: danger Don't use AsSingleton for "performance"
+Scoped resolution is already a dictionary lookup — there is no performance benefit to Singleton. Singleton only means you miss configuration updates. If an AI tool or colleague suggests `.AsSingleton()` to "avoid repeated resolution," that's a misconception.
+:::
 
 ### AsTransient
 
@@ -70,8 +116,8 @@ setup.ExposedType<IAppSettings>().AsSingleton()
 
 Here `AppSettings` is Scoped (default) but `IAppSettings` is Singleton.
 
-::: info Lifetime Mismatch Is Safe
-Mixed lifetimes are allowed but effectively cosmetic. Both the concrete type and the exposed interface resolve the same globally-cached instance from `ConfigManager` — the DI lifetime only affects container bookkeeping (when the container would release the reference), not the actual object returned. You won't get stale data or separate instances.
+::: warning Lifetime Mismatch — Be Careful
+If the concrete type is Scoped but the exposed interface is Singleton, the interface will resolve once and cache the startup instance forever — it **will** become stale after a config change. Keep exposed interfaces at the same lifetime as their concrete type, or explicitly choose Scoped for both.
 :::
 
 ## DisableAutoRegistration

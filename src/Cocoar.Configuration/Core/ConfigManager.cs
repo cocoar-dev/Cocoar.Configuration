@@ -19,7 +19,7 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
 {
     private List<ConfigRule> _rules = null!;
     private List<SetupDefinition> _setupDefinitions = null!;
-    private readonly List<RuleManager> _ruleManagers = new();
+    private readonly List<IRuleManager> _ruleManagers = new();
 
     private ConfigurationAccessor _accessor = null!;
     private ReactiveConfigurationFactory _reactiveFactory = null!;

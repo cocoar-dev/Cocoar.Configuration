@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.1.0] — unreleased
+
+### Added
+
+- **Aggregate Rules** — group multiple sub-rules into a single logical unit with isolated error handling
+  - `FromFiles(params string[])` — file layering shorthand: `rule.For<T>().FromFiles("base.json", $"base.{env}.json")`
+  - `.Aggregate(r => [...])` — general-purpose rule grouping with full provider flexibility
+  - Inner Required failures stay within the aggregate boundary (optional aggregate absorbs errors, required aggregate propagates)
+  - `AggregateRuleManager` acts as a mini-engine: internal merge, change forwarding, health reporting
+  - `SubManagers` property for ConfigHub drill-down into aggregate structure
+
+- **`TypedProviderBuilder<T>`** — new base class for provider extension methods
+  - `TypedRuleBuilder<T>` now inherits from `TypedProviderBuilder<T>`
+  - Inside `.Aggregate()` lambdas, only provider methods are available (no recursive nesting)
+  - Existing extension methods retargeted — no breaking changes
+
+- **`IRuleManager` interface** — extracted from `RuleManager` for uniform engine handling
+  - Both `RuleManager` and `AggregateRuleManager` implement `IRuleManager`
+  - `RuleExecutionOutcome` enum promoted to standalone type
+
+- **Documentation improvements**
+  - New guide: Aggregate Rules (VitePress)
+  - ADR-004: Aggregate Rules with Isolated Execution Boundary
+  - Improved DI documentation: clarified resolution caching, Scoped vs Singleton behavior, injection patterns
+  - New AggregateRules example project
+
 ## [5.0.0] — unreleased
 
 ### Added

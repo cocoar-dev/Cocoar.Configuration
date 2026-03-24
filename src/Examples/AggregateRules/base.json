@@ -1,0 +1,6 @@
+{
+  "ConnectionString": "Server=localhost;Database=myapp;",
+  "MaxPoolSize": 100,
+  "CommandTimeout": 30,
+  "EnableRetry": true
+}

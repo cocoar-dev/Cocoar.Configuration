@@ -29,7 +29,7 @@ public static class TypedRuleBuilderExtensions
     /// For advanced scenarios where you need full control over provider instantiation.
     /// </summary>
     public static ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptions> FromProvider<T, TProvider, TInstanceOptions, TQueryOptions>(
-        this TypedRuleBuilder<T> builder,
+        this TypedProviderBuilder<T> builder,
         Func<IConfigurationAccessor, TInstanceOptions> instanceOptions,
         Func<IConfigurationAccessor, TQueryOptions> queryOptions)
     where T : class

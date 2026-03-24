@@ -40,7 +40,7 @@ internal class ConfigurationState : IDisposable
     private bool _isStartupPhase = true;
     private IReadOnlyList<DeserializationFailure> _lastDeserializationFailures = [];
 
-    public ConfigurationState(List<RuleManager> ruleManagers, List<ConfigRule> rules, ILogger logger, IFlagsHealthSource? flagsHealthSource = null)
+    public ConfigurationState(List<IRuleManager> ruleManagers, List<ConfigRule> rules, ILogger logger, IFlagsHealthSource? flagsHealthSource = null)
     {
         _logger = logger;
         _tracker = new ConfigurationHealthTracker(ruleManagers, flagsHealthSource);

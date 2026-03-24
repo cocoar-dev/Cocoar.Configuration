@@ -33,7 +33,7 @@ internal static partial class RuleManagerLog
 /// Coordinates rule execution: provider lifecycle, query management, caching, and change tracking.
 /// Delegates lifecycle to RuleProviderLease, caching to TransformCache, and subscriptions to ChangeSubscription.
 /// </summary>
-internal sealed class RuleManager : IDisposable
+internal sealed class RuleManager : IRuleManager
 {
     private readonly ConfigRule _rule;
     private readonly ILogger _logger;
@@ -42,27 +42,21 @@ internal sealed class RuleManager : IDisposable
     private readonly TransformCache _cache = new();
     private readonly ChangeSubscription _changeSubscription = new();
 
-    internal enum RuleExecutionOutcome
-    {
-        Unknown = 0,
-        Up = 1,
-        Skipped = 2,
-        Failed = 3
-    }
-
-    internal RuleExecutionOutcome LastOutcome { get; private set; } = RuleExecutionOutcome.Unknown;
-    internal Exception? LastFailureException { get; private set; }
+    public RuleExecutionOutcome LastOutcome { get; private set; } = RuleExecutionOutcome.Unknown;
+    public Exception? LastFailureException { get; private set; }
 
     public Type TypeDefinition => _rule.ConcreteType;
     public bool Required => _rule.Options?.Required == true;
     public IObservable<bool> Changes => _changeSubscription.Changes;
 
-    internal MutableJsonObject? LastJsonContribution { get; set; }
-    internal string? LastSelectionHash
+    public MutableJsonObject? LastJsonContribution { get; set; }
+    public string? LastSelectionHash
     {
         get => _cache.LastSelectionHash;
         set => _cache.LastSelectionHash = value;
     }
+
+    public IReadOnlyList<IRuleManager>? SubManagers => null;
 
     public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
     {
@@ -282,7 +276,7 @@ internal sealed class RuleManager : IDisposable
     /// Clears the cached bytes (zeros them) without disposing the SecureBytes object.
     /// Used to zero plaintext before replacing with encrypted bytes.
     /// </summary>
-    internal void ClearCachedBytes()
+    public void ClearCachedBytes()
     {
         _cache.ClearCachedBytes();
     }
@@ -291,7 +285,7 @@ internal sealed class RuleManager : IDisposable
     /// Updates the cached bytes with encrypted/preprocessed bytes.
     /// This prevents plaintext secrets from lingering in memory.
     /// </summary>
-    internal void UpdateCachedBytes(byte[] encryptedBytes)
+    public void UpdateCachedBytes(byte[] encryptedBytes)
     {
         _cache.UpdateCachedBytes(encryptedBytes);
     }

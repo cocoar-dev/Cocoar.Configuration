@@ -7,30 +7,34 @@ namespace Cocoar.Configuration.Rules;
 /// Represents a single configuration rule that fetches data from a provider and binds it to a concrete type.
 /// Rules are executed in order, with later rules overwriting earlier ones (last-write-wins).
 /// </summary>
-public sealed class ConfigRule(
-    Type providerType,
-    Func<IConfigurationAccessor, IProviderConfiguration> providerOptionsFactory,
-    Func<IConfigurationAccessor, IProviderQuery> queryOptionsFactory,
-    Type concreteType,
-    ConfigRuleOptions? options = null)
+public class ConfigRule
 {
+    public Type ProviderType { get; }
+    public Type ConcreteType { get; }
+    public ConfigRuleOptions? Options { get; }
 
-    public Type ProviderType { get; } = providerType ?? throw new ArgumentNullException(nameof(providerType));
-    public Type ConcreteType { get; } = concreteType ?? throw new ArgumentNullException(nameof(concreteType));
-    public ConfigRuleOptions? Options { get; } = options;
+    private readonly Func<IConfigurationAccessor, IProviderConfiguration>? _providerOptionsFactory;
+    private readonly Func<IConfigurationAccessor, IProviderQuery>? _queryOptionsFactory;
 
-
-    private readonly Func<IConfigurationAccessor, IProviderConfiguration> _providerOptionsFactory
-        = providerOptionsFactory ?? throw new ArgumentNullException(nameof(providerOptionsFactory));
-    private readonly Func<IConfigurationAccessor, IProviderQuery> _queryOptionsFactory
-        = queryOptionsFactory ?? throw new ArgumentNullException(nameof(queryOptionsFactory));
-
+    public ConfigRule(
+        Type providerType,
+        Func<IConfigurationAccessor, IProviderConfiguration> providerOptionsFactory,
+        Func<IConfigurationAccessor, IProviderQuery> queryOptionsFactory,
+        Type concreteType,
+        ConfigRuleOptions? options = null)
+    {
+        ProviderType = providerType ?? throw new ArgumentNullException(nameof(providerType));
+        _providerOptionsFactory = providerOptionsFactory ?? throw new ArgumentNullException(nameof(providerOptionsFactory));
+        _queryOptionsFactory = queryOptionsFactory ?? throw new ArgumentNullException(nameof(queryOptionsFactory));
+        ConcreteType = concreteType ?? throw new ArgumentNullException(nameof(concreteType));
+        Options = options;
+    }
 
     public ConfigRule(
         Type providerType,
         IProviderConfiguration providerOptions,
         IProviderQuery queryOptions,
-    Type concreteType,
+        Type concreteType,
         ConfigRuleOptions? options = null)
         : this(
             providerType,
@@ -44,21 +48,32 @@ public sealed class ConfigRule(
     }
 
     /// <summary>
+    /// Protected constructor for subclasses (e.g. <see cref="AggregateConfigRule"/>)
+    /// that don't have a single provider.
+    /// </summary>
+    protected ConfigRule(Type concreteType, ConfigRuleOptions? options)
+    {
+        ConcreteType = concreteType ?? throw new ArgumentNullException(nameof(concreteType));
+        Options = options;
+        ProviderType = typeof(void);
+    }
+
+    /// <summary>
     /// Resolves provider options, potentially using earlier configuration state for dynamic rules.
     /// </summary>
     public IProviderConfiguration ResolveProviderOptions(IConfigurationAccessor manager)
-        => _providerOptionsFactory(manager);
+        => _providerOptionsFactory!(manager);
 
     /// <summary>
     /// Resolves query options, potentially using earlier configuration state for dynamic rules.
     /// </summary>
     public IProviderQuery ResolveQueryOptions(IConfigurationAccessor manager)
-        => _queryOptionsFactory(manager);
+        => _queryOptionsFactory!(manager);
 
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
         TOptions providerOptions,
         TQueryOptions queryOptions,
-    Type concreteType,
+        Type concreteType,
         ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
@@ -68,7 +83,7 @@ public sealed class ConfigRule(
     public static ConfigRule Create<TProvider, TOptions, TQueryOptions>(
         Func<IConfigurationAccessor, TOptions> providerOptionsFactory,
         Func<IConfigurationAccessor, TQueryOptions> queryOptionsFactory,
-    Type concreteType,
+        Type concreteType,
         ConfigRuleOptions options)
         where TProvider : ConfigurationProvider<TOptions, TQueryOptions>
         where TOptions : IProviderConfiguration
@@ -81,5 +96,4 @@ public sealed class ConfigRule(
             concreteType,
             options);
     }
-
 }

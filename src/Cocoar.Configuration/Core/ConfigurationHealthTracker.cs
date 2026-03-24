@@ -7,10 +7,11 @@ namespace Cocoar.Configuration.Core;
 
 /// <summary>
 /// Lightweight health tracker that derives status from rule manager outcomes.
+/// AggregateRuleManagers report their own LastOutcome — no special group logic needed.
 /// </summary>
 internal sealed class ConfigurationHealthTracker
 {
-    private readonly List<RuleManager> _ruleManagers;
+    private readonly List<IRuleManager> _ruleManagers;
     private readonly IFlagsHealthSource? _flagsHealthSource;
     private readonly ObservableGauge<int> _statusGauge;
 
@@ -23,7 +24,7 @@ internal sealed class ConfigurationHealthTracker
     internal sealed record HealthSnapshot(HealthStatus Status, string Description);
 
     public ConfigurationHealthTracker(
-        List<RuleManager> ruleManagers,
+        List<IRuleManager> ruleManagers,
         IFlagsHealthSource? flagsHealthSource = null)
     {
         _ruleManagers = ruleManagers;
@@ -49,11 +50,11 @@ internal sealed class ConfigurationHealthTracker
             var rm = _ruleManagers[i];
             switch (rm.LastOutcome)
             {
-                case RuleManager.RuleExecutionOutcome.Failed:
+                case RuleExecutionOutcome.Failed:
                     if (rm.Required) requiredFailed++;
                     else optionalFailed++;
                     break;
-                case RuleManager.RuleExecutionOutcome.Unknown:
+                case RuleExecutionOutcome.Unknown:
                     anyUnknown = true;
                     break;
             }

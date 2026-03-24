@@ -15,7 +15,7 @@ internal class ChangeSubscriptionManager(ILogger logger) : IDisposable
     private readonly List<IDisposable> _changeSubscriptions = new();
 
     public void CreateSubscriptions(
-        IEnumerable<RuleManager> ruleManagers,
+        IEnumerable<IRuleManager> ruleManagers,
         Action<int> recomputeFromIndexCallback,
         int debounceMilliseconds = 300,
         int trailingMilliseconds = 40)
