@@ -32,6 +32,13 @@
 - `ConfigManager.CreateAsync()` async factory with `CancellationToken` support
 - `UseSecretsSetup()` builder extension for secrets configuration
 - Testing API: `ReplaceConfiguration()`, `AppendConfiguration()`, `ReplaceSecretsSetup()` with fluent `TestOverrideBuilder`
+- Aggregate Rules: `FromFiles(params string[])` for concise file layering, `.Aggregate(r => [...])` for general-purpose rule grouping
+- `AggregateRuleManager` — isolated execution boundary for grouped rules (inner Required stays within aggregate)
+- `TypedProviderBuilder<T>` base class for provider extension methods (prevents recursive nesting in aggregates)
+- `IRuleManager` interface extracted from `RuleManager` for uniform engine handling
+- `SubManagers` property on `IRuleManager` for ConfigHub drill-down into aggregate structure
+- ADR-004: Aggregate Rules with Isolated Execution Boundary
+- AggregateRules example project
 
 ### Changed
 
