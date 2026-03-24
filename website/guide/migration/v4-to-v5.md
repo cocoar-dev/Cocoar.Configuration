@@ -392,4 +392,5 @@ These are purely additive — no migration needed:
 - **Distributed tracing** — Activity source `Cocoar.Configuration`
 - **ASP.NET Core health check** — `AddCocoarConfigurationHealthCheck()`
 - **REST evaluation endpoints** — `MapFeatureFlagEndpoints()`, `MapEntitlementEndpoints()`
+- **[Aggregate Rules](/guide/configuration/aggregate-rules)** — `FromFiles()` for file layering, `.Aggregate()` for general-purpose rule grouping with isolated error handling
 - **VitePress documentation site** with complete guide, reference, and roadmap
