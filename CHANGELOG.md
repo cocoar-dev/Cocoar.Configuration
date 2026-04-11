@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.1.0-beta.1] - 2026-04-11
+
+### Added
+
+- LocalStorage provider — writable configuration backed by persistent storage
+- `FromLocalStorage()` fluent API for rule setup (file-based by default)
+- `FromLocalStorage(IStorageBackend)` for custom storage backends
+- `FromLocalStorage(Func<IConfigurationAccessor, IStorageBackend>)` config-aware factory overload with dynamic backend swapping at runtime
+- `ILocalStorage<T>` write interface in `Cocoar.Configuration.Abstractions` (registered as Singleton via DI)
+- `IStorageBackend` abstraction for pluggable persistence (file, database, etc.)
+- `FileStorageBackend` default implementation with atomic write-temp-then-rename pattern
+- Documentation: LocalStorage provider guide with custom backend examples (Marten, SQLite)
+
 ## [5.0.0] - 2026-03-24
 
 ### Added

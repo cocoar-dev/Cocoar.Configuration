@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.1.0-beta.1] — 2026-04-11
+
+### Added
+
+**LocalStorage Provider**
+- Writable configuration provider backed by persistent storage — enables runtime config changes via admin UIs, APIs, or background jobs
+- `FromLocalStorage()` fluent API — positions as a normal rule in the pipeline, respects last-rule-wins merging
+- `ILocalStorage<T>` injectable write interface — write triggers recompute, updates `IReactiveConfig<T>` for all consumers
+- `IStorageBackend` pluggable persistence abstraction — implement `ReadAsync`/`WriteAsync` for any backing store
+- `FileStorageBackend` built-in default — JSON files in `{AppContext.BaseDirectory}/.cocoar/localStorage/` with atomic writes
+- Config-aware factory overload: `FromLocalStorage(accessor => ...)` — backend can depend on values from earlier rules and is swapped transparently on recompute when those values change
+- [LocalStorage guide](/guide/providers/localstorage) with custom backend examples (Marten, SQLite)
+
 ## [5.0.0] — 2026-03-24
 
 ### Added

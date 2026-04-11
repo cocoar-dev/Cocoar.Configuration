@@ -1,6 +1,7 @@
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Flags.Internal;
+using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Reactive;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,6 +32,7 @@ internal static class ServiceDescriptorEmitter
 
         EmitFlagsServices(services, configManager);
         EmitEntitlementsServices(services, configManager);
+        EmitProviderContributedServices(services, configManager);
     }
 
     private static void EmitFlagsServices(IServiceCollection services, ConfigManager configManager)
@@ -154,5 +156,31 @@ internal static class ServiceDescriptorEmitter
             var method = mgr.GetType().GetMethod("GetReactiveConfig")!.MakeGenericMethod(serviceType);
             return method.Invoke(mgr, null)!;
         });
+    }
+
+    /// <summary>
+    /// Discovers provider options that implement <see cref="IProviderServiceRegistration"/>
+    /// and registers their contributed services. Last rule wins per service type.
+    /// </summary>
+    private static void EmitProviderContributedServices(IServiceCollection services, ConfigManager configManager)
+    {
+        var registrations = new Dictionary<Type, object>();
+
+        foreach (var rule in configManager.Rules)
+        {
+            if (rule.ResolveProviderOptions(configManager) is not IProviderServiceRegistration contributor)
+                continue;
+
+            foreach (var (serviceType, implementation) in contributor.GetServiceRegistrations(rule.ConcreteType))
+            {
+                // Later rules overwrite earlier ones — matches pipeline merge order
+                registrations[serviceType] = implementation;
+            }
+        }
+
+        foreach (var (serviceType, implementation) in registrations)
+        {
+            services.AddSingleton(serviceType, implementation);
+        }
     }
 }
