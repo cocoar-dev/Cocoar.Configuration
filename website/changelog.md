@@ -15,6 +15,13 @@
 - Secret-typed members cannot be overridden via LocalStorage (throws `NotSupportedException`)
 - `IProviderServiceRegistration` gained resolve-time factory registration support
 
+### Changed
+
+**Secrets — robust enum & casing handling**
+- Secret payloads now (de)serialize with lenient options: **enums as names** (safe against enum reordering) and **case-insensitive** property matching.
+- Reading still accepts numeric enums and any casing → **existing encrypted secrets remain fully readable**, no migration.
+- Recommendation: when encrypting an enum secret with the CLI, pass the **name** (e.g. `Active`) rather than the ordinal.
+
 ## [5.0.0] — 2026-03-24
 
 ### Added
