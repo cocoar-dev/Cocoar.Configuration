@@ -83,6 +83,71 @@ internal static class OverlayPathResolver
         return definition == typeof(Secret<>) || definition == typeof(ISecret<>);
     }
 
+    /// <summary>
+    /// True if <paramref name="type"/> is a secret, or contains a secret anywhere in its object graph
+    /// (nested property/field, collection element, array element). Used to reject plaintext writes of
+    /// objects that carry secrets — those must be set per-leaf via SetSecretAsync with an encrypted envelope.
+    /// </summary>
+    internal static bool ContainsSecret(Type type) => ContainsSecret(type, new HashSet<Type>());
+
+    private static bool ContainsSecret(Type? type, HashSet<Type> visited)
+    {
+        if (type is null || !visited.Add(type))
+        {
+            return false;
+        }
+
+        if (IsSecretType(type))
+        {
+            return true;
+        }
+
+        var underlying = Nullable.GetUnderlyingType(type);
+        if (underlying is not null)
+        {
+            return ContainsSecret(underlying, visited);
+        }
+
+        if (type.IsArray && ContainsSecret(type.GetElementType(), visited))
+        {
+            return true;
+        }
+
+        // Generic arguments cover collections/dictionaries (List<Secret<T>>, Dictionary<string, Secret<T>>, …).
+        foreach (var arg in type.GetGenericArguments())
+        {
+            if (ContainsSecret(arg, visited))
+            {
+                return true;
+            }
+        }
+
+        // Don't walk the members of BCL/primitive types — their generic args (handled above) are enough.
+        if (type.IsPrimitive || type.IsEnum || type == typeof(string) || type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true)
+        {
+            return false;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        foreach (var property in type.GetProperties(flags))
+        {
+            if (property.GetIndexParameters().Length == 0 && ContainsSecret(property.PropertyType, visited))
+            {
+                return true;
+            }
+        }
+
+        foreach (var field in type.GetFields(flags))
+        {
+            if (ContainsSecret(field.FieldType, visited))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static NotSupportedException Unsupported<T, TValue>(Expression<Func<T, TValue>> selector)
         => new(
             $"Selector '{selector}' is not supported. Only simple member-access chains are allowed " +

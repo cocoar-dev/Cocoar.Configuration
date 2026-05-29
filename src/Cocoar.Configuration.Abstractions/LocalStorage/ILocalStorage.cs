@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using Cocoar.Configuration.Secrets.SecretTypes;
 
 namespace Cocoar.Configuration.LocalStorage;
 
@@ -33,12 +33,14 @@ public interface ILocalStorage<T> where T : class
 
     /// <summary>
     /// Sets a <em>pre-encrypted</em> secret envelope for a secret-typed member (e.g. <c>x => x.ApiKey</c>),
-    /// where the value was encrypted client-side with the server's public certificate so plaintext never
-    /// reaches the server. The envelope must be a well-formed <c>cocoar.secret</c> envelope; the normal
-    /// <see cref="SetAsync{TValue}"/> still rejects secret members to prevent storing plaintext.
+    /// encrypted client-side with the server's public certificate so plaintext never reaches the server.
+    /// The selector must point at a <c>Secret&lt;TSecret&gt;</c> / <c>ISecret&lt;TSecret&gt;</c> member, and the
+    /// <see cref="SecretEnvelope{T}"/> must carry the same <typeparamref name="TSecret"/> — so the envelope and
+    /// the target secret are matched at compile time. The normal <see cref="SetAsync{TValue}"/> still rejects
+    /// secret members (and objects containing secrets) to prevent storing plaintext.
     /// </summary>
-    /// <exception cref="ArgumentException">The envelope is not a well-formed encrypted secret envelope.</exception>
-    Task SetSecretAsync<TValue>(Expression<Func<T, TValue>> selector, JsonNode envelope, CancellationToken ct = default);
+    /// <exception cref="ArgumentException">The envelope is not a well-formed <c>cocoar.secret</c> envelope.</exception>
+    Task SetSecretAsync<TSecret>(Expression<Func<T, ISecret<TSecret>>> selector, SecretEnvelope<TSecret> envelope, CancellationToken ct = default);
 
     /// <summary>
     /// Resets a single value to its inherited (lower-layer) value by removing that leaf from the overlay.

@@ -98,22 +98,18 @@ public sealed class LocalStorageSecretEnvelopeTests
         return services.BuildServiceProvider();
     }
 
-    private static JsonObject BuildEnvelope(X509Certificate2 cert, string kid, string value)
+    private static SecretEnvelope<string> BuildEnvelope(X509Certificate2 cert, string kid, string value)
     {
         var hybrid = new X509HybridCrypto(cert).Encrypt(JsonSerializer.Serialize(value));
         // The runtime decrypt path (HybridEnvelope byte[] fields) reads base64url WITHOUT padding — this is
         // exactly what a browser must emit. (X509HybridCrypto produces standard base64, so we convert.)
-        return new JsonObject
+        return new SecretEnvelope<string>
         {
-            ["type"] = "cocoar.secret",
-            ["version"] = 1,
-            ["kid"] = kid,
-            ["alg"] = "RSA-OAEP-AES256-GCM",
-            ["wk"] = ToBase64Url(hybrid.WrappedKey),
-            ["walg"] = hybrid.WrappingAlgorithm,
-            ["iv"] = ToBase64Url(hybrid.Iv),
-            ["ct"] = ToBase64Url(hybrid.Ciphertext),
-            ["tag"] = ToBase64Url(hybrid.Tag),
+            Kid = kid,
+            Wk = ToBase64Url(hybrid.WrappedKey),
+            Iv = ToBase64Url(hybrid.Iv),
+            Ct = ToBase64Url(hybrid.Ciphertext),
+            Tag = ToBase64Url(hybrid.Tag),
         };
     }
 

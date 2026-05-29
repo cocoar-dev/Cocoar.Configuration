@@ -5,6 +5,7 @@ using Cocoar.Configuration.Core;
 using Cocoar.Configuration.LocalStorage;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Secrets.Core;
+using Cocoar.Configuration.Secrets.SecretTypes;
 using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Providers;
@@ -34,6 +35,14 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
 
     public Task SetAsync<TValue>(Expression<Func<T, TValue>> selector, TValue value, CancellationToken ct = default)
     {
+        if (OverlayPathResolver.ContainsSecret(typeof(TValue)))
+        {
+            throw new NotSupportedException(
+                $"Cannot store a value of type '{typeof(TValue).Name}' via SetAsync because it is, or contains, a secret. " +
+                "A secret would be serialized as plaintext (or lost). Set secret members individually via " +
+                "SetSecretAsync with a pre-encrypted SecretEnvelope.");
+        }
+
         var keyPath = OverlayPathResolver.ResolveKeyPath(selector);
         var node = OverlaySerialization.SerializeValue(value);
         return SetAsync(keyPath, node, ct);
@@ -45,11 +54,13 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
         return ResetAsync(keyPath, ct);
     }
 
-    public Task SetSecretAsync<TValue>(Expression<Func<T, TValue>> selector, JsonNode envelope, CancellationToken ct = default)
+    public Task SetSecretAsync<TSecret>(Expression<Func<T, ISecret<TSecret>>> selector, SecretEnvelope<TSecret> envelope, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(envelope);
         // Secret members are allowed here ONLY because the value is a pre-encrypted envelope (validated below).
         var keyPath = OverlayPathResolver.ResolveKeyPath(selector, allowSecretMembers: true);
-        return SetSecretEnvelopeAsync(keyPath, envelope, ct);
+        var node = JsonSerializer.SerializeToNode(envelope)!;
+        return SetSecretEnvelopeAsync(keyPath, node, ct);
     }
 
     public async Task<T?> ReadAsync(CancellationToken ct = default)
