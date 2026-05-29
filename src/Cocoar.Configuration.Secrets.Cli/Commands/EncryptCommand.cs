@@ -26,7 +26,8 @@ internal static class EncryptCommand
 
         var valueOption = new Option<string?>("--value")
         {
-            Description = "The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path.",
+            Description = "The plaintext value to encrypt. If omitted, encrypts the existing value at the specified path. " +
+                          "For enum values, pass the name (e.g. 'Active') rather than the number — names survive enum reordering.",
             Required = false
         };
         valueOption.Aliases.Add("-v");
