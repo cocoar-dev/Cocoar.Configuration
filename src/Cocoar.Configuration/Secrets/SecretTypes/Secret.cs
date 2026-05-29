@@ -20,7 +20,8 @@ public sealed class Secret<T> : ISecret<T>
     internal Secret(T plain, SecretsDecryptorResolver? resolver = null, bool allowPlaintext = false)
     {
         // Serialize directly to UTF-8 bytes — never create an intermediate string.
-        _plainBytes = JsonSerializer.SerializeToUtf8Bytes(plain);
+        // Lenient options (enums as names) keep the payload round-trip-safe and consistent with the read side.
+        _plainBytes = JsonSerializer.SerializeToUtf8Bytes(plain, SecretValueSerialization.Options);
         _resolver = resolver;
         _blockPlaintextAccess = !allowPlaintext; // Block access if plaintext is NOT explicitly allowed
     }
@@ -132,7 +133,7 @@ public sealed class Secret<T> : ISecret<T>
         // Security at rest: before Open(), secrets exist only as encrypted envelopes.
         // At Open() time, the consumer needs the value (to pass to HttpClient, DB, etc.)
         // so converting to T is unavoidable. The decrypted bytes are zeroed on lease dispose.
-        var value = JsonSerializer.Deserialize<T>(new ReadOnlySpan<byte>(bytes));
+        var value = JsonSerializer.Deserialize<T>(new ReadOnlySpan<byte>(bytes), SecretValueSerialization.Options);
 
         if (value is null)
         {

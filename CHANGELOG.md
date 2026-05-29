@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Secret payloads (the decrypted value of `Secret<T>`) now (de)serialize with lenient options: **enums as names** (round-trip-safe if the enum is later reordered) and **case-insensitive** property matching. Reading still accepts numeric enums and any casing, so **existing encrypted secrets remain fully readable** — no migration. Only the in-memory form of newly serialized typed secret values changes (enum name instead of ordinal); encrypted envelopes at rest are unaffected.
+
 ## [5.0.0] - 2026-03-24
 
 ### Added
