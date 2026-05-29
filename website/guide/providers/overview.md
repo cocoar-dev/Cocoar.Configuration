@@ -29,6 +29,7 @@ On failure, providers return an empty JSON object `{}` — never null. This mean
 | [Command Line](/guide/providers/command-line) | `.FromCommandLine("--prefix")` | No | Core |
 | [Static JSON](/guide/providers/static-observable#static-json) | `.FromStaticJson("{...}")` | No | Core |
 | [Observable](/guide/providers/static-observable#observable) | `.FromObservable(obs)` | Yes | Core |
+| [LocalStorage](/guide/providers/localstorage) | `.FromLocalStorage()` | Yes (on write) | Core |
 | [HTTP](/guide/providers/http-polling) | `.FromHttp(url)` | Polling / SSE / one-time | Http |
 | [Microsoft IConfiguration](/guide/providers/microsoft-adapter) | `.FromIConfiguration(config)` | IConfiguration reload token | MicrosoftAdapter |
 

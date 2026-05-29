@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+**LocalStorage — writable override layer**
+- A writable, application-controlled layer for *overridable defaults*: the normal sources supply defaults; the app overrides individual values at runtime.
+- `ILocalStorage<T>` (type-safe facade) and `ILocalStorageOverlay<T>` (raw key-path surface) in `Cocoar.Configuration.Abstractions`
+- **Sparse writes** — `SetAsync(x => x.Smtp.Port, value)` persists only the touched leaf; unset keys keep inheriting from lower layers
+- `ResetAsync(...)` removes an override (falls back to the inherited default); an explicit `null` override is distinct from reset
+- `DescribeAsync()` returns per-key provenance (`OverrideEntry`: base, effective, `IsOverridden`) for management UIs
+- `.FromLocalStorage()` rule extension; file-based backend by default, pluggable `IStorageBackend`
+- `ILocalStorage<T>` / `ILocalStorageOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
+- Secret-typed members cannot be overridden via LocalStorage (throws `NotSupportedException`)
+- `IProviderServiceRegistration` gained resolve-time factory registration support
+
 ## [5.0.0] — 2026-03-24
 
 ### Added

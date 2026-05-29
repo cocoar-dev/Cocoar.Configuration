@@ -9,6 +9,7 @@ using Cocoar.Configuration.Reactive;
 [assembly: InternalsVisibleTo("Cocoar.Configuration.Secrets.Tests")]
 [assembly: InternalsVisibleTo("Cocoar.Configuration.AspNetCore")]
 [assembly: InternalsVisibleTo("Cocoar.Configuration.Http")]
+[assembly: InternalsVisibleTo("Cocoar.Configuration.Providers.Tests")]
 
 // Type forwarding for types moved to Cocoar.Configuration.Abstractions
 [assembly: TypeForwardedTo(typeof(IConfigurationAccessor))]

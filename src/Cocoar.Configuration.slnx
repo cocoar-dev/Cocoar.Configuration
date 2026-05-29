@@ -22,6 +22,7 @@
     <Project Path="Examples/FileLayering/FileLayering.csproj" />
     <Project Path="Examples/GenericProviderAPI/GenericProviderAPI.csproj" />
     <Project Path="Examples/HttpPollingExample/HttpPollingExample.csproj" />
+    <Project Path="Examples/LocalStorageOverride/LocalStorageOverride.csproj" />
     <Project Path="Examples/MicrosoftAdapterExample/MicrosoftAdapterExample.csproj" />
     <Project Path="Examples/SecretsBasicExample/SecretsBasicExample.csproj" />
     <Project Path="Examples/SecretsCertificateExample/SecretsCertificateExample.csproj" />

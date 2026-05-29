@@ -1,6 +1,7 @@
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Flags.Internal;
+using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Reactive;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,6 +32,56 @@ internal static class ServiceDescriptorEmitter
 
         EmitFlagsServices(services, configManager);
         EmitEntitlementsServices(services, configManager);
+        EmitProviderContributedServices(services, configManager);
+    }
+
+    /// <summary>
+    /// Discovers provider options that implement <see cref="IProviderServiceRegistration"/> and applies the
+    /// extra service registrations they contribute (e.g. LocalStorage's <c>ILocalStorage&lt;T&gt;</c> /
+    /// <c>ILocalStorageOverlay&lt;T&gt;</c>). Registrations may be eager singleton instances or resolve-time
+    /// factories. Collisions on the same service type are last-rule-wins; emission is ordered by service type
+    /// full name for determinism.
+    /// </summary>
+    private static void EmitProviderContributedServices(IServiceCollection services, ConfigManager configManager)
+    {
+        var registrations = new Dictionary<Type, ProviderServiceRegistration>();
+
+        foreach (var rule in configManager.Rules)
+        {
+            IProviderConfiguration options;
+            try
+            {
+                options = rule.ResolveProviderOptions(configManager);
+            }
+            catch
+            {
+                // A rule whose options can't be resolved at setup time contributes no services here;
+                // the recompute pipeline surfaces any real failure.
+                continue;
+            }
+
+            if (options is not IProviderServiceRegistration provider)
+            {
+                continue;
+            }
+
+            foreach (var registration in provider.GetServiceRegistrations(rule.ConcreteType))
+            {
+                registrations[registration.ServiceType] = registration; // last-rule-wins
+            }
+        }
+
+        foreach (var (serviceType, registration) in registrations.OrderBy(kvp => kvp.Key.FullName))
+        {
+            if (registration.Instance is not null)
+            {
+                services.AddSingleton(serviceType, registration.Instance);
+            }
+            else
+            {
+                services.AddSingleton(serviceType, registration.Factory!);
+            }
+        }
     }
 
     private static void EmitFlagsServices(IServiceCollection services, ConfigManager configManager)
