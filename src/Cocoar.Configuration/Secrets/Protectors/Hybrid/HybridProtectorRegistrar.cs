@@ -28,6 +28,17 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
         recomposer.Build();
     }
 
+    private void RegisterProtectorAndKeyInfo(IRuntimeSecretDecryptor protector, ISecretEncryptionKeyInfoProvider keyInfo)
+    {
+        var composition = _capabilityScope.Owner.GetComposition();
+        if (composition == null) return;
+
+        var recomposer = _capabilityScope.Recompose(composition);
+        recomposer.AddAs<IRuntimeSecretDecryptor>(protector);
+        recomposer.AddAs<ISecretEncryptionKeyInfoProvider>(keyInfo);
+        recomposer.Build();
+    }
+
     /// <summary>
     /// Unified method to apply certificate protector configuration.
     /// </summary>
@@ -68,7 +79,11 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
         // In single-kid mode with the new architecture, we create a kid folder on the fly
         // or we need to handle this differently. Actually, let's just register for the single kid.
         var protector = new SingleKidProtectorWrapper(inventory, config.ForceSingleKid!, config.AdditionalKids);
-        RegisterProtector(protector);
+
+        // Publish the current encryption public key for this single, unambiguous kid.
+        // (Multi-kid / folder mode is decrypt-only here; per-tenant publishing comes with multi-tenancy.)
+        var keyInfo = new InventoryKeyInfoProvider(inventory, config.ForceSingleKid!);
+        RegisterProtectorAndKeyInfo(protector, keyInfo);
     }
 
     private void ApplyMultiKidMode(CertificateProtectorConfig config, IConfigurationAccessor configAccessor)

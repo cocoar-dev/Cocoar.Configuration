@@ -34,7 +34,7 @@ public sealed record SecretEnvelope<T>
 
     /// <summary>Overall algorithm. <c>"RSA-OAEP-AES256-GCM"</c>.</summary>
     [JsonPropertyName("alg")]
-    public string Alg { get; init; } = "RSA-OAEP-AES256-GCM";
+    public string Alg { get; init; } = SecretAlgorithms.Hybrid;
 
     /// <summary>The AES-256 key wrapped with RSA-OAEP-SHA256 (base64url, no padding).</summary>
     [JsonPropertyName("wk")]
@@ -42,7 +42,7 @@ public sealed record SecretEnvelope<T>
 
     /// <summary>Key-wrapping algorithm. <c>"RSA-OAEP-256"</c>.</summary>
     [JsonPropertyName("walg")]
-    public string Walg { get; init; } = "RSA-OAEP-256";
+    public string Walg { get; init; } = SecretAlgorithms.KeyWrap;
 
     /// <summary>AES-GCM 96-bit initialization vector (base64url, no padding).</summary>
     [JsonPropertyName("iv")]

@@ -3,6 +3,8 @@ using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Flags.Internal;
 using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Reactive;
+using Cocoar.Configuration.Secrets.Core;
+using Cocoar.Configuration.Secrets.SecretTypes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.DI;
@@ -33,6 +35,7 @@ internal static class ServiceDescriptorEmitter
         EmitFlagsServices(services, configManager);
         EmitEntitlementsServices(services, configManager);
         EmitProviderContributedServices(services, configManager);
+        EmitSecretsKeyProviderServices(services, configManager);
     }
 
     /// <summary>
@@ -82,6 +85,23 @@ internal static class ServiceDescriptorEmitter
                 services.AddSingleton(serviceType, registration.Factory!);
             }
         }
+    }
+
+    /// <summary>
+    /// Registers the public <see cref="ISecretEncryptionKeyProvider"/> when a publishable encryption
+    /// key is configured (single-kid secrets compose an <see cref="ISecretEncryptionKeyInfoProvider"/>).
+    /// The provider resolves the capability lazily per call so certificate rotation is reflected.
+    /// Not registered when no publishable key exists (no secrets, or decrypt-only folder mode).
+    /// </summary>
+    private static void EmitSecretsKeyProviderServices(IServiceCollection services, ConfigManager configManager)
+    {
+        var keyInfoProviders = configManager.CapabilityScope.Owner.GetComposition()
+            ?.GetAll<ISecretEncryptionKeyInfoProvider>();
+        if (keyInfoProviders is null || keyInfoProviders.Count == 0)
+            return;
+
+        services.AddSingleton<ISecretEncryptionKeyProvider>(
+            sp => new SecretEncryptionKeyProvider(sp.GetRequiredService<ConfigManager>().CapabilityScope));
     }
 
     private static void EmitFlagsServices(IServiceCollection services, ConfigManager configManager)
