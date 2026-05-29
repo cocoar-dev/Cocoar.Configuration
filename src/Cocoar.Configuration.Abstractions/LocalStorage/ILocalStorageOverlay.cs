@@ -33,6 +33,18 @@ public interface ILocalStorageOverlay<T> where T : class
     Task SetAsync(string keyPath, JsonNode? value, CancellationToken ct = default);
 
     /// <summary>
+    /// Sets a <em>pre-encrypted</em> secret envelope at a dotted key path. The value MUST be a well-formed
+    /// <c>cocoar.secret</c> envelope (produced client-side with the server's public certificate, or by the
+    /// Secrets CLI); plaintext and the masked <c>"***"</c> form are rejected, so the secret never reaches the
+    /// server in the clear.
+    /// </summary>
+    /// <param name="keyPath">Dotted path to the secret member.</param>
+    /// <param name="envelope">A well-formed encrypted secret envelope (object with <c>type</c>=<c>"cocoar.secret"</c>).</param>
+    /// <param name="ct">A token to cancel the write.</param>
+    /// <exception cref="ArgumentException">The value is not a well-formed encrypted secret envelope.</exception>
+    Task SetSecretEnvelopeAsync(string keyPath, JsonNode envelope, CancellationToken ct = default);
+
+    /// <summary>
     /// Removes a key path from the overlay so the value falls back to the lower-layer (inherited) value.
     /// </summary>
     /// <returns><see langword="true"/> if a key was removed; <see langword="false"/> if it was already absent.</returns>

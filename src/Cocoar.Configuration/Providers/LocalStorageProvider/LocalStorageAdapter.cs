@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.LocalStorage;
 using Cocoar.Configuration.Rules;
+using Cocoar.Configuration.Secrets.Core;
 using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Providers;
@@ -42,6 +43,13 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
     {
         var keyPath = OverlayPathResolver.ResolveKeyPath(selector);
         return ResetAsync(keyPath, ct);
+    }
+
+    public Task SetSecretAsync<TValue>(Expression<Func<T, TValue>> selector, JsonNode envelope, CancellationToken ct = default)
+    {
+        // Secret members are allowed here ONLY because the value is a pre-encrypted envelope (validated below).
+        var keyPath = OverlayPathResolver.ResolveKeyPath(selector, allowSecretMembers: true);
+        return SetSecretEnvelopeAsync(keyPath, envelope, ct);
     }
 
     public async Task<T?> ReadAsync(CancellationToken ct = default)
@@ -95,6 +103,27 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
         ValidateKeyPath(keyPath);
         var baseDom = _configManager.BuildBaseJson(typeof(T), IsThisLayer);
         await _store.UpdateBytesAsync(bytes => SparseOverlayMutator.Set(bytes, keyPath, value, baseDom), ct)
+            .ConfigureAwait(false);
+    }
+
+    public async Task SetSecretEnvelopeAsync(string keyPath, JsonNode envelope, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        ValidateKeyPath(keyPath);
+
+        // Only pre-encrypted envelopes are accepted — never plaintext (which would expose the secret) nor the
+        // masked "***" form (which would destroy a real secret on the lower layer).
+        var element = JsonSerializer.SerializeToElement(envelope);
+        if (!SecretEnvelopeWrapper.IsEnvelope(element))
+        {
+            throw new ArgumentException(
+                "Value is not a well-formed encrypted secret envelope (expected an object with " +
+                "type=\"cocoar.secret\" and version=1). LocalStorage only accepts pre-encrypted secret envelopes.",
+                nameof(envelope));
+        }
+
+        var baseDom = _configManager.BuildBaseJson(typeof(T), IsThisLayer);
+        await _store.UpdateBytesAsync(bytes => SparseOverlayMutator.Set(bytes, keyPath, envelope, baseDom), ct)
             .ConfigureAwait(false);
     }
 

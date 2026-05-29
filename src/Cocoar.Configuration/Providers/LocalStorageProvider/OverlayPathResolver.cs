@@ -12,7 +12,7 @@ namespace Cocoar.Configuration.Providers;
 /// </summary>
 internal static class OverlayPathResolver
 {
-    internal static string ResolveKeyPath<T, TValue>(Expression<Func<T, TValue>> selector)
+    internal static string ResolveKeyPath<T, TValue>(Expression<Func<T, TValue>> selector, bool allowSecretMembers = false)
     {
         ArgumentNullException.ThrowIfNull(selector);
 
@@ -44,11 +44,11 @@ internal static class OverlayPathResolver
             var member = members[i];
             var memberType = GetMemberType(member);
 
-            if (IsSecretType(memberType))
+            if (!allowSecretMembers && IsSecretType(memberType))
             {
                 throw new NotSupportedException(
-                    $"Member '{member.Name}' is a secret and cannot be overridden via LocalStorage. " +
-                    "Manage secrets via the Secrets CLI/provider.");
+                    $"Member '{member.Name}' is a secret and cannot be set as plaintext via LocalStorage. " +
+                    "Use SetSecretAsync with a pre-encrypted envelope, or manage secrets via the Secrets CLI/provider.");
             }
 
             segments[i] = ResolveJsonName(member);

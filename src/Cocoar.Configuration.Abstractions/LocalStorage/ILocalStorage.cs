@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Cocoar.Configuration.LocalStorage;
 
@@ -29,6 +30,15 @@ public interface ILocalStorage<T> where T : class
     /// or it targets a secret-typed member.
     /// </exception>
     Task SetAsync<TValue>(Expression<Func<T, TValue>> selector, TValue value, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets a <em>pre-encrypted</em> secret envelope for a secret-typed member (e.g. <c>x => x.ApiKey</c>),
+    /// where the value was encrypted client-side with the server's public certificate so plaintext never
+    /// reaches the server. The envelope must be a well-formed <c>cocoar.secret</c> envelope; the normal
+    /// <see cref="SetAsync{TValue}"/> still rejects secret members to prevent storing plaintext.
+    /// </summary>
+    /// <exception cref="ArgumentException">The envelope is not a well-formed encrypted secret envelope.</exception>
+    Task SetSecretAsync<TValue>(Expression<Func<T, TValue>> selector, JsonNode envelope, CancellationToken ct = default);
 
     /// <summary>
     /// Resets a single value to its inherited (lower-layer) value by removing that leaf from the overlay.
