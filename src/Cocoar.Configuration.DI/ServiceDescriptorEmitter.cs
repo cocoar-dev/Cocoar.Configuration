@@ -40,8 +40,8 @@ internal static class ServiceDescriptorEmitter
 
     /// <summary>
     /// Discovers provider options that implement <see cref="IProviderServiceRegistration"/> and applies the
-    /// extra service registrations they contribute (e.g. LocalStorage's <c>ILocalStorage&lt;T&gt;</c> /
-    /// <c>ILocalStorageOverlay&lt;T&gt;</c>). Registrations may be eager singleton instances or resolve-time
+    /// extra service registrations they contribute (e.g. WritableStore's <c>IWritableStore&lt;T&gt;</c> /
+    /// <c>IWritableStoreOverlay&lt;T&gt;</c>). Registrations may be eager singleton instances or resolve-time
     /// factories. Collisions on the same service type are last-rule-wins; emission is ordered by service type
     /// full name for determinism.
     /// </summary>

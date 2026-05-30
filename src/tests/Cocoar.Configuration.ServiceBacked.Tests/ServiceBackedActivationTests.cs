@@ -1,5 +1,5 @@
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.DI;          // FromStorage, UseServiceBackedConfiguration, ActivateServiceBackedConfigurationAsync
+using Cocoar.Configuration.DI;          // FromStore, UseServiceBackedConfiguration, ActivateServiceBackedConfigurationAsync
 using Cocoar.Configuration.Providers;   // FromStaticJson
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;     // IHostedService
@@ -25,7 +25,7 @@ public class ServiceBackedActivationTests
             ])
             .UseServiceBackedConfiguration(rules =>
             [
-                rules.For<RemoteConfig>().FromStorage((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
+                rules.For<RemoteConfig>().FromStore((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
             ])
             .UseDebounce(25));
 
@@ -48,7 +48,7 @@ public class ServiceBackedActivationTests
             .UseConfiguration(rules => [ rules.For<RemoteConfig>().FromStaticJson("""{ "Value": "base" }""") ])
             .UseServiceBackedConfiguration(rules =>
             [
-                rules.For<RemoteConfig>().FromStorage((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
+                rules.For<RemoteConfig>().FromStore((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
             ])
             .UseDebounce(25));
 
@@ -79,7 +79,7 @@ public class ServiceBackedActivationTests
             .UseConfiguration(rules => [ rules.For<RemoteConfig>().FromStaticJson("""{ "Value": "base" }""") ])
             .UseServiceBackedConfiguration(rules =>
             [
-                rules.For<RemoteConfig>().FromStorage((_, _) => new SeededBackend("{}")),
+                rules.For<RemoteConfig>().FromStore((_, _) => new SeededBackend("{}")),
             ]));
 
         Assert.Single(services, d => d.ServiceType == typeof(IHostedService));
@@ -95,7 +95,7 @@ public class ServiceBackedActivationTests
             [
                 // A user .When() AFTER the sp-overload must NOT clobber the activation gate.
                 rules.For<RemoteConfig>()
-                    .FromStorage((_, _) => new SeededBackend("""{ "Value": "stored" }"""))
+                    .FromStore((_, _) => new SeededBackend("""{ "Value": "stored" }"""))
                     .When(_ => true),
             ])
             .UseDebounce(25));
@@ -110,7 +110,7 @@ public class ServiceBackedActivationTests
         Assert.Equal("stored", mgr.GetConfig<RemoteConfig>()!.Value);
     }
 
-    // NOTE: using FromStorage / FromHttp((sp,a)=>…) outside UseServiceBackedConfiguration is now a COMPILE error
+    // NOTE: using FromStore / FromHttp((sp,a)=>…) outside UseServiceBackedConfiguration is now a COMPILE error
     // (those overloads target ServiceBackedProviderBuilder<T>, which UseConfiguration's plain
     // TypedProviderBuilder<T> is not) — there is no longer a runtime-throw path to test.
 }

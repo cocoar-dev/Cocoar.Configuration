@@ -2,16 +2,16 @@ namespace Cocoar.Configuration.Providers;
 
 /// <summary>
 /// File-based storage backend using atomic write-temp-then-rename pattern.
-/// Default directory: {AppContext.BaseDirectory}/.cocoar/localStorage/
+/// Default directory: {AppContext.BaseDirectory}/.cocoar/store/
 /// </summary>
-public sealed class FileStorageBackend : IStorageBackend
+public sealed class FileStoreBackend : IStoreBackend
 {
     private readonly string _directory;
 
-    public FileStorageBackend(string? directory = null)
+    public FileStoreBackend(string? directory = null)
     {
         _directory = directory
-            ?? Path.Combine(AppContext.BaseDirectory, ".cocoar", "localStorage");
+            ?? Path.Combine(AppContext.BaseDirectory, ".cocoar", "store");
     }
 
     public async Task<byte[]?> ReadAsync(string key, CancellationToken ct = default)

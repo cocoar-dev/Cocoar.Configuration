@@ -4,11 +4,11 @@
 **Date:** 2026-05-30
 **Decision Makers:** Core Team
 **Type:** Feature / Architecture
-**Related:** ADR-005 (multi-tenancy), the "No-DI core" principle (CLAUDE.md), Microsoft `IConfiguration`/`IOptions`, the HTTP/LocalStorage/Marten provider discussion
+**Related:** ADR-005 (multi-tenancy), the "No-DI core" principle (CLAUDE.md), Microsoft `IConfiguration`/`IOptions`, the HTTP/WritableStore/Marten provider discussion
 
-> **Implementation note (delivered).** Shipped as `UseServiceBackedConfiguration` (Layer 2) + `FromStorage((sp,a)=>IStorageBackend)` (DI package) + `FromHttp((sp,a)=>HttpClient)` (Http package), activated by `ServiceBackedConfigurationActivator : IHostedLifecycleService` and the manual `IServiceProvider.ActivateServiceBackedConfigurationAsync()`. The sp-gate is a dedicated, non-clobberable `ConfigRuleOptions.ActivationGate` enforced in `RuleManager.ShouldSkip` (mirrors the `.TenantScoped()` marker — fluent-order-proof). Activation wiring lives in the DI **instance** overload `AddCocoarConfiguration(IServiceCollection, ConfigManager)` — the single point all entry paths (DI, AspNetCore, manual) funnel through.
+> **Implementation note (delivered).** Shipped as `UseServiceBackedConfiguration` (Layer 2) + `FromStore((sp,a)=>IStoreBackend)` (DI package) + `FromHttp((sp,a)=>HttpClient)` (Http package), activated by `ServiceBackedConfigurationActivator : IHostedLifecycleService` and the manual `IServiceProvider.ActivateServiceBackedConfigurationAsync()`. The sp-gate is a dedicated, non-clobberable `ConfigRuleOptions.ActivationGate` enforced in `RuleManager.ShouldSkip` (mirrors the `.TenantScoped()` marker — fluent-order-proof). Activation wiring lives in the DI **instance** overload `AddCocoarConfiguration(IServiceCollection, ConfigManager)` — the single point all entry paths (DI, AspNetCore, manual) funnel through.
 
-> The `(sp,a)` overloads are **type-scoped, not ambient**: `UseServiceBackedConfiguration(rules => …)` hands each `rules.For<T>()` a public `ServiceBackedProviderBuilder<T> : TypedProviderBuilder<T>` carrying a public `ServiceBackedRuleContext` (`IsActive` + `ServiceProvider`). `FromStorage`/`FromHttp((sp,a)=>…)` are extensions on *that* type, so using them in Layer-1 `UseConfiguration` is a **compile error**, not a runtime throw. The seam is **public**: a third-party provider package authors its own `FromX((sp,a)=>…)` extension on `ServiceBackedProviderBuilder<T>` (read `Context.ServiceProvider`, gate with the public `WithActivationGate(_ => Context.IsActive)`) and exposes a slot for the resolved artifact on its provider options. The provider class (`ConfigurationProvider<,>`) stays DI-free. Whether a provider is service-backable is the provider author's choice. §11 (scoped `ITenantReactiveConfig<T>` + `ITenantContext`) shipped in `Cocoar.Configuration.AspNetCore`. Covered by `Cocoar.Configuration.ServiceBacked.Tests` + AspNetCore tenant-adapter tests. See "Open questions" below for the resolved decisions.
+> The `(sp,a)` overloads are **type-scoped, not ambient**: `UseServiceBackedConfiguration(rules => …)` hands each `rules.For<T>()` a public `ServiceBackedProviderBuilder<T> : TypedProviderBuilder<T>` carrying a public `ServiceBackedRuleContext` (`IsActive` + `ServiceProvider`). `FromStore`/`FromHttp((sp,a)=>…)` are extensions on *that* type, so using them in Layer-1 `UseConfiguration` is a **compile error**, not a runtime throw. The seam is **public**: a third-party provider package authors its own `FromX((sp,a)=>…)` extension on `ServiceBackedProviderBuilder<T>` (read `Context.ServiceProvider`, gate with the public `WithActivationGate(_ => Context.IsActive)`) and exposes a slot for the resolved artifact on its provider options. The provider class (`ConfigurationProvider<,>`) stays DI-free. Whether a provider is service-backable is the provider author's choice. §11 (scoped `ITenantReactiveConfig<T>` + `ITenantContext`) shipped in `Cocoar.Configuration.AspNetCore`. Covered by `Cocoar.Configuration.ServiceBacked.Tests` + AspNetCore tenant-adapter tests. See "Open questions" below for the resolved decisions.
 
 ---
 
@@ -72,7 +72,7 @@ services.AddCocoarConfiguration(c => c
     [
         rule.For<LogConfig>().FromHttp((sp, a) =>
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("cocoar-config"), "logging.json"),
-        rule.For<TenantSettings>().FromStorage((sp, a) =>
+        rule.For<TenantSettings>().FromStore((sp, a) =>
             new MartenConfigBackend(sp.GetRequiredService<IDocumentStore>(), a.Tenant)).TenantScoped(),
     ]));
 ```
@@ -87,7 +87,7 @@ services.AddCocoarConfiguration(c => c
 Three pieces, **all in the DI package**:
 
 1. **`ServiceProviderHolder`** (DI-package singleton): `null` until the container is built; afterward holds the **root** `IServiceProvider`.
-2. **`sp`-using factory overloads** (`FromStorage((sp,a)=>…)`, `FromHttp` with `IHttpClientFactory`, …): each wraps a core provider-options factory `accessor => userFactory(holder.ServiceProvider!, accessor)` **and** composes a gate `.When(_ => holder.HasServiceProvider)`. The gate reuses the `ShouldSkip` machinery hardened in ADR-005 (a rule that skips while its precondition is absent, contributing nothing).
+2. **`sp`-using factory overloads** (`FromStore((sp,a)=>…)`, `FromHttp` with `IHttpClientFactory`, …): each wraps a core provider-options factory `accessor => userFactory(holder.ServiceProvider!, accessor)` **and** composes a gate `.When(_ => holder.HasServiceProvider)`. The gate reuses the `ShouldSkip` machinery hardened in ADR-005 (a rule that skips while its precondition is absent, contributing nothing).
 3. **An activation `IHostedService`** (registered by the DI package's `AddCocoarConfiguration`, where the `IServiceCollection` is available; it is container-constructed so it receives `sp`): on host start it sets `holder.ServiceProvider = sp` and triggers a **recompute from the Layer-2 start index**.
 
 **Core touch is minimal:** reuse `ShouldSkip` (the `sp`-gate is expressed via the existing `When` predicate) and the already-internal `ScheduleRecompute(startIndex)` + `RestorePrefixContributions`. The only likely new core seam is a small **internal hook to append satellite-supplied rules** to the builder (consistent with how satellites already extend it). `InternalsVisibleTo("Cocoar.Configuration.DI")` already exists, so the DI package can drive the post-container recompute.
@@ -115,7 +115,7 @@ Two independent axes; the layer is chosen by `sp`-need, **not** by tenancy:
 | | no `sp` (Layer 1) | needs `sp` (Layer 2) |
 |---|---|---|
 | **global** | `FromFile("app.json")` | `FromHttp((sp,a)=>factory…)` |
-| **tenant** | `FromFile(a=>$"t/{a.Tenant}/db.json").TenantScoped()` *(works today)* | `FromStorage((sp,a)=>new Marten(store,a.Tenant)).TenantScoped()` |
+| **tenant** | `FromFile(a=>$"t/{a.Tenant}/db.json").TenantScoped()` *(works today)* | `FromStore((sp,a)=>new Marten(store,a.Tenant)).TenantScoped()` |
 
 `.TenantScoped()` is a layer-agnostic modifier, valid in **both** methods. The gates **compose**: `.TenantScoped()` adds a "tenant present" gate; Layer 2 adds an "`sp` present" gate. **Marten-per-tenant** = both gates → runs only in a tenant pipeline post-container. Do **not** restrict tenant rules to Layer 2 — that would couple tenancy to DI and kill no-DI multi-tenant scenarios (file-per-tenant in a CLI / embedded lib).
 
@@ -186,7 +186,7 @@ Plus the §11 trap: never re-register `IReactiveConfig<T>` as scoped.
 | Core `RuleManager.ShouldSkip` | reused for the `sp`-gate (via the existing `When` predicate) — no change needed | Reuse |
 | Core `ConfigurationEngine.ScheduleRecompute(startIndex)` + `RestorePrefixContributions` | reused to run the Layer-2 activation recompute | Reuse |
 | Core `ConfigManagerBuilder` | likely **one small internal hook** to append satellite-supplied rules | Additive (internal) |
-| **NEW** `Cocoar.Configuration.DI`: `ServiceProviderHolder` + `UseServiceBackedConfiguration` extension + `sp`-aware factory overloads (`FromStorage`, …) + activation `IHostedService` | the whole Layer-2 mechanism | **New (satellite)** |
+| **NEW** `Cocoar.Configuration.DI`: `ServiceProviderHolder` + `UseServiceBackedConfiguration` extension + `sp`-aware factory overloads (`FromStore`, …) + activation `IHostedService` | the whole Layer-2 mechanism | **New (satellite)** |
 | `Cocoar.Configuration.Http` | `FromHttp((sp,a)=>…)` overload resolving `IHttpClientFactory` | Additive |
 | (Future) `Cocoar.Configuration.AspNetCore` | scoped `ITenantReactiveConfig<T>` (§11) | Additive |
 
@@ -212,10 +212,10 @@ Plus the §11 trap: never re-register `IReactiveConfig<T>` as scoped.
 ## Open questions — resolved in the implementation
 
 - **Gating granularity:** ✅ per-`sp`-usage. Each `sp`-using overload attaches a dedicated `ActivationGate`; a non-`sp` rule placed in Layer 2 runs eagerly and still wins by position.
-- **Naming:** ✅ `UseServiceBackedConfiguration`; factory overloads `FromStorage((sp,a)=>IStorageBackend)` and `FromHttp((sp,a)=>HttpClient)`.
+- **Naming:** ✅ `UseServiceBackedConfiguration`; factory overloads `FromStore((sp,a)=>IStoreBackend)` and `FromHttp((sp,a)=>HttpClient)`.
 - **Activation hook:** ✅ `IHostedLifecycleService`, acting in `StartingAsync` (before any regular `IHostedService.StartAsync`), so Layer 2 is live before app/hosted-service code reads config. A manual `IServiceProvider.ActivateServiceBackedConfigurationAsync()` covers non-host scenarios; both are idempotent (the holder publishes the provider exactly once). Consumers that read a snapshot *during* container build see the Layer-1 base; the readiness contract (§7) requires a **subscription** to receive the upgrade.
 - **Append-rules core seam:** ✅ `ConfigManagerBuilder.AddServiceBackedRules(IEnumerable<ConfigRule>)` appends after Layer 1 and records `ConfigManager.ServiceBackedLayerStartIndex`. The sp-gate seam is the **public**, **type-scoped** (not ambient) `ServiceBackedRuleContext` (BCL `IServiceProvider` only — the core never names a DI type): it is carried by the public `ServiceBackedProviderBuilder<T>.Context` and read by the DI, Http, and third-party `(sp,a)` overloads.
-- **DB change-detection:** still out of scope here — poll (via `FromStorage` on a polling backend) or app-driven re-init (`RemoveTenantAsync` then `InitializeTenantAsync`; there is no in-place reload). Push (`LISTEN/NOTIFY`) remains separate, future work.
+- **DB change-detection:** still out of scope here — poll (via `FromStore` on a polling backend) or app-driven re-init (`RemoveTenantAsync` then `InitializeTenantAsync`; there is no in-place reload). Push (`LISTEN/NOTIFY`) remains separate, future work.
 
 ---
 

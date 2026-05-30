@@ -1,5 +1,5 @@
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.DI;          // FromStorage, UseServiceBackedConfiguration
+using Cocoar.Configuration.DI;          // FromStore, UseServiceBackedConfiguration
 using Cocoar.Configuration.Providers;   // FromStaticJson
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.Hosting;
 namespace Cocoar.Configuration.ServiceBacked.Tests;
 
 /// <summary>
-/// ADR-006 headline #2: <c>FromStorage((sp,a)=&gt;…).TenantScoped()</c> — a DB-backed (Marten-style) source per
+/// ADR-006 headline #2: <c>FromStore((sp,a)=&gt;…).TenantScoped()</c> — a DB-backed (Marten-style) source per
 /// tenant. Proves the tenant gate and the sp gate compose: the rule runs only inside a tenant pipeline, post
 /// host start, sourcing a backend from the DI-managed store keyed by the tenant.
 /// </summary>
@@ -31,7 +31,7 @@ public class ServiceBackedStorageTests
             .UseServiceBackedConfiguration(rules =>
             [
                 rules.For<TenantSettings>()
-                    .FromStorage((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
+                    .FromStore((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
                     .TenantScoped(),
             ])
             .UseDebounce(25));
@@ -77,7 +77,7 @@ public class ServiceBackedStorageTests
             .UseServiceBackedConfiguration(rules =>
             [
                 rules.For<TenantSettings>()
-                    .FromStorage((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
+                    .FromStore((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
                     .TenantScoped(),
             ])
             .UseDebounce(25));

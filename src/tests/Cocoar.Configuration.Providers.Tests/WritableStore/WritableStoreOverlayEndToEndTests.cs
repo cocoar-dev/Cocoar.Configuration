@@ -1,6 +1,6 @@
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.LocalStorage;
+using Cocoar.Configuration.WritableStore;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Cocoar.Configuration.Reactive;
@@ -8,16 +8,16 @@ using Cocoar.Configuration.Rules;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 [Trait("Type", "Unit")]
-public sealed class LocalStorageOverlayEndToEndTests : IDisposable
+public sealed class WritableStoreOverlayEndToEndTests : IDisposable
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
     private readonly List<IDisposable> _disposables = new();
 
-    private (ServiceProvider Provider, ILocalStorage<SmtpSettings> Storage, ConfigManager Manager) Build(
+    private (ServiceProvider Provider, IWritableStore<SmtpSettings> Storage, ConfigManager Manager) Build(
         string baseJson, InMemoryBackend? backend = null)
     {
         backend ??= new InMemoryBackend();
@@ -28,13 +28,13 @@ public sealed class LocalStorageOverlayEndToEndTests : IDisposable
         services.AddCocoarConfiguration(c => c.UseConfiguration(rules => new ConfigRule[]
         {
             rules.For<SmtpSettings>().FromFile(file.FilePath).Required(),
-            rules.For<SmtpSettings>().FromLocalStorage(backend),
+            rules.For<SmtpSettings>().FromStore(backend),
         }));
 
         var provider = services.BuildServiceProvider();
         _disposables.Add(provider);
 
-        var storage = provider.GetRequiredService<ILocalStorage<SmtpSettings>>();
+        var storage = provider.GetRequiredService<IWritableStore<SmtpSettings>>();
         var manager = provider.GetRequiredService<ConfigManager>();
         return (provider, storage, manager);
     }
@@ -140,12 +140,12 @@ public sealed class LocalStorageOverlayEndToEndTests : IDisposable
         var entries = await storage.DescribeAsync();
 
         var port = Assert.Single(entries, e => e.KeyPath == "Port");
-        Assert.True(port.IsOverridden);
+        Assert.True(port.IsSet);
         Assert.Equal(25, port.BaseValue!.Value.GetInt32());
         Assert.Equal(587, port.EffectiveValue!.Value.GetInt32());
 
         var host = Assert.Single(entries, e => e.KeyPath == "Host");
-        Assert.False(host.IsOverridden);
+        Assert.False(host.IsSet);
         Assert.Equal("smtp.default.com", host.BaseValue!.Value.GetString());
         Assert.Equal("smtp.default.com", host.EffectiveValue!.Value.GetString());
     }
@@ -190,8 +190,8 @@ public sealed class LocalStorageOverlayEndToEndTests : IDisposable
     {
         var (provider, storage, _) = Build("{\"Port\":25}");
 
-        var overlay = provider.GetRequiredService<ILocalStorageOverlay<SmtpSettings>>();
-        var storageAgain = provider.GetRequiredService<ILocalStorage<SmtpSettings>>();
+        var overlay = provider.GetRequiredService<IWritableStoreOverlay<SmtpSettings>>();
+        var storageAgain = provider.GetRequiredService<IWritableStore<SmtpSettings>>();
 
         Assert.Same(storage, storageAgain);              // singleton
         Assert.Same(storage.Overlay, overlay);           // overlay resolves to the same adapter

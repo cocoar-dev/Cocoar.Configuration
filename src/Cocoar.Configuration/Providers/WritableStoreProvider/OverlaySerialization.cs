@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace Cocoar.Configuration.Providers;
 
 /// <summary>
-/// JSON options for reading and writing LocalStorage overlay values.
+/// JSON options for reading and writing WritableStore overlay values.
 /// <para>
 /// These are deliberately <em>vanilla</em>: the configuration pipeline's options carry custom converters
 /// (notably <c>StringToPrimitiveConverter&lt;T&gt;</c>, whose <c>Write</c> re-enters with the same options and

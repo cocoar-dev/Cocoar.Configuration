@@ -63,7 +63,7 @@ app.Run();
 | Environment Variables | `.FromEnvironment("PREFIX_")` | Core |
 | Command Line | `.FromCommandLine("--prefix")` | Core |
 | Static / Observable | `.FromStaticJson()` / `.FromObservable()` | Core |
-| LocalStorage (writable overlay) | `.FromLocalStorage()` | Core |
+| WritableStore (writable overlay) | `.FromStore()` | Core |
 | HTTP | `.FromHttp(url)` | [Http](https://www.nuget.org/packages/Cocoar.Configuration.Http) |
 | Microsoft IConfiguration | `.FromIConfiguration(config)` | [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter) |
 

@@ -31,7 +31,7 @@ services.AddCocoarConfiguration(c => c
             (sp, a) => sp.GetRequiredService<IHttpClientFactory>().CreateClient("cocoar-config"),
             "logging.json", pollInterval: TimeSpan.FromSeconds(30)),
 
-        rules.For<TenantSettings>().FromStorage(
+        rules.For<TenantSettings>().FromStore(
             (sp, a) => new MartenConfigBackend(sp.GetRequiredService<IDocumentStore>(), a.Tenant))
             .TenantScoped(),
     ]));
@@ -60,12 +60,12 @@ services.AddCocoarConfiguration(c => c
 
 The plain `FromHttp(url)` overload (which `new`s its own `HttpClient`) stays available for Layer 1 / no-DI.
 
-## DB-backed config with `FromStorage`
+## DB-backed config with `FromStore`
 
-`FromStorage((sp, a) => IStorageBackend)` reuses Cocoar's storage pipeline: implement `IStorageBackend` (`ReadAsync`/`WriteAsync` over your store) and source it from DI. Combine with `.TenantScoped()` for **DB-config-per-tenant** — the tenant gate and the service-provider gate compose, so the rule runs only inside a tenant pipeline, after the host has started.
+`FromStore((sp, a) => IStoreBackend)` reuses Cocoar's storage pipeline: implement `IStoreBackend` (`ReadAsync`/`WriteAsync` over your store) and source it from DI. Combine with `.TenantScoped()` for **DB-config-per-tenant** — the tenant gate and the service-provider gate compose, so the rule runs only inside a tenant pipeline, after the host has started.
 
 ```csharp
-public sealed class MartenConfigBackend(IDocumentStore store, string? tenant) : IStorageBackend
+public sealed class MartenConfigBackend(IDocumentStore store, string? tenant) : IStoreBackend
 {
     public async Task<byte[]?> ReadAsync(string key, CancellationToken ct = default)
     {
@@ -95,7 +95,7 @@ When the config simply **comes from a DI service** (no I/O source — an in-memo
 This is Cocoar's equivalent of Microsoft's `services.Configure<TDep>((opts, dep) => …)` / an `IConfigureOptions<T>` with an injected dependency — and the natural target when migrating those. The service is resolved at recompute time (after host start); the rule is dormant until then, like any Layer-2 rule, and composes with `.TenantScoped()`.
 
 ::: warning Synchronous / in-memory only
-`FromService` snapshots once per recompute (no change detection) and the projection is synchronous. For I/O-bound sources (DB, HTTP, Key Vault) use an async provider — `FromStorage`, `FromHttp((sp,a)=>…)`, or a custom provider — rather than blocking inside the projection.
+`FromService` snapshots once per recompute (no change detection) and the projection is synchronous. For I/O-bound sources (DB, HTTP, Key Vault) use an async provider — `FromStore`, `FromHttp((sp,a)=>…)`, or a custom provider — rather than blocking inside the projection.
 :::
 
 ## Lifecycle & the readiness contract
@@ -154,7 +154,7 @@ public static ProviderRuleBuilder<MyProvider, MyOptions, MyQuery> FromMyDb<T>(
         _ => MyQuery.Default);
 ```
 
-Two things make a provider service-backed: (1) author this `(sp, a)` overload on `ServiceBackedProviderBuilder<T>`, and (2) have the provider's **options carry** the resolved artifact (HTTP carries a `ClientFactory`; LocalStorage an `IStorageBackend`). The provider class itself (`ConfigurationProvider<,>`) stays DI-free — and a service-backed provider is usually its **own** small provider, not a no-DI one retrofitted with fallbacks. See [Building Custom Providers → Service-Backed Providers](/guide/providers/custom#service-backed-providers-di-aware) for a full worked example.
+Two things make a provider service-backed: (1) author this `(sp, a)` overload on `ServiceBackedProviderBuilder<T>`, and (2) have the provider's **options carry** the resolved artifact (HTTP carries a `ClientFactory`; WritableStore an `IStoreBackend`). The provider class itself (`ConfigurationProvider<,>`) stays DI-free — and a service-backed provider is usually its **own** small provider, not a no-DI one retrofitted with fallbacks. See [Building Custom Providers → Service-Backed Providers](/guide/providers/custom#service-backed-providers-di-aware) for a full worked example.
 
 Because these overloads target `ServiceBackedProviderBuilder<T>`, using them inside the Layer-1 `UseConfiguration` (a plain `TypedProviderBuilder<T>`) is a **compile error** — the type system, not a runtime check, keeps DI-backed loading out of Layer 1.
 

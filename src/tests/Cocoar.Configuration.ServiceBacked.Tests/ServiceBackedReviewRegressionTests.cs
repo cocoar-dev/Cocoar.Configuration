@@ -94,7 +94,7 @@ public class ServiceBackedReviewRegressionTests
             .UseServiceBackedConfiguration(rules =>
             [
                 rules.For<TenantSettings>()
-                    .FromStorage((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
+                    .FromStore((sp, a) => sp.GetRequiredService<IFakeDocumentStore>().BackendFor(a.Tenant))
                     .TenantScoped(),
             ])
             .UseDebounce(25));
@@ -157,7 +157,7 @@ public class ServiceBackedReviewRegressionTests
             .UseConfiguration(rules => [ rules.For<RemoteConfig>().FromStaticJson("""{ "Value": "base" }""") ])
             .UseServiceBackedConfiguration(rules =>
             [
-                rules.For<RemoteConfig>().FromStorage((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
+                rules.For<RemoteConfig>().FromStore((_, _) => new SeededBackend("""{ "Value": "stored" }""")),
             ])
             .UseDebounce(25));
 

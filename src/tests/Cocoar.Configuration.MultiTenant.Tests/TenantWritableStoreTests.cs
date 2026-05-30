@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.LocalStorage;
-using Cocoar.Configuration.Providers; // FromObservable / FromLocalStorage / IStorageBackend / GetLocalStorageForTenant
+using Cocoar.Configuration.WritableStore;
+using Cocoar.Configuration.Providers; // FromObservable / FromStore / IStoreBackend / GetWritableStoreForTenant
 
 namespace Cocoar.Configuration.MultiTenant.Tests;
 
 /// <summary>In-memory backend so each tenant gets an isolated, file-free overlay store.</summary>
-internal sealed class InMemoryBackend : IStorageBackend
+internal sealed class InMemoryBackend : IStoreBackend
 {
     private byte[]? _data;
 
@@ -20,13 +20,13 @@ internal sealed class InMemoryBackend : IStorageBackend
 }
 
 /// <summary>
-/// (P4) per-tenant LocalStorage through the real API: each tenant's overlay uses its own backend (the factory
+/// (P4) per-tenant WritableStore through the real API: each tenant's overlay uses its own backend (the factory
 /// overload keys the store by accessor.Tenant), so a write to one tenant's overlay leaves the others untouched,
-/// and provenance is computed per tenant. Ports the POC's TenantLocalStoragePocTests.
+/// and provenance is computed per tenant. Ports the POC's TenantWritableStorePocTests.
 /// </summary>
 [Trait("Category", "MultiTenant")]
 [Trait("Type", "Unit")]
-public class TenantLocalStorageTests
+public class TenantWritableStoreTests
 {
     public sealed record Smtp
     {
@@ -35,16 +35,16 @@ public class TenantLocalStorageTests
     }
 
     [Fact]
-    public async Task LocalStorageOverlay_IsPerTenant_WithDistinctBackends()
+    public async Task WritableStoreOverlay_IsPerTenant_WithDistinctBackends()
     {
         var backends = new ConcurrentDictionary<string, InMemoryBackend>();
-        IStorageBackend BackendFor(string? tenant) => backends.GetOrAdd(tenant ?? "", _ => new InMemoryBackend());
+        IStoreBackend BackendFor(string? tenant) => backends.GetOrAdd(tenant ?? "", _ => new InMemoryBackend());
 
         using var mgr = ConfigManager.Create(c => c
             .UseConfiguration(rules =>
             [
                 rules.For<Smtp>().FromObservable("""{ "Host": "smtp.default.com", "Port": 25 }"""),
-                rules.For<Smtp>().FromLocalStorage((a, _) => BackendFor(a.Tenant)).TenantScoped(),
+                rules.For<Smtp>().FromStore((a, _) => BackendFor(a.Tenant)).TenantScoped(),
             ])
             .UseDebounce(25));
 
@@ -53,7 +53,7 @@ public class TenantLocalStorageTests
         await tenants.InitializeTenantAsync("B");
 
         // Tenant A writes Port=587 into ITS OWN overlay store.
-        var storageA = mgr.GetLocalStorageForTenant<Smtp>("A");
+        var storageA = mgr.GetWritableStoreForTenant<Smtp>("A");
         await storageA.SetAsync(x => x.Port, 587);
         await TenantWait.UntilAsync(() => mgr.GetConfigForTenant<Smtp>("A")?.Port == 587, "tenant A override applied");
 
@@ -64,12 +64,12 @@ public class TenantLocalStorageTests
 
         // (2) Tenant B is UNAFFECTED — its store is a distinct backend instance.
         Assert.Equal(25, mgr.GetConfigForTenant<Smtp>("B")!.Port);
-        Assert.Null(await mgr.GetLocalStorageForTenant<Smtp>("B").ReadAsync());
+        Assert.Null(await mgr.GetWritableStoreForTenant<Smtp>("B").ReadAsync());
 
         // (3) Base-vs-effective provenance for A, computed over the tenant pipeline.
         var entries = await storageA.DescribeAsync();
         var port = Assert.Single(entries, e => e.KeyPath == "Port");
-        Assert.True(port.IsOverridden);
+        Assert.True(port.IsSet);
         Assert.Equal(25, port.BaseValue!.Value.GetInt32());
         Assert.Equal(587, port.EffectiveValue!.Value.GetInt32());
     }

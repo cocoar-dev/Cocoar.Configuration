@@ -74,7 +74,7 @@ public sealed class HttpProviderOptions : IProviderConfiguration
     /// A service-backed client (from <c>IHttpClientFactory</c>) is externally owned and per-rule — two rules with
     /// distinct clients must never collapse onto one shared <see cref="HttpProvider"/>. Since <see cref="ClientFactory"/>
     /// is <c>[JsonIgnore]</c>d and so invisible to the default serialized key, return <c>null</c> (never share) in that
-    /// case — mirroring <c>LocalStorageProviderOptions</c>. The Layer-1 (no-factory) key is unchanged.
+    /// case — mirroring <c>WritableStoreProviderOptions</c>. The Layer-1 (no-factory) key is unchanged.
     /// </summary>
     public string? GenerateProviderKey()
         => ClientFactory is not null

@@ -47,7 +47,7 @@ internal static class OverlayPathResolver
             if (!allowSecretMembers && IsSecretType(memberType))
             {
                 throw new NotSupportedException(
-                    $"Member '{member.Name}' is a secret and cannot be set as plaintext via LocalStorage. " +
+                    $"Member '{member.Name}' is a secret and cannot be set as plaintext via WritableStore. " +
                     "Use SetSecretAsync with a pre-encrypted envelope, or manage secrets via the Secrets CLI/provider.");
             }
 

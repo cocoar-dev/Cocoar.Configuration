@@ -64,7 +64,7 @@ The list endpoint wraps these as `{ "keys": [ … ] }`. The `keys` field name is
 2. Generate a random AES-256 DEK, encrypt the value with AES-GCM, wrap the DEK with RSA-OAEP-256, and assemble the `cocoar.secret` envelope (with `kid` stamped from the key).
 3. Send the envelope to your server. It is stored as-is and decrypted only on `Secret<T>.Open()`.
 
-The envelope wire format is documented in [Custom Providers → Secrets](/guide/providers/custom#secrets-in-custom-providers). The same envelope can be written through a LocalStorage overlay via `SetSecretEnvelopeAsync` / `SetSecretAsync`.
+The envelope wire format is documented in [Custom Providers → Secrets](/guide/providers/custom#secrets-in-custom-providers). The same envelope can be written through a WritableStore overlay via `SetSecretEnvelopeAsync` / `SetSecretAsync`.
 
 ## Availability
 

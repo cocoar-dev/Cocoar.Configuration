@@ -33,7 +33,7 @@ public sealed class ProviderServiceRegistration
         Factory = factory;
     }
 
-    /// <summary>The service type to register (e.g. <c>ILocalStorage&lt;AppSettings&gt;</c>).</summary>
+    /// <summary>The service type to register (e.g. <c>IWritableStore&lt;AppSettings&gt;</c>).</summary>
     public Type ServiceType { get; }
 
     /// <summary>The pre-built singleton instance, or <see langword="null"/> when a <see cref="Factory"/> is used.</summary>

@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.LocalStorage;
+using Cocoar.Configuration.WritableStore;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Cocoar.Configuration.Rules;
@@ -13,10 +13,10 @@ using Cocoar.Configuration.X509Encryption;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 [Trait("Type", "Unit")]
-public sealed class LocalStorageSecretEnvelopeTests
+public sealed class WritableStoreSecretEnvelopeTests
 {
     public sealed class VaultConfig
     {
@@ -40,12 +40,12 @@ public sealed class LocalStorageSecretEnvelopeTests
                 .UseConfiguration(rules => new ConfigRule[]
                 {
                     rules.For<VaultConfig>().FromStaticJson("{}"),
-                    rules.For<VaultConfig>().FromLocalStorage(backend),
+                    rules.For<VaultConfig>().FromStore(backend),
                 })
                 .UseSecretsSetup(secrets => secrets.UseCertificateFromFile(pfxPath).WithKeyId(kid)));
 
             using var provider = services.BuildServiceProvider();
-            var storage = provider.GetRequiredService<ILocalStorage<VaultConfig>>();
+            var storage = provider.GetRequiredService<IWritableStore<VaultConfig>>();
             var manager = provider.GetRequiredService<ConfigManager>();
 
             await storage.SetSecretAsync(x => x.ApiKey!, envelope);
@@ -68,7 +68,7 @@ public sealed class LocalStorageSecretEnvelopeTests
     public async Task SetSecretEnvelopeAsync_RejectsPlaintext()
     {
         using var provider = BuildMinimalProvider();
-        var overlay = provider.GetRequiredService<ILocalStorageOverlay<VaultConfig>>();
+        var overlay = provider.GetRequiredService<IWritableStoreOverlay<VaultConfig>>();
 
         // A bare string is not a cocoar.secret envelope → rejected before anything is stored.
         await Assert.ThrowsAsync<ArgumentException>(
@@ -79,7 +79,7 @@ public sealed class LocalStorageSecretEnvelopeTests
     public void SetAsync_OnSecretMember_StillThrowsNotSupported()
     {
         using var provider = BuildMinimalProvider();
-        var storage = provider.GetRequiredService<ILocalStorage<VaultConfig>>();
+        var storage = provider.GetRequiredService<IWritableStore<VaultConfig>>();
 
         // The normal typed SetAsync must keep rejecting secret members (no plaintext into the overlay).
         Assert.Throws<NotSupportedException>(
@@ -93,7 +93,7 @@ public sealed class LocalStorageSecretEnvelopeTests
         services.AddCocoarConfiguration(c => c.UseConfiguration(rules => new ConfigRule[]
         {
             rules.For<VaultConfig>().FromStaticJson("{}"),
-            rules.For<VaultConfig>().FromLocalStorage(backend),
+            rules.For<VaultConfig>().FromStore(backend),
         }));
         return services.BuildServiceProvider();
     }

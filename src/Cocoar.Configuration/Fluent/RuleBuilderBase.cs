@@ -72,7 +72,7 @@ public abstract class RuleBuilderBase<TBuilder>
 
     /// <summary>
     /// Attaches a system-level activation gate (composed with AND), evaluated independently of <see cref="When"/>
-    /// so a later user <c>.When()</c> cannot clobber it. The service-backed overloads (<c>FromStorage</c>,
+    /// so a later user <c>.When()</c> cannot clobber it. The service-backed overloads (<c>FromStore</c>,
     /// <c>FromHttp((sp,a)=&gt;…)</c>) — and third-party ones — use it to keep a Layer-2 rule dormant until the
     /// container is built: <c>.WithActivationGate(_ =&gt; context.IsActive)</c> (ADR-006).
     /// </summary>

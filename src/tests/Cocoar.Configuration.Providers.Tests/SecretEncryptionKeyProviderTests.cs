@@ -2,9 +2,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.LocalStorage;
+using Cocoar.Configuration.WritableStore;
 using Cocoar.Configuration.Providers;
-using Cocoar.Configuration.Providers.Tests.LocalStorage;
+using Cocoar.Configuration.Providers.Tests.WritableStore;
 using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Secrets;
@@ -97,7 +97,7 @@ public sealed class SecretEncryptionKeyProviderTests
                 .UseConfiguration(rules => new ConfigRule[]
                 {
                     rules.For<VaultConfig>().FromStaticJson("{}"),
-                    rules.For<VaultConfig>().FromLocalStorage(backend),
+                    rules.For<VaultConfig>().FromStore(backend),
                 })
                 .UseSecretsSetup(secrets => secrets.UseCertificateFromFile(pfxPath).WithKeyId(kid)));
 
@@ -113,7 +113,7 @@ public sealed class SecretEncryptionKeyProviderTests
             var envelope = EncryptWithPublicKey(rsaPublic, kid, secretValue);
 
             // 3. Server stores the envelope and decrypts with the matching private key.
-            var storage = provider.GetRequiredService<ILocalStorage<VaultConfig>>();
+            var storage = provider.GetRequiredService<IWritableStore<VaultConfig>>();
             var manager = provider.GetRequiredService<ConfigManager>();
             await storage.SetSecretAsync(x => x.ApiKey!, envelope);
 

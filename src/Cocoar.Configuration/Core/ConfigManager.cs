@@ -17,7 +17,7 @@ using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
-public sealed class ConfigManager : IConfigurationAccessor, ITenantConfigurationAccessor, ILocalStorageHost, IDisposable, IAsyncDisposable
+public sealed class ConfigManager : IConfigurationAccessor, ITenantConfigurationAccessor, IWritableStoreHost, IDisposable, IAsyncDisposable
 {
     private List<SetupDefinition> _setupDefinitions = null!;
     private readonly ConfigManagerCapabilityScope _capabilityScope;
@@ -267,7 +267,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// <summary>
     /// Computes the merged "base" JSON for <paramref name="configType"/> from all rule layers BELOW the
     /// overlay layer identified by <paramref name="isExcludedLayer"/> — i.e. the value the type would have
-    /// without that overlay. Used by LocalStorage to align override key casing against lower layers and to
+    /// without that overlay. Used by WritableStore to align override key casing against lower layers and to
     /// report base-vs-effective provenance.
     /// <para>
     /// Thread-safety: this reads each manager's <c>LastJsonContribution</c> without taking the recompute
@@ -305,11 +305,11 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
         return merged;
     }
 
-    // ILocalStorageHost — lets the LocalStorage adapter compute base/effective JSON against the global pipeline.
-    MutableJsonObject ILocalStorageHost.BuildBaseJson(Type configType, Func<IRuleManager, bool> isExcludedLayer)
+    // IWritableStoreHost — lets the WritableStore adapter compute base/effective JSON against the global pipeline.
+    MutableJsonObject IWritableStoreHost.BuildBaseJson(Type configType, Func<IRuleManager, bool> isExcludedLayer)
         => BuildBaseJson(configType, isExcludedLayer);
 
-    JsonElement? ILocalStorageHost.GetConfigAsJson(Type type) => GetConfigAsJson(type);
+    JsonElement? IWritableStoreHost.GetConfigAsJson(Type type) => GetConfigAsJson(type);
 
     /// <summary>
     /// Gets a reactive wrapper for the specified configuration type.
@@ -543,7 +543,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     }
 
     /// <summary>
-    /// The initialized tenant pipeline, for in-assembly facades (e.g. per-tenant LocalStorage) that need the
+    /// The initialized tenant pipeline, for in-assembly facades (e.g. per-tenant WritableStore) that need the
     /// tenant's own rule managers/host. Throws if the tenant is not initialized.
     /// </summary>
     internal TenantPipeline GetInitializedTenantPipeline(string tenantId) => GetInitializedTenantOrThrow(tenantId);

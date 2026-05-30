@@ -1,10 +1,10 @@
 namespace Cocoar.Configuration.Providers;
 
 /// <summary>
-/// Abstraction for the persistence layer used by LocalStorageProvider.
+/// Abstraction for the persistence layer used by WritableStoreProvider.
 /// Default implementation is file-based; can be replaced with SQLite, Marten, etc.
 /// </summary>
-public interface IStorageBackend
+public interface IStoreBackend
 {
     /// <summary>
     /// Reads raw UTF-8 JSON bytes for the given key.

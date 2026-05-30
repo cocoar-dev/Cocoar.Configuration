@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cocoar.Configuration.Core;
-using Cocoar.Configuration.LocalStorage;
+using Cocoar.Configuration.WritableStore;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Secrets.Core;
 using Cocoar.Configuration.Secrets.SecretTypes;
@@ -11,27 +11,27 @@ using Cocoar.Json.Mutable;
 namespace Cocoar.Configuration.Providers;
 
 /// <summary>
-/// Implements both the type-safe <see cref="ILocalStorage{T}"/> facade and the raw
-/// <see cref="ILocalStorageOverlay{T}"/> surface over a single <see cref="LocalStorageStore"/>.
+/// Implements both the type-safe <see cref="IWritableStore{T}"/> facade and the raw
+/// <see cref="IWritableStoreOverlay{T}"/> surface over a single <see cref="WritableStoreState"/>.
 /// All writes are sparse (only the touched leaf is persisted) and go through the store's atomic
 /// read-transform-write lock; provenance is computed from the base layers, the merged effective value,
 /// and the persisted overlay.
 /// </summary>
-internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOverlay<T>, IDisposable
+internal sealed class WritableStoreAdapter<T> : IWritableStore<T>, IWritableStoreOverlay<T>, IDisposable
     where T : class
 {
-    private readonly ILocalStorageHost _host;
-    private readonly LocalStorageStore _store;
+    private readonly IWritableStoreHost _host;
+    private readonly WritableStoreState _store;
 
     // _host is the pipeline this overlay belongs to: the global ConfigManager, or a TenantPipeline for a
     // per-tenant overlay (ADR-005 §7). Both supply base/effective JSON over their OWN rule managers/snapshot.
-    public LocalStorageAdapter(ILocalStorageHost host, LocalStorageStore store)
+    public WritableStoreAdapter(IWritableStoreHost host, WritableStoreState store)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _store = store ?? throw new ArgumentNullException(nameof(store));
     }
 
-    public ILocalStorageOverlay<T> Overlay => this;
+    public IWritableStoreOverlay<T> Overlay => this;
 
     // ---------------------------------------------------------------- typed facade
 
@@ -76,7 +76,7 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
         return JsonSerializer.Deserialize<T>(bytes, OverlaySerialization.ReadOptions);
     }
 
-    public async Task<IReadOnlyList<OverrideEntry>> DescribeAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<StoreEntry>> DescribeAsync(CancellationToken ct = default)
     {
         var baseElement = ToJsonElement(_host.BuildBaseJson(typeof(T), IsThisLayer));
         var effective = _host.GetConfigAsJson(typeof(T));
@@ -96,14 +96,14 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
         }
         allPaths.UnionWith(overriddenPaths);
 
-        var entries = new List<OverrideEntry>(allPaths.Count);
+        var entries = new List<StoreEntry>(allPaths.Count);
         foreach (var path in allPaths)
         {
             JsonElement? baseValue = TrySelect(baseElement, path, out var bv) ? bv : null;
             JsonElement? effectiveValue =
                 effective is { } e && TrySelect(e, path, out var ev) ? ev : null;
 
-            entries.Add(new OverrideEntry(path, baseValue, effectiveValue, overriddenPaths.Contains(path)));
+            entries.Add(new StoreEntry(path, baseValue, effectiveValue, overriddenPaths.Contains(path)));
         }
 
         return entries;
@@ -131,7 +131,7 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
         {
             throw new ArgumentException(
                 "Value is not a well-formed encrypted secret envelope (expected an object with " +
-                "type=\"cocoar.secret\" and version=1). LocalStorage only accepts pre-encrypted secret envelopes.",
+                "type=\"cocoar.secret\" and version=1). WritableStore only accepts pre-encrypted secret envelopes.",
                 nameof(envelope));
         }
 
@@ -172,7 +172,7 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
     // ---------------------------------------------------------------- helpers
 
     private bool IsThisLayer(IRuleManager manager)
-        => manager.CurrentProvider is LocalStorageProvider provider && ReferenceEquals(provider.Store, _store);
+        => manager.CurrentProvider is WritableStoreProvider provider && ReferenceEquals(provider.Store, _store);
 
     private static void ValidateKeyPath(string keyPath)
     {

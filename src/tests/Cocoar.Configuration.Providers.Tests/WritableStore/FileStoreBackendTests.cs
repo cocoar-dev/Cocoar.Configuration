@@ -4,16 +4,16 @@ using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Providers.Tests.TestUtilities;
 using Xunit;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 [Trait("Type", "Unit")]
-public class FileStorageBackendTests
+public class FileStoreBackendTests
 {
     [Fact]
     public async Task ReadAsync_MissingKey_ReturnsNull()
     {
         using var dir = TempDirectoryHelper.Create();
-        var backend = new FileStorageBackend(dir.Path);
+        var backend = new FileStoreBackend(dir.Path);
 
         Assert.Null(await backend.ReadAsync("nope"));
     }
@@ -22,7 +22,7 @@ public class FileStorageBackendTests
     public async Task WriteThenRead_RoundTrips()
     {
         using var dir = TempDirectoryHelper.Create();
-        var backend = new FileStorageBackend(dir.Path);
+        var backend = new FileStoreBackend(dir.Path);
         var payload = Encoding.UTF8.GetBytes("{\"a\":1}");
 
         await backend.WriteAsync("key", payload);
@@ -36,7 +36,7 @@ public class FileStorageBackendTests
     public async Task Write_LeavesNoTempFiles()
     {
         using var dir = TempDirectoryHelper.Create();
-        var backend = new FileStorageBackend(dir.Path);
+        var backend = new FileStoreBackend(dir.Path);
 
         await backend.WriteAsync("key", Encoding.UTF8.GetBytes("{\"a\":1}"));
 
@@ -47,7 +47,7 @@ public class FileStorageBackendTests
     public async Task ConcurrentWrites_NeverCorrupt()
     {
         using var dir = TempDirectoryHelper.Create();
-        var backend = new FileStorageBackend(dir.Path);
+        var backend = new FileStoreBackend(dir.Path);
 
         // Direct, unsynchronized concurrent writes to the same key. The per-write GUID temp guarantees no
         // writer clobbers another's intermediate file, so the destination is always a complete document.
@@ -80,7 +80,7 @@ public class FileStorageBackendTests
     public async Task ConcurrentStoreWrites_AreSerializedAndConsistent()
     {
         using var dir = TempDirectoryHelper.Create();
-        using var store = new LocalStorageStore(new FileStorageBackend(dir.Path), "key");
+        using var store = new WritableStoreState(new FileStoreBackend(dir.Path), "key");
 
         // The real production path: writes go through the store's write lock and never throw or corrupt.
         var writes = Enumerable.Range(0, 50).Select(i =>

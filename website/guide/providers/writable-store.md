@@ -1,6 +1,6 @@
-# LocalStorage Provider
+# Writable Store Provider
 
-LocalStorage is a **writable, application-controlled override layer**. Every other provider is an external source you read from — LocalStorage is the one layer your application can write to at runtime.
+The writable store is a **writable, application-controlled override layer**. Every other provider is an external source you read from — it is the one layer your application can write to at runtime.
 
 Its purpose is **overridable defaults**: the normal sources (files, environment, …) supply defaults, and the application overrides *individual* values at runtime — from an admin UI, an API, or a background job — while everything it doesn't touch keeps inheriting from the lower layers.
 
@@ -8,15 +8,15 @@ Its purpose is **overridable defaults**: the normal sources (files, environment,
 rules =>
 [
     rules.For<SmtpSettings>().FromFile("appsettings.json"), // defaults
-    rules.For<SmtpSettings>().FromLocalStorage(),           // app-controlled overrides (placed last → wins)
+    rules.For<SmtpSettings>().FromStore(),           // app-controlled overrides (placed last → wins)
 ]
 ```
 
-Position matters: place the LocalStorage rule **after** the rules whose values it should override.
+Position matters: place the writable-store rule **after** the rules whose values it should override.
 
 ## Sparse overrides
 
-LocalStorage persists a **sparse** JSON object — only the leaves you explicitly set. Everything else is physically absent and therefore inherits from the lower layers through the normal byte-level merge.
+The writable store persists a **sparse** JSON object — only the leaves you explicitly set. Everything else is physically absent and therefore inherits from the lower layers through the normal byte-level merge.
 
 Given the defaults `{ "Host": "smtp.default.com", "Port": 25, "UseSsl": false }`, after:
 
@@ -37,10 +37,10 @@ This is the key difference from a "save the whole object" store: setting one val
 
 ## Reading and writing
 
-Inject `ILocalStorage<T>` (registered as a **Singleton**, thread-safe) to override values at runtime:
+Inject `IWritableStore<T>` (registered as a **Singleton**, thread-safe) to override values at runtime:
 
 ```csharp
-public class SettingsController(ILocalStorage<SmtpSettings> storage)
+public class SettingsController(IWritableStore<SmtpSettings> storage)
 {
     // Override a single value — only this leaf is persisted; a recompute fires
     // and IReactiveConfig<SmtpSettings> emits the new effective value.
@@ -95,11 +95,11 @@ JsonNode?     raw       = await storage.Overlay.ReadOverlayAsync(); // the raw s
 ```csharp
 foreach (var entry in await storage.DescribeAsync())
 {
-    // entry.KeyPath, entry.BaseValue, entry.EffectiveValue, entry.IsOverridden
+    // entry.KeyPath, entry.BaseValue, entry.EffectiveValue, entry.IsSet
 }
 ```
 
-| KeyPath | BaseValue | EffectiveValue | IsOverridden |
+| KeyPath | BaseValue | EffectiveValue | IsSet |
 |---|---|---|---|
 | `Host` | `"smtp.default.com"` | `"smtp.default.com"` | `false` |
 | `Port` | `25` | `587` | `true` |
@@ -109,7 +109,7 @@ foreach (var entry in await storage.DescribeAsync())
 
 ## Raw overlay surface
 
-For dynamic or non-expressible paths, use `ILocalStorageOverlay<T>` (also resolvable directly from DI, or via `storage.Overlay`). Key paths are dotted; their segments must match the persisted JSON property names:
+For dynamic or non-expressible paths, use `IWritableStoreOverlay<T>` (also resolvable directly from DI, or via `storage.Overlay`). Key paths are dotted; their segments must match the persisted JSON property names:
 
 ```csharp
 await storage.Overlay.SetAsync("Smtp.Port", JsonValue.Create(587));
@@ -125,12 +125,12 @@ The typed facade aligns key casing to the lower layers for you; with the raw sur
 
 ## Writing your own endpoints
 
-There is no built-in REST surface — and that's deliberate. Writes are where *your* rules live (validation, normalization, authorization, audit logging, request shape), so the library gives you the injectable primitive and you own the endpoint. Inject `ILocalStorage<T>` (or `ILocalStorageOverlay<T>`) anywhere and do your work *before* writing:
+There is no built-in REST surface — and that's deliberate. Writes are where *your* rules live (validation, normalization, authorization, audit logging, request shape), so the library gives you the injectable primitive and you own the endpoint. Inject `IWritableStore<T>` (or `IWritableStoreOverlay<T>`) anywhere and do your work *before* writing:
 
 ```csharp
 app.MapPut("/admin/smtp/port", async (
     int port,
-    ILocalStorage<SmtpSettings> storage,
+    IWritableStore<SmtpSettings> storage,
     ILogger<SmtpAdmin> log) =>
 {
     if (port is < 1 or > 65535)                 // validate
@@ -143,26 +143,26 @@ app.MapPut("/admin/smtp/port", async (
 .RequireAuthorization("AdminPolicy");
 
 // Expose the provenance view for a management UI:
-app.MapGet("/admin/smtp", (ILocalStorage<SmtpSettings> storage, CancellationToken ct) =>
+app.MapGet("/admin/smtp", (IWritableStore<SmtpSettings> storage, CancellationToken ct) =>
     storage.DescribeAsync(ct));
 ```
 
-For a generic admin UI that sets arbitrary keys, inject the raw `ILocalStorageOverlay<T>` and pass the dotted key path and a `JsonNode` yourself (your code is responsible for validating the path and value).
+For a generic admin UI that sets arbitrary keys, inject the raw `IWritableStoreOverlay<T>` and pass the dotted key path and a `JsonNode` yourself (your code is responsible for validating the path and value).
 
-Both `ILocalStorage<T>` and `ILocalStorageOverlay<T>` are registered by `AddCocoarConfiguration` as the **same** singleton instance, so either can be injected into controllers or minimal-API handlers.
+Both `IWritableStore<T>` and `IWritableStoreOverlay<T>` are registered by `AddCocoarConfiguration` as the **same** singleton instance, so either can be injected into controllers or minimal-API handlers.
 
-## Storage backends
+## Store backends
 
-By default, overrides are persisted as a JSON file under `{AppContext.BaseDirectory}/.cocoar/localStorage/`, written atomically (temp-file-then-rename). Plug in your own store by implementing `IStorageBackend`:
+By default, overrides are persisted as a JSON file under `{AppContext.BaseDirectory}/.cocoar/store/`, written atomically (temp-file-then-rename). Plug in your own store by implementing `IStoreBackend`:
 
 ```csharp
-rules.For<SmtpSettings>().FromLocalStorage(new MyDatabaseBackend());
+rules.For<SmtpSettings>().FromStore(new MyDatabaseBackend());
 ```
 
 A config-aware overload receives the current configuration and backend, for backends whose connection depends on earlier rules (e.g. a connection string):
 
 ```csharp
-rules.For<SmtpSettings>().FromLocalStorage((accessor, current) =>
+rules.For<SmtpSettings>().FromStore((accessor, current) =>
     current ?? new DbBackend(accessor.GetConfig<DbSettings>()!.ConnectionString));
 ```
 
@@ -171,7 +171,7 @@ rules.For<SmtpSettings>().FromLocalStorage((accessor, current) =>
 ## How it works
 
 ```
-ILocalStorage<T>.SetAsync(x => x.Port, 587)
+IWritableStore<T>.SetAsync(x => x.Port, 587)
     → resolve "Port" to a dotted key path + align casing to the lower layers
     → atomically read-merge-write the sparse overlay leaf to the backend
     → signal the provider's change observable
@@ -179,4 +179,4 @@ ILocalStorage<T>.SetAsync(x => x.Port, 587)
     → IReactiveConfig<T> emits the new effective value
 ```
 
-The read/merge path is identical to every other provider — LocalStorage only adds the write path. See the runnable [LocalStorageOverride example](https://github.com/cocoar-dev/cocoar.configuration/tree/develop/src/Examples/LocalStorageOverride) for an end-to-end walkthrough.
+The read/merge path is identical to every other provider — the writable store only adds the write path. See the runnable [WritableStoreExample example](https://github.com/cocoar-dev/cocoar.configuration/tree/develop/src/Examples/WritableStoreExample) for an end-to-end walkthrough.

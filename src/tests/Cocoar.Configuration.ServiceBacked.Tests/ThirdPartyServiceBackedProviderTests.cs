@@ -30,7 +30,7 @@ public sealed class InlineOptions(Func<string> json) : IProviderConfiguration
     /// <summary>The JSON to emit — resolved lazily (so it can read a DI service at fetch time).</summary>
     public Func<string> Json { get; } = json;
 
-    // Carries a closure over the IServiceProvider -> not shareable across rules (mirrors the HTTP/LocalStorage rule).
+    // Carries a closure over the IServiceProvider -> not shareable across rules (mirrors the HTTP/WritableStore rule).
     public string? GenerateProviderKey() => null;
 }
 

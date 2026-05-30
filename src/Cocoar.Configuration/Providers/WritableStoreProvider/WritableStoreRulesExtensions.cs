@@ -4,16 +4,16 @@ using Cocoar.Configuration.Fluent;
 
 namespace Cocoar.Configuration.Providers;
 
-public static class LocalStorageRulesExtensions
+public static class WritableStoreRulesExtensions
 {
     /// <summary>
     /// Creates a local-storage-backed configuration rule.
     /// Reads from and writes to persistent storage. By default uses file-based storage
-    /// at <c>{AppContext.BaseDirectory}/.cocoar/localStorage/</c>.
+    /// at <c>{AppContext.BaseDirectory}/.cocoar/store/</c>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Use <see cref="Cocoar.Configuration.LocalStorage.ILocalStorage{T}"/> (via DI) to write configuration at runtime.
+    /// Use <see cref="Cocoar.Configuration.WritableStore.IWritableStore{T}"/> (via DI) to write configuration at runtime.
     /// Writes trigger a recompute of the configuration pipeline.
     /// </para>
     /// <para>
@@ -21,21 +21,21 @@ public static class LocalStorageRulesExtensions
     /// </para>
     /// </remarks>
     /// <param name="builder">The typed provider builder.</param>
-    /// <param name="backend">Optional custom storage backend. Defaults to <see cref="FileStorageBackend"/>.</param>
-    public static ProviderRuleBuilder<LocalStorageProvider, LocalStorageProviderOptions, LocalStorageProviderQueryOptions>
-        FromLocalStorage<T>(this TypedProviderBuilder<T> builder, IStorageBackend? backend = null)
+    /// <param name="backend">Optional custom storage backend. Defaults to <see cref="FileStoreBackend"/>.</param>
+    public static ProviderRuleBuilder<WritableStoreProvider, WritableStoreProviderOptions, WritableStoreProviderQueryOptions>
+        FromStore<T>(this TypedProviderBuilder<T> builder, IStoreBackend? backend = null)
         where T : class
     {
-        var effectiveBackend = backend ?? new FileStorageBackend();
+        var effectiveBackend = backend ?? new FileStoreBackend();
         var storageKey = typeof(T).FullName ?? typeof(T).Name;
-        var store = new LocalStorageStore(effectiveBackend, storageKey)
+        var store = new WritableStoreState(effectiveBackend, storageKey)
         {
             ConfigurationType = typeof(T)
         };
 
         return new(
-            _ => new LocalStorageProviderOptions(store),
-            _ => LocalStorageProviderQueryOptions.Default,
+            _ => new WritableStoreProviderOptions(store),
+            _ => WritableStoreProviderQueryOptions.Default,
             typeof(T)
         );
     }
@@ -53,9 +53,9 @@ public static class LocalStorageRulesExtensions
     /// </remarks>
     /// <param name="builder">The typed provider builder.</param>
     /// <param name="backendFactory">A factory that receives the current <see cref="IConfigurationAccessor"/>
-    /// and the current <see cref="IStorageBackend"/> (null on first call), and returns the backend to use.</param>
-    public static ProviderRuleBuilder<LocalStorageProvider, LocalStorageProviderOptions, LocalStorageProviderQueryOptions>
-        FromLocalStorage<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, IStorageBackend?, IStorageBackend> backendFactory)
+    /// and the current <see cref="IStoreBackend"/> (null on first call), and returns the backend to use.</param>
+    public static ProviderRuleBuilder<WritableStoreProvider, WritableStoreProviderOptions, WritableStoreProviderQueryOptions>
+        FromStore<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, IStoreBackend?, IStoreBackend> backendFactory)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(backendFactory);
@@ -64,7 +64,7 @@ public static class LocalStorageRulesExtensions
         // every tenant pipeline; keying the store by accessor.Tenant gives each tenant its OWN store+backend, so
         // a per-tenant overlay never aliases another tenant's (ADR-005 §7). A given tenant is driven by a single
         // pipeline whose recomputes are serialized, so each entry is only ever touched by one writer at a time.
-        var stores = new ConcurrentDictionary<string, LocalStorageStore>();
+        var stores = new ConcurrentDictionary<string, WritableStoreState>();
         var storageKey = typeof(T).FullName ?? typeof(T).Name;
 
         return new(
@@ -76,7 +76,7 @@ public static class LocalStorageRulesExtensions
                 var backend = backendFactory(accessor, currentBackend);
                 if (store is null)
                 {
-                    store = new LocalStorageStore(backend, storageKey)
+                    store = new WritableStoreState(backend, storageKey)
                     {
                         ConfigurationType = typeof(T)
                     };
@@ -86,9 +86,9 @@ public static class LocalStorageRulesExtensions
                 {
                     store.ReplaceBackend(backend);
                 }
-                return new LocalStorageProviderOptions(store);
+                return new WritableStoreProviderOptions(store);
             },
-            _ => LocalStorageProviderQueryOptions.Default,
+            _ => WritableStoreProviderQueryOptions.Default,
             typeof(T)
         );
     }

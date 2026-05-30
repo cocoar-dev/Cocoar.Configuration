@@ -12,7 +12,7 @@ namespace Cocoar.Configuration.Fluent;
 /// <see cref="TypedProviderBuilder{T}"/> (so a non-DI rule like <c>FromFile</c> can still be placed in Layer 2)
 /// and additionally carries the <see cref="ServiceBackedRuleContext"/> that <c>(sp, a) =&gt; …</c> overloads read.
 /// <para>
-/// Because those overloads (<c>FromStorage</c>, <c>FromHttp((sp,a)=&gt;…)</c>, and any third-party one) target
+/// Because those overloads (<c>FromStore</c>, <c>FromHttp((sp,a)=&gt;…)</c>, and any third-party one) target
 /// <b>this</b> type, using them inside the Layer-1 <c>UseConfiguration</c> — which yields a plain
 /// <see cref="TypedProviderBuilder{T}"/> — is a <b>compile error</b>, not a runtime fault. A third-party provider
 /// is made service-backable simply by authoring an extension method on this type (and giving its provider options
@@ -81,7 +81,7 @@ public sealed class ServiceBackedProviderBuilder<T> : TypedProviderBuilder<T> wh
     /// the natural target when migrating <c>Configure&lt;TDep&gt;</c>/<c>IConfigureOptions&lt;T&gt;</c>.
     /// <para>
     /// Synchronous / in-memory by nature (it snapshots once per recompute, no change detection). For I/O-bound
-    /// sources (DB, HTTP) use an async provider instead — <c>FromStorage</c>, <c>FromHttp((sp,a)=&gt;…)</c>, or a
+    /// sources (DB, HTTP) use an async provider instead — <c>FromStore</c>, <c>FromHttp((sp,a)=&gt;…)</c>, or a
     /// custom provider — rather than blocking here.
     /// </para>
     /// </summary>

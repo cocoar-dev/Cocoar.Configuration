@@ -3,17 +3,17 @@ using Cocoar.Configuration.Reactive.Internal;
 namespace Cocoar.Configuration.Providers;
 
 /// <summary>
-/// Shared state object that bridges the provider (read path) and <c>ILocalStorage&lt;T&gt;</c> (write path).
-/// Created once in <c>FromLocalStorage()</c> and captured by both the provider options closure and DI registration.
+/// Shared state object that bridges the provider (read path) and <c>IWritableStore&lt;T&gt;</c> (write path).
+/// Created once in <c>FromStore()</c> and captured by both the provider options closure and DI registration.
 /// </summary>
-public sealed class LocalStorageStore : IDisposable
+public sealed class WritableStoreState : IDisposable
 {
-    private volatile IStorageBackend _backend;
+    private volatile IStoreBackend _backend;
     private readonly string _storageKey;
     private readonly SimpleSubject<byte[]> _changeSubject = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-    public LocalStorageStore(IStorageBackend backend, string storageKey)
+    public WritableStoreState(IStoreBackend backend, string storageKey)
     {
         ArgumentNullException.ThrowIfNull(backend);
         ArgumentException.ThrowIfNullOrWhiteSpace(storageKey);
@@ -26,14 +26,14 @@ public sealed class LocalStorageStore : IDisposable
     /// The current storage backend. Exposed so the config-aware factory can
     /// pass it back to the user for comparison/reuse decisions.
     /// </summary>
-    internal IStorageBackend Backend => _backend;
+    internal IStoreBackend Backend => _backend;
 
     /// <summary>
     /// Replaces the storage backend. Called during recompute when config-aware
     /// factory produces a new backend (e.g., connection string changed).
     /// The store instance stays the same — DI references remain valid.
     /// </summary>
-    internal void ReplaceBackend(IStorageBackend backend)
+    internal void ReplaceBackend(IStoreBackend backend)
     {
         ArgumentNullException.ThrowIfNull(backend);
         _backend = backend;
@@ -41,7 +41,7 @@ public sealed class LocalStorageStore : IDisposable
 
     /// <summary>
     /// The configuration type this store is associated with.
-    /// Used by DI registration to match <c>ILocalStorage&lt;T&gt;</c> to the correct store.
+    /// Used by DI registration to match <c>IWritableStore&lt;T&gt;</c> to the correct store.
     /// </summary>
     public Type ConfigurationType { get; init; } = null!;
 

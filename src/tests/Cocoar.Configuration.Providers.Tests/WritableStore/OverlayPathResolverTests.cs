@@ -1,7 +1,7 @@
 using Cocoar.Configuration.Providers;
 using Xunit;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 public class OverlayPathResolverTests
 {

@@ -11,10 +11,10 @@ namespace Cocoar.Configuration.DI;
 public static class ServiceBackedRulesExtensions
 {
     /// <summary>
-    /// Creates a <b>service-backed</b> storage rule whose <see cref="IStorageBackend"/> is built from the
+    /// Creates a <b>service-backed</b> storage rule whose <see cref="IStoreBackend"/> is built from the
     /// application container — e.g. a Marten/EF backend over a DI-managed <c>IDocumentStore</c> /
-    /// <c>IDbContextFactory&lt;T&gt;</c>. Reuses the (tenant-keyed) LocalStorage backend pipeline, so it also
-    /// exposes the <c>ILocalStorage&lt;T&gt;</c> write facade and composes with <c>.TenantScoped()</c> for
+    /// <c>IDbContextFactory&lt;T&gt;</c>. Reuses the (tenant-keyed) WritableStore backend pipeline, so it also
+    /// exposes the <c>IWritableStore&lt;T&gt;</c> write facade and composes with <c>.TenantScoped()</c> for
     /// per-tenant, DB-backed configuration.
     /// </summary>
     /// <remarks>
@@ -26,11 +26,11 @@ public static class ServiceBackedRulesExtensions
     /// <param name="builder">The typed provider builder.</param>
     /// <param name="backendFactory">Factory receiving the root <see cref="IServiceProvider"/> and the current
     /// <see cref="IConfigurationAccessor"/> (its <c>Tenant</c> is set in a tenant pipeline) and returning the
-    /// <see cref="IStorageBackend"/> to read configuration from.</param>
-    public static ProviderRuleBuilder<LocalStorageProvider, LocalStorageProviderOptions, LocalStorageProviderQueryOptions>
-        FromStorage<T>(
+    /// <see cref="IStoreBackend"/> to read configuration from.</param>
+    public static ProviderRuleBuilder<WritableStoreProvider, WritableStoreProviderOptions, WritableStoreProviderQueryOptions>
+        FromStore<T>(
             this ServiceBackedProviderBuilder<T> builder,
-            Func<IServiceProvider, IConfigurationAccessor, IStorageBackend> backendFactory)
+            Func<IServiceProvider, IConfigurationAccessor, IStoreBackend> backendFactory)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -38,10 +38,10 @@ public static class ServiceBackedRulesExtensions
 
         var context = builder.Context;
 
-        // Reuse the core LocalStorage backend-factory rule (already tenant-keyed: one store per tenant, the
+        // Reuse the core WritableStore backend-factory rule (already tenant-keyed: one store per tenant, the
         // backend swapped per recompute). currentBackend is ignored — a backend wrapping a DI singleton is cheap
         // to re-create and opens its short-lived units per read.
-        var rule = builder.FromLocalStorage(
+        var rule = builder.FromStore(
             (accessor, _) => backendFactory(context.ServiceProvider, accessor));
 
         // sp-gate: dormant until the container is built; composes (AND) with any .TenantScoped() the caller adds,

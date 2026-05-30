@@ -50,7 +50,7 @@ var smtp  = manager.GetConfigForTenant<SmtpSettings>("acme");          // sync r
 var live  = manager.GetReactiveConfigForTenant<SmtpSettings>("acme");  // IReactiveConfig<T> for this tenant
 var flags = manager.GetFeatureFlagsForTenant<BillingFlags>("acme");
 var ents  = manager.GetEntitlementsForTenant<PlanEntitlements>("acme");
-var store = manager.GetLocalStorageForTenant<SmtpSettings>("acme");    // per-tenant write facade
+var store = manager.GetWritableStoreForTenant<SmtpSettings>("acme");    // per-tenant write facade
 ```
 
 ### Not DI-injectable — by design
@@ -102,21 +102,21 @@ app.MapTenantFeatureFlagEndpoints();   // GET /tenants/{tenant}/flags/{FlagClass
 app.MapTenantEntitlementEndpoints();   // GET /tenants/{tenant}/entitlements/{Class}/{Name}
 ```
 
-## Per-tenant LocalStorage
+## Per-tenant WritableStore
 
 Give each tenant its own backend via the factory overload (the store is keyed by `accessor.Tenant`), and write through the per-tenant facade:
 
 ```csharp
-rules.For<SmtpSettings>().FromLocalStorage((a, _) => BackendFor(a.Tenant)).TenantScoped()
+rules.For<SmtpSettings>().FromStore((a, _) => BackendFor(a.Tenant)).TenantScoped()
 
-await manager.GetLocalStorageForTenant<SmtpSettings>("acme").SetAsync(x => x.Port, 587);
+await manager.GetWritableStoreForTenant<SmtpSettings>("acme").SetAsync(x => x.Port, 587);
 ```
 
 A write triggers only that tenant's recompute; other tenants are untouched. Provenance (`DescribeAsync`) is computed over the tenant's own layers.
 
 ### DB-backed config per tenant
 
-When the per-tenant source is a database (Marten / EF) reached through a DI-managed store, use `FromStorage((sp, a) => …).TenantScoped()` — the tenant gate and the service-provider gate compose, so the rule runs only inside a tenant pipeline, after the host has started. See [Service-Backed Configuration](/guide/di/service-backed#db-backed-config-with-fromstorage).
+When the per-tenant source is a database (Marten / EF) reached through a DI-managed store, use `FromStore((sp, a) => …).TenantScoped()` — the tenant gate and the service-provider gate compose, so the rule runs only inside a tenant pipeline, after the host has started. See [Service-Backed Configuration](/guide/di/service-backed#db-backed-config-with-fromstorage).
 
 ## Per-tenant secrets
 

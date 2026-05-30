@@ -5,7 +5,7 @@ using Cocoar.Configuration.Providers;
 using Cocoar.Json.Mutable;
 using Xunit;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 public class SparseOverlayMutatorTests
 {

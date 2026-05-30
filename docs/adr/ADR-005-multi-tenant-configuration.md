@@ -4,7 +4,7 @@
 **Date:** 2026-05-29 (updated 2026-05-30)
 **Decision Makers:** Core Team
 **Type:** Feature / Architecture
-**Related:** ADR-001 (Capabilities), ADR-002 (Atomic Reactive Updates), ADR-004 (Aggregate Rules), PR #47 (LocalStorage sparse override overlay), Secrets encryption-key publishing
+**Related:** ADR-001 (Capabilities), ADR-002 (Atomic Reactive Updates), ADR-004 (Aggregate Rules), PR #47 (WritableStore sparse override overlay), Secrets encryption-key publishing
 
 ---
 
@@ -51,11 +51,11 @@ services.AddCocoarConfiguration(c => c.UseConfiguration(rules =>
 
     // Global base for a type that is ALSO tenant-overridable:
     rules.For<SmtpSettings>().FromStaticJson(smtpDefaults),
-    rules.For<SmtpSettings>().FromLocalStorage(),                 // global app-override
+    rules.For<SmtpSettings>().FromStore(),                 // global app-override
 
     // Tenant-scoped overlays — same flat list, marked .TenantScoped(); the id flows via the accessor:
     rules.For<SmtpSettings>().FromFile(a => $"tenants/{a.Tenant}/smtp.json").TenantScoped(),
-    rules.For<SmtpSettings>().FromLocalStorage((a, _) => BackendFor(a.Tenant)).TenantScoped(),   // per-tenant backend
+    rules.For<SmtpSettings>().FromStore((a, _) => BackendFor(a.Tenant)).TenantScoped(),   // per-tenant backend
 ]));
 ```
 
@@ -94,7 +94,7 @@ Tenant-scoped values are obtained by **passing the tenant id**, never by DI inje
 ```csharp
 var smtp  = mgr.GetConfigForTenant<SmtpSettings>(tenantId);          // sync
 var live  = mgr.GetReactiveConfigForTenant<SmtpSettings>(tenantId);
-var store = mgr.GetLocalStorageForTenant<SmtpSettings>(tenantId);    // per-tenant write facade
+var store = mgr.GetWritableStoreForTenant<SmtpSettings>(tenantId);    // per-tenant write facade
 var flags = mgr.GetFeatureFlagsForTenant<BillingFlags>(tenantId);
 var ents  = mgr.GetEntitlementsForTenant<PlanEntitlements>(tenantId);
 ```
@@ -114,7 +114,7 @@ Each tenant snapshot layers on the global base, so a change to the **global** ba
 The tenant dimension is unified by the factory + bundle:
 
 - **Feature Flags / Entitlements** become tenant-aware **without a source-generator change**: the generated flag class already reads an injected `IReactiveConfig<TConfig>`; tenant-awareness means constructing it with the **tenant's** `IReactiveConfig`. `GetFeatureFlagsForTenant<TFlags>(id)` is a per-`(tenant, TFlags)` factory/cache over the existing generated class. The context-aware evaluator and the REST endpoints (`MapFeatureFlagEndpoints`) gain a tenant dimension (e.g. a route segment).
-- **LocalStorage** per tenant: reads fall out of the factory (`FromLocalStorage(BackendFor(tenant))`; file backend = a folder per tenant); writes go through a per-tenant `GetLocalStorageForTenant<T>(id)` facade pointing at the tenant's backend.
+- **WritableStore** per tenant: reads fall out of the factory (`FromStore(BackendFor(tenant))`; file backend = a folder per tenant); writes go through a per-tenant `GetWritableStoreForTenant<T>(id)` facade pointing at the tenant's backend.
 - **Secrets** are already tenant-capable via folder mode (`kid` = tenant subfolder routes decryption); a tenant writes its encrypted envelope to its own backend, decrypted with its own cert.
 
 ### 8. No-DI core preserved
@@ -187,7 +187,7 @@ All rejected in favor of *one flat rule list + per-rule `.TenantScoped()` + `Ten
 
 ## References
 
-- PR #47 — LocalStorage sparse override overlay (`ConfigManager.BuildBaseJson`, `MutableJsonMerge`) — the merge/overlay foundation reused here
+- PR #47 — WritableStore sparse override overlay (`ConfigManager.BuildBaseJson`, `MutableJsonMerge`) — the merge/overlay foundation reused here
 - `src/Cocoar.Configuration/Core/ConfigurationEngine.cs` — recompute pipeline (per-instance semaphore + scheduler)
 - `src/Cocoar.Configuration/Core/MasterBackplane.cs` — `SnapshotStream` (fan-out hook), per-instance publish/dispose
 - `src/Cocoar.Configuration/Core/ConfigManager.cs` — current single-pipeline ownership to be extended

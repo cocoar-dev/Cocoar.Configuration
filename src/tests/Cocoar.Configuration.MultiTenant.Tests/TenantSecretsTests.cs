@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.Providers; // FromStaticJson / FromLocalStorage / IStorageBackend / GetLocalStorageForTenant
+using Cocoar.Configuration.Providers; // FromStaticJson / FromStore / IStoreBackend / GetWritableStoreForTenant
 using Cocoar.Configuration.Secrets;
 using Cocoar.Configuration.Secrets.SecretTypes;
 using Cocoar.Configuration.X509Encryption;
@@ -36,7 +36,7 @@ public sealed class TenantSecretsTests : IDisposable
         using var certB = GenerateTenantCert("tenantB");
 
         var backends = new Dictionary<string, InMemoryBackend>();
-        IStorageBackend BackendFor(string? tenant)
+        IStoreBackend BackendFor(string? tenant)
         {
             if (!backends.TryGetValue(tenant ?? "", out var b)) backends[tenant ?? ""] = b = new InMemoryBackend();
             return b;
@@ -47,7 +47,7 @@ public sealed class TenantSecretsTests : IDisposable
             .UseConfiguration(rules =>
             [
                 rules.For<VaultConfig>().FromStaticJson("{}"),
-                rules.For<VaultConfig>().FromLocalStorage((a, _) => BackendFor(a.Tenant)).TenantScoped(),
+                rules.For<VaultConfig>().FromStore((a, _) => BackendFor(a.Tenant)).TenantScoped(),
             ])
             .UseSecretsSetup(secrets => secrets.UseCertificatesFromFolder(_certsRoot))
             .UseDebounce(25));
@@ -60,14 +60,14 @@ public sealed class TenantSecretsTests : IDisposable
         await tenants.InitializeTenantAsync("tenantB");
 
         // Tenant A: encrypt "secret-A" to A's public key (kid=tenantA), write to A's overlay -> A decrypts.
-        await mgr.GetLocalStorageForTenant<VaultConfig>("tenantA")
+        await mgr.GetWritableStoreForTenant<VaultConfig>("tenantA")
             .SetSecretAsync(x => x.ApiKey!, EncryptForKid(certA.GetRSAPublicKey()!, "tenantA", "secret-A"));
         await TenantWait.UntilAsync(() => mgr.GetConfigForTenant<VaultConfig>("tenantA")?.ApiKey is not null, "tenant A secret applied");
         using (var leaseA = mgr.GetConfigForTenant<VaultConfig>("tenantA")!.ApiKey!.Open())
             Assert.Equal("secret-A", leaseA.Value);
 
         // Tenant B: its own kid + cert.
-        await mgr.GetLocalStorageForTenant<VaultConfig>("tenantB")
+        await mgr.GetWritableStoreForTenant<VaultConfig>("tenantB")
             .SetSecretAsync(x => x.ApiKey!, EncryptForKid(certB.GetRSAPublicKey()!, "tenantB", "secret-B"));
         await TenantWait.UntilAsync(() => mgr.GetConfigForTenant<VaultConfig>("tenantB")?.ApiKey is not null, "tenant B secret applied");
         using (var leaseB = mgr.GetConfigForTenant<VaultConfig>("tenantB")!.ApiKey!.Open())

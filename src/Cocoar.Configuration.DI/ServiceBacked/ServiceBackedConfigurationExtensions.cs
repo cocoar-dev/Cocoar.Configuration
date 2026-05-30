@@ -7,7 +7,7 @@ namespace Cocoar.Configuration.DI;
 
 /// <summary>
 /// The DI-package authoring surface for service-backed (Layer-2, ADR-006) configuration: rules whose provider
-/// factories receive the application <see cref="IServiceProvider"/> (e.g. <c>FromStorage</c>,
+/// factories receive the application <see cref="IServiceProvider"/> (e.g. <c>FromStore</c>,
 /// <c>FromHttp((sp,a)=&gt;…)</c>). Layer 1 (<c>UseConfiguration</c>) stays eager and DI-free; Layer 2 is lazy
 /// and container-owned, activated on host start.
 /// </summary>
@@ -30,7 +30,7 @@ public static class ServiceBackedConfigurationExtensions
     ///         rules.For&lt;LogConfig&gt;().FromHttp(
     ///             (sp, a) => sp.GetRequiredService&lt;IHttpClientFactory&gt;().CreateClient("cocoar-config"),
     ///             "logging.json", pollInterval: TimeSpan.FromSeconds(30)),
-    ///         rules.For&lt;TenantSettings&gt;().FromStorage(
+    ///         rules.For&lt;TenantSettings&gt;().FromStore(
     ///             (sp, a) => new MartenConfigBackend(sp.GetRequiredService&lt;IDocumentStore&gt;(), a.Tenant))
     ///             .TenantScoped()
     ///     ]));
@@ -38,7 +38,7 @@ public static class ServiceBackedConfigurationExtensions
     /// </example>
     /// <param name="builder">The configuration builder.</param>
     /// <param name="rules">A function that builds the service-backed rules using the fluent API; its sp-using
-    /// factories (<c>FromStorage</c>, <c>FromHttp((sp,a)=&gt;…)</c>) read the container at recompute time.</param>
+    /// factories (<c>FromStore</c>, <c>FromHttp((sp,a)=&gt;…)</c>) read the container at recompute time.</param>
     public static ConfigManagerBuilder UseServiceBackedConfiguration(
         this ConfigManagerBuilder builder,
         Func<ServiceBackedRulesBuilder, ConfigRule[]> rules)
@@ -51,7 +51,7 @@ public static class ServiceBackedConfigurationExtensions
 
         // The context exposes the activation signal + provider as late-bound values over the shared holder. It is
         // carried by the ServiceBackedProviderBuilder<T> handed to each For<T>() and read by the sp-using overloads
-        // (FromStorage / FromHttp((sp,a)=>…) / third-party ones) — no ambient state.
+        // (FromStore / FromHttp((sp,a)=>…) / third-party ones) — no ambient state.
         var context = new ServiceBackedRuleContext(
             isActive: () => holder.HasServiceProvider,
             serviceProvider: () => holder.ServiceProvider!);

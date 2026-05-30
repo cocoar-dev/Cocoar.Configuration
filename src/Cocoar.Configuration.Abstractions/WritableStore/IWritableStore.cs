@@ -2,12 +2,12 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using Cocoar.Configuration.Secrets.SecretTypes;
 
-namespace Cocoar.Configuration.LocalStorage;
+namespace Cocoar.Configuration.WritableStore;
 
 /// <summary>
-/// Type-safe facade for a LocalStorage override layer over configuration type <typeparamref name="T"/>.
+/// Type-safe facade for a WritableStore override layer over configuration type <typeparamref name="T"/>.
 /// <para>
-/// LocalStorage supplies <em>overridable defaults</em>: the normal sources (files, environment, …) provide
+/// WritableStore supplies <em>overridable defaults</em>: the normal sources (files, environment, …) provide
 /// defaults, and the application overrides individual values at runtime. Writes are <em>sparse</em> — only
 /// the keys you set are persisted, everything else continues to inherit from the lower layers. A write
 /// triggers the normal recompute, so <c>IReactiveConfig&lt;T&gt;</c> emits the new effective value.
@@ -18,7 +18,7 @@ namespace Cocoar.Configuration.LocalStorage;
 /// </para>
 /// </summary>
 /// <typeparam name="T">The configuration type this overlay targets.</typeparam>
-public interface ILocalStorage<T> where T : class
+public interface IWritableStore<T> where T : class
 {
     /// <summary>
     /// Overrides a single value selected by a member-access expression (e.g. <c>x => x.Smtp.Port</c>),
@@ -65,23 +65,23 @@ public interface ILocalStorage<T> where T : class
     /// without this overlay) and the overlay, each annotated with its base value, effective value, and whether
     /// it is currently overridden.
     /// </summary>
-    Task<IReadOnlyList<OverrideEntry>> DescribeAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<StoreEntry>> DescribeAsync(CancellationToken ct = default);
 
     /// <summary>
     /// The raw, key-path overlay surface for dynamic or non-expressible paths.
     /// </summary>
-    ILocalStorageOverlay<T> Overlay { get; }
+    IWritableStoreOverlay<T> Overlay { get; }
 }
 
 /// <summary>
-/// Per-leaf provenance entry produced by <see cref="ILocalStorage{T}.DescribeAsync"/>.
+/// Per-leaf provenance entry produced by <see cref="IWritableStore{T}.DescribeAsync"/>.
 /// </summary>
 /// <param name="KeyPath">Dotted leaf path (e.g. <c>"Smtp.Port"</c>).</param>
 /// <param name="BaseValue">The value from the lower layers, without this overlay; <see langword="null"/> if absent there.</param>
 /// <param name="EffectiveValue">The merged/effective value seen by the application; <see langword="null"/> if absent.</param>
-/// <param name="IsOverridden"><see langword="true"/> when the overlay supplies this key.</param>
-public sealed record OverrideEntry(
+/// <param name="IsSet"><see langword="true"/> when the overlay supplies this key.</param>
+public sealed record StoreEntry(
     string KeyPath,
     JsonElement? BaseValue,
     JsonElement? EffectiveValue,
-    bool IsOverridden);
+    bool IsSet);

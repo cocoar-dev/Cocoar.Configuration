@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using Cocoar.Configuration.Providers; // IStorageBackend
+using Cocoar.Configuration.Providers; // IStoreBackend
 
 namespace Cocoar.Configuration.ServiceBacked.Tests;
 
@@ -64,8 +64,8 @@ internal sealed class StubHttpHandler : HttpMessageHandler
 
 // ===== Storage test doubles =====
 
-/// <summary>An in-memory <see cref="IStorageBackend"/> seeded with a fixed JSON body (read-only for tests).</summary>
-internal sealed class SeededBackend : IStorageBackend
+/// <summary>An in-memory <see cref="IStoreBackend"/> seeded with a fixed JSON body (read-only for tests).</summary>
+internal sealed class SeededBackend : IStoreBackend
 {
     private byte[]? _data;
 
@@ -86,7 +86,7 @@ internal sealed class SeededBackend : IStorageBackend
 /// </summary>
 internal interface IFakeDocumentStore
 {
-    IStorageBackend BackendFor(string? tenant);
+    IStoreBackend BackendFor(string? tenant);
     IReadOnlyCollection<string> RequestedTenants { get; }
 }
 
@@ -95,7 +95,7 @@ internal sealed class FakeDocumentStore : IFakeDocumentStore
     private readonly ConcurrentDictionary<string, SeededBackend> _backends = new();
     private readonly ConcurrentDictionary<string, byte> _requested = new();
 
-    public IStorageBackend BackendFor(string? tenant)
+    public IStoreBackend BackendFor(string? tenant)
     {
         var key = tenant ?? "";
         _requested.TryAdd(key, 0);

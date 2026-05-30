@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Secrets.SecretTypes;
 
-namespace Cocoar.Configuration.Providers.Tests.LocalStorage;
+namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 
 public sealed class SmtpSettings
 {
@@ -36,7 +36,7 @@ public sealed class IndexableSettings
 }
 
 /// <summary>In-memory storage backend for deterministic overlay tests (no file I/O).</summary>
-public sealed class InMemoryBackend : IStorageBackend
+public sealed class InMemoryBackend : IStoreBackend
 {
     private byte[]? _data;
 

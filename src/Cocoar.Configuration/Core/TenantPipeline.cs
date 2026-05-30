@@ -26,7 +26,7 @@ namespace Cocoar.Configuration.Core;
 /// across all pipelines (ADR-005 §2). Each pipeline owns its own state/engine/accessor/reactive/rules.
 /// </para>
 /// </summary>
-internal sealed class TenantPipeline : ILocalStorageHost, IDisposable, IAsyncDisposable
+internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDisposable
 {
     private readonly ConfigManagerCapabilityScope _capabilityScope; // shared (read-only after Initialize)
     private readonly ExposureRegistry _bindingRegistry;             // shared (frozen)
@@ -107,7 +107,7 @@ internal sealed class TenantPipeline : ILocalStorageHost, IDisposable, IAsyncDis
         Volatile.Write(ref _initialized, 1);
     }
 
-    // ILocalStorageHost — a per-tenant LocalStorage overlay computes its base/effective JSON against THIS
+    // IWritableStoreHost — a per-tenant WritableStore overlay computes its base/effective JSON against THIS
     // pipeline's own rule managers and snapshot (mirrors ConfigManager.BuildBaseJson over the global managers).
     public MutableJsonObject BuildBaseJson(Type configType, Func<IRuleManager, bool> isExcludedLayer)
     {

@@ -1,15 +1,15 @@
 using System.Diagnostics;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
-using Cocoar.Configuration.LocalStorage;
+using Cocoar.Configuration.WritableStore;
 using Cocoar.Configuration.Providers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Examples.LocalStorageOverride;
+namespace Examples.WritableStoreExample;
 
-// Demonstrates LocalStorage as a SPARSE OVERRIDE OVERLAY:
+// Demonstrates WritableStore as a SPARSE OVERRIDE OVERLAY:
 //   - lower layers (here, a static JSON layer) supply the DEFAULTS
-//   - the application overrides INDIVIDUAL values at runtime via ILocalStorage<T>
+//   - the application overrides INDIVIDUAL values at runtime via IWritableStore<T>
 //   - only the overridden keys are persisted; everything else keeps inheriting
 //   - reset removes an override so the value falls back to the default again
 public static class Program
@@ -29,12 +29,12 @@ public static class Program
             // Defaults supplied by the normal sources (a file/env/etc. — a static layer here):
             rules.For<SmtpSettings>().FromStaticJson("""{ "Host": "smtp.default.com", "Port": 25, "UseSsl": false }"""),
             // The app-controlled override layer, placed AFTER so it wins for the keys it sets:
-            rules.For<SmtpSettings>().FromLocalStorage(),
+            rules.For<SmtpSettings>().FromStore(),
         ]));
 
         using var provider = services.BuildServiceProvider();
         var manager = provider.GetRequiredService<ConfigManager>();
-        var storage = provider.GetRequiredService<ILocalStorage<SmtpSettings>>();
+        var storage = provider.GetRequiredService<IWritableStore<SmtpSettings>>();
 
         // Start from a clean overlay so the demo is deterministic across runs.
         await storage.ClearAsync();
@@ -59,7 +59,7 @@ public static class Program
         {
             Console.WriteLine(
                 $"  {entry.KeyPath,-8} base={Render(entry.BaseValue),-20} " +
-                $"effective={Render(entry.EffectiveValue),-20} overridden={entry.IsOverridden}");
+                $"effective={Render(entry.EffectiveValue),-20} overridden={entry.IsSet}");
         }
 
         // Reset one override — the value falls back to the default.

@@ -33,7 +33,7 @@ internal interface IRuleManager : IDisposable
 
     /// <summary>
     /// The provider instance currently held by this rule, or <see langword="null"/> if not yet acquired
-    /// (or for aggregates, which have no single provider). Used by overlay providers (e.g. LocalStorage)
+    /// (or for aggregates, which have no single provider). Used by overlay providers (e.g. WritableStore)
     /// to locate their own layer in the pipeline by provider/store reference.
     /// </summary>
     ConfigurationProvider? CurrentProvider { get; }

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Hosting;
 // ADR-006 "service-backed" (Layer-2) configuration, end to end.
 //
 // Layer 1 (UseConfiguration) is eager and DI-free: a bootstrap default available before the container exists.
-// Layer 2 (UseServiceBackedConfiguration) is lazy and container-owned: its FromStorage factory resolves a
+// Layer 2 (UseServiceBackedConfiguration) is lazy and container-owned: its FromStore factory resolves a
 // DI-managed "store" (here an in-memory stand-in for Marten/EF) and overrides the base. Layer 2 activates on
 // host start via a recompute — so a reactive view obtained BEFORE the host runs still receives the upgrade.
 
@@ -27,7 +27,7 @@ builder.Services.AddCocoarConfiguration(c => c
     // Layer 2 — container-owned: the factory receives the IServiceProvider and resolves the store.
     .UseServiceBackedConfiguration(rules =>
     [
-        rules.For<FeatureConfig>().FromStorage((sp, _) => sp.GetRequiredService<IFeatureStore>().Backend),
+        rules.For<FeatureConfig>().FromStore((sp, _) => sp.GetRequiredService<IFeatureStore>().Backend),
     ])
     .UseDebounce(25));
 
@@ -65,16 +65,16 @@ public sealed record FeatureConfig
 /// <summary>A DI-managed store; in a real app this wraps Marten's IDocumentStore or an EF IDbContextFactory.</summary>
 public interface IFeatureStore
 {
-    IStorageBackend Backend { get; }
+    IStoreBackend Backend { get; }
 }
 
 internal sealed class InMemoryFeatureStore : IFeatureStore
 {
     // The "row" the store would load — overrides Banner, inherits MaxItems from the Layer-1 base (sparse overlay).
-    public IStorageBackend Backend { get; } = new SeededBackend("""{ "Banner": "live from the database" }""");
+    public IStoreBackend Backend { get; } = new SeededBackend("""{ "Banner": "live from the database" }""");
 }
 
-internal sealed class SeededBackend(string json) : IStorageBackend
+internal sealed class SeededBackend(string json) : IStoreBackend
 {
     private byte[] _data = Encoding.UTF8.GetBytes(json);
 

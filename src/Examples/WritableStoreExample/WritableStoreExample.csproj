@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsExampleProject>true</IsExampleProject>
-    <RootNamespace>Examples.LocalStorageOverride</RootNamespace>
+    <RootNamespace>Examples.WritableStoreExample</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />

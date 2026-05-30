@@ -1,24 +1,24 @@
 using System.Text.Json.Nodes;
 
-namespace Cocoar.Configuration.LocalStorage;
+namespace Cocoar.Configuration.WritableStore;
 
 /// <summary>
-/// Raw, key-path patch surface for a LocalStorage override layer.
+/// Raw, key-path patch surface for a WritableStore override layer.
 /// <para>
-/// LocalStorage contributes a <em>sparse</em> overlay: only the leaf keys it explicitly contains
+/// WritableStore contributes a <em>sparse</em> overlay: only the leaf keys it explicitly contains
 /// override the lower configuration layers (files, environment, …). Keys that are absent from the
 /// overlay inherit their value from those lower layers. This interface is the dependency-free
-/// (<c>JsonNode</c>-based) escape hatch used by the typed <see cref="ILocalStorage{T}"/> facade and by
+/// (<c>JsonNode</c>-based) escape hatch used by the typed <see cref="IWritableStore{T}"/> facade and by
 /// callers that need to address dynamic / non-expressible paths.
 /// </para>
 /// <para>
 /// Segments of the key path must match the JSON property names used by the lower layers.
 /// The typed facade resolves these automatically; when using this raw surface directly, the caller is
-/// responsible for the names. Do not use this surface for secret-typed paths — see <see cref="ILocalStorage{T}"/>.
+/// responsible for the names. Do not use this surface for secret-typed paths — see <see cref="IWritableStore{T}"/>.
 /// </para>
 /// </summary>
 /// <typeparam name="T">The configuration type this overlay targets.</typeparam>
-public interface ILocalStorageOverlay<T> where T : class
+public interface IWritableStoreOverlay<T> where T : class
 {
     /// <summary>
     /// Sets a sparse, dotted key path (e.g. <c>"Smtp.Port"</c>) to a JSON value, persisting only that leaf.
