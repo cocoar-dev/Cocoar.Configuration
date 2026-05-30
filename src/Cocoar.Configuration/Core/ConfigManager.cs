@@ -149,6 +149,21 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// Set by <c>UseEntitlements</c>. Null when entitlements have not been configured.
     /// </summary>
     internal EntitlementsSetupData? EntitlementsSetup { get; set; }
+
+    /// <summary>
+    /// The index of the first service-backed (Layer-2, ADR-006) rule in the global rule list, or <c>-1</c> when
+    /// no service-backed rules are configured. The DI activation recompute restores the prefix below this index
+    /// (Layer 1 stays stable) and re-runs the suffix once the container's <see cref="IServiceProvider"/> is set.
+    /// </summary>
+    internal int ServiceBackedLayerStartIndex { get; set; } = -1;
+
+    /// <summary>
+    /// Opaque carrier for the DI package's <c>ServiceProviderHolder</c> (kept as <see cref="object"/> so the
+    /// No-DI core never names a DI type). Set by <c>UseServiceBackedConfiguration</c>; read back by the DI
+    /// package after build to register the holder singleton and wire the activation hosted service.
+    /// </summary>
+    internal object? ServiceBackedHolder { get; set; }
+
     internal MasterBackplane Backplane => _state.Backplane;
 
     internal ConfigManager Initialize()
@@ -339,6 +354,55 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
         _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
+
+    /// <summary>
+    /// Runs a recompute of the GLOBAL pipeline from <paramref name="startIndex"/> directly to completion (under the
+    /// recompute semaphore), NOT via the cancel-on-reschedule scheduler. Used by the DI Layer-2 activation so a
+    /// concurrent provider-change signal cannot cancel activation before Layer 2 has committed (ADR-006 §7 readiness).
+    /// </summary>
+    internal Task RecomputeNowAsync(int startIndex, CancellationToken cancellationToken = default) =>
+        _engine.RecomputeAndUpdateHealthAsync(_ruleManagers, this, startIndex, cancellationToken);
+
+    /// <summary>
+    /// Runs the same direct recompute on every already-initialized tenant pipeline from <paramref name="startIndex"/>.
+    /// Used on Layer-2 activation so tenants built before the container was published (their sp-gated rules were
+    /// skipped at init) pick up their service-backed values. Each tenant degrades independently.
+    /// </summary>
+    internal async Task RecomputeInitializedTenantsNowAsync(int startIndex, CancellationToken cancellationToken = default)
+    {
+        foreach (var lazy in _tenants.Values)
+        {
+            if (!lazy.IsValueCreated)
+            {
+                continue;
+            }
+
+            var task = lazy.Value;
+            if (!task.IsCompletedSuccessfully)
+            {
+                continue;
+            }
+
+            var pipeline = task.Result;
+            if (!pipeline.IsInitialized)
+            {
+                continue;
+            }
+
+            try
+            {
+                // RecomputeAndUpdateHealthAsync swallows recompute failures; the per-tenant guard here additionally
+                // isolates the narrow dispose-race (a tenant removed mid-fan-out can surface ObjectDisposed /
+                // index races from its health update) so one removed/faulting tenant never blocks the others.
+                await pipeline.Engine.RecomputeAndUpdateHealthAsync(
+                    pipeline.RuleManagers, pipeline.Accessor, startIndex, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Isolated: this tenant self-heals on its next provider change.
+            }
+        }
+    }
 
     // ===== Tenant lifecycle (ADR-005 §4/§5, ITenantConfigurationAccessor) =====
 

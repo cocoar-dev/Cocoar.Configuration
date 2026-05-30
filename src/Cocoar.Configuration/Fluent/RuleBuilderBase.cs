@@ -15,6 +15,14 @@ public abstract class RuleBuilderBase<TBuilder>
     protected bool IsTenantScoped { get; set; }
 
     protected Func<IConfigurationAccessor, bool>? UseWhen { get; set; }
+
+    /// <summary>
+    /// A system-level activation gate, set by the DI/HTTP service-backed (Layer-2, ADR-006) overloads.
+    /// Evaluated independently of <see cref="UseWhen"/> and the <see cref="TenantScoped"/> marker, so a later
+    /// user <see cref="When"/> cannot remove it; the rule is skipped until the gate returns true.
+    /// </summary>
+    internal Func<IConfigurationAccessor, bool>? ActivationGate { get; private set; }
+
     protected Type? ConcreteType { get; set; }
     protected string? MountPath { get; set; }
     protected string? SelectPath { get; set; }
@@ -59,6 +67,20 @@ public abstract class RuleBuilderBase<TBuilder>
         UseWhen = existing is null
             ? static a => !string.IsNullOrWhiteSpace(a.Tenant)
             : a => existing(a) && !string.IsNullOrWhiteSpace(a.Tenant);
+        return (TBuilder)this;
+    }
+
+    /// <summary>
+    /// Attaches a system-level activation gate (composed with AND), evaluated independently of <see cref="When"/>
+    /// so a later user <c>.When()</c> cannot clobber it. The service-backed overloads (<c>FromStorage</c>,
+    /// <c>FromHttp((sp,a)=&gt;…)</c>) — and third-party ones — use it to keep a Layer-2 rule dormant until the
+    /// container is built: <c>.WithActivationGate(_ =&gt; context.IsActive)</c> (ADR-006).
+    /// </summary>
+    public TBuilder WithActivationGate(Func<IConfigurationAccessor, bool> gate)
+    {
+        ArgumentNullException.ThrowIfNull(gate);
+        var existing = ActivationGate;
+        ActivationGate = existing is null ? gate : a => existing(a) && gate(a);
         return (TBuilder)this;
     }
 

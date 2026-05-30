@@ -57,6 +57,31 @@ var store = manager.GetLocalStorageForTenant<SmtpSettings>("acme");    // per-te
 
 A type whose **every** rule is `.TenantScoped()` has no global value. Injecting it into a long-lived (singleton) consumer would be a captive-dependency bug — it would freeze one tenant forever, since the container cannot know the runtime tenant. The DI planner therefore **excludes** purely tenant-scoped types from the global plan. A type that *also* has a global base rule stays injectable (its base value is a valid global config). Consuming services inject the `ConfigManager` / `ITenantConfigurationAccessor` and call `…ForTenant(currentTenant)`.
 
+### Scoped per-request injection (ASP.NET Core)
+
+So scoped/transient services don't have to thread the tenant id by hand, `Cocoar.Configuration.AspNetCore` offers a **scoped** `ITenantReactiveConfig<T>` that resolves the *current request's* tenant for you. You supply a scoped `ITenantContext` (only your app knows where the tenant lives — a claim, header, or route value); the adapter delegates to `GetReactiveConfigForTenant<T>(tenant)`.
+
+```csharp
+// Register the adapter + a default ITenantContext that reads the tenant from the request:
+builder.Services.AddCocoarTenantReactiveConfig(http => http.Request.RouteValues["tenant"]?.ToString());
+
+// Ensure the tenant pipeline is warm before it is consumed (e.g. request-start middleware):
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.RouteValues["tenant"] is string t)
+        await app.Services.GetRequiredService<ConfigManager>().EnsureTenantInitializedAsync(t);
+    await next();
+});
+
+// In any scoped/transient service — no tenant id threaded by hand:
+public sealed class SmtpSender(ITenantReactiveConfig<SmtpSettings> smtp)
+{
+    public void Send() => Connect(smtp.CurrentValue.Host);   // this request's tenant
+}
+```
+
+The singleton `IReactiveConfig<T>` is **untouched** — it stays the global view, so singletons keep working. A singleton that needs a specific tenant still calls `GetReactiveConfigForTenant<T>(id)` explicitly (it has no ambient request tenant).
+
 ## Feature flags & entitlements per tenant
 
 The same source-generated flag/entitlement class is constructed with the **tenant's** `IReactiveConfig<T>`, so it evaluates against that tenant's effective config — **no source-generator change**:
@@ -88,6 +113,10 @@ await manager.GetLocalStorageForTenant<SmtpSettings>("acme").SetAsync(x => x.Por
 ```
 
 A write triggers only that tenant's recompute; other tenants are untouched. Provenance (`DescribeAsync`) is computed over the tenant's own layers.
+
+### DB-backed config per tenant
+
+When the per-tenant source is a database (Marten / EF) reached through a DI-managed store, use `FromStorage((sp, a) => …).TenantScoped()` — the tenant gate and the service-provider gate compose, so the rule runs only inside a tenant pipeline, after the host has started. See [Service-Backed Configuration](/guide/di/service-backed#db-backed-config-with-fromstorage).
 
 ## Per-tenant secrets
 

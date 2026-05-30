@@ -36,7 +36,8 @@ public sealed class ProviderRuleBuilder<TProvider, TInstanceOptions, TQueryOptio
                 Required: IsRequired,
                 UseWhen: UseWhen,
                 Name: Name,
-                TenantScoped: IsTenantScoped)
+                TenantScoped: IsTenantScoped,
+                ActivationGate: ActivationGate)
             .WithMount(MountPath)
             .WithSelect(SelectPath);
 

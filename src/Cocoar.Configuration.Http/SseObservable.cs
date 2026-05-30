@@ -88,13 +88,15 @@ internal sealed class SseObservable(HttpProvider provider, HttpProviderQueryOpti
 
     private async Task ConnectAndReadSseAsync(IObserver<byte[]> observer, CancellationToken ct)
     {
-        var url = HttpProvider.BuildUrl(provider.Client, query.Url);
+        // One client for this whole connection (service-backed: a fresh pooled-handler client per reconnect).
+        var client = provider.AcquireClient();
+        var url = HttpProvider.BuildUrl(client, query.Url);
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Accept.Add(new("text/event-stream"));
         HttpProvider.ApplyHeaders(req, query.Headers);
 
-        using var resp = await provider.Client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
+        using var resp = await client.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
 

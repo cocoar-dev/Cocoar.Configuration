@@ -76,6 +76,7 @@ export default defineConfig({
             { text: 'DI Setup', link: '/guide/di/setup' },
             { text: 'ASP.NET Core', link: '/guide/di/aspnetcore' },
             { text: 'Lifetimes & Registration <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/di/lifetimes' },
+            { text: 'Service-Backed Config <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/di/service-backed' },
           ],
         },
         {

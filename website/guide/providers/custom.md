@@ -125,6 +125,75 @@ rule.For<AppSettings>()
     .Named("Database Config")
 ```
 
+## Service-Backed Providers (DI-aware) <Badge type="info" text="ADV" />
+
+The `FromDatabase` above takes a **connection string** and `new`s its own `SqlConnection` — so it works at registration time, before the container exists. But what if your provider should use a **DI-managed** resource — an `IDbContextFactory<T>`, a Marten `IDocumentStore`, an `IHttpClientFactory`? Those don't exist when `AddCocoarConfiguration` runs. That's the [two-layer / service-backed model](/guide/di/service-backed): a custom provider opts into it, and **whether it does is entirely your choice as the author**.
+
+A service-backed provider is **its own provider** — a separate class from the no-DI one above — and carries only what the DI path needs, often just the resolved service.
+
+The framework builds your provider as `new YourProvider(options)`, so what you resolve has to travel on the **options** (the provider's only input). The natural shape: resolve the DI-managed **factory or store** — a singleton like `IDbConnectionFactory`, `IHttpClientFactory`, or a Marten `IDocumentStore` — and pass it on the options as a plain value; the provider opens a short-lived unit per read from it.
+
+```csharp
+// Options carry the resolved DI singleton (a connection factory).
+public sealed record DbConfigOptions(IDbConnectionFactory Connections) : IProviderConfiguration
+{
+    public string? GenerateProviderKey() => null; // carries a DI-resolved dependency → never share this provider
+}
+
+public sealed record DbConfigQuery(string Key) : IProviderQuery;
+
+public sealed class DbConfigProvider(DbConfigOptions options)
+    : ConfigurationProvider<DbConfigOptions, DbConfigQuery>(options)
+{
+    public override async Task<byte[]> FetchConfigurationBytesAsync(
+        DbConfigQuery query, CancellationToken ct = default)
+    {
+        await using var conn = ProviderOptions.Connections.Create(); // short-lived unit, opened per read
+        await conn.OpenAsync(ct);
+
+        var json = await conn.QuerySingleOrDefaultAsync<string>(
+            "SELECT JsonValue FROM Configuration WHERE ConfigKey = @Key", new { Key = query.Key });
+
+        return json is not null ? Encoding.UTF8.GetBytes(json) : "{}"u8.ToArray();
+    }
+
+    public override IObservable<byte[]> ChangesAsBytes(DbConfigQuery query) => ObservableHelpers.Never<byte[]>();
+}
+```
+
+The fluent overload uses the `ServiceBacked(...)` helper. The `(sp, _) => …` you pass is a **factory, not an eager call** — `ServiceBacked` invokes it later, at recompute time, so nothing is resolved when you author the rule. You're describing *how* to build the options, not building them now:
+
+```csharp
+public static ProviderRuleBuilder<DbConfigProvider, DbConfigOptions, DbConfigQuery>
+    FromDatabase<T>(this ServiceBackedProviderBuilder<T> builder, string configKey) where T : class
+    => builder.ServiceBacked<DbConfigProvider, DbConfigOptions, DbConfigQuery>(
+        (sp, _) => new DbConfigOptions(sp.GetRequiredService<IDbConnectionFactory>()), // runs at recompute, not here
+        _ => new DbConfigQuery(configKey));
+```
+
+::: warning Nothing is resolved in the method body
+`FromDatabase` returns immediately at registration — it just hands `ServiceBacked` the `(sp, _) => …` factory. `sp.GetRequiredService<…>()` runs only when the framework calls that factory during a recompute, after the host has started. (For per-read freshness, resolve a **factory/store** and call it inside the provider — `Connections.Create()` above — rather than resolving a live connection here.)
+:::
+
+That's the whole pattern: a Layer-1 provider built against `TypedRuleBuilder<T>`, and a Layer-2 provider built against `ServiceBackedProviderBuilder<T>` — two small providers, one per layer. (If their inputs happen to overlap you can put both overloads on one class, but you rarely need to.)
+
+Now the provider can pull a DI-managed resource — only inside `UseServiceBackedConfiguration`:
+
+```csharp
+services.AddCocoarConfiguration(c => c
+    .UseConfiguration(rules => [ /* eager, no-DI bootstrap */ ])
+    .UseServiceBackedConfiguration(rules =>
+    [
+        rules.For<AppSettings>().FromDatabase("AppSettings"),
+    ]));
+```
+
+::: tip Type-safe, not stringly-gated
+The Layer-2 overload targets `ServiceBackedProviderBuilder<T>`. Calling it inside the Layer-1 `UseConfiguration` (a plain `TypedRuleBuilder<T>`) is a **compile error** — the type system keeps DI-backed loading out of the eager layer. The whole seam (`ServiceBackedProviderBuilder<T>.Context`, `ServiceBackedRuleContext`, `WithActivationGate`) is **public**, so this needs no internals.
+:::
+
+Lifetime discipline (ADR-006 §9): the `IServiceProvider` is the **root** — resolve singletons / factories (`IDbContextFactory<T>`, `IDocumentStore`, `IHttpClientFactory`) and open a short-lived unit per read (as the `await using var conn` above does). Never resolve a scoped service from root. Combine with `.TenantScoped()` for DB-config-per-tenant. See [Service-Backed Configuration](/guide/di/service-backed) for the full lifecycle, readiness, and failure contracts.
+
 ## Change Detection
 
 For reactive providers, return an `IObservable<byte[]>` that emits when the source changes:

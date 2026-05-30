@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cocoar.Configuration.Providers.Abstractions;
 
@@ -35,17 +36,48 @@ public sealed class HttpProviderOptions : IProviderConfiguration
     [JsonIgnore]
     public HttpMessageHandler? Handler { get; }
 
+    /// <summary>
+    /// Optional factory for an externally-owned <see cref="HttpClient"/> — used by the service-backed
+    /// (Layer-2, ADR-006) <c>FromHttp((sp,a)=&gt;…)</c> overload to source a client from
+    /// <c>IHttpClientFactory</c>. Invoked lazily, only when the provider is (re)built, so the
+    /// <see cref="IServiceProvider"/> is read at recompute time. When set, the provider does NOT dispose the
+    /// client (the factory owns the pooled handler). Takes precedence over <see cref="Handler"/>.
+    /// Not serialized for provider key generation.
+    /// </summary>
+    [JsonIgnore]
+    public Func<HttpClient>? ClientFactory { get; }
+
     public HttpProviderOptions(
         TimeSpan? pollInterval = null,
         bool serverSentEvents = false,
         TimeSpan? fallbackPollInterval = null,
         int errorConsecutiveFailureThreshold = 3,
-        HttpMessageHandler? handler = null)
+        HttpMessageHandler? handler = null,
+        Func<HttpClient>? clientFactory = null)
     {
         PollInterval = pollInterval;
         ServerSentEvents = serverSentEvents;
         FallbackPollInterval = fallbackPollInterval;
         ErrorConsecutiveFailureThreshold = errorConsecutiveFailureThreshold <= 0 ? 3 : errorConsecutiveFailureThreshold;
         Handler = handler;
+        ClientFactory = clientFactory;
     }
+
+    private static readonly JsonSerializerOptions ProviderKeyOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        PropertyNamingPolicy = null,
+        WriteIndented = false,
+    };
+
+    /// <summary>
+    /// A service-backed client (from <c>IHttpClientFactory</c>) is externally owned and per-rule — two rules with
+    /// distinct clients must never collapse onto one shared <see cref="HttpProvider"/>. Since <see cref="ClientFactory"/>
+    /// is <c>[JsonIgnore]</c>d and so invisible to the default serialized key, return <c>null</c> (never share) in that
+    /// case — mirroring <c>LocalStorageProviderOptions</c>. The Layer-1 (no-factory) key is unchanged.
+    /// </summary>
+    public string? GenerateProviderKey()
+        => ClientFactory is not null
+            ? null
+            : JsonSerializer.Serialize(this, typeof(HttpProviderOptions), ProviderKeyOptions);
 }

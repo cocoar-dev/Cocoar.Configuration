@@ -141,6 +141,14 @@ internal sealed class RuleManager : IRuleManager
             return MarkSkipped();
         }
 
+        // A service-backed (Layer-2, ADR-006) rule stays dormant until the application container is built and the
+        // activation recompute runs. Enforced via a dedicated gate (not the user .When predicate) so it holds
+        // regardless of fluent ordering — a later .When() cannot clobber it (mirrors the .TenantScoped() marker).
+        if (_rule.Options?.ActivationGate is { } activationGate && !activationGate.Invoke(accessor))
+        {
+            return MarkSkipped();
+        }
+
         if (_rule.Options?.UseWhen == null)
         {
             return false;
