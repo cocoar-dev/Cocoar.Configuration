@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Configure;
@@ -16,22 +17,31 @@ using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
-public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncDisposable
+public sealed class ConfigManager : IConfigurationAccessor, ITenantConfigurationAccessor, ILocalStorageHost, IDisposable, IAsyncDisposable
 {
-    private List<ConfigRule> _rules = null!;
     private List<SetupDefinition> _setupDefinitions = null!;
-    private readonly List<IRuleManager> _ruleManagers = new();
-
-    private ConfigurationAccessor _accessor = null!;
-    private ReactiveConfigurationFactory _reactiveFactory = null!;
-    private ReactiveConfigManager _reactiveConfigManager = null!;
     private readonly ConfigManagerCapabilityScope _capabilityScope;
-    private ConfigurationEngine _engine = null!;
-    private ConfigurationState _state = null!;
-    private ProviderRegistry _providerRegistry = null!;
     private ExposureRegistry _bindingRegistry = null!;
     private ILogger _logger = NullLogger.Instance;
     private int _debounceMilliseconds = 300;
+    private IFlagsHealthSource? _flagsHealthSource;
+    private Func<Type, IProviderConfiguration, ConfigurationProvider>? _providerFactory;
+
+    // The single global pipeline IS "the bundle without a tenant suffix" (ADR-005 §2). Each initialized tenant
+    // gets its own TenantPipeline alongside it, layered on the shared global base. The members below forward to
+    // the global bundle so existing method bodies are unchanged and the global path stays byte-identical.
+    private TenantPipeline _global = null!;
+
+    // Per-tenant pipelines, materialized on demand (ADR-005 §4). The Lazy<Task<...>> gate guarantees a tenant
+    // is built exactly once even under concurrent InitializeTenantAsync/EnsureTenantInitializedAsync calls.
+    private readonly ConcurrentDictionary<string, Lazy<Task<TenantPipeline>>> _tenants = new();
+
+    private List<ConfigRule> _rules => _global.Rules;
+    private List<IRuleManager> _ruleManagers => _global.RuleManagers;
+    private ConfigurationAccessor _accessor => _global.Accessor;
+    private ReactiveConfigurationFactory _reactiveFactory => _global.ReactiveFactory;
+    private ConfigurationEngine _engine => _global.Engine;
+    private ConfigurationState _state => _global.State;
 
     private int _initialized;
 
@@ -82,7 +92,7 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         IFlagsHealthSource? flagsHealthSource = null)
     {
         // Apply test configuration overrides if present
-        _rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
+        var rules = ApplyTestConfigurationOverrides(configuredRules).ToList();
 
         // Apply test setup overrides if present
         var effectiveSetup = ApplyTestSetupOverrides(setup);
@@ -91,16 +101,24 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         _logger = logger ?? NullLogger.Instance;
         _debounceMilliseconds = debounceMilliseconds;
 
-        _state = new ConfigurationState(_ruleManagers, _rules, _logger, flagsHealthSource);
-        _providerRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
+        // Captured so tenant pipelines can be built later with the same health source / provider factory.
+        _flagsHealthSource = flagsHealthSource;
+        _providerFactory = providerFactory;
+
+        // ExposureRegistry is SHARED (frozen) across the global and all tenant pipelines.
         _bindingRegistry = new ExposureRegistry(_setupDefinitions, _logger, _capabilityScope);
 
-        _accessor = new(_state, _bindingRegistry, _logger);
-        _accessor.SetCapabilityScope(_capabilityScope);
-        _reactiveConfigManager = new(_logger, _bindingRegistry);
-        _reactiveFactory = new(_reactiveConfigManager, _rules, _logger, this, _bindingRegistry);
-
-        _engine = new ConfigurationEngine(_state, _logger);
+        // Build the global pipeline (rule-suffix = none). It owns its own state/engine/accessor/reactive/rules
+        // and borrows the shared scope + binding registry. The global pipeline's recompute accessor is `this`.
+        _global = new TenantPipeline(
+            rules,
+            _capabilityScope,
+            _bindingRegistry,
+            _logger,
+            _debounceMilliseconds,
+            flagsHealthSource,
+            providerFactory,
+            reactiveOwner: this);
     }
 
     internal ConfigManager(Func<RulesBuilder, ConfigRule[]> rules, Func<SetupBuilder, SetupDefinition[]>? setup = null, ILogger? logger = null, Func<Type, IProviderConfiguration, ConfigurationProvider>? providerFactory = null, int debounceMilliseconds = 300)
@@ -146,18 +164,8 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
             composer?.Build();
             _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
 
-            _engine.InitializeAndCompute(
-                _rules,
-                _ruleManagers,
-                _providerRegistry,
-                this,
-                _bindingRegistry,
-                _capabilityScope,
-                ScheduleRecompute,
-                _debounceMilliseconds);
-
-            // Wire up the reactive config manager to use the backplane
-            _reactiveConfigManager.SetBackplane(_state.Backplane);
+            // The global pipeline's recompute accessor is `this` — byte-identical to before.
+            _global.Initialize(this, ScheduleRecompute);
         }
         return this;
     }
@@ -173,18 +181,7 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
             composer?.Build();
             _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
 
-            await _engine.InitializeAndComputeAsync(
-                _rules,
-                _ruleManagers,
-                _providerRegistry,
-                this,
-                _bindingRegistry,
-                _capabilityScope,
-                ScheduleRecompute,
-                _debounceMilliseconds,
-                cancellationToken).ConfigureAwait(false);
-
-            _reactiveConfigManager.SetBackplane(_state.Backplane);
+            await _global.InitializeAsync(this, ScheduleRecompute, cancellationToken).ConfigureAwait(false);
         }
         return this;
     }
@@ -295,6 +292,12 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
         return merged;
     }
 
+    // ILocalStorageHost — lets the LocalStorage adapter compute base/effective JSON against the global pipeline.
+    MutableJsonObject ILocalStorageHost.BuildBaseJson(Type configType, Func<IRuleManager, bool> isExcludedLayer)
+        => BuildBaseJson(configType, isExcludedLayer);
+
+    JsonElement? ILocalStorageHost.GetConfigAsJson(Type type) => GetConfigAsJson(type);
+
     /// <summary>
     /// Gets a reactive wrapper for the specified configuration type.
     /// The returned <see cref="IReactiveConfig{T}"/> emits the current value immediately on subscribe
@@ -337,22 +340,168 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 
+    // ===== Tenant lifecycle (ADR-005 §4/§5, ITenantConfigurationAccessor) =====
+
+    /// <inheritdoc />
+    public Task InitializeTenantAsync(string tenantId, CancellationToken cancellationToken = default)
+        => GetOrBuildTenantAsync(tenantId, cancellationToken);
+
+    /// <inheritdoc />
+    public Task EnsureTenantInitializedAsync(string tenantId, CancellationToken cancellationToken = default)
+        => GetOrBuildTenantAsync(tenantId, cancellationToken);
+
+    /// <inheritdoc />
+    public bool IsTenantInitialized(string tenantId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        return _tenants.TryGetValue(tenantId, out var lazy)
+            && lazy.IsValueCreated
+            && lazy.Value.IsCompletedSuccessfully
+            && lazy.Value.Result.IsInitialized;
+    }
+
+    /// <inheritdoc />
+    public T? GetConfigForTenant<T>(string tenantId) where T : class
+        => GetInitializedTenantOrThrow(tenantId).Accessor.GetConfig<T>();
+
+    /// <inheritdoc />
+    public IReactiveConfig<T> GetReactiveConfigForTenant<T>(string tenantId)
+    {
+        var pipeline = GetInitializedTenantOrThrow(tenantId);
+        // Mirror the global GetReactiveConfig<T>: the factory + ReactiveConfigManager are the tenant pipeline's
+        // own, and the value source reads the tenant accessor — so the reactive tracks THIS tenant's value.
+        return pipeline.ReactiveFactory.GetReactiveConfig<T>(() => (T)pipeline.Accessor.GetConfig(typeof(T)));
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveTenantAsync(string tenantId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        if (!_tenants.TryRemove(tenantId, out var lazy))
+        {
+            return;
+        }
+
+        TenantPipeline pipeline;
+        try
+        {
+            // Always resolve the removed entry before disposing — even if its build had not been triggered yet.
+            // Accessing lazy.Value forces the (single) build to run if a concurrent initializer hadn't started it,
+            // so a pipeline that gets built after this removal cannot be left orphaned and never disposed.
+            pipeline = await lazy.Value.ConfigureAwait(false);
+        }
+        catch
+        {
+            return; // init faulted/cancelled — nothing was published, nothing to dispose
+        }
+
+        await pipeline.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private Task<TenantPipeline> GetOrBuildTenantAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        if (_initialized == 0)
+        {
+            throw new InvalidOperationException(
+                "ConfigManager has not been initialized. Tenants can only be initialized after the global pipeline is ready.");
+        }
+
+        var lazy = _tenants.GetOrAdd(
+            tenantId,
+            id => new Lazy<Task<TenantPipeline>>(() => BuildTenantAsync(id, cancellationToken)));
+        var task = lazy.Value;
+
+        // If a PREVIOUS build for this tenant completed-faulted, evict that exact entry (identity-checked, so we
+        // never drop a healthy retry inserted under the same key) and rebuild once. An in-flight build is returned
+        // as-is. Bounded to a single rebuild so an always-failing build can't spin.
+        if (task.IsCompleted && (task.IsFaulted || task.IsCanceled))
+        {
+            _tenants.TryRemove(new KeyValuePair<string, Lazy<Task<TenantPipeline>>>(tenantId, lazy));
+            lazy = _tenants.GetOrAdd(
+                tenantId,
+                id => new Lazy<Task<TenantPipeline>>(() => BuildTenantAsync(id, cancellationToken)));
+            task = lazy.Value;
+        }
+
+        return task;
+    }
+
+    private async Task<TenantPipeline> BuildTenantAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        // Same flat rule list as the global pipeline; the tenant pipeline owns its own state/engine/accessor/
+        // reactive/rule-managers and borrows the shared (frozen) capability scope + binding registry.
+        var pipeline = new TenantPipeline(
+            _global.Rules,
+            _capabilityScope,
+            _bindingRegistry,
+            _logger,
+            _debounceMilliseconds,
+            _flagsHealthSource,
+            _providerFactory,
+            reactiveOwner: this,
+            tenantId: tenantId);
+
+        try
+        {
+            // Recompute uses the pipeline's OWN accessor (Tenant = id): .TenantScoped() rules run and tenant-varying
+            // factories interpolate the id. Each tenant runs the FULL flat rule list with its own provider instances
+            // and own change subscriptions. This is the deliberate v1 model (ADR-005 §6): it is correct AND gives
+            // automatic fan-out — a live global base source (file/observable/http) propagates to every initialized
+            // tenant through that tenant's own subscription, with no cross-pipeline coordinator and none of the
+            // lock-ordering hazards a shared seed-from-global path would carry. The trade-off is linear resource use
+            // (N tenants re-run the base); the seed-from-global sharing optimization is a documented, deferred TODO.
+            await pipeline.InitializeAsync(
+                pipeline.Accessor,
+                startIndex => pipeline.Engine.ScheduleRecompute(pipeline.RuleManagers, pipeline.Accessor, startIndex),
+                cancellationToken).ConfigureAwait(false);
+
+            return pipeline;
+        }
+        catch
+        {
+            // Dispose the partially-built pipeline so a failed init leaks nothing. The faulted task stays cached
+            // until GetOrBuildTenantAsync evicts it (identity-checked) on the next call — no self-eviction here,
+            // which would risk an ABA race against a healthy retry inserted under the same key.
+            await pipeline.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private TenantPipeline GetInitializedTenantOrThrow(string tenantId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        if (_tenants.TryGetValue(tenantId, out var lazy) && lazy.IsValueCreated && lazy.Value.IsCompletedSuccessfully)
+        {
+            return lazy.Value.Result;
+        }
+
+        throw new InvalidOperationException(
+            $"Tenant '{tenantId}' is not initialized. Call InitializeTenantAsync/EnsureTenantInitializedAsync first.");
+    }
+
+    /// <summary>
+    /// The initialized tenant pipeline, for in-assembly facades (e.g. per-tenant LocalStorage) that need the
+    /// tenant's own rule managers/host. Throws if the tenant is not initialized.
+    /// </summary>
+    internal TenantPipeline GetInitializedTenantPipeline(string tenantId) => GetInitializedTenantOrThrow(tenantId);
+
     /// <summary>
     /// Disposes the configuration manager and all associated resources.
     /// After disposal, configuration methods will throw <see cref="InvalidOperationException"/>.
     /// </summary>
     public void Dispose()
     {
-        _engine?.Dispose();
-        _reactiveConfigManager?.Dispose();
-        _state?.Dispose();
-
-        foreach (var rm in _ruleManagers.ToArray())
+        foreach (var lazy in _tenants.Values)
         {
-            Safety.DisposeQuietly(rm);
+            if (lazy.IsValueCreated && lazy.Value.IsCompletedSuccessfully)
+            {
+                Safety.DisposeQuietly(lazy.Value.Result);
+            }
         }
+        _tenants.Clear();
 
-        _ruleManagers.Clear();
+        _global?.Dispose();
         Interlocked.Exchange(ref _initialized, 0);
     }
 
@@ -363,16 +512,31 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_engine != null) await _engine.DisposeAsync().ConfigureAwait(false);
-        _reactiveConfigManager?.Dispose();
-        _state?.Dispose();
-
-        foreach (var rm in _ruleManagers.ToArray())
+        foreach (var lazy in _tenants.Values)
         {
-            Safety.DisposeQuietly(rm);
-        }
+            if (!lazy.IsValueCreated)
+            {
+                continue;
+            }
 
-        _ruleManagers.Clear();
+            TenantPipeline? pipeline = null;
+            try
+            {
+                pipeline = await lazy.Value.ConfigureAwait(false);
+            }
+            catch
+            {
+                // faulted/cancelled init — nothing to dispose
+            }
+
+            if (pipeline != null)
+            {
+                await pipeline.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+        _tenants.Clear();
+
+        if (_global != null) await _global.DisposeAsync().ConfigureAwait(false);
         Interlocked.Exchange(ref _initialized, 0);
     }
 

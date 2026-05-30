@@ -28,12 +28,17 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     public ConfigurationAccessor(
         ConfigurationState state,
         ExposureRegistry bindingRegistry,
-        ILogger logger)
+        ILogger logger,
+        string? tenant = null)
     {
         _state = state;
         _bindingRegistry = bindingRegistry;
         _logger = logger;
+        Tenant = tenant;
     }
+
+    /// <inheritdoc />
+    public string? Tenant { get; }
 
     internal void SetCapabilityScope(ConfigManagerCapabilityScope capabilityScope)
     {

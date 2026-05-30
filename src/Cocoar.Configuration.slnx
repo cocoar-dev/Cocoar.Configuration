@@ -11,6 +11,7 @@
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Secrets.Tests/Cocoar.Configuration.Secrets.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.AspNetCore.Tests/Cocoar.Configuration.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.MultiTenant.Tests/Cocoar.Configuration.MultiTenant.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />

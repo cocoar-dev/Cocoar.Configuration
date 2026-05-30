@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Fluent;
 
@@ -59,12 +60,18 @@ public static class LocalStorageRulesExtensions
     {
         ArgumentNullException.ThrowIfNull(backendFactory);
 
-        LocalStorageStore? store = null;
+        // One store per tenant ("" = the global pipeline). The same ConfigRule is shared across the global and
+        // every tenant pipeline; keying the store by accessor.Tenant gives each tenant its OWN store+backend, so
+        // a per-tenant overlay never aliases another tenant's (ADR-005 §7). A given tenant is driven by a single
+        // pipeline whose recomputes are serialized, so each entry is only ever touched by one writer at a time.
+        var stores = new ConcurrentDictionary<string, LocalStorageStore>();
         var storageKey = typeof(T).FullName ?? typeof(T).Name;
 
         return new(
             accessor =>
             {
+                var tenantKey = accessor.Tenant ?? string.Empty;
+                stores.TryGetValue(tenantKey, out var store);
                 var currentBackend = store?.Backend;
                 var backend = backendFactory(accessor, currentBackend);
                 if (store is null)
@@ -73,6 +80,7 @@ public static class LocalStorageRulesExtensions
                     {
                         ConfigurationType = typeof(T)
                     };
+                    stores[tenantKey] = store;
                 }
                 else if (!ReferenceEquals(backend, currentBackend))
                 {

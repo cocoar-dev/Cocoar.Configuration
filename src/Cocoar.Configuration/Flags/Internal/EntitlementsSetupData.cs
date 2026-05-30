@@ -11,6 +11,10 @@ internal sealed class EntitlementsSetupData
 {
     internal readonly ConcurrentDictionary<Type, object> InstanceCache = new();
 
+    // Per-(tenant, entitlement-type) singletons: the SAME generated class constructed with each tenant's own
+    // IReactiveConfig<T> (ADR-005 §7). Distinct from the global InstanceCache so tenants never alias the global.
+    internal readonly ConcurrentDictionary<(string Tenant, Type Type), object> TenantInstanceCache = new();
+
     public required EntitlementsDescriptors Descriptors { get; init; }
     public required EntitlementRegistration[] Registrations { get; init; }
     public required IReadOnlyList<ContextResolverRegistration> GlobalResolvers { get; init; }

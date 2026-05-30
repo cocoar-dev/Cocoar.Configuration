@@ -20,12 +20,14 @@ namespace Cocoar.Configuration.Providers;
 internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOverlay<T>, IDisposable
     where T : class
 {
-    private readonly ConfigManager _configManager;
+    private readonly ILocalStorageHost _host;
     private readonly LocalStorageStore _store;
 
-    public LocalStorageAdapter(ConfigManager configManager, LocalStorageStore store)
+    // _host is the pipeline this overlay belongs to: the global ConfigManager, or a TenantPipeline for a
+    // per-tenant overlay (ADR-005 §7). Both supply base/effective JSON over their OWN rule managers/snapshot.
+    public LocalStorageAdapter(ILocalStorageHost host, LocalStorageStore store)
     {
-        _configManager = configManager ?? throw new ArgumentNullException(nameof(configManager));
+        _host = host ?? throw new ArgumentNullException(nameof(host));
         _store = store ?? throw new ArgumentNullException(nameof(store));
     }
 
@@ -76,8 +78,8 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
 
     public async Task<IReadOnlyList<OverrideEntry>> DescribeAsync(CancellationToken ct = default)
     {
-        var baseElement = ToJsonElement(_configManager.BuildBaseJson(typeof(T), IsThisLayer));
-        var effective = _configManager.GetConfigAsJson(typeof(T));
+        var baseElement = ToJsonElement(_host.BuildBaseJson(typeof(T), IsThisLayer));
+        var effective = _host.GetConfigAsJson(typeof(T));
         var overlayNode = await ReadOverlayAsync(ct).ConfigureAwait(false);
 
         var overriddenPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -112,7 +114,7 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
     public async Task SetAsync(string keyPath, JsonNode? value, CancellationToken ct = default)
     {
         ValidateKeyPath(keyPath);
-        var baseDom = _configManager.BuildBaseJson(typeof(T), IsThisLayer);
+        var baseDom = _host.BuildBaseJson(typeof(T), IsThisLayer);
         await _store.UpdateBytesAsync(bytes => SparseOverlayMutator.Set(bytes, keyPath, value, baseDom), ct)
             .ConfigureAwait(false);
     }
@@ -133,7 +135,7 @@ internal sealed class LocalStorageAdapter<T> : ILocalStorage<T>, ILocalStorageOv
                 nameof(envelope));
         }
 
-        var baseDom = _configManager.BuildBaseJson(typeof(T), IsThisLayer);
+        var baseDom = _host.BuildBaseJson(typeof(T), IsThisLayer);
         await _store.UpdateBytesAsync(bytes => SparseOverlayMutator.Set(bytes, keyPath, envelope, baseDom), ct)
             .ConfigureAwait(false);
     }

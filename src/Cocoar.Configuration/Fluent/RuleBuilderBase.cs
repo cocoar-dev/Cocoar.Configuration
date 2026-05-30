@@ -6,6 +6,14 @@ public abstract class RuleBuilderBase<TBuilder>
     where TBuilder : RuleBuilderBase<TBuilder>
 {
     protected bool IsRequired { get; set; }
+
+    /// <summary>
+    /// Static marker set by <see cref="TenantScoped"/>. Distinct from the <see cref="UseWhen"/> predicate (which
+    /// drives runtime skip): the DI planner and analyzers read this to exclude purely tenant-scoped types from
+    /// the global injection plan (ADR-005 §5) without having to evaluate the predicate.
+    /// </summary>
+    protected bool IsTenantScoped { get; set; }
+
     protected Func<IConfigurationAccessor, bool>? UseWhen { get; set; }
     protected Type? ConcreteType { get; set; }
     protected string? MountPath { get; set; }
@@ -33,6 +41,24 @@ public abstract class RuleBuilderBase<TBuilder>
     public TBuilder When(Func<IConfigurationAccessor, bool> predicate)
     {
         UseWhen = predicate;
+        return (TBuilder)this;
+    }
+
+    /// <summary>
+    /// Marks this rule as <b>tenant-scoped</b>: it runs only when the configuration is resolved for a tenant
+    /// (<see cref="IConfigurationAccessor.Tenant"/> is present) and is skipped in the global, tenant-agnostic
+    /// pipeline. Shorthand for <c>.When(a =&gt; !string.IsNullOrWhiteSpace(a.Tenant))</c>, composed (AND) with any
+    /// existing <see cref="When"/> predicate. Use together with a tenant-varying factory, e.g.
+    /// <c>.FromFile(a =&gt; $"db.{a.Tenant}.json").TenantScoped()</c>.
+    /// </summary>
+    /// <returns>This builder for chaining.</returns>
+    public TBuilder TenantScoped()
+    {
+        IsTenantScoped = true;
+        var existing = UseWhen;
+        UseWhen = existing is null
+            ? static a => !string.IsNullOrWhiteSpace(a.Tenant)
+            : a => existing(a) && !string.IsNullOrWhiteSpace(a.Tenant);
         return (TBuilder)this;
     }
 

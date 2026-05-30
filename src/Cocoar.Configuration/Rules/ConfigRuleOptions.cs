@@ -7,7 +7,8 @@ public sealed record ConfigRuleOptions(
     Func<IConfigurationAccessor, bool>? UseWhen = null,
     string? MountPath = null,
     string? SelectPath = null,
-    string? Name = null)
+    string? Name = null,
+    bool TenantScoped = false)
 {
     public ConfigRuleOptions WithMount(string? mountPath)
         => this with { MountPath = string.IsNullOrWhiteSpace(mountPath) ? null : mountPath.Trim() };

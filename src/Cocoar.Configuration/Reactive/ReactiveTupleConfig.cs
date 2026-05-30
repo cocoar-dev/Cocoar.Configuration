@@ -29,16 +29,22 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
     private readonly IObservable<TTuple> _observable;
     private readonly Func<object?[], object> _builder;
     private readonly Type[] _elementTypes;
-    private readonly ConfigManager _configManager;
+    private readonly IConfigurationAccessor _configAccessor;
+    private readonly MasterBackplane _backplane;
     private readonly Infrastructure.ExposureRegistry? _bindingRegistry;
 
+    // Loosened from a concrete ConfigManager to (accessor, backplane) so a tenant pipeline can build a tuple
+    // reactive over ITS OWN accessor + backplane (ADR-005 §7). The global pipeline still binds the owning
+    // ConfigManager as the accessor and that manager's backplane — byte-identical to before.
     public ReactiveTupleConfig(
-        ConfigManager configManager,
+        IConfigurationAccessor configAccessor,
+        MasterBackplane backplane,
         ReactiveConfigManager reactiveConfigManager,
         ILogger logger,
         Infrastructure.ExposureRegistry? bindingRegistry = null)
     {
-        _configManager = configManager;
+        _configAccessor = configAccessor;
+        _backplane = backplane;
         _logger = logger;
         _bindingRegistry = bindingRegistry;
         (_elementTypes, _builder) = TupleShapeCache.Get(typeof(TTuple));
@@ -51,7 +57,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
         var missing = new List<string>();
         for (var i = 0; i < _elementTypes.Length; i++)
         {
-            var val = configManager.GetConfig(_elementTypes[i]);
+            var val = configAccessor.GetConfig(_elementTypes[i]);
             if (val is null)
             {
                 missing.Add(_elementTypes[i].Name);
@@ -67,7 +73,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
         // Create observable from the backplane's snapshot stream
         // This provides atomicity - all tuple elements update together
         // Source (MasterBackplane) never errors, so no Catch/Retry needed
-        _observable = CreateTupleObservable(configManager);
+        _observable = CreateTupleObservable(backplane);
 
         _subscription = _observable.Subscribe(_ => { }, _ => { });
     }
@@ -81,7 +87,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
                 var values = new object?[_elementTypes.Length];
                 for (var i = 0; i < _elementTypes.Length; i++)
                 {
-                    values[i] = _configManager.GetConfig(_elementTypes[i]);
+                    values[i] = _configAccessor.GetConfig(_elementTypes[i]);
                 }
                 return (TTuple)_builder(values);
             }
@@ -95,7 +101,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
 
     public IDisposable Subscribe(IObserver<TTuple> observer) => _observable.Subscribe(observer);
 
-    private IObservable<TTuple> CreateTupleObservable(ConfigManager configManager)
+    private IObservable<TTuple> CreateTupleObservable(MasterBackplane backplane)
     {
         // Access the backplane through the state (after initialization)
         // The backplane provides atomic updates for all types
@@ -104,7 +110,7 @@ internal sealed class ReactiveTupleConfig<TTuple> : IReactiveConfig<TTuple>, IDi
             TTuple? previousTuple = null;
 
             // Subscribe to the backplane's snapshot stream
-            var snapshotStream = configManager.Backplane.SnapshotStream;
+            var snapshotStream = backplane.SnapshotStream;
 
             return snapshotStream.Subscribe(snapshot =>
             {

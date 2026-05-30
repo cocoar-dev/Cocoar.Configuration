@@ -21,17 +21,23 @@ internal static partial class ReactiveConfigurationFactoryLog
     public static partial void SkippingNonClassType(this ILogger logger, Type Type);
 }
 
+// `accessor` + backplaneAccessor (instead of a concrete ConfigManager) so a tenant pipeline builds its
+// reactive configs over ITS OWN accessor/backplane (ADR-005 §7). The global pipeline passes the owning
+// ConfigManager as the accessor and that manager's backplane — byte-identical to before.
+// NOTE: this field is intentionally NOT named `configAccessor` — several methods below take a local
+// `Func<T> configAccessor` (the value closure), which would shadow it and silently mis-bind the delegate.
 internal class ReactiveConfigurationFactory(
     ReactiveConfigManager reactiveConfigManager,
     List<ConfigRule> rules,
     ILogger logger,
-    ConfigManager configManager,
+    IConfigurationAccessor accessor,
+    Func<MasterBackplane> backplaneAccessor,
     ExposureRegistry bindingRegistry)
 {
     private static readonly MethodInfo _getReactiveConfigMethod =
         typeof(ReactiveConfigManager).GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))!;
     private static readonly MethodInfo _getConfigMethod =
-        typeof(ConfigManager).GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)!;
+        typeof(IConfigurationAccessor).GetMethod(nameof(IConfigurationAccessor.GetConfig), Type.EmptyTypes)!;
 
     public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> configAccessor)
     {
@@ -80,7 +86,7 @@ internal class ReactiveConfigurationFactory(
         var concreteAccessorMethod = _getConfigMethod.MakeGenericMethod(concreteType);
 
         var concreteFuncType = typeof(Func<>).MakeGenericType(concreteType);
-        var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, configManager, concreteAccessorMethod);
+        var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, accessor, concreteAccessorMethod);
 
         // Get the reactive config for the concrete type
         var reactiveMethod = _getReactiveConfigMethod.MakeGenericMethod(concreteType);
@@ -160,7 +166,7 @@ internal class ReactiveConfigurationFactory(
                 var accessorMethod = _getConfigMethod.MakeGenericMethod(typeToPrime);
 
                 var funcType = typeof(Func<>).MakeGenericType(typeToPrime);
-                var accessorDelegate = Delegate.CreateDelegate(funcType, configManager, accessorMethod);
+                var accessorDelegate = Delegate.CreateDelegate(funcType, accessor, accessorMethod);
 
                 _ = reactiveMethod.Invoke(reactiveConfigManager, [accessorDelegate]);
             }
@@ -171,7 +177,7 @@ internal class ReactiveConfigurationFactory(
         }
 
         var generic = typeof(ReactiveTupleConfig<>).MakeGenericType(tupleType);
-        return Activator.CreateInstance(generic, configManager, reactiveConfigManager, logger, bindingRegistry)!;
+        return Activator.CreateInstance(generic, accessor, backplaneAccessor(), reactiveConfigManager, logger, bindingRegistry)!;
     }
 
     private static IEnumerable<Type> FlattenTuple(Type t)

@@ -99,6 +99,12 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Multi-Tenancy',
+          items: [
+            { text: 'Overview <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/multi-tenancy/overview' },
+          ],
+        },
+        {
           text: 'Secrets',
           items: [
             { text: 'Overview', link: '/guide/secrets/overview' },

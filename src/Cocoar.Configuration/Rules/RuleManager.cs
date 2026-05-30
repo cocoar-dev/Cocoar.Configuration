@@ -71,9 +71,9 @@ internal sealed class RuleManager : IRuleManager
     {
         LastFailureException = null;
 
-        if (ShouldSkipViaUseWhen(accessor))
+        if (ShouldSkip(accessor))
         {
-            return null;  // Skip rule - When condition is false
+            return null;  // Skip rule - tenant-scoped without a tenant, or When condition is false
         }
 
         var providerOptions = _rule.ResolveProviderOptions(accessor);
@@ -131,8 +131,16 @@ internal sealed class RuleManager : IRuleManager
         }
     }
 
-    private bool ShouldSkipViaUseWhen(IConfigurationAccessor accessor)
+    private bool ShouldSkip(IConfigurationAccessor accessor)
     {
+        // A .TenantScoped() rule never runs in the global (tenant-agnostic) pipeline. Enforced via the static
+        // marker (not just the When predicate) so it holds regardless of how .When() and .TenantScoped() were
+        // ordered in the fluent chain — e.g. .TenantScoped().When(p) still skips when there is no tenant.
+        if (_rule.Options?.TenantScoped == true && string.IsNullOrWhiteSpace(accessor.Tenant))
+        {
+            return MarkSkipped();
+        }
+
         if (_rule.Options?.UseWhen == null)
         {
             return false;
@@ -143,6 +151,11 @@ internal sealed class RuleManager : IRuleManager
             return false;
         }
 
+        return MarkSkipped();
+    }
+
+    private bool MarkSkipped()
+    {
         _changeSubscription.Unsubscribe();
         LastOutcome = RuleExecutionOutcome.Skipped;
         return true;

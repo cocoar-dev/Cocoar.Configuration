@@ -11,6 +11,10 @@ internal sealed class FlagsSetupData
 {
     internal readonly ConcurrentDictionary<Type, object> InstanceCache = new();
 
+    // Per-(tenant, flag-type) singletons: the SAME generated flag class constructed with each tenant's own
+    // IReactiveConfig<T> (ADR-005 §7). Distinct from the global InstanceCache so tenants never alias the global.
+    internal readonly ConcurrentDictionary<(string Tenant, Type Type), object> TenantInstanceCache = new();
+
     public required FeatureFlagsDescriptors Descriptors { get; init; }
     public required FlagRegistration[] Registrations { get; init; }
     public required IReadOnlyList<ContextResolverRegistration> GlobalResolvers { get; init; }
