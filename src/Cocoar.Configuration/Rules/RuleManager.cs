@@ -58,6 +58,8 @@ internal sealed class RuleManager : IRuleManager
 
     public IReadOnlyList<IRuleManager>? SubManagers => null;
 
+    public ConfigurationProvider? CurrentProvider => _providerLease.Provider;
+
     public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
     {
         _rule = rule;

@@ -202,6 +202,50 @@ internal sealed class CertificateInventory : IDisposable
         }
     }
 
+    /// <summary>
+    /// Exports the SubjectPublicKeyInfo (DER) of the certificate the decryption engine prefers
+    /// (the first in the current ordering) — for publishing as the encryption public key. Returns
+    /// only public-key bytes; the <see cref="X509Certificate2"/> is never exposed. Returns
+    /// <see langword="null"/> when no usable RSA certificate is present. Runs under the write lock
+    /// because <see cref="GetOrLoadCertificate"/> mutates the cache.
+    /// </summary>
+    internal byte[]? TryExportPreferredPublicKey()
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            foreach (var certPath in _sortedCertPaths)
+            {
+                X509Certificate2 cert;
+                try
+                {
+                    cert = GetOrLoadCertificate(certPath);
+                }
+                catch (Exception ex) when (
+                    ex is CryptographicException or IOException or UnauthorizedAccessException
+                       or InvalidOperationException or NotSupportedException)
+                {
+                    // A cert that can't be loaded right now — e.g. a transient file race during
+                    // rotation (delete+recreate / locked / partially written) or a non-usable file —
+                    // is skipped so publishing degrades gracefully (empty result) instead of a 500.
+                    continue;
+                }
+
+                using var rsa = cert.GetRSAPublicKey();
+                if (rsa is null)
+                    continue;
+
+                return rsa.ExportSubjectPublicKeyInfo();
+            }
+
+            return null;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
     private bool TryDecryptWithCert(string certPath, HybridEnvelope envelope, out byte[] plaintext)
     {
         try

@@ -66,6 +66,7 @@ export default defineConfig({
             { text: 'HTTP Polling', link: '/guide/providers/http-polling' },
             { text: 'Microsoft IConfiguration', link: '/guide/providers/microsoft-adapter' },
             { text: 'Static & Observable', link: '/guide/providers/static-observable' },
+            { text: 'LocalStorage', link: '/guide/providers/localstorage' },
             { text: 'Custom Providers <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/providers/custom' },
           ],
         },

@@ -2,9 +2,26 @@
 
 ## [Unreleased]
 
+### Added
+
+- **LocalStorage provider** — a writable, application-controlled override layer for *overridable defaults*: the normal sources (files, environment, …) supply defaults, and the application overrides individual values at runtime.
+  - `ILocalStorage<T>` (type-safe facade) and `ILocalStorageOverlay<T>` (raw key-path surface) in `Cocoar.Configuration.Abstractions`
+  - **Sparse writes** — `SetAsync(x => x.Smtp.Port, value)` persists only the touched leaf; unset keys keep inheriting from the lower layers
+  - `ResetAsync(...)` removes an override (value falls back to the inherited default); an explicit `null` override is distinct from reset
+  - `DescribeAsync()` returns per-key provenance (`OverrideEntry`: base value, effective value, `IsOverridden`) for management UIs
+  - `.FromLocalStorage()` rule extension; file-based backend by default with a pluggable `IStorageBackend`
+  - `ILocalStorage<T>` / `ILocalStorageOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
+  - LocalStorageOverride example project
+- `IProviderServiceRegistration` now supports resolve-time factory registrations (`ProviderServiceRegistration.Singleton(type, factory)`) in addition to eager instances
+
 ### Changed
 
 - Secret payloads (the decrypted value of `Secret<T>`) now (de)serialize with lenient options: **enums as names** (round-trip-safe if the enum is later reordered) and **case-insensitive** property matching. Reading still accepts numeric enums and any casing, so **existing encrypted secrets remain fully readable** — no migration. Only the in-memory form of newly serialized typed secret values changes (enum name instead of ordinal); encrypted envelopes at rest are unaffected.
+
+### Notes
+
+- Secret-typed members (`Secret<T>` / `ISecret<T>`) cannot be overridden via LocalStorage — the typed facade throws `NotSupportedException` (manage secrets via the Secrets CLI/provider).
+- Overlay values serialize with vanilla options (enums as strings) and overlay keys are aligned to the lower layers' casing, so an override **replaces** the base key rather than creating a casing-variant sibling.
 
 ## [5.0.0] - 2026-03-24
 

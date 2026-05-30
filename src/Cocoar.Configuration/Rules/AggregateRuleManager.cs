@@ -1,5 +1,6 @@
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Infrastructure;
+using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Reactive.Internal;
 using Cocoar.Json.Mutable;
 using Microsoft.Extensions.Logging;
@@ -65,6 +66,8 @@ internal sealed class AggregateRuleManager : IRuleManager
     public string? LastSelectionHash { get; set; }
 
     public IReadOnlyList<IRuleManager>? SubManagers => _internalManagers;
+
+    public ConfigurationProvider? CurrentProvider => null;
 
     public async Task<ReadOnlyMemory<byte>?> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct)
     {

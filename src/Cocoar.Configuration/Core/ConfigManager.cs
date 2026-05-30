@@ -12,6 +12,7 @@ using Cocoar.Configuration.Infrastructure;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Reactive;
 using Cocoar.Configuration.Utilities;
+using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Core;
 
@@ -252,6 +253,47 @@ public sealed class ConfigManager : IConfigurationAccessor, IDisposable, IAsyncD
     /// </summary>
     /// <param name="type">The configuration type to retrieve.</param>
     public JsonElement? GetConfigAsJson(Type type) => _accessor.GetConfigAsJson(type);
+
+    /// <summary>
+    /// Computes the merged "base" JSON for <paramref name="configType"/> from all rule layers BELOW the
+    /// overlay layer identified by <paramref name="isExcludedLayer"/> — i.e. the value the type would have
+    /// without that overlay. Used by LocalStorage to align override key casing against lower layers and to
+    /// report base-vs-effective provenance.
+    /// <para>
+    /// Thread-safety: this reads each manager's <c>LastJsonContribution</c> without taking the recompute
+    /// semaphore — deliberately, because reactive notifications are published <em>inside</em> that semaphore,
+    /// so gating here would deadlock a subscriber that writes back. It is safe because a contribution is
+    /// written once per recompute and then replaced wholesale (never mutated in place), and the reference
+    /// read is atomic: a concurrent recompute can at worst make this observe a one-generation-stale but
+    /// internally-consistent contribution, which self-heals on the next read.
+    /// </para>
+    /// </summary>
+    internal MutableJsonObject BuildBaseJson(Type configType, Func<IRuleManager, bool> isExcludedLayer)
+    {
+        ArgumentNullException.ThrowIfNull(configType);
+        ArgumentNullException.ThrowIfNull(isExcludedLayer);
+
+        var merged = new MutableJsonObject();
+        foreach (var manager in _ruleManagers)
+        {
+            if (isExcludedLayer(manager))
+            {
+                break; // the base is everything strictly below the overlay layer
+            }
+
+            if (manager.TypeDefinition != configType)
+            {
+                continue;
+            }
+
+            if (manager.LastJsonContribution is { } contribution)
+            {
+                MutableJsonMerge.Merge(merged, contribution);
+            }
+        }
+
+        return merged;
+    }
 
     /// <summary>
     /// Gets a reactive wrapper for the specified configuration type.
