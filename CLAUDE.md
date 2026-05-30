@@ -36,9 +36,11 @@ dotnet pack ./src -c Release
 - **ConfigManager** (`src/Cocoar.Configuration/Core/`) - Central orchestrator that manages configuration lifecycle, rule execution, and reactive updates. Always created via `ConfigManager.Create()` or `ConfigManager.CreateAsync()` — constructors are internal. Both take an `Action<ConfigManagerBuilder>` lambda and return a fully initialized `ConfigManager`.
 - **ConfigManagerBuilder** (`src/Cocoar.Configuration/Core/`) - Fluent builder received as parameter in `Create`/`CreateAsync` lambdas. Satellite libraries extend it via extension methods (e.g. `.UseSecretsSetup()`, `.UseFeatureFlags()`, `.UseEntitlements()`).
 - **Feature Flags & Entitlements** (`src/Cocoar.Configuration/Flags/`) - Source-generated pattern: `partial class` implements `IFeatureFlags<TConfig>` or `IEntitlements<TConfig>`, generator produces constructor and `Config` property (reads `IReactiveConfig<T>.CurrentValue`). Multi-config via tuples (`IFeatureFlags<(T1, T2)>`). These interfaces are the only supported way to define flags and entitlements.
-- **Providers** (`src/Cocoar.Configuration/Providers/`) - Abstract configuration sources (File, Environment, CommandLine, HTTP, Static, Observable)
+- **Providers** (`src/Cocoar.Configuration/Providers/`) - Abstract configuration sources (File, Environment, CommandLine, HTTP, Static, Observable, LocalStorage)
 - **Fluent Builders** (`src/Cocoar.Configuration/Fluent/`) - `RulesBuilder` for defining configuration rules with `.For<T>().FromFile()` pattern. `TypedRuleBuilder<T>` has a `where T : class` constraint — configuration types must be reference types.
 - **SetupBuilder** (`src/Cocoar.Configuration/Configure/`) - DI registration with `.ConcreteType<T>()` and `.Interface<T>()` patterns
+- **Multi-Tenancy** (`src/Cocoar.Configuration/Core/TenantPipeline.cs`) - One `ConfigManager` owns a global `TenantPipeline` plus a per-tenant registry on a shared global base. Author one flat rule list with `.TenantScoped()`; `Tenant` on `IConfigurationAccessor`; consume via `…ForTenant(id)` on `ITenantConfigurationAccessor` (explicit, never DI-injected). See ADR-005.
+- **Service-Backed (DI-aware) Configuration** (`src/Cocoar.Configuration.DI/ServiceBacked/`) - Two-layer model: eager no-DI `UseConfiguration` (Layer 1) + lazy `UseServiceBackedConfiguration` (Layer 2) whose provider factories receive `IServiceProvider` (so providers can use `IHttpClientFactory`/Marten/EF). Activated on host start via `IHostedLifecycleService` (a recompute, never a rebuild). No-DI core preserved. See ADR-006.
 
 ### Recompute Pipeline
 
@@ -83,9 +85,9 @@ SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 | Project | Purpose |
 |---------|---------|
 | `Cocoar.Configuration.Abstractions` | Lightweight interfaces (`IConfigurationAccessor`, `IReactiveConfig<T>`, `ISecret<T>`, `SecretLease<T>`) |
-| `Cocoar.Configuration` | Main library: providers, builders, reactive engine, secrets (`Secret<T>`, X.509 encryption), feature flags, entitlements |
-| `Cocoar.Configuration.DI` | `AddCocoarConfiguration()` for Microsoft.Extensions.DI (no ASP.NET Core dependency) |
-| `Cocoar.Configuration.AspNetCore` | ASP.NET Core integration, health endpoints, feature flag/entitlement REST endpoints |
+| `Cocoar.Configuration` | Main library: providers (incl. LocalStorage writable overlay), builders, reactive engine, multi-tenancy, secrets (`Secret<T>`, X.509 encryption), feature flags, entitlements |
+| `Cocoar.Configuration.DI` | `AddCocoarConfiguration()` for Microsoft.Extensions.DI (no ASP.NET Core dependency); service-backed (Layer-2) configuration via `UseServiceBackedConfiguration` |
+| `Cocoar.Configuration.AspNetCore` | ASP.NET Core integration, health endpoints, feature flag/entitlement REST endpoints (incl. per-tenant), secrets encryption-key endpoints, scoped tenant config adapter |
 | `Cocoar.Configuration.Http` | Remote config provider (polling, SSE, one-time fetch) |
 | `Cocoar.Configuration.MicrosoftAdapter` | Bridge to existing `IConfiguration` sources |
 | `Cocoar.Configuration.Analyzers` | Roslyn analyzers (COCFG001, 002, 003, 005, 006) and source generator (COCFLAG001-003). COCFG004 was removed — enforced by `where T : class` constraint instead. |
@@ -117,11 +119,14 @@ Read these ADRs to understand important design choices:
 - **ADR-001** (`docs/adr/`) - Capabilities system for cross-assembly extensibility
 - **ADR-002** (`docs/adr/`) - Atomic reactive configuration updates (tuple semantics)
 - **ADR-003** (`docs/adr/`) - Provider consistency (empty objects on failure)
+- **ADR-004** (`docs/adr/`) - Aggregate rules with isolated execution boundary
+- **ADR-005** (`docs/adr/`) - Multi-tenant configuration (per-tenant pipelines on a shared global base)
+- **ADR-006** (`docs/adr/`) - DI-aware (service-backed) two-layer configuration
 
 ## Documentation
 
 - `website/` - VitePress documentation site (single source of truth for user-facing docs)
-- `docs/adr/` - Architecture Decision Records (ADR-001 through ADR-003)
+- `docs/adr/` - Architecture Decision Records (ADR-001 through ADR-006)
 - `src/Examples/` - Runnable example projects demonstrating individual features
 
 ## Local Working Files

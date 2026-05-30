@@ -76,8 +76,7 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
             config.CertificateComparer,
             includeSubdirectories: 0);  // Flat structure, no subdirectories
 
-        // In single-kid mode with the new architecture, we create a kid folder on the fly
-        // or we need to handle this differently. Actually, let's just register for the single kid.
+        // Single-kid mode: respond only to the configured kid (plus any explicit additional kids).
         var protector = new SingleKidProtectorWrapper(inventory, config.ForceSingleKid!, config.AdditionalKids);
 
         // Publish the current encryption public key for this single, unambiguous kid.

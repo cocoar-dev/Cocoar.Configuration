@@ -54,7 +54,7 @@ public class SettingsController(ILocalStorage<SmtpSettings> storage)
 }
 ```
 
-The selector must be a **simple member-access chain** (`x => x.Smtp.Port`). Indexers, method calls, and casts throw `NotSupportedException` — use the raw [overlay surface](#raw-overlay-surface) for dynamic paths.
+The selector must be a **simple member-access chain** (`x => x.Smtp.Port`). Indexers and method calls throw `NotSupportedException` (a type cast around the member chain is unwrapped and tolerated) — use the raw [overlay surface](#raw-overlay-surface) for dynamic paths.
 
 ::: tip Writes are reactive
 A write persists to storage, signals the provider, and triggers a (debounced) recompute. Subscribers of `IReactiveConfig<T>` receive the new merged value automatically.
@@ -179,4 +179,4 @@ ILocalStorage<T>.SetAsync(x => x.Port, 587)
     → IReactiveConfig<T> emits the new effective value
 ```
 
-The read/merge path is identical to every other provider — LocalStorage only adds the write path. See the runnable [LocalStorageOverride example](https://github.com/) for an end-to-end walkthrough.
+The read/merge path is identical to every other provider — LocalStorage only adds the write path. See the runnable [LocalStorageOverride example](https://github.com/cocoar-dev/cocoar.configuration/tree/develop/src/Examples/LocalStorageOverride) for an end-to-end walkthrough.

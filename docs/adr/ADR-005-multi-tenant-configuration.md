@@ -1,6 +1,6 @@
 # ADR-005: Multi-Tenant Configuration
 
-**Status:** Accepted — implementation in progress on `feature/multitenant` (core config + lifecycle + automatic fan-out done; per-tenant reactive/flags/entitlements/localstorage/secrets, DI exclusion, AspNetCore, docs in progress)
+**Status:** Accepted — implemented on `feature/multitenant`
 **Date:** 2026-05-29 (updated 2026-05-30)
 **Decision Makers:** Core Team
 **Type:** Feature / Architecture
@@ -95,11 +95,11 @@ Tenant-scoped values are obtained by **passing the tenant id**, never by DI inje
 var smtp  = mgr.GetConfigForTenant<SmtpSettings>(tenantId);          // sync
 var live  = mgr.GetReactiveConfigForTenant<SmtpSettings>(tenantId);
 var store = mgr.GetLocalStorageForTenant<SmtpSettings>(tenantId);    // per-tenant write facade
-var flags = mgr.GetFlagsForTenant<BillingFlags>(tenantId);
+var flags = mgr.GetFeatureFlagsForTenant<BillingFlags>(tenantId);
 var ents  = mgr.GetEntitlementsForTenant<PlanEntitlements>(tenantId);
 ```
 
-**Tenant-scoped types/flags are NOT DI-injectable.** Injecting one into a long-lived (Singleton) consumer would be a captive-dependency bug — it would freeze one tenant forever, since the container cannot know the runtime tenant. The `ServiceRegistrationPlanner` therefore tags and **excludes** `ForEachTenant` types from the normal DI plan. Global types remain injectable as today. A consuming service injects the `ConfigManager` / `ITenantConfigurationAccessor` and calls `GetFlagsForTenant(currentTenant)` — explicitly tenant-aware, which is the correct shape for multi-tenant code.
+**Tenant-scoped types/flags are NOT DI-injectable.** Injecting one into a long-lived (Singleton) consumer would be a captive-dependency bug — it would freeze one tenant forever, since the container cannot know the runtime tenant. The `ServiceRegistrationPlanner` therefore tags and **excludes** types whose every rule is `.TenantScoped()` from the normal DI plan. Global types remain injectable as today. A consuming service injects the `ConfigManager` / `ITenantConfigurationAccessor` and calls `GetFeatureFlagsForTenant(currentTenant)` — explicitly tenant-aware, which is the correct shape for multi-tenant code.
 
 ### 6. Fan-out — automatic via per-tenant subscriptions (v1)
 
@@ -113,7 +113,7 @@ Each tenant snapshot layers on the global base, so a change to the **global** ba
 
 The tenant dimension is unified by the factory + bundle:
 
-- **Feature Flags / Entitlements** become tenant-aware **without a source-generator change**: the generated flag class already reads an injected `IReactiveConfig<TConfig>`; tenant-awareness means constructing it with the **tenant's** `IReactiveConfig`. `GetFlagsForTenant<TFlags>(id)` is a per-`(tenant, TFlags)` factory/cache over the existing generated class. The context-aware evaluator and the REST endpoints (`MapFeatureFlagEndpoints`) gain a tenant dimension (e.g. a route segment).
+- **Feature Flags / Entitlements** become tenant-aware **without a source-generator change**: the generated flag class already reads an injected `IReactiveConfig<TConfig>`; tenant-awareness means constructing it with the **tenant's** `IReactiveConfig`. `GetFeatureFlagsForTenant<TFlags>(id)` is a per-`(tenant, TFlags)` factory/cache over the existing generated class. The context-aware evaluator and the REST endpoints (`MapFeatureFlagEndpoints`) gain a tenant dimension (e.g. a route segment).
 - **LocalStorage** per tenant: reads fall out of the factory (`FromLocalStorage(BackendFor(tenant))`; file backend = a folder per tenant); writes go through a per-tenant `GetLocalStorageForTenant<T>(id)` facade pointing at the tenant's backend.
 - **Secrets** are already tenant-capable via folder mode (`kid` = tenant subfolder routes decryption); a tenant writes its encrypted envelope to its own backend, decrypted with its own cert.
 
@@ -140,11 +140,11 @@ Tenant methods live on a **new** `ITenantConfigurationAccessor` that `ConfigMana
 | ~~`TenantFanOutCoordinator`~~ | **Not built in v1** — full-list-per-tenant gives automatic fan-out (§6); coordinator only needed if seed-from-global lands | Deferred |
 | `Core/ConfigurationEngine.cs` | seed-from-global recompute variant — **deferred** (§3); v1 re-runs the full list per tenant (correct, unoptimized) | Deferred |
 | `Core/MasterBackplane.cs`, `ConfigurationState.cs`, `ConfigurationAccessor.cs` | Instantiated per tenant (no internal change); per-tenant accessor so the recompute-window fallback reads tenant JSON, not global | Additive |
-| `Rules/ConfigRule.cs` (+ Fluent) | `ForEachTenant((r, tenant) => ConfigRule[])` builder surface; precedent is `AggregateConfigRule` | Additive |
-| `DI/ServiceRegistrationPlanner.cs` | Tag/exclude `ForEachTenant` types from the normal DI plan | Additive |
+| `Rules/ConfigRule.cs` (+ Fluent) | `.TenantScoped()` marker on the rule builder (AND-composed with any `When`); `Tenant` on the accessor | Additive |
+| `DI/ServiceRegistrationPlanner.cs` | Tag/exclude types whose every rule is `.TenantScoped()` from the normal DI plan | Additive |
 | `DI/ServiceDescriptorEmitter.cs` | (Only if/when ambient injection is ever wanted — currently **out of scope**, see §5) | — |
 | Abstractions | New `ITenantConfigurationAccessor`; existing `IConfigurationAccessor` unchanged | Additive |
-| Flags/Entitlements | `GetFlagsForTenant`/`GetEntitlementsForTenant` factory/cache (no generator change); tenant dimension on evaluator + REST endpoints | Additive |
+| Flags/Entitlements | `GetFeatureFlagsForTenant`/`GetEntitlementsForTenant` factory/cache (no generator change); tenant dimension on evaluator + REST endpoints | Additive |
 
 **Net:** one structural change (ConfigManager ownership) + one new subsystem (fan-out coordinator). Everything else is additive reuse of existing per-instance machinery. No rewrite of the recompute/snapshot/reactive cores.
 

@@ -164,8 +164,6 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// </summary>
     internal object? ServiceBackedHolder { get; set; }
 
-    internal MasterBackplane Backplane => _state.Backplane;
-
     internal ConfigManager Initialize()
     {
         if (_initialized != 0)

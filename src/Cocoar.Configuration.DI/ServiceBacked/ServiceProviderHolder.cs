@@ -3,7 +3,7 @@ namespace Cocoar.Configuration.DI;
 /// <summary>
 /// Holds the application root <see cref="IServiceProvider"/> for service-backed (Layer-2, ADR-006)
 /// configuration. Null until the container is built; set once — on host start — by the activation hosted
-/// service (or a manual <c>ActivateServiceBackedConfiguration</c> call). The instance is captured in the
+/// service (or a manual <c>ActivateServiceBackedConfigurationAsync</c> call). The instance is captured in the
 /// closures of the sp-gated Layer-2 rules so their factories can resolve services lazily at recompute time,
 /// and is registered as a DI singleton so the activator receives the very same instance.
 /// </summary>

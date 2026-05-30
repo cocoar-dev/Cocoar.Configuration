@@ -39,9 +39,9 @@ public sealed class HttpProviderOptions : IProviderConfiguration
     /// <summary>
     /// Optional factory for an externally-owned <see cref="HttpClient"/> — used by the service-backed
     /// (Layer-2, ADR-006) <c>FromHttp((sp,a)=&gt;…)</c> overload to source a client from
-    /// <c>IHttpClientFactory</c>. Invoked lazily, only when the provider is (re)built, so the
-    /// <see cref="IServiceProvider"/> is read at recompute time. When set, the provider does NOT dispose the
-    /// client (the factory owns the pooled handler). Takes precedence over <see cref="Handler"/>.
+    /// <c>IHttpClientFactory</c>. The outer <c>(sp, accessor)</c> is captured at build time, but this factory is
+    /// invoked per fetch and per SSE (re)connection, so the factory's handler rotation applies. When set, the
+    /// provider does NOT dispose the client (the factory owns the pooled handler). Takes precedence over <see cref="Handler"/>.
     /// Not serialized for provider key generation.
     /// </summary>
     [JsonIgnore]

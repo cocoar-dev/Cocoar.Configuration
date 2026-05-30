@@ -13,6 +13,23 @@
   - `ILocalStorage<T>` / `ILocalStorageOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
   - LocalStorageOverride example project
 - `IProviderServiceRegistration` now supports resolve-time factory registrations (`ProviderServiceRegistration.Singleton(type, factory)`) in addition to eager instances
+- **Multi-Tenancy** — the same configuration type resolves to different values per tenant, layered on a shared global base (ADR-005)
+  - `ITenantConfigurationAccessor` lifecycle on `ConfigManager`: `InitializeTenantAsync` / `EnsureTenantInitializedAsync` / `IsTenantInitialized` / `RemoveTenantAsync`
+  - `.TenantScoped()` rule marker + `Tenant` on `IConfigurationAccessor` (default-interface member, non-breaking) — author one flat rule list, no second surface
+  - Per-tenant access: `GetConfigForTenant<T>` / `GetReactiveConfigForTenant<T>` / `GetFeatureFlagsForTenant<T>` / `GetEntitlementsForTenant<T>` / `GetLocalStorageForTenant<T>`
+  - Tenant-only types are excluded from the global DI plan (avoids the captive-dependency bug); per-tenant flags/entitlements need no source-generator change
+  - ASP.NET Core: scoped `ITenantReactiveConfig<T>` + `ITenantContext`, and `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+- **Service-Backed (DI-aware) configuration** — a two-layer model so config providers can use DI-managed services (ADR-006)
+  - `UseServiceBackedConfiguration(...)` (DI package) — Layer-2 rules whose provider factories receive the application `IServiceProvider`
+  - `FromStorage((sp, a) => IStorageBackend)`, `FromHttp((sp, a) => HttpClient)`, and `FromService<TService>(s => config)` overloads
+  - providers can use `IHttpClientFactory` / Marten / EF without giving up the no-DI core; activated on host start via `IHostedLifecycleService` (a recompute, never a rebuild)
+  - public `ServiceBackedProviderBuilder<T>` seam so third-party provider packages can author their own `(sp, a)` overloads
+  - ServiceBackedConfig example project
+- **Secrets encryption-key publishing** — publish the public half of the configured secrets encryption key so a browser/CLI producer can build `cocoar.secret` envelopes
+  - `ISecretEncryptionKeyProvider` (DI) and ASP.NET Core `MapSecretEncryptionKeyEndpoints()` under `/.well-known/cocoar/encryption-keys`
+  - `SecretEnvelope<T>` for typed secret-overlay writes; LocalStorage `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes
+- Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for authoring a custom provider's change stream without referencing System.Reactive
+- `FromFile(a => …)` config-aware file-path overload (resolves the path from the accessor per recompute) — the natural shape for per-tenant file rules
 
 ### Changed
 

@@ -111,6 +111,7 @@ export default defineConfig({
             { text: 'Overview', link: '/guide/secrets/overview' },
             { text: 'Secret<T> & Leases', link: '/guide/secrets/secret-type' },
             { text: 'Encryption Setup', link: '/guide/secrets/encryption-setup' },
+            { text: 'Publishing Encryption Keys <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/key-publishing' },
             { text: 'CLI Tools', link: '/guide/secrets/cli' },
             { text: 'Certificate Caching <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/certificate-caching' },
             { text: 'Security Model <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/security-model' },

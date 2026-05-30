@@ -152,29 +152,33 @@ public class MyService
 }
 ```
 
-### 3. Hash-Based Change Detection
+### 3. Reference-Equality Change Detection
 
-Only emit when configuration **actually changes**:
+Only emit when configuration **actually changes**. Each recompute produces fresh
+config instances; the engine compares the new per-type **instance reference**
+against the last published reference and suppresses emission when they are
+reference-equal:
 
 ```csharp
 // Recompute produces new snapshot
 oldSnapshot = { AppSettings: v1, DatabaseSettings: v1 }
-newSnapshot = { AppSettings: v2, DatabaseSettings: v1 }  // Only App changed
+newSnapshot = { AppSettings: v2, DatabaseSettings: v1 }  // Only App got a new instance
 
-// Per-Type Change Detection:
-- Hash(AppSettings v2) != Hash(AppSettings v1) → Changed
-- Hash(DatabaseSettings v1) == Hash(DatabaseSettings v1) → Unchanged
+// Per-Type Change Detection (DistinctUntilChanged with ReferenceEquals):
+- ReferenceEquals(AppSettings v2, AppSettings v1) == false → Changed
+- ReferenceEquals(DatabaseSettings v1, DatabaseSettings v1) == true → Unchanged
 
 // Emission:
-- IReactiveConfig<AppSettings> → Emits (value changed)
-- IReactiveConfig<DatabaseSettings> → No emission (unchanged)
+- IReactiveConfig<AppSettings> → Emits (reference changed)
+- IReactiveConfig<DatabaseSettings> → No emission (reference unchanged)
 - IReactiveConfig<(AppSettings, DatabaseSettings)> → Emits (tuple member changed)
 ```
 
 **Benefits:**
 - Avoids spurious emissions on non-changes
-- Subscribers only react when values actually differ
-- SHA-256 hash over JSON representation
+- Subscribers only react when a type gets a new instance
+- O(1) reference comparison — no hashing or serialization on the emit path
+  (`MasterBackplane.CreateTypeProjection` ends in `.DistinctUntilChanged(ReferenceEqualityComparer<T>.Instance)`)
 
 ---
 
@@ -182,93 +186,93 @@ newSnapshot = { AppSettings: v2, DatabaseSettings: v1 }  // Only App changed
 
 ### Core Components
 
-**1. ReactiveConfigManager** (~250 lines)
+**1. MasterBackplane** (single source of truth)
 
-Manages reactive subscriptions and change detection:
+`MasterBackplane` holds the current `ConfigSnapshot` in a `SimpleBehaviorSubject`
+and atomically publishes new snapshots. Per-type reactive consumers subscribe to
+a **type projection** built lazily over that snapshot stream. The projection
+selects the type out of each snapshot and gates emissions by reference equality:
 
 ```csharp
-internal sealed class ReactiveConfigManager
+internal sealed class MasterBackplane : IDisposable
 {
-    // Per-type BehaviorSubjects
-    private readonly ConcurrentDictionary<Type, object> _subjects = new();
-    
-    // Per-type hash tracking for change detection
-    private readonly ConcurrentDictionary<Type, string> _lastHashes = new();
-    
-    // Per-pass emissions (for observing recompute events)
-    private readonly ConcurrentDictionary<Type, object> _perPassSubjects = new();
-    
-    public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> accessor)
+    private readonly SimpleBehaviorSubject<ConfigSnapshot> _snapshotSubject;
+    private readonly ConcurrentDictionary<Type, object> _typeProjectionCache = new();
+
+    // Atomic publish: all type projections update from a single snapshot
+    public void Publish(ConfigSnapshot snapshot) => _snapshotSubject.OnNext(snapshot);
+
+    private IObservable<T> CreateTypeProjection<T>() where T : class =>
+        _snapshotSubject
+            .Select(snapshot => snapshot.GetConfig<T>() /* + interface mapping */)
+            .Where(config => config != null)
+            // Uses ReferenceEquals — no hashing on the emit path
+            .DistinctUntilChanged(ReferenceEqualityComparer<T>.Instance);
+}
+```
+
+**2. ReactiveConfigManager** (wrapper cache over the backplane)
+
+Holds the `MasterBackplane` plus a single `_reactiveConfigs` dictionary of
+per-type wrappers. `GetReactiveConfig<T>` returns a cached, backplane-backed
+`BackplaneReactiveConfig<T>` whose `CurrentValue` reads from the backplane and
+whose `Subscribe` forwards to the type projection:
+
+```csharp
+internal sealed class ReactiveConfigManager : IDisposable
+{
+    private readonly ConcurrentDictionary<Type, object> _reactiveConfigs = new();
+    private MasterBackplane? _backplane;
+
+    public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> fallbackAccessor) where T : class =>
+        (IReactiveConfig<T>)_reactiveConfigs.GetOrAdd(
+            typeof(T), _ => new BackplaneReactiveConfig<T>(_backplane!));
+
+    private sealed class BackplaneReactiveConfig<T> : IReactiveConfig<T>, IDisposable where T : class
     {
-        var subject = GetOrCreateSubject<T>();
-        return new ReactiveConfig<T>(subject);
-    }
-    
-    public void NotifyConfigurationObservers(Func<Type, object?> accessor)
-    {
-        // Called after successful recompute transaction
-        // Computes hashes and emits only for changed types
-        foreach (var type in _subjects.Keys)
+        private readonly MasterBackplane _backplane;
+        private readonly IObservable<T> _observable;
+
+        public BackplaneReactiveConfig(MasterBackplane backplane)
         {
-            var value = accessor(type);
-            var newHash = ComputeHash(value);
-            
-            if (HasChanged(type, newHash))
-            {
-                UpdateHash(type, newHash);
-                PublishToSubject(type, value);  // Atomic emission
-            }
+            _backplane = backplane;
+            _observable = backplane.GetTypeProjection<T>();
         }
+
+        public T CurrentValue => _backplane.GetConfig<T>() ?? throw new InvalidOperationException(...);
+        public IDisposable Subscribe(IObserver<T> observer) => _observable.Subscribe(observer);
     }
 }
 ```
 
-**2. PassEvent System** (Supporting Transactional Semantics)
-
-```csharp
-public readonly struct PassEvent<T>
-{
-    public long PassId { get; }        // Recompute pass identifier
-    public T Value { get; }            // Configuration value
-    public DateTime TimestampUtc { get; }
-}
-
-// Usage: Observe every recompute attempt (not just changes)
-config.ObservePerPass().Subscribe(passEvent =>
-{
-    Console.WriteLine($"Pass {passEvent.PassId} at {passEvent.TimestampUtc}");
-    // Useful for monitoring, debugging, auditing
-});
-```
-
-**Why PassEvent Exists:**
-
-- **Change-based** (`IReactiveConfig<T>`): Emits only when value changes (primary API)
-- **Pass-based** (`ObservePerPass<T>`): Emits on every recompute (monitoring/debugging)
-- **Use case**: Track recompute frequency even if values don't change
-- **Use case**: Audit all configuration refresh attempts
+There are no per-type subjects, hash dictionaries, or per-pass subjects — a
+single snapshot subject plus reference-equality projections provide change
+detection.
 
 **3. Tuple Reactive Factory**
 
-Handles flattening of nested tuples for atomic subscriptions:
+Handles flattening of nested tuples for atomic subscriptions. The factory
+reflects over the `ValueTuple` fields to discover the element types (recursing
+into `Rest` for tuples larger than 7), validates each element is a configured /
+exposed type, primes each element's reactive config, then instantiates a
+`ReactiveTupleConfig<>` over the same `MasterBackplane`. There is no
+`Observable.CombineLatest` — the tuple reads all members from one atomic
+snapshot:
 
 ```csharp
-internal sealed class ReactiveConfigurationFactory
+internal class ReactiveConfigurationFactory(/* ... */)
 {
-    public IReactiveConfig<(T1, T2, T3)> GetReactiveConfig<T1, T2, T3>(
-        Func<T1> accessor1,
-        Func<T2> accessor2,
-        Func<T3> accessor3)
+    private object CreateTupleReactiveConfig(Type tupleType)
     {
-        // Create combined observable that emits when ANY member changes
-        // but always provides ALL members atomically
-        var combined = Observable.CombineLatest(
-            _reactiveManager.GetReactiveConfig(accessor1).Value,
-            _reactiveManager.GetReactiveConfig(accessor2).Value,
-            _reactiveManager.GetReactiveConfig(accessor3).Value,
-            (a, b, c) => (a, b, c));
-            
-        return new ReactiveTupleConfig<(T1, T2, T3)>(combined);
+        var elementTypes = FlattenTuple(tupleType).ToArray();   // reflection-flatten
+
+        // Validate + prime each distinct element's reactive config
+        foreach (var et in elementTypes.Distinct()) { /* prime element type */ }
+
+        // One ReactiveTupleConfig over the backplane — all members from one snapshot
+        var generic = typeof(ReactiveTupleConfig<>).MakeGenericType(tupleType);
+        return Activator.CreateInstance(
+            generic, accessor, backplaneAccessor(), reactiveConfigManager, logger, bindingRegistry)!;
     }
 }
 ```
@@ -288,11 +292,12 @@ internal sealed class ReactiveConfigurationFactory
        └─ Failure → RollbackUpdate()
 
 3. Change Detection (on success only)
-   ├─ For each registered type:
-   │   ├─ Compute SHA-256 hash of new value
-   │   ├─ Compare with last known hash
-   │   └─ If changed → Mark for emission
-   └─ Emit marked types atomically
+   ├─ Publish the new snapshot to the MasterBackplane
+   ├─ For each registered type projection:
+   │   ├─ Select the type's new instance from the snapshot
+   │   ├─ Compare with last published reference (ReferenceEquals)
+   │   └─ If reference changed → emit
+   └─ Emit changed types atomically
 
 4. Subscriber Notification
    ├─ Single-type: Emits if that type changed
@@ -309,24 +314,24 @@ internal sealed class ReactiveConfigurationFactory
 ✅ **Atomic Consistency**: Subscribers **never** see partial updates  
 ✅ **Transactional Safety**: Failed recomputes don't corrupt state  
 ✅ **Type-Safe**: Compile-time checked tuple subscriptions  
-✅ **Hash-Based Efficiency**: No spurious emissions on non-changes  
+✅ **Reference-Equality Efficiency**: O(1) change detection, no spurious emissions on non-changes  
 ✅ **Flexible Granularity**: Subscribe to single types or tuples  
 ✅ **Automatic Rollback**: Errors preserve last known good state  
-✅ **Rx Integration**: Works with standard System.Reactive operators  
+✅ **Zero External Dependencies**: `IReactiveConfig<T> : IObservable<T>` uses only BCL types — no System.Reactive in shipped packages  
 ✅ **Observable by Design**: Configuration as first-class reactive stream  
 
 ### Trade-offs
 
-⚠️ **Complexity**: ~250 lines for ReactiveConfigManager (justified by correctness)  
-⚠️ **Memory**: Dual dictionaries per type (subjects + hashes) - ~100 bytes/type  
+⚠️ **Complexity**: A backplane plus per-type projections and tuple flattening (justified by correctness)  
+⚠️ **Memory**: One snapshot subject plus one cached wrapper/projection per type — a single dictionary, not dual  
 ⚠️ **Tuple Limitation**: C# supports tuples up to 8 members (combine with nesting if needed)  
-⚠️ **Hash Computation**: SHA-256 over JSON per type per recompute (~1-5ms overhead)  
+⚠️ **Reflection**: Tuple flattening uses reflection (results are cached per type)  
 
 **Why Complexity Is Acceptable:**
 
 - Atomic guarantees are **non-negotiable** for correctness
-- Memory overhead is **negligible** (100 bytes × 10 types = 1KB)
-- Hash computation is **trivial** compared to provider I/O (file/HTTP)
+- Memory overhead is **negligible** (one wrapper/projection per type)
+- Reference-equality change detection is **O(1)** — no hashing or serialization on the emit path
 - Alternative (IOptionsMonitor) has **unfixable race conditions**
 
 ### Negative
@@ -484,37 +489,16 @@ public class DatabasePool
 **Behavior:**
 - Emits **when any member changes**
 - **All members are from the same snapshot** (atomic)
-- If only `AppSettings` changed, still get all three (but only AppSettings hash differs)
+- If only `AppSettings` changed, still get all three (but only `AppSettings` has a new reference)
 
-### Example 3: Per-Pass Observation (Monitoring)
-
-```csharp
-public class ConfigAuditor
-{
-    public ConfigAuditor(IReactiveConfig<AppSettings> config)
-    {
-        config.ObservePerPass().Subscribe(passEvent =>
-        {
-            Console.WriteLine(
-                $"Pass {passEvent.PassId} at {passEvent.TimestampUtc:O} → {passEvent.Value.ApiUrl}");
-        });
-    }
-}
-```
-
-**Behavior:**
-- Emits on **every recompute**, even if value unchanged
-- Useful for monitoring recompute frequency
-- PassId tracks transaction identity
-
-### Example 4: Health Monitoring Integration
+### Example 3: Health Monitoring Integration
 
 ```csharp
 public class ConfigHealthService
 {
     public ConfigHealthService(
         IReactiveConfig<(AppSettings, DatabaseSettings)> config,
-        IConfigurationHealthService health)
+        ConfigManager configManager)
     {
         // Monitor config changes
         config.Subscribe(tuple =>
@@ -522,11 +506,11 @@ public class ConfigHealthService
             var (app, db) = tuple;
             ValidateConsistency(app, db);
         });
-        
-        // Monitor recompute health
-        health.HealthStatus.Subscribe(status =>
+
+        // Check recompute health after a change
+        config.Subscribe(_ =>
         {
-            if (status == ConfigurationHealthStatus.Unhealthy)
+            if (configManager.HealthStatus == HealthStatus.Unhealthy)
             {
                 AlertOps("Configuration recompute failed!");
             }
@@ -534,6 +518,11 @@ public class ConfigHealthService
     }
 }
 ```
+
+`ConfigManager` exposes the current health as `HealthStatus`
+(`Unknown`/`Healthy`/`Degraded`/`Unhealthy`) plus the `IsHealthy` convenience
+flag. A failed required rule leaves the last good configuration in place and sets
+`HealthStatus` to `Unhealthy`.
 
 ---
 
@@ -546,9 +535,9 @@ public class ConfigHealthService
 - 3 config types
 - Total time: ~50-200ms (dominated by HTTP polling)
 
-**Hash Computation:**
-- SHA-256 over JSON (~1KB config): ~0.5-2ms per type
-- 3 types: ~1.5-6ms total
+**Change Detection:**
+- Reference comparison per type (`DistinctUntilChanged(ReferenceEquals)`): O(1), effectively free
+- No hashing or serialization on the emit path
 - **Negligible** compared to provider I/O
 
 **Emission Overhead:**
@@ -557,15 +546,14 @@ public class ConfigHealthService
 - **Trivial** overhead
 
 **Memory per Type:**
-- BehaviorSubject: ~40 bytes
-- Hash storage: ~32 bytes (SHA-256 hex string)
-- PassEvent subject: ~40 bytes (if used)
-- **Total: ~100 bytes per type**
+- One cached `BackplaneReactiveConfig<T>` wrapper + its type projection
+- No per-type hash storage, no per-pass subject
+- A single shared snapshot subject backs all types
 
 **Typical app (10 config types, 20 subscribers):**
-- Memory: ~1KB for subjects + ~640 bytes for hashes = **~2KB total**
+- Memory: one snapshot subject + ~10 cached wrappers/projections = negligible
 - Recompute time: ~50-200ms (provider I/O)
-- Hash time: ~5-20ms (computation)
+- Change detection: O(1) reference compares (effectively free)
 - Emission time: ~1-10ms (notification)
 
 **Conclusion:** Performance overhead is **negligible** compared to correctness benefits.
@@ -576,9 +564,8 @@ public class ConfigHealthService
 
 **Unit Tests:**
 - Atomic emission on multi-config change
-- No emission when hashes unchanged
+- No emission when a type's instance reference is unchanged
 - Rollback on required rule failure
-- PassEvent emissions independent of change-based
 
 **Integration Tests:**
 - File change triggers atomic tuple update
@@ -587,7 +574,7 @@ public class ConfigHealthService
 
 **Property Tests:**
 - No subscriber ever sees partial state
-- Hash changes if and only if value changes
+- A type emits if and only if it gets a new instance reference
 - Transaction never commits partial updates
 
 ---
@@ -644,7 +631,7 @@ Observable.CombineLatest(
 ```csharp
 config.Subscribe(tuple =>
 {
-    var (app, db) = tuple;  // Built-in hash-based change detection
+    var (app, db) = tuple;  // Built-in reference-equality change detection
     RebuildState(app, db);
 });
 ```
@@ -652,6 +639,8 @@ config.Subscribe(tuple =>
 ---
 
 ## Future Enhancements
+
+The following are aspirational sketches — **none are implemented yet**.
 
 **1. Snapshot Diffing API**
 
@@ -683,11 +672,11 @@ config.Sample(TimeSpan.FromSeconds(1))  // At most once per second
 ## References
 
 ### Internal
-- `Reactive/ReactiveConfigManager.cs` - Core implementation
-- `Reactive/ReactiveConfigurationFactory.cs` - Tuple flattening
-- `Reactive/ReactiveConfig.cs` - Single-type wrapper
+- `Core/MasterBackplane.cs` - Snapshot subject + per-type reference-equality projections
+- `Reactive/ReactiveConfigManager.cs` - Backplane-backed wrapper cache (`BackplaneReactiveConfig<T>`)
+- `Reactive/ReactiveConfigurationFactory.cs` - Tuple flattening (reflection) over the backplane
 - `Reactive/ReactiveTupleConfig.cs` - Tuple wrapper
-- `Core/ConfigurationEngine.cs` - Recompute transaction
+- `Core/ConfigurationEngine.cs` - Recompute transaction (BeginUpdate/CommitUpdate/RollbackUpdate)
 
 ### External
 - [System.Reactive Documentation](https://github.com/dotnet/reactive)

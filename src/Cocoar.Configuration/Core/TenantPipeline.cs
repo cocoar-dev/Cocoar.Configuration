@@ -41,7 +41,6 @@ internal sealed class TenantPipeline : ILocalStorageHost, IDisposable, IAsyncDis
     internal ReactiveConfigManager ReactiveConfigManager { get; }
     internal ReactiveConfigurationFactory ReactiveFactory { get; }
     internal ConfigurationEngine Engine { get; }
-    internal MasterBackplane Backplane => State.Backplane;
 
     private int _initialized;
     internal bool IsInitialized => Volatile.Read(ref _initialized) != 0;

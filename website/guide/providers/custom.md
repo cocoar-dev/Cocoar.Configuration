@@ -70,15 +70,15 @@ public class DatabaseConfigProvider
     public override IObservable<byte[]> ChangesAsBytes(DatabaseProviderQuery query)
     {
         // No change detection — static until next recompute
-        return ObservableHelpers.Never<byte[]>();
+        return ProviderObservable.Never<byte[]>();
 
         // Or: implement SqlDependency, polling, etc.
     }
 }
 ```
 
-::: info Helper Utilities
-`ObservableHelpers` and `DisposableHelpers` are lightweight utilities included in `Cocoar.Configuration` — no additional package needed. They provide `Never<T>()`, `Empty<T>()`, `Create<T>()` for observables and `Create(Action)` for disposables.
+::: info Helper utilities
+`ProviderObservable` and `ProviderDisposable` (in `Cocoar.Configuration.Providers.Abstractions`, the same namespace as `ConfigurationProvider`) are public helpers for building a provider's change stream without referencing System.Reactive: `Never<T>()`, `Empty<T>()`, `Create<T>()` for observables and `Empty` / `Create(Action)` for disposables.
 :::
 
 ## Provider Key and Instance Caching
@@ -157,7 +157,7 @@ public sealed class DbConfigProvider(DbConfigOptions options)
         return json is not null ? Encoding.UTF8.GetBytes(json) : "{}"u8.ToArray();
     }
 
-    public override IObservable<byte[]> ChangesAsBytes(DbConfigQuery query) => ObservableHelpers.Never<byte[]>();
+    public override IObservable<byte[]> ChangesAsBytes(DbConfigQuery query) => ProviderObservable.Never<byte[]>();
 }
 ```
 
@@ -215,7 +215,7 @@ public override IObservable<byte[]> ChangesAsBytes(DatabaseProviderQuery query)
             }
         }, cts.Token);
 
-        return DisposableHelpers.Create(() =>
+        return ProviderDisposable.Create(() =>
         {
             cts.Cancel();
             timer.Dispose();
@@ -262,7 +262,7 @@ public class DatabaseConfigProvider
 
     public override IObservable<byte[]> ChangesAsBytes(DatabaseProviderQuery query)
     {
-        return ObservableHelpers.Never<byte[]>(); // Or implement polling/notifications
+        return ProviderObservable.Never<byte[]>(); // Or implement polling/notifications
     }
 }
 

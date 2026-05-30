@@ -15,6 +15,28 @@
 - Secret-typed members cannot be overridden via LocalStorage (throws `NotSupportedException`)
 - `IProviderServiceRegistration` gained resolve-time factory registration support
 
+**Multi-Tenancy** (ADR-005)
+- The same configuration type resolves to different values per tenant, layered on a shared global base
+- `.TenantScoped()` rule marker + `Tenant` on `IConfigurationAccessor` — author one flat rule list (no second surface)
+- `ITenantConfigurationAccessor` lifecycle: `InitializeTenantAsync` / `EnsureTenantInitializedAsync` / `RemoveTenantAsync`
+- Per-tenant access: `GetConfigForTenant` / `GetReactiveConfigForTenant` / `GetFeatureFlagsForTenant` / `GetEntitlementsForTenant` / `GetLocalStorageForTenant`
+- Tenant-only types excluded from the global DI plan; per-tenant flags/entitlements need no source-generator change
+- ASP.NET Core: scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+
+**Service-Backed (DI-aware) configuration** (ADR-006)
+- Two-layer model: eager `UseConfiguration` (Layer 1) + lazy `UseServiceBackedConfiguration` (Layer 2), whose provider factories receive the `IServiceProvider`
+- `FromStorage((sp, a) => …)`, `FromHttp((sp, a) => …)`, `FromService<TService>(s => …)` — use `IHttpClientFactory` / Marten / EF without giving up the no-DI core
+- Activated on host start via `IHostedLifecycleService` (a recompute, never a rebuild — live reactive views stay valid)
+- Public `ServiceBackedProviderBuilder<T>` seam for third-party `(sp, a)` provider overloads
+
+**Secrets — encryption-key publishing**
+- Publish the public half of the secrets encryption key (`ISecretEncryptionKeyProvider`; ASP.NET Core `MapSecretEncryptionKeyEndpoints()` at `/.well-known/cocoar/encryption-keys`) so a browser/CLI can build `cocoar.secret` envelopes
+- `SecretEnvelope<T>` typed secret-overlay writes; LocalStorage `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes
+
+**Custom-provider authoring**
+- Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for a provider's change stream without referencing System.Reactive
+- `FromFile(a => …)` config-aware file-path overload — the natural shape for per-tenant file rules (resolves the path from the accessor per recompute)
+
 ### Changed
 
 **Secrets — robust enum & casing handling**
