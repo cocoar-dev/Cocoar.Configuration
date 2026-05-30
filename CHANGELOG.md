@@ -191,7 +191,7 @@ See [Migration Guide v4→v5](website/guide/migration/v4-to-v5.md) for all patte
 ## [4.1.0] - 2026-01-11
 
 ### Fixed
-- **Provider consistency bug**: Optional rules now consistently return empty objects with C# defaults when sources are unavailable, instead of inconsistently returning null. This fixes a bug where source-based providers (File, HTTP) behaved differently than collection-based providers (Environment, CommandLine). See [ADR-003](docs/adr/ADR-003-provider-consistency-empty-objects.md) for details.
+- **Provider consistency bug**: Optional rules now consistently return empty objects with C# defaults when sources are unavailable, instead of inconsistently returning null. This fixes a bug where source-based providers (File, HTTP) behaved differently than collection-based providers (Environment, CommandLine). See [ADR-003](website/adr/ADR-003-provider-consistency-empty-objects.md) for details.
   - All providers now return `{}` on failure, resulting in configuration objects with C# property defaults
   - Failures are tracked via health monitoring with `Degraded` status
   - Eliminates need for workarounds like adding fake `FromEnvironment()` rules

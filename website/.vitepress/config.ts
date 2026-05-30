@@ -29,6 +29,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Reference', link: '/reference/packages' },
+      { text: 'ADR', link: '/adr/' },
       { text: 'Roadmap', link: '/roadmap/overview' },
       { text: 'Changelog', link: '/changelog' },
       { text: 'LLM Docs', link: '/llms-full.txt', target: '_blank' },
@@ -178,6 +179,20 @@ export default defineConfig({
             { text: 'ConfigHub', link: '/roadmap/confighub' },
             { text: 'Cloud Providers', link: '/roadmap/cloud-providers' },
             { text: 'Database Provider', link: '/roadmap/database-provider' },
+          ],
+        },
+      ],
+      '/adr/': [
+        {
+          text: 'Architecture Decision Records',
+          items: [
+            { text: 'Overview', link: '/adr/' },
+            { text: 'ADR-001 · Capabilities System', link: '/adr/ADR-001-capabilities-system' },
+            { text: 'ADR-002 · Atomic Reactive Updates', link: '/adr/ADR-002-atomic-reactive-updates' },
+            { text: 'ADR-003 · Provider Consistency', link: '/adr/ADR-003-provider-consistency-empty-objects' },
+            { text: 'ADR-004 · Aggregate Rules', link: '/adr/ADR-004-aggregate-rules' },
+            { text: 'ADR-005 · Multi-Tenant Configuration', link: '/adr/ADR-005-multi-tenant-configuration' },
+            { text: 'ADR-006 · DI-aware Configuration', link: '/adr/ADR-006-di-aware-configuration' },
           ],
         },
       ],

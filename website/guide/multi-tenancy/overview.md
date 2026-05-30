@@ -2,7 +2,7 @@
 
 Multi-tenant applications need the **same configuration type to resolve to different values per tenant** — a global default for everything, with each tenant overriding only the keys it sets and inheriting the rest.
 
-Cocoar.Configuration models this as **per-tenant pipeline bundles layered on a shared global base** (see [ADR-005](https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/adr/ADR-005-multi-tenant-configuration.md)). You author **one flat rule list** and mark the per-tenant rules with `.TenantScoped()`; the tenant id flows in through the configuration accessor. There is no second authoring surface and no provider becomes "tenant-aware".
+Cocoar.Configuration models this as **per-tenant pipeline bundles layered on a shared global base** (see [ADR-005](/adr/ADR-005-multi-tenant-configuration)). You author **one flat rule list** and mark the per-tenant rules with `.TenantScoped()`; the tenant id flows in through the configuration accessor. There is no second authoring surface and no provider becomes "tenant-aware".
 
 ::: tip When do I need this?
 Only when one process serves many tenants and the **same type** must differ per tenant at runtime, with tenants added/removed dynamically. A single-tenant app needs none of this — the global pipeline is unchanged.

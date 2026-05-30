@@ -116,17 +116,17 @@ Service descriptors are emitted in deterministic order (sorted by type full name
 ## Key Architecture Decisions
 
 Read these ADRs to understand important design choices:
-- **ADR-001** (`docs/adr/`) - Capabilities system for cross-assembly extensibility
-- **ADR-002** (`docs/adr/`) - Atomic reactive configuration updates (tuple semantics)
-- **ADR-003** (`docs/adr/`) - Provider consistency (empty objects on failure)
-- **ADR-004** (`docs/adr/`) - Aggregate rules with isolated execution boundary
-- **ADR-005** (`docs/adr/`) - Multi-tenant configuration (per-tenant pipelines on a shared global base)
-- **ADR-006** (`docs/adr/`) - DI-aware (service-backed) two-layer configuration
+- **ADR-001** (`website/adr/`) - Capabilities system for cross-assembly extensibility
+- **ADR-002** (`website/adr/`) - Atomic reactive configuration updates (tuple semantics)
+- **ADR-003** (`website/adr/`) - Provider consistency (empty objects on failure)
+- **ADR-004** (`website/adr/`) - Aggregate rules with isolated execution boundary
+- **ADR-005** (`website/adr/`) - Multi-tenant configuration (per-tenant pipelines on a shared global base)
+- **ADR-006** (`website/adr/`) - DI-aware (service-backed) two-layer configuration
 
 ## Documentation
 
 - `website/` - VitePress documentation site (single source of truth for user-facing docs)
-- `docs/adr/` - Architecture Decision Records (ADR-001 through ADR-006)
+- `website/adr/` - Architecture Decision Records (ADR-001 through ADR-006), published in the docs site under the **ADR** top-nav
 - `src/Examples/` - Runnable example projects demonstrating individual features
 
 ## Local Working Files

@@ -2,7 +2,7 @@
 
 Some configuration sources need a service from your application container *to load* — an `IHttpClientFactory`, a Marten `IDocumentStore`, an EF `IDbContextFactory<T>`. But `AddCocoarConfiguration` runs **before** `BuildServiceProvider()`, so those services don't exist yet. This is a hard boundary in every framework: config that needs the container can't also *bootstrap* the container.
 
-Cocoar solves it the same way Microsoft splits `IConfiguration` (eager, dumb sources) from `IOptions<T>` (lazy, DI-bound) — with a **two-layer model**, in Cocoar's own ordered-layer idiom (see [ADR-006](https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/adr/ADR-006-di-aware-configuration.md)).
+Cocoar solves it the same way Microsoft splits `IConfiguration` (eager, dumb sources) from `IOptions<T>` (lazy, DI-bound) — with a **two-layer model**, in Cocoar's own ordered-layer idiom (see [ADR-006](/adr/ADR-006-di-aware-configuration)).
 
 | Layer | Method | When | `IServiceProvider`? |
 |---|---|---|---|
@@ -162,4 +162,4 @@ Because these overloads target `ServiceBackedProviderBuilder<T>`, using them ins
 
 - [Multi-Tenancy](/guide/multi-tenancy/overview) — `.TenantScoped()` and consuming a tenant's config (`ITenantReactiveConfig<T>`)
 - [ASP.NET Core](/guide/di/aspnetcore)
-- [ADR-006](https://github.com/cocoar-dev/cocoar.configuration/blob/develop/docs/adr/ADR-006-di-aware-configuration.md) — the design rationale
+- [ADR-006](/adr/ADR-006-di-aware-configuration) — the design rationale

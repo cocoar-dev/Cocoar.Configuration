@@ -38,7 +38,7 @@ When a configuration file changes that affects **both** types, subscribers need 
 
 ### Why Standard Patterns Fail
 
-**Microsoft's IOptionsMonitor<T>:**
+**Microsoft's IOptionsMonitor&lt;T>:**
 
 ```csharp
 services.Configure<AppSettings>(config.GetSection("App"));

@@ -192,7 +192,7 @@ services.AddCocoarConfiguration(c => c
 The Layer-2 overload targets `ServiceBackedProviderBuilder<T>`. Calling it inside the Layer-1 `UseConfiguration` (a plain `TypedRuleBuilder<T>`) is a **compile error** — the type system keeps DI-backed loading out of the eager layer. The whole seam (`ServiceBackedProviderBuilder<T>.Context`, `ServiceBackedRuleContext`, `WithActivationGate`) is **public**, so this needs no internals.
 :::
 
-Lifetime discipline (ADR-006 §9): the `IServiceProvider` is the **root** — resolve singletons / factories (`IDbContextFactory<T>`, `IDocumentStore`, `IHttpClientFactory`) and open a short-lived unit per read (as the `await using var conn` above does). Never resolve a scoped service from root. Combine with `.TenantScoped()` for DB-config-per-tenant. See [Service-Backed Configuration](/guide/di/service-backed) for the full lifecycle, readiness, and failure contracts.
+Lifetime discipline ([ADR-006](/adr/ADR-006-di-aware-configuration) §9): the `IServiceProvider` is the **root** — resolve singletons / factories (`IDbContextFactory<T>`, `IDocumentStore`, `IHttpClientFactory`) and open a short-lived unit per read (as the `await using var conn` above does). Never resolve a scoped service from root. Combine with `.TenantScoped()` for DB-config-per-tenant. See [Service-Backed Configuration](/guide/di/service-backed) for the full lifecycle, readiness, and failure contracts.
 
 ## Change Detection
 
