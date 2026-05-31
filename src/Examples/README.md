@@ -20,6 +20,9 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **AggregateRules** – Composable rule grouping (`FromFiles` sugar) with byte-level JSON merge
 - **TupleReactiveExample** – Tuple-based reactive multi-config snapshot & aligned emission demo
 
+### Multi-tenancy
+- **MultiTenancyExample** – The same type resolves to a different value per tenant: one flat rule list with a global base + a `.TenantScoped()` overlay whose file path is interpolated from `accessor.Tenant`; sparse per-tenant inheritance
+
 ### DI & ASP.NET Core
 - **ExposeExample** – Interface exposure without DI frameworks
 - **AspNetCoreExample** – Minimal API exposing configuration via endpoints
