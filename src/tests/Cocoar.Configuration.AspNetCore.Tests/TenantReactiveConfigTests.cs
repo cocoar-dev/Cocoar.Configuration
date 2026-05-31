@@ -1,4 +1,3 @@
-using Cocoar.Configuration.AspNetCore;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Providers;   // FromStaticJson / FromStatic

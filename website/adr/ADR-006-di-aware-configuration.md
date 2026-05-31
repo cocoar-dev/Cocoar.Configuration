@@ -154,16 +154,14 @@ The holder's `sp` is the **root** `IServiceProvider` (the activation hosted serv
 
 Today `HttpProvider` does `new HttpClient()`. Add a Layer-2 overload that resolves `IHttpClientFactory` from the holder and uses a named client — gaining handler pooling/rotation, Polly via `AddHttpClient`, etc. The current `new HttpClient()` / `HttpMessageHandler?` path stays for Layer 1 / no-DI.
 
-### 11. Consumption-tenant adapter (separate, additive, future)
+### 11. Consumption-tenant adapter (implemented)
 
-Distinct from the **source-tenant** flow above (`a.Tenant`, build side) is the **consumption-tenant** flow: "this request's tenant's config via injection." That is a *separate* concern and is **not part of this ADR's core**, but is the natural follow-on:
+Distinct from the **source-tenant** flow above (`a.Tenant`, build side) is the **consumption-tenant** flow: "this request's tenant's config via injection." A *separate* concern from this ADR's core, built on top of the existing `GetReactiveConfigForTenant`:
 
-- The app supplies a **scoped `ITenantContext`** (reads the current tenant from `HttpContext`: claim/header/route — only the app knows this).
-- A **scoped `ITenantReactiveConfig<T>`** adapter (in `Cocoar.Configuration.AspNetCore`) reads `ITenantContext.Current` and delegates to `mgr.GetReactiveConfigForTenant<T>(tenant)`.
+- The **`ITenantContext { string? Current }`** abstraction ("who is the current tenant for this request/scope") is **ambient tenant resolution** — a container/scope concern, so it lives in **`Cocoar.Configuration.DI`**. No-DI hosts have no ambient scope; they pass the tenant explicitly via `…ForTenant(id)`.
+- **DI:** a scoped **`ITenantReactiveConfig<T>`** adapter (in **`Cocoar.Configuration.DI`**) reads `ITenantContext.Current` and delegates to `mgr.GetReactiveConfigForTenant<T>(tenant)`. The app registers a scoped `ITenantContext` with `AddCocoarTenantResolver<TService>(s => s.TenantId)` — pointing at whatever already knows the tenant, no adapter to hand-write. HTTP is simply `AddCocoarTenantResolver<IHttpContextAccessor>(a => a.HttpContext?...)`; there is **no** AspNetCore-specific resolver API.
 - Scoped/transient consumers only; a singleton can never have an ambient tenant → it uses explicit `GetReactiveConfigForTenant(id)`.
-- **Trap:** do **not** re-register `IReactiveConfig<T>` itself as scoped (it is a singleton today; that would break singletons injecting it). Use a **distinct** `ITenantReactiveConfig<T>`.
-
-It needs nothing from this ADR (only the existing `GetReactiveConfigForTenant`), so it can ship independently, any time.
+- **Trap:** do **not** re-register `IReactiveConfig<T>` itself as scoped (it is a singleton; that would break singletons injecting it). Use a **distinct** `ITenantReactiveConfig<T>`.
 
 ---
 
@@ -188,7 +186,7 @@ Plus the §11 trap: never re-register `IReactiveConfig<T>` as scoped.
 | Core `ConfigManagerBuilder` | likely **one small internal hook** to append satellite-supplied rules | Additive (internal) |
 | **NEW** `Cocoar.Configuration.DI`: `ServiceProviderHolder` + `UseServiceBackedConfiguration` extension + `sp`-aware factory overloads (`FromStore`, …) + activation `IHostedService` | the whole Layer-2 mechanism | **New (satellite)** |
 | `Cocoar.Configuration.Http` | `FromHttp((sp,a)=>…)` overload resolving `IHttpClientFactory` | Additive |
-| (Future) `Cocoar.Configuration.AspNetCore` | scoped `ITenantReactiveConfig<T>` (§11) | Additive |
+| `Cocoar.Configuration.DI` | scoped `ITenantReactiveConfig<T>` + `AddCocoarTenantResolver<TService>` (§11) | Additive |
 
 **Net:** the core gains essentially nothing DI-specific (a small internal append hook at most); the entire DI integration lives in the satellite packages. The No-DI core is preserved.
 

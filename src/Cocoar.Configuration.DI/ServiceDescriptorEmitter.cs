@@ -89,9 +89,9 @@ internal static class ServiceDescriptorEmitter
 
     /// <summary>
     /// Registers the public <see cref="ISecretEncryptionKeyProvider"/> when a publishable encryption
-    /// key is configured (single-kid secrets compose an <see cref="ISecretEncryptionKeyInfoProvider"/>).
-    /// The provider resolves the capability lazily per call so certificate rotation is reflected.
-    /// Not registered when no publishable key exists (no secrets, or decrypt-only folder mode).
+    /// key is configured — single-kid and folder/multi-tenant secrets each compose an
+    /// <see cref="ISecretEncryptionKeyInfoProvider"/>. The provider resolves the capability lazily per
+    /// call so certificate rotation is reflected. Not registered when no secrets are configured.
     /// </summary>
     private static void EmitSecretsKeyProviderServices(IServiceCollection services, ConfigManager configManager)
     {
