@@ -28,10 +28,10 @@ internal sealed class InventoryKeyInfoProvider : ISecretEncryptionKeyInfoProvide
         return new SecretEncryptionPublicKey
         {
             Kid = _kid,
-            PublicKey = ToBase64Url(spki),
+            PublicKey = SpkiEncoding.ToBase64Url(spki),
         };
     }
 
-    private static string ToBase64Url(byte[] bytes)
-        => Convert.ToBase64String(bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=');
+    public SecretEncryptionPublicKey? TryGetKeyForKid(string kid)
+        => string.Equals(kid, _kid, StringComparison.OrdinalIgnoreCase) ? TryGetCurrentKey() : null;
 }

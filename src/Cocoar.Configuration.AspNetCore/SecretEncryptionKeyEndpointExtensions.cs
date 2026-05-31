@@ -1,3 +1,4 @@
+using Cocoar.Configuration.DI;
 using Cocoar.Configuration.Secrets.SecretTypes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -7,83 +8,65 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Cocoar.Configuration.AspNetCore;
 
 /// <summary>
-/// Extension methods for publishing the configured secrets encryption public key(s) so external
+/// Extension methods for publishing the configured secrets encryption public key so external
 /// producers (e.g. a browser library) can build <c>cocoar.secret</c> envelopes the server decrypts.
-/// Only public-key material is exposed — never a private key or plaintext.
+/// Only public-key material is exposed — never a private key or plaintext. Each endpoint returns
+/// exactly ONE key (never a list), so one tenant's key can never expose another's.
 /// </summary>
 public static class SecretEncryptionKeyEndpointExtensions
 {
+    private const string DefaultPattern = "/.well-known/cocoar/encryption-key";
+
     /// <summary>
-    /// Maps a GET endpoint that lists the current encryption public key per configured kid as
-    /// <c>{ "keys": [ ... ] }</c>. Always returns 200 (an empty list when no key is publishable, e.g.
-    /// no secrets configured). Returns an <see cref="IEndpointConventionBuilder"/> so callers can chain
-    /// <c>.RequireAuthorization()</c>. Not secured by default (matches <c>MapFeatureFlagEndpoints</c>).
+    /// Maps a GET endpoint returning the current encryption public key for a SINGLE-TENANT deployment,
+    /// or 404 ProblemDetails when none is published. Returns an <see cref="IEndpointConventionBuilder"/>
+    /// so callers can chain <c>.RequireAuthorization()</c>. Not secured by default (matches
+    /// <c>MapFeatureFlagEndpoints</c>).
     /// </summary>
-    public static IEndpointConventionBuilder MapSecretEncryptionKeys(
+    public static IEndpointConventionBuilder MapSecretEncryptionKey(
         this IEndpointRouteBuilder endpoints,
-        string pattern = "/.well-known/cocoar/encryption-keys")
+        string pattern = DefaultPattern)
     {
         return endpoints.MapGet(pattern, (IServiceProvider sp) =>
         {
-            var provider = sp.GetService<ISecretEncryptionKeyProvider>();
-            var keys = provider?.GetCurrentKeys() ?? Array.Empty<SecretEncryptionPublicKey>();
-            return Results.Json(new SecretEncryptionKeySet { Keys = keys });
+            var key = sp.GetService<ISecretEncryptionKeyProvider>()?.GetCurrentKey();
+            return key is null ? KeyNotFound() : Results.Json(key);
         });
     }
 
     /// <summary>
-    /// Maps a GET endpoint that returns the current encryption public key for a specific kid, or a
-    /// 404 ProblemDetails when that kid is not currently published. Returns an
-    /// <see cref="IEndpointConventionBuilder"/> for chaining <c>.RequireAuthorization()</c>.
+    /// Maps a GET endpoint returning the current encryption public key for the tenant the request
+    /// already resolves to. The tenant is read from <see cref="ITenantContext.Current"/> (auth, subdomain,
+    /// or route — supplied by the app, never a client-chosen value), and ONLY that tenant's single
+    /// current key is returned (404 ProblemDetails when none, 400 when no tenant is resolved). Returns
+    /// an <see cref="IEndpointConventionBuilder"/> for chaining <c>.RequireAuthorization()</c>.
+    /// <para>The app must register a scoped <see cref="ITenantContext"/> — e.g. via
+    /// <c>AddCocoarTenantResolver&lt;TService&gt;(...)</c> or its own implementation.</para>
     /// </summary>
-    public static IEndpointConventionBuilder MapSecretEncryptionKeyByKid(
+    public static IEndpointConventionBuilder MapTenantSecretEncryptionKey(
         this IEndpointRouteBuilder endpoints,
-        string pattern = "/.well-known/cocoar/encryption-keys/{kid}")
+        string pattern = DefaultPattern)
     {
-        return endpoints.MapGet(pattern, (string kid, IServiceProvider sp) =>
+        return endpoints.MapGet(pattern, (HttpContext http) =>
         {
-            var provider = sp.GetService<ISecretEncryptionKeyProvider>();
-            var key = provider?.GetCurrentKey(kid);
-            return key is null
-                ? Results.Problem(
-                    detail: $"No published encryption key for kid '{kid}'.",
-                    title: "Encryption key not found",
-                    statusCode: StatusCodes.Status404NotFound)
-                : Results.Json(key);
+            var sp = http.RequestServices;
+            var tenant = sp.GetService<ITenantContext>()?.Current;
+            if (string.IsNullOrWhiteSpace(tenant))
+            {
+                return Results.Problem(
+                    detail: "No tenant is resolved for this request.",
+                    title: "Tenant not resolved",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var key = sp.GetService<ISecretEncryptionKeyProvider>()?.GetCurrentKeyForTenant(tenant);
+            return key is null ? KeyNotFound() : Results.Json(key);
         });
     }
 
-    /// <summary>
-    /// Maps both the list endpoint (at <paramref name="basePattern"/>) and the by-kid endpoint
-    /// (at <c>{basePattern}/{kid}</c>), returning a composite <see cref="IEndpointConventionBuilder"/>
-    /// so a single <c>.RequireAuthorization()</c> (or other convention) applies to both routes.
-    /// </summary>
-    public static IEndpointConventionBuilder MapSecretEncryptionKeyEndpoints(
-        this IEndpointRouteBuilder endpoints,
-        string basePattern = "/.well-known/cocoar/encryption-keys")
-    {
-        var list = endpoints.MapSecretEncryptionKeys(basePattern);
-        var byKid = endpoints.MapSecretEncryptionKeyByKid($"{basePattern.TrimEnd('/')}/{{kid}}");
-        return new CompositeEndpointConventionBuilder(list, byKid);
-    }
-
-    private sealed class CompositeEndpointConventionBuilder : IEndpointConventionBuilder
-    {
-        private readonly IEndpointConventionBuilder[] _builders;
-
-        public CompositeEndpointConventionBuilder(params IEndpointConventionBuilder[] builders)
-            => _builders = builders;
-
-        public void Add(Action<EndpointBuilder> convention)
-        {
-            foreach (var builder in _builders)
-                builder.Add(convention);
-        }
-
-        public void Finally(Action<EndpointBuilder> finallyConvention)
-        {
-            foreach (var builder in _builders)
-                builder.Finally(finallyConvention);
-        }
-    }
+    private static IResult KeyNotFound()
+        => Results.Problem(
+            detail: "No encryption key is currently published.",
+            title: "Encryption key not found",
+            statusCode: StatusCodes.Status404NotFound);
 }

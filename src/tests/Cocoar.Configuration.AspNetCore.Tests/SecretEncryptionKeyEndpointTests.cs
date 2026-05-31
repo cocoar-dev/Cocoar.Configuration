@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Cocoar.Configuration.AspNetCore;
@@ -9,6 +8,7 @@ using Cocoar.Configuration.Secrets;
 using Cocoar.Configuration.X509Encryption;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,11 +23,13 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
     private IHost? _host;
     private HttpClient? _client;
     private string? _pfxPath;
+    private string? _certFolder;
 
-    private const string BasePattern = "/.well-known/cocoar/encryption-keys";
+    private const string Pattern = "/.well-known/cocoar/encryption-key";
 
-    /// <summary>Host with single-kid secrets configured (so a key is publishable).</summary>
-    private async Task<HttpClient> CreateHostWithSecrets(
+    // ---------- single-tenant (single-kid) hosts ----------
+
+    private async Task<HttpClient> CreateSingleTenantHost(
         string kid,
         Action<Microsoft.AspNetCore.Http.Json.JsonOptions>? configureJson = null)
     {
@@ -43,11 +45,10 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
         builder.WebHost.UseTestServer();
 
         var app = builder.Build();
-        app.MapSecretEncryptionKeyEndpoints();
+        app.MapSecretEncryptionKey();
         return await StartAsync(app);
     }
 
-    /// <summary>Host with NO secrets configured (the accessor service is not registered).</summary>
     private async Task<HttpClient> CreateHostWithoutSecrets()
     {
         var builder = WebApplication.CreateBuilder();
@@ -55,11 +56,10 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
         builder.WebHost.UseTestServer();
 
         var app = builder.Build();
-        app.MapSecretEncryptionKeyEndpoints();
+        app.MapSecretEncryptionKey();
         return await StartAsync(app);
     }
 
-    /// <summary>Host that gates both routes behind authorization with a deny-all scheme.</summary>
     private async Task<HttpClient> CreateHostWithAuth()
     {
         var builder = WebApplication.CreateBuilder();
@@ -73,7 +73,32 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
         var app = builder.Build();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.MapSecretEncryptionKeyEndpoints().RequireAuthorization();
+        app.MapSecretEncryptionKey().RequireAuthorization();
+        return await StartAsync(app);
+    }
+
+    // ---------- multi-tenant (folder, kid = tenant) host ----------
+
+    private async Task<HttpClient> CreateTenantHost(string? resolvedTenant, params string[] tenants)
+    {
+        _certFolder = Path.Combine(Path.GetTempPath(), "cocoar_ep_mt_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_certFolder);
+        foreach (var t in tenants)
+        {
+            var dir = Path.Combine(_certFolder, t);
+            Directory.CreateDirectory(dir);
+            using (X509CertificateGenerator.GenerateAndSavePfx(Path.Combine(dir, "cert.pfx"), password: null, $"CN={t}", overwrite: true)) { }
+        }
+
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddCocoarConfiguration(c => c
+            .UseConfiguration(rules => [])
+            .UseSecretsSetup(secrets => secrets.UseCertificatesFromFolder(_certFolder)));
+        builder.Services.AddScoped<ITenantContext>(_ => new FixedTenantContext(resolvedTenant));
+        builder.WebHost.UseTestServer();
+
+        var app = builder.Build();
+        app.MapTenantSecretEncryptionKey();
         return await StartAsync(app);
     }
 
@@ -91,23 +116,25 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
         if (_host != null) await _host.StopAsync();
         _host?.Dispose();
         if (_pfxPath != null && File.Exists(_pfxPath)) File.Delete(_pfxPath);
+        if (_certFolder != null && Directory.Exists(_certFolder))
+        {
+            try { Directory.Delete(_certFolder, recursive: true); } catch { /* best effort */ }
+        }
         GC.SuppressFinalize(this);
     }
 
+    // ---------- single-tenant tests ----------
+
     [Fact]
-    public async Task List_WithSingleKidSecrets_Returns200WithOneKey()
+    public async Task SingleKey_WithSecrets_Returns200WithOneKey()
     {
         const string kid = "endpoint-kid";
-        var client = await CreateHostWithSecrets(kid);
+        var client = await CreateSingleTenantHost(kid);
 
-        var response = await client.GetAsync(BasePattern);
+        var response = await client.GetAsync(Pattern);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var keys = json.GetProperty("keys");
-        Assert.Equal(1, keys.GetArrayLength());
-
-        var key = keys[0];
+        var key = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(kid, key.GetProperty("kid").GetString());
         Assert.Equal("spki", key.GetProperty("format").GetString());
         Assert.Equal("base64url", key.GetProperty("encoding").GetString());
@@ -117,88 +144,129 @@ public class SecretEncryptionKeyEndpointTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task ByKid_KnownKid_Returns200()
+    public async Task SingleKey_NoSecrets_Returns404()
     {
-        const string kid = "by-kid";
-        var client = await CreateHostWithSecrets(kid);
+        var client = await CreateHostWithoutSecrets();
 
-        var response = await client.GetAsync($"{BasePattern}/{kid}");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(kid, json.GetProperty("kid").GetString());
-        Assert.False(string.IsNullOrEmpty(json.GetProperty("publicKey").GetString()));
-    }
-
-    [Fact]
-    public async Task ByKid_UnknownKid_Returns404()
-    {
-        var client = await CreateHostWithSecrets("configured-kid");
-
-        var response = await client.GetAsync($"{BasePattern}/some-other-kid");
+        var response = await client.GetAsync(Pattern);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task List_NoSecrets_Returns200WithEmptyKeys()
-    {
-        var client = await CreateHostWithoutSecrets();
-
-        var response = await client.GetAsync(BasePattern);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(0, json.GetProperty("keys").GetArrayLength());
-    }
-
-    [Fact]
-    public async Task ByKid_NoSecrets_Returns404()
-    {
-        var client = await CreateHostWithoutSecrets();
-
-        var response = await client.GetAsync($"{BasePattern}/anything");
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task RequireAuthorization_GatesBothRoutes()
+    public async Task SingleKey_RequireAuthorization_GatesTheRoute()
     {
         var client = await CreateHostWithAuth();
 
-        var list = await client.GetAsync(BasePattern);
-        var byKid = await client.GetAsync($"{BasePattern}/any");
+        var response = await client.GetAsync(Pattern);
 
-        // A single .RequireAuthorization() on the composite builder must apply to BOTH routes.
         Assert.True(
-            list.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
-            $"list expected 401/403 but got {(int)list.StatusCode}");
-        Assert.True(
-            byKid.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
-            $"by-kid expected 401/403 but got {(int)byKid.StatusCode}");
+            response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
+            $"expected 401/403 but got {(int)response.StatusCode}");
     }
 
     [Fact]
-    public async Task List_WithCustomJsonNamingPolicy_KeepsPinnedFieldNames()
+    public async Task SingleKey_WithCustomJsonNamingPolicy_KeepsPinnedFieldNames()
     {
         const string kid = "policy-kid";
-        var client = await CreateHostWithSecrets(
+        var client = await CreateSingleTenantHost(
             kid,
             o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper);
 
-        var response = await client.GetAsync(BasePattern);
+        var response = await client.GetAsync(Pattern);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var raw = await response.Content.ReadAsStringAsync();
 
-        // The list wrapper ("keys") and every record field are pinned via [JsonPropertyName],
-        // so a non-default host naming policy must NOT rename them.
-        Assert.Contains("\"keys\"", raw);
+        // Every record field is pinned via [JsonPropertyName], so a non-default host naming policy
+        // must NOT rename them.
         Assert.Contains("\"kid\"", raw);
         Assert.Contains("\"publicKey\"", raw);
-        Assert.DoesNotContain("KEYS", raw);
         Assert.DoesNotContain("PUBLIC_KEY", raw);
+    }
+
+    // ---------- multi-tenant tests ----------
+
+    [Fact]
+    public async Task TenantKey_ResolvedTenant_Returns200WithOnlyThatTenantsKey()
+    {
+        var client = await CreateTenantHost(resolvedTenant: "tenantA", "tenantA", "tenantB");
+
+        var response = await client.GetAsync(Pattern);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var key = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("tenantA", key.GetProperty("kid").GetString());
+        Assert.False(string.IsNullOrEmpty(key.GetProperty("publicKey").GetString()));
+
+        // Single key object — never a list / no other tenant exposed.
+        Assert.Equal(JsonValueKind.Object, key.ValueKind);
+    }
+
+    [Fact]
+    public async Task TenantKey_NoTenantResolved_Returns400()
+    {
+        var client = await CreateTenantHost(resolvedTenant: null, "tenantA");
+
+        var response = await client.GetAsync(Pattern);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TenantKey_UnknownTenant_Returns404()
+    {
+        var client = await CreateTenantHost(resolvedTenant: "ghost", "tenantA");
+
+        var response = await client.GetAsync(Pattern);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TenantKey_ViaHttpContextAccessorResolver_ReturnsResolvedTenantsKey()
+    {
+        // The HTTP transport is just AddCocoarTenantResolver<IHttpContextAccessor> — no AspNetCore-specific
+        // resolver API. Here the tenant comes from a request header.
+        _certFolder = Path.Combine(Path.GetTempPath(), "cocoar_ep_http_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_certFolder);
+        foreach (var t in new[] { "tenantA", "tenantB" })
+        {
+            var dir = Path.Combine(_certFolder, t);
+            Directory.CreateDirectory(dir);
+            using (X509CertificateGenerator.GenerateAndSavePfx(Path.Combine(dir, "cert.pfx"), password: null, $"CN={t}", overwrite: true)) { }
+        }
+
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddCocoarConfiguration(c => c
+            .UseConfiguration(rules => [])
+            .UseSecretsSetup(secrets => secrets.UseCertificatesFromFolder(_certFolder)));
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddCocoarTenantResolver<IHttpContextAccessor>(a =>
+        {
+            var header = a.HttpContext?.Request.Headers["X-Tenant"].ToString();
+            return string.IsNullOrEmpty(header) ? null : header;
+        });
+        builder.WebHost.UseTestServer();
+
+        var app = builder.Build();
+        app.MapTenantSecretEncryptionKey();
+        var client = await StartAsync(app);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, Pattern);
+        request.Headers.Add("X-Tenant", "tenantA");
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var key = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("tenantA", key.GetProperty("kid").GetString());
+    }
+
+    private sealed class FixedTenantContext : ITenantContext
+    {
+        public FixedTenantContext(string? current) => Current = current;
+
+        public string? Current { get; }
     }
 
     private sealed class DenyAllHandler : AuthenticationHandler<AuthenticationSchemeOptions>

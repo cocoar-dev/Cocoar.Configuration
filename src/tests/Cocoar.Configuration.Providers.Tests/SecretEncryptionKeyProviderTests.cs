@@ -29,16 +29,17 @@ public sealed class SecretEncryptionKeyProviderTests
     }
 
     [Fact]
-    public void GetCurrentKeys_SingleKid_PublishesOnePublicKey()
+    public void GetCurrentKey_SingleKid_PublishesOnePublicKey()
     {
         const string kid = "publish-kid";
         RunWithCert(kid, provider =>
         {
             var keyProvider = provider.GetRequiredService<ISecretEncryptionKeyProvider>();
 
-            var key = Assert.Single(keyProvider.GetCurrentKeys());
+            var key = keyProvider.GetCurrentKey();
+            Assert.NotNull(key);
 
-            Assert.Equal(kid, key.Kid);
+            Assert.Equal(kid, key!.Kid);
             Assert.Equal(SecretAlgorithms.Hybrid, key.Alg);
             Assert.Equal(SecretAlgorithms.KeyWrap, key.Walg);
             Assert.Equal(SecretAlgorithms.DataEncryption, key.Enc);
@@ -58,16 +59,22 @@ public sealed class SecretEncryptionKeyProviderTests
     }
 
     [Fact]
-    public void GetCurrentKey_ReturnsKeyForConfiguredKid_NullOtherwise()
+    public void GetCurrentKeyForTenant_ReturnsKeyForConfiguredKid_NullOtherwise()
     {
         const string kid = "lookup-kid";
         RunWithCert(kid, provider =>
         {
             var keyProvider = provider.GetRequiredService<ISecretEncryptionKeyProvider>();
 
-            Assert.NotNull(keyProvider.GetCurrentKey(kid));
-            Assert.Null(keyProvider.GetCurrentKey("not-configured"));
-            Assert.Null(keyProvider.GetCurrentKey(""));
+            // Single-tenant accessor publishes the one configured key.
+            Assert.NotNull(keyProvider.GetCurrentKey());
+
+            // The same key is reachable by its kid (single-kid mode treats kid == tenant id).
+            Assert.NotNull(keyProvider.GetCurrentKeyForTenant(kid));
+
+            // Anything else returns nothing — never a list, never another key.
+            Assert.Null(keyProvider.GetCurrentKeyForTenant("not-configured"));
+            Assert.Null(keyProvider.GetCurrentKeyForTenant(""));
         });
     }
 
@@ -104,7 +111,7 @@ public sealed class SecretEncryptionKeyProviderTests
             using var provider = services.BuildServiceProvider();
 
             // 1. Fetch ONLY the published public key — the producer never sees the private cert.
-            var published = provider.GetRequiredService<ISecretEncryptionKeyProvider>().GetCurrentKey(kid);
+            var published = provider.GetRequiredService<ISecretEncryptionKeyProvider>().GetCurrentKey();
             Assert.NotNull(published);
 
             // 2. Encrypt client-side with that public key alone (what a browser does).

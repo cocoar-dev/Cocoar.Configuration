@@ -55,37 +55,28 @@ public sealed record SecretEncryptionPublicKey
 }
 
 /// <summary>
-/// The published set of current encryption public keys (one per kid) — the wire shape of the list
-/// endpoint: <c>{ "keys": [ ... ] }</c>. The <c>keys</c> field name is pinned via
-/// <see cref="JsonPropertyNameAttribute"/> so a host JSON naming policy cannot rename it.
-/// </summary>
-public sealed record SecretEncryptionKeySet
-{
-    /// <summary>The current encryption public key for each configured kid. Never null; may be empty.</summary>
-    [JsonPropertyName("keys")]
-    public IReadOnlyList<SecretEncryptionPublicKey> Keys { get; init; } = Array.Empty<SecretEncryptionPublicKey>();
-}
-
-/// <summary>
-/// Publishes the public half of the configured secrets encryption key(s) so external producers can
+/// Publishes the public half of the configured secrets encryption key so external producers can
 /// build <c>cocoar.secret</c> envelopes the server can later decrypt. Resolved from dependency injection.
 /// <para>
-/// There is exactly ONE current key per <c>kid</c> — the certificate the decryption engine prefers.
+/// There is exactly ONE current key per tenant — the newest certificate (per the configured comparer).
 /// Implementations re-read key material on every call so certificate rotation is reflected. Public keys
-/// are safe to expose; no private key or plaintext is ever reachable through this API.
+/// are safe to expose; no private key or plaintext is ever reachable through this API. Each accessor
+/// returns a SINGLE key — never a list — so one tenant's key can never expose another's.
 /// </para>
 /// </summary>
 public interface ISecretEncryptionKeyProvider
 {
     /// <summary>
-    /// Returns the current encryption public key for each configured kid (one per kid). Returns an
-    /// empty list when nothing is publishable; never throws for the "no keys" case.
+    /// The current encryption public key for a single-tenant deployment (one configured kid), or
+    /// <see langword="null"/> when nothing is publishable. For multi-tenant deployments use
+    /// <see cref="GetCurrentKeyForTenant(string)"/> instead.
     /// </summary>
-    IReadOnlyList<SecretEncryptionPublicKey> GetCurrentKeys();
+    SecretEncryptionPublicKey? GetCurrentKey();
 
     /// <summary>
-    /// The current encryption public key for <paramref name="kid"/>, or <see langword="null"/> if that
-    /// kid is not currently published.
+    /// The current encryption public key for <paramref name="tenantId"/> (one per tenant), or
+    /// <see langword="null"/> if that tenant has no publishable key. Returns exactly one key, so it
+    /// can never expose another tenant's key.
     /// </summary>
-    SecretEncryptionPublicKey? GetCurrentKey(string kid);
+    SecretEncryptionPublicKey? GetCurrentKeyForTenant(string tenantId);
 }

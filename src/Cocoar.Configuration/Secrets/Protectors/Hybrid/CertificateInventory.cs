@@ -210,12 +210,32 @@ internal sealed class CertificateInventory : IDisposable
     /// because <see cref="GetOrLoadCertificate"/> mutates the cache.
     /// </summary>
     internal byte[]? TryExportPreferredPublicKey()
+        => TryExportPreferredPublicKey(kidPath: null, kidPathWithSep: null);
+
+    /// <summary>
+    /// Like <see cref="TryExportPreferredPublicKey()"/> but restricted to the certificates physically
+    /// under the <c>{folder}/{kid}</c> subfolder — the per-tenant (kid = tenant) publishing path. The
+    /// preferred (first-ordered, i.e. newest per the configured comparer) cert in that subfolder is
+    /// exported; older certs in the same subfolder remain available for decryption only. Returns
+    /// <see langword="null"/> when that kid has no usable RSA certificate.
+    /// </summary>
+    internal byte[]? TryExportPreferredPublicKey(string kid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kid);
+        var kidPath = Path.GetFullPath(Path.Combine(_folderPath, kid));
+        return TryExportPreferredPublicKey(kidPath, kidPath + Path.DirectorySeparatorChar);
+    }
+
+    private byte[]? TryExportPreferredPublicKey(string? kidPath, string? kidPathWithSep)
     {
         _lock.EnterWriteLock();
         try
         {
             foreach (var certPath in _sortedCertPaths)
             {
+                if (kidPath is not null && !IsCertUnderKid(certPath, kidPath, kidPathWithSep!))
+                    continue;
+
                 X509Certificate2 cert;
                 try
                 {
@@ -244,6 +264,14 @@ internal sealed class CertificateInventory : IDisposable
         {
             _lock.ExitWriteLock();
         }
+    }
+
+    private static bool IsCertUnderKid(string certPath, string kidPath, string kidPathWithSep)
+    {
+        var certDir = Path.GetDirectoryName(certPath);
+        return certDir != null
+            && (certPath.StartsWith(kidPathWithSep, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(certDir, kidPath, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool TryDecryptWithCert(string certPath, HybridEnvelope envelope, out byte[] plaintext)

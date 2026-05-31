@@ -18,16 +18,6 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
 {
     private readonly ConfigManagerCapabilityScope _capabilityScope = capabilityScope ?? throw new ArgumentNullException(nameof(capabilityScope));
 
-    private void RegisterProtector(IRuntimeSecretDecryptor protector)
-    {
-        var composition = _capabilityScope.Owner.GetComposition();
-        if (composition == null) return;
-
-        var recomposer = _capabilityScope.Recompose(composition);
-        recomposer.AddAs<IRuntimeSecretDecryptor>(protector);
-        recomposer.Build();
-    }
-
     private void RegisterProtectorAndKeyInfo(IRuntimeSecretDecryptor protector, ISecretEncryptionKeyInfoProvider keyInfo)
     {
         var composition = _capabilityScope.Owner.GetComposition();
@@ -80,7 +70,6 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
         var protector = new SingleKidProtectorWrapper(inventory, config.ForceSingleKid!, config.AdditionalKids);
 
         // Publish the current encryption public key for this single, unambiguous kid.
-        // (Multi-kid / folder mode is decrypt-only here; per-tenant publishing comes with multi-tenancy.)
         var keyInfo = new InventoryKeyInfoProvider(inventory, config.ForceSingleKid!);
         RegisterProtectorAndKeyInfo(protector, keyInfo);
     }
@@ -100,9 +89,11 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
             config.CertificateComparer,
             includeSubdirectories: -1);  // Unlimited recursive - watches all kid folders
 
-        // Register ONE protector that handles all kids dynamically
+        // Register ONE protector that handles all kids dynamically, plus a folder-aware key-info
+        // provider that publishes the current public key per kid (= per tenant) on demand.
         var protector = new X509HybridFolderSecretProtector(globalInventory);
-        RegisterProtector(protector);
+        var keyInfo = new FolderKeyInfoProvider(globalInventory);
+        RegisterProtectorAndKeyInfo(protector, keyInfo);
     }
 
     private static void ValidateCertificateStructure(CertificateProtectorConfig config)
