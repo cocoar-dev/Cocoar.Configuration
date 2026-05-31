@@ -59,4 +59,33 @@ public sealed class MixedScopeTupleTests
         Assert.Contains("only .TenantScoped() rules", ex.Message);
         Assert.Contains("GetReactiveConfigForTenant", ex.Message);
     }
+
+    [Fact]
+    public void Global_SingleRead_OfTenantOnlyType_ThrowsTargetedError()
+    {
+        using var mgr = Build();
+
+        // A single type with ONLY .TenantScoped() rules contributes nothing to the global pipeline (its rules
+        // skip without a tenant), so a global read has no value — same targeted error as the tuple case, not
+        // the generic "no rule registered" (a rule does exist; it's just tenant-scoped).
+        var ex = Assert.Throws<InvalidOperationException>(() => mgr.GetConfig<TenantOnly>());
+        Assert.Contains("only .TenantScoped() rules", ex.Message);
+        Assert.Contains("ForTenant", ex.Message);
+    }
+
+    [Fact]
+    public void Global_SingleReactiveRead_OfTenantOnlyType_ThrowsTargetedError()
+    {
+        using var mgr = Build();
+
+        // The reactive single-read goes through the backplane (not the sync accessor), so it is guarded
+        // independently in the reactive factory — same targeted message, thrown eagerly like the tuple guard.
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+        {
+            var reactive = mgr.GetReactiveConfig<TenantOnly>();
+            _ = reactive.CurrentValue;
+        });
+        Assert.Contains("only .TenantScoped() rules", ex.Message);
+        Assert.Contains("GetReactiveConfigForTenant", ex.Message);
+    }
 }

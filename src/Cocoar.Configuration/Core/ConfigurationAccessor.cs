@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Cocoar.Capabilities;
 using Cocoar.Configuration.Infrastructure;
+using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Utilities;
 using Cocoar.Json.Mutable;
 using Microsoft.Extensions.Logging;
@@ -23,17 +24,20 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     private readonly ConfigurationState _state;
     private readonly ExposureRegistry _bindingRegistry;
     private readonly ILogger _logger;
+    private readonly List<ConfigRule> _rules;
     private ConfigManagerCapabilityScope? _capabilityScope;
 
     public ConfigurationAccessor(
         ConfigurationState state,
         ExposureRegistry bindingRegistry,
         ILogger logger,
+        List<ConfigRule> rules,
         string? tenant = null)
     {
         _state = state;
         _bindingRegistry = bindingRegistry;
         _logger = logger;
+        _rules = rules;
         Tenant = tenant;
     }
 
@@ -86,9 +90,7 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
 
         if (!_state.TryGetConfiguration(targetType, out var json) || json == null)
         {
-            throw new InvalidOperationException(
-                $"No configuration rule is registered for type '{type.Name}'. " +
-                $"Add a rule using: rules.For<{type.Name}>().From...");
+            throw NoConfigurationFor(type, targetType);
         }
 
         _logger.FallbackDeserialization(type.Name);
@@ -126,6 +128,48 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
             throw new InvalidOperationException(
                 $"Failed to deserialize configuration for '{type.Name}': {ex.Message}", ex);
         }
+    }
+
+    /// <summary>
+    /// Builds the exception thrown when no committed configuration exists for a requested type. In the global
+    /// (tenant-agnostic) pipeline a type whose EVERY rule is <c>.TenantScoped()</c> contributes nothing — its
+    /// rules skip when there is no tenant — so it genuinely has no global value. Surface that precisely (point
+    /// the caller at the per-tenant API) instead of the generic "add a rule" message, which is misleading when
+    /// a rule does exist. Mirrors the tuple guard in <see cref="Reactive.ReactiveConfigurationFactory"/>.
+    /// </summary>
+    private InvalidOperationException NoConfigurationFor(Type requestedType, Type targetType)
+    {
+        if (string.IsNullOrWhiteSpace(Tenant) && HasOnlyTenantScopedRules(targetType))
+        {
+            return new InvalidOperationException(
+                $"Configuration type '{requestedType.Name}' has only .TenantScoped() rules, so it has no global " +
+                $"value. Read it per tenant with GetConfigForTenant<{requestedType.Name}>(tenantId) or " +
+                $"GetReactiveConfigForTenant<{requestedType.Name}>(tenantId).");
+        }
+
+        return new InvalidOperationException(
+            $"No configuration rule is registered for type '{requestedType.Name}'. " +
+            $"Add a rule using: rules.For<{requestedType.Name}>().From...");
+    }
+
+    private bool HasOnlyTenantScopedRules(Type type)
+    {
+        var hasRule = false;
+        foreach (var rule in _rules)
+        {
+            if (rule.ConcreteType != type)
+            {
+                continue;
+            }
+
+            hasRule = true;
+            if (rule.Options?.TenantScoped != true)
+            {
+                return false;
+            }
+        }
+
+        return hasRule;
     }
 
     public bool TryGetConfig<T>(out T? value) where T : class
@@ -191,9 +235,7 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
 
         if (!_state.TryGetConfiguration(targetType, out var json) || json == null)
         {
-            throw new InvalidOperationException(
-                $"No configuration rule is registered for type '{type.Name}'. " +
-                $"Add a rule using: rules.For<{type.Name}>().From...");
+            throw NoConfigurationFor(type, targetType);
         }
 
         _logger.FallbackDeserialization(type.Name);

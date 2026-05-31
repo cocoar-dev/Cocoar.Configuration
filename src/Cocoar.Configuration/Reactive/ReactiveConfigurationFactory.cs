@@ -47,6 +47,28 @@ internal class ReactiveConfigurationFactory(
             return (IReactiveConfig<T>)CreateTupleReactiveConfig(t);
         }
 
+        // In the GLOBAL pipeline (no tenant), a type whose EVERY rule is .TenantScoped() has no global value —
+        // its rules skip when there is no tenant. Surface that precisely (point at the per-tenant API) instead
+        // of the generic "No configuration available" thrown later by the backplane reader. Mirrors the tuple
+        // guard in CreateTupleReactiveConfig and the sync guard in ConfigurationAccessor.NoConfigurationFor.
+        if (string.IsNullOrEmpty(accessor.Tenant))
+        {
+            var concrete = t;
+            if (t.IsInterface && bindingRegistry.TryGetConcreteType(t, out var ct))
+            {
+                concrete = ct;
+            }
+
+            var typeRules = rules.Where(r => r.ConcreteType == concrete).ToList();
+            if (typeRules.Count > 0 && typeRules.All(r => r.Options?.TenantScoped == true))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create IReactiveConfig<{t.Name}> in the global pipeline: type {t.Name} has only " +
+                    $".TenantScoped() rules, so it has no global value. " +
+                    $"Use GetReactiveConfigForTenant<{t.Name}>(tenantId) instead.");
+            }
+        }
+
         // For interfaces, look up the concrete type from the binding registry
         if (t.IsInterface)
         {

@@ -71,7 +71,7 @@ internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDi
         // interpolate it) in a tenant pipeline, while the global pipeline keeps tenant == null.
         State = new ConfigurationState(RuleManagers, Rules, _logger, flagsHealthSource);
         ProviderRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
-        Accessor = new ConfigurationAccessor(State, _bindingRegistry, _logger, tenantId);
+        Accessor = new ConfigurationAccessor(State, _bindingRegistry, _logger, Rules, tenantId);
         Accessor.SetCapabilityScope(_capabilityScope);
         ReactiveConfigManager = new ReactiveConfigManager(_logger, _bindingRegistry);
 
