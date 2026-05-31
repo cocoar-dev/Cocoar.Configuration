@@ -146,7 +146,7 @@ Tenant methods live on a **new** `ITenantConfigurationAccessor` that `ConfigMana
 | Abstractions | New `ITenantConfigurationAccessor`; existing `IConfigurationAccessor` unchanged | Additive |
 | Flags/Entitlements | `GetFeatureFlagsForTenant`/`GetEntitlementsForTenant` factory/cache (no generator change); tenant dimension on evaluator + REST endpoints | Additive |
 
-**Net:** one structural change (ConfigManager ownership) + one new subsystem (fan-out coordinator). Everything else is additive reuse of existing per-instance machinery. No rewrite of the recompute/snapshot/reactive cores.
+**Net:** one structural change (`ConfigManager` ownership → per-tenant `TenantPipeline` bundles). Everything else is additive reuse of existing per-instance machinery — fan-out is automatic via each tenant's own subscriptions, with **no coordinator subsystem in v1** (§6; the coordinator is deferred with seed-from-global). No rewrite of the recompute/snapshot/reactive cores.
 
 ---
 
