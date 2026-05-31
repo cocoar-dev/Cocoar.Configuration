@@ -68,6 +68,8 @@ Every field name is pinned, so a host JSON naming policy can't rename it. There 
 2. Generate a random AES-256 DEK, encrypt the value with AES-GCM, wrap the DEK with RSA-OAEP-256, and assemble the `cocoar.secret` envelope (with `kid` stamped from the key).
 3. Send the envelope to your server. It is stored as-is and decrypted only on `Secret<T>.Open()`.
 
+In the browser or Node, the **[`@cocoar/secrets`](/guide/secrets/client-encryption)** client does all three steps for you.
+
 The envelope wire format is documented in [Custom Providers → Secrets](/guide/providers/custom#secrets-in-custom-providers). The same envelope can be written through a WritableStore overlay via `SetSecretEnvelopeAsync` / `SetSecretAsync` — including per tenant with `GetWritableStoreForTenant<T>(tenantId).SetSecretAsync(...)`, which is how a tenant stores a secret encrypted to its own published key.
 
 ## Availability
