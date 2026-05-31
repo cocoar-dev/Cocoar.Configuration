@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [5.1.0] - 2026-05-31
 
 ### Added
 
@@ -36,6 +36,7 @@
 ### Changed
 
 - Secret payloads (the decrypted value of `Secret<T>`) now (de)serialize with lenient options: **enums as names** (round-trip-safe if the enum is later reordered) and **case-insensitive** property matching. Reading still accepts numeric enums and any casing, so **existing encrypted secrets remain fully readable** — no migration. Only the in-memory form of newly serialized typed secret values changes (enum name instead of ordinal); encrypted envelopes at rest are unaffected.
+- Reading a tenant-only type (every rule `.TenantScoped()`) from the global pipeline now throws a **targeted** error pointing at `GetConfigForTenant<T>(id)` / `GetReactiveConfigForTenant<T>(id)` — for both `GetConfig<T>()` and `GetReactiveConfig<T>()` — instead of the misleading generic "no configuration rule is registered" message (a rule does exist; it is just tenant-scoped). Matches the existing mixed-scope-tuple guard.
 
 ### Notes
 
