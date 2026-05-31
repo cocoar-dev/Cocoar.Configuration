@@ -1,4 +1,5 @@
 using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Json.Mutable;
 
 namespace Cocoar.Configuration.Rules;
@@ -29,6 +30,13 @@ internal interface IRuleManager : IDisposable
     Exception? LastFailureException { get; }
     MutableJsonObject? LastJsonContribution { get; set; }
     string? LastSelectionHash { get; set; }
+
+    /// <summary>
+    /// The provider instance currently held by this rule, or <see langword="null"/> if not yet acquired
+    /// (or for aggregates, which have no single provider). Used by overlay providers (e.g. WritableStore)
+    /// to locate their own layer in the pipeline by provider/store reference.
+    /// </summary>
+    ConfigurationProvider? CurrentProvider { get; }
 
     Task<ReadOnlyMemory<byte>?> ComputeAsync(IConfigurationAccessor accessor, CancellationToken ct);
 

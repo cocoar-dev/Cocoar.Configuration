@@ -49,6 +49,8 @@ app.Run();
 - **Explicit Layering** — Rules execute in order, last write wins. File, environment, CLI, HTTP.
 - **Memory-Safe Secrets** — `Secret<T>` with automatic zeroization and X.509 hybrid encryption.
 - **Feature Flags & Entitlements** — Strongly-typed, source-generated, with expiry health monitoring.
+- **Multi-Tenant** — The same config type resolves per tenant on a shared global base; `.TenantScoped()` rules, `…ForTenant(id)` access.
+- **DI-Aware Providers** — Opt-in Layer-2 rules whose providers use `IHttpClientFactory` / Marten / EF, without giving up the no-DI core.
 - **Health Monitoring** — Per-rule status tracking, OpenTelemetry metrics, ASP.NET Core health checks.
 - **Compile-Time Validation** — Roslyn analyzers catch configuration errors in your IDE.
 - **First-Class Testing** — `CocoarTestConfiguration` with `AsyncLocal<T>` isolation.
@@ -61,6 +63,7 @@ app.Run();
 | Environment Variables | `.FromEnvironment("PREFIX_")` | Core |
 | Command Line | `.FromCommandLine("--prefix")` | Core |
 | Static / Observable | `.FromStaticJson()` / `.FromObservable()` | Core |
+| WritableStore (writable overlay) | `.FromStore()` | Core |
 | HTTP | `.FromHttp(url)` | [Http](https://www.nuget.org/packages/Cocoar.Configuration.Http) |
 | Microsoft IConfiguration | `.FromIConfiguration(config)` | [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter) |
 

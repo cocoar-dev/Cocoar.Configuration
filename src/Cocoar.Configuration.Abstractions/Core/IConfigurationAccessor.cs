@@ -69,4 +69,12 @@ public interface IConfigurationAccessor
     object GetRequiredConfig(Type type);
 
     JsonElement? GetConfigAsJson(Type type);
+
+    /// <summary>
+    /// The tenant this accessor resolves configuration for, or <c>null</c> in the global (tenant-agnostic) pipeline.
+    /// Tenant-scoped rules (<c>.TenantScoped()</c>) are skipped when this is null/empty; tenant-varying rule
+    /// factories interpolate it (e.g. <c>FromFile(a =&gt; $"db.{a.Tenant}.json")</c>).
+    /// </summary>
+    /// <remarks>Default interface member (returns <c>null</c>) so existing implementers are not broken.</remarks>
+    string? Tenant => null;
 }

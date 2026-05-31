@@ -19,6 +19,11 @@ public static class CocoarConfigurationExtensions
         var plan = ServiceRegistrationPlanner.CreatePlan(configManager);
         ServiceDescriptorEmitter.Emit(services, plan, configManager);
 
+        // ADR-006: if UseServiceBackedConfiguration added Layer-2 rules, register the holder + activation hosted
+        // service so they come alive on host start. No-op otherwise (zero impact for Layer-1-only apps). Wired
+        // HERE — the single point every entry path funnels through (DI Action overload, AspNetCore, manual).
+        ServiceBackedConfigurationCoordinator.WireActivation(services, configManager);
+
         return services;
     }
 
@@ -34,7 +39,7 @@ public static class CocoarConfigurationExtensions
         services.ThrowIfAlreadyRegistered();
 
         var configManager = ConfigManager.Create(configure);
-        services.AddCocoarConfiguration(configManager);
+        services.AddCocoarConfiguration(configManager); // WireActivation runs inside the instance overload
         return services;
     }
 

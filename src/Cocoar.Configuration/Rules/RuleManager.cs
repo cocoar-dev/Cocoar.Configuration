@@ -58,6 +58,8 @@ internal sealed class RuleManager : IRuleManager
 
     public IReadOnlyList<IRuleManager>? SubManagers => null;
 
+    public ConfigurationProvider? CurrentProvider => _providerLease.Provider;
+
     public RuleManager(ConfigRule rule, ILogger logger, ProviderRegistry registry)
     {
         _rule = rule;
@@ -69,9 +71,9 @@ internal sealed class RuleManager : IRuleManager
     {
         LastFailureException = null;
 
-        if (ShouldSkipViaUseWhen(accessor))
+        if (ShouldSkip(accessor))
         {
-            return null;  // Skip rule - When condition is false
+            return null;  // Skip rule - tenant-scoped without a tenant, or When condition is false
         }
 
         var providerOptions = _rule.ResolveProviderOptions(accessor);
@@ -129,8 +131,24 @@ internal sealed class RuleManager : IRuleManager
         }
     }
 
-    private bool ShouldSkipViaUseWhen(IConfigurationAccessor accessor)
+    private bool ShouldSkip(IConfigurationAccessor accessor)
     {
+        // A .TenantScoped() rule never runs in the global (tenant-agnostic) pipeline. Enforced via the static
+        // marker (not just the When predicate) so it holds regardless of how .When() and .TenantScoped() were
+        // ordered in the fluent chain — e.g. .TenantScoped().When(p) still skips when there is no tenant.
+        if (_rule.Options?.TenantScoped == true && string.IsNullOrWhiteSpace(accessor.Tenant))
+        {
+            return MarkSkipped();
+        }
+
+        // A service-backed (Layer-2, ADR-006) rule stays dormant until the application container is built and the
+        // activation recompute runs. Enforced via a dedicated gate (not the user .When predicate) so it holds
+        // regardless of fluent ordering — a later .When() cannot clobber it (mirrors the .TenantScoped() marker).
+        if (_rule.Options?.ActivationGate is { } activationGate && !activationGate.Invoke(accessor))
+        {
+            return MarkSkipped();
+        }
+
         if (_rule.Options?.UseWhen == null)
         {
             return false;
@@ -141,6 +159,11 @@ internal sealed class RuleManager : IRuleManager
             return false;
         }
 
+        return MarkSkipped();
+    }
+
+    private bool MarkSkipped()
+    {
         _changeSubscription.Unsubscribe();
         LastOutcome = RuleExecutionOutcome.Skipped;
         return true;

@@ -11,6 +11,8 @@
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Secrets.Tests/Cocoar.Configuration.Secrets.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.AspNetCore.Tests/Cocoar.Configuration.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.MultiTenant.Tests/Cocoar.Configuration.MultiTenant.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.ServiceBacked.Tests/Cocoar.Configuration.ServiceBacked.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />
@@ -22,8 +24,10 @@
     <Project Path="Examples/FileLayering/FileLayering.csproj" />
     <Project Path="Examples/GenericProviderAPI/GenericProviderAPI.csproj" />
     <Project Path="Examples/HttpPollingExample/HttpPollingExample.csproj" />
+    <Project Path="Examples/WritableStoreExample/WritableStoreExample.csproj" />
     <Project Path="Examples/MicrosoftAdapterExample/MicrosoftAdapterExample.csproj" />
     <Project Path="Examples/SecretsBasicExample/SecretsBasicExample.csproj" />
+    <Project Path="Examples/ServiceBackedConfig/ServiceBackedConfig.csproj" />
     <Project Path="Examples/SecretsCertificateExample/SecretsCertificateExample.csproj" />
     <Project Path="Examples/SimplifiedCoreExample/SimplifiedCoreExample.csproj" />
     <Project Path="Examples/StaticProviderExample/StaticProviderExample.csproj" />

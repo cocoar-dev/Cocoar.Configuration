@@ -1,0 +1,10 @@
+packages:
+  - secrets
+  # - flags   # @cocoar/flags — feature flags & entitlements (planned)
+
+  # esbuild ships a postinstall that fetches its platform binary (used by tsup + vitest).
+  # pnpm 10+ blocks build scripts by default; allowlist it so installs are non-interactive.
+allowBuilds:
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild

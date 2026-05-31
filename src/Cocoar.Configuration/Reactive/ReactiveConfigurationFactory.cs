@@ -21,17 +21,23 @@ internal static partial class ReactiveConfigurationFactoryLog
     public static partial void SkippingNonClassType(this ILogger logger, Type Type);
 }
 
+// `accessor` + backplaneAccessor (instead of a concrete ConfigManager) so a tenant pipeline builds its
+// reactive configs over ITS OWN accessor/backplane (ADR-005 §7). The global pipeline passes the owning
+// ConfigManager as the accessor and that manager's backplane — byte-identical to before.
+// NOTE: this field is intentionally NOT named `configAccessor` — several methods below take a local
+// `Func<T> configAccessor` (the value closure), which would shadow it and silently mis-bind the delegate.
 internal class ReactiveConfigurationFactory(
     ReactiveConfigManager reactiveConfigManager,
     List<ConfigRule> rules,
     ILogger logger,
-    ConfigManager configManager,
+    IConfigurationAccessor accessor,
+    Func<MasterBackplane> backplaneAccessor,
     ExposureRegistry bindingRegistry)
 {
     private static readonly MethodInfo _getReactiveConfigMethod =
         typeof(ReactiveConfigManager).GetMethod(nameof(ReactiveConfigManager.GetReactiveConfig))!;
     private static readonly MethodInfo _getConfigMethod =
-        typeof(ConfigManager).GetMethod(nameof(ConfigManager.GetConfig), Type.EmptyTypes)!;
+        typeof(IConfigurationAccessor).GetMethod(nameof(IConfigurationAccessor.GetConfig), Type.EmptyTypes)!;
 
     public IReactiveConfig<T> GetReactiveConfig<T>(Func<T> configAccessor)
     {
@@ -39,6 +45,28 @@ internal class ReactiveConfigurationFactory(
         if (IsValueTupleType(t))
         {
             return (IReactiveConfig<T>)CreateTupleReactiveConfig(t);
+        }
+
+        // In the GLOBAL pipeline (no tenant), a type whose EVERY rule is .TenantScoped() has no global value —
+        // its rules skip when there is no tenant. Surface that precisely (point at the per-tenant API) instead
+        // of the generic "No configuration available" thrown later by the backplane reader. Mirrors the tuple
+        // guard in CreateTupleReactiveConfig and the sync guard in ConfigurationAccessor.NoConfigurationFor.
+        if (string.IsNullOrEmpty(accessor.Tenant))
+        {
+            var concrete = t;
+            if (t.IsInterface && bindingRegistry.TryGetConcreteType(t, out var ct))
+            {
+                concrete = ct;
+            }
+
+            var typeRules = rules.Where(r => r.ConcreteType == concrete).ToList();
+            if (typeRules.Count > 0 && typeRules.All(r => r.Options?.TenantScoped == true))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create IReactiveConfig<{t.Name}> in the global pipeline: type {t.Name} has only " +
+                    $".TenantScoped() rules, so it has no global value. " +
+                    $"Use GetReactiveConfigForTenant<{t.Name}>(tenantId) instead.");
+            }
         }
 
         // For interfaces, look up the concrete type from the binding registry
@@ -80,7 +108,7 @@ internal class ReactiveConfigurationFactory(
         var concreteAccessorMethod = _getConfigMethod.MakeGenericMethod(concreteType);
 
         var concreteFuncType = typeof(Func<>).MakeGenericType(concreteType);
-        var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, configManager, concreteAccessorMethod);
+        var concreteAccessor = Delegate.CreateDelegate(concreteFuncType, accessor, concreteAccessorMethod);
 
         // Get the reactive config for the concrete type
         var reactiveMethod = _getReactiveConfigMethod.MakeGenericMethod(concreteType);
@@ -130,6 +158,37 @@ internal class ReactiveConfigurationFactory(
             throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/exposed: {string.Join(", ", invalid)}");
         }
 
+        // In the GLOBAL pipeline (no tenant), a type whose EVERY rule is .TenantScoped() has no global value —
+        // its rules skip when there is no tenant. Surface that precisely instead of the generic "Missing
+        // configuration" from the tuple ctor; the fix is to read the tuple per tenant. (Mixed-scope tuples are
+        // otherwise fully supported: each element comes from this pipeline's snapshot.)
+        if (string.IsNullOrEmpty(accessor.Tenant))
+        {
+            var tenantScopedOnly = new List<string>();
+            foreach (var et in elementTypes.Distinct())
+            {
+                var concreteEt = et;
+                if (et.IsInterface && bindingRegistry.TryGetConcreteType(et, out var ct))
+                {
+                    concreteEt = ct;
+                }
+
+                var typeRules = rules.Where(r => r.ConcreteType == concreteEt).ToList();
+                if (typeRules.Count > 0 && typeRules.All(r => r.Options?.TenantScoped == true))
+                {
+                    tenantScopedOnly.Add(et.Name);
+                }
+            }
+
+            if (tenantScopedOnly.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create IReactiveConfig<{tupleType.Name}> in the global pipeline: type(s) " +
+                    $"{string.Join(", ", tenantScopedOnly)} have only .TenantScoped() rules, so they have no " +
+                    $"global value. Use GetReactiveConfigForTenant<{tupleType.Name}>(tenantId) instead.");
+            }
+        }
+
         // Prime each distinct element type's reactive config
         foreach (var et in elementTypes.Distinct())
         {
@@ -160,7 +219,7 @@ internal class ReactiveConfigurationFactory(
                 var accessorMethod = _getConfigMethod.MakeGenericMethod(typeToPrime);
 
                 var funcType = typeof(Func<>).MakeGenericType(typeToPrime);
-                var accessorDelegate = Delegate.CreateDelegate(funcType, configManager, accessorMethod);
+                var accessorDelegate = Delegate.CreateDelegate(funcType, accessor, accessorMethod);
 
                 _ = reactiveMethod.Invoke(reactiveConfigManager, [accessorDelegate]);
             }
@@ -171,7 +230,7 @@ internal class ReactiveConfigurationFactory(
         }
 
         var generic = typeof(ReactiveTupleConfig<>).MakeGenericType(tupleType);
-        return Activator.CreateInstance(generic, configManager, reactiveConfigManager, logger, bindingRegistry)!;
+        return Activator.CreateInstance(generic, accessor, backplaneAccessor(), reactiveConfigManager, logger, bindingRegistry)!;
     }
 
     private static IEnumerable<Type> FlattenTuple(Type t)

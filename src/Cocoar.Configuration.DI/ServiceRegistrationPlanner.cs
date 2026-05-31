@@ -19,10 +19,25 @@ internal static class ServiceRegistrationPlanner
     {
         var serviceRegistrationInfos = new Dictionary<Type, ServiceRegistrationInfo>();
 
-        // 1. Collect all types from rules
+        // 1. Collect all types from rules — EXCEPT types whose every rule is .TenantScoped().
+        // Such a type has no value in the global pipeline; injecting it would be a captive-dependency bug
+        // (one tenant frozen into a long-lived consumer). Tenant-scoped values are obtained explicitly via
+        // GetConfigForTenant<T>(id) / GetFeatureFlagsForTenant<T>(id) instead (ADR-005 §5). A type that ALSO
+        // has a non-tenant-scoped (global base) rule stays injectable — that base value is a valid global config.
+        var tenantOnlyTypes = configManager.Rules
+            .GroupBy(rule => rule.ConcreteType)
+            .Where(group => group.All(rule => rule.Options?.TenantScoped == true))
+            .Select(group => group.Key)
+            .ToHashSet();
+
         var typesFromRules = new HashSet<Type>();
         foreach (var rule in configManager.Rules)
         {
+            if (tenantOnlyTypes.Contains(rule.ConcreteType))
+            {
+                continue;
+            }
+
             typesFromRules.Add(rule.ConcreteType);
         }
 

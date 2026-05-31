@@ -1,0 +1,25 @@
+{
+  "_comment": "TEST-ONLY cross-language fixture (TS encrypt -> .NET decrypt). privateKeyPkcs8 is a throwaway test key, never used in production. Regenerate: pnpm --filter @cocoar/secrets gen:fixtures (from src/ts).",
+  "plaintext": "cross-language-secret-✓",
+  "privateKeyPkcs8": "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDLUACNWe9v+3Ba5r1yNY5kjZVPX2E2I4Yr2INl3grvI3BVzVWh3sO0yCJVoMDHV3NydDzWMoyP+5od+ord4DjHLBiAPbFU8OD4e3jgcvMtp0gmWE4PzLuIlmrIPpuyR+Zgxeyc8iep5dMyF//GWXyvg/vs+uYQFtfckVWwRLe9jNw6cFJMUgD+elapJf9UEJEvav/WA6+So9SHyZ6Aaursk962pP4YHTyu4N4qmNq8xYsd7gje83aXrhbI984xGB5E133uKUWMIsvjTDER6vJrwnzG4oaV6/oaNXt5z/RUAIlLnX6LPjnTjX6KZFf0t0mbx7O4S58XE0k1GTmlZZElAgMBAAECggEAWvrW9GoNcpAS7CqbFhOPP8H30cf9yWtGLDK8QgaF4BN8vnifXEtCSpDQhH7mJY4ltE79tmBydDAD/GxUXgtrfP1njWOOClOsaKVgJxhpZ8GW0MntTLayKOIesLMLm1D/b8jCJE1coHOe+aixpYIAAM7QGnEAKK0ANcy3iqSFkIU+9xF3ewz/wJNCNvQtGxyCr+PkxxnHnOkwPHwTl+yPuO5/3NR6mULcO9Kbx+TrSx/do1hiilmm6bPV6uu+xugr0F04mpAMgd0V4rEpg4QkLz/yr3+kTFZmpcuZY8+prmVpEdj9zdUEvxz8INHvi8YNU0mC9tYNumYaqrmG1Kuk1QKBgQDq1aNMwEVYgNFaYcYq+l8BVY4EDiWRb78TJWfrXcLFftBxpJVwHF7A35AN8F7uVEzbD1uGeuV67fmeVQg7IIoBGGrSLKcdwDhLJC0HKXfRVd13Fvl8ivieGDL08yqz77/M1O6WhFcX1z9gE/jRILhS4VWWvI0N9t9iQpRg2qG5VwKBgQDdow2utq/r24QSWl2V6H9K3qaEN67r8kPibVEI/JQxxrYo1zA3I6ZX23EdXxDgmN+LoxTNPuSWS/2tMlJbM3sfKvdnWO1rMfRnap+Bt6ggZrd7loXnahVnO1l71n/XwTM8oa654KCGukV71w9aMJJ6GWKvxRUPJ0Za4XpZe/rv4wKBgQC5u8Lun1u5hhkO/Sn5MBEYQwyR1IaOIu3jPMCWfY/hGE3QtDWleCrRLYEIJUdQBMjMsbbYBDegJLw7KFHcQf4ko6VJGhwLAc8ET1Z1xayImvsQh9FHWbsNf2I+Ll1l94ehgAA8d+tSZeIwIVu4O8LNen9xOyvtEYbYdoRYnlMu/QKBgQCmgX+e+Qoy4+hVrWPPYip3QcvRWs/j3E6ZhcyyNqbSullRV1CWrAakzGwvR6MzSEXw7qSLCSvLqe07N6ndcFCX+ryA/LLorE/Tfau1VRdOuDwx8cRJNU49Dr5MJbpHiZKHg2PzqsiOTtQylD+pXwI8DmQwbpxClRvq3KgBH/5GRwKBgQCUqUA2c4NXujFHtOJaoaePoux7KixprsHnxzvXTyC3DJz5rcRP3rTnZRH+1+ZKjfcthB7ZdsbsoNhx4RhWjq+d4CKnDZ4Ntdv4ov5Cidf9rOMu9EL4Q6aOV6YHd6FQG3dCI5DvKP29GjlOTEPGSHJiiB7hRYAXxdTpjxRaVrWTAA==",
+  "publishedKey": {
+    "kid": "crosslang-test",
+    "alg": "RSA-OAEP-AES256-GCM",
+    "walg": "RSA-OAEP-256",
+    "enc": "AES-256-GCM",
+    "format": "spki",
+    "encoding": "base64url",
+    "publicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy1AAjVnvb_twWua9cjWOZI2VT19hNiOGK9iDZd4K7yNwVc1Vod7DtMgiVaDAx1dzcnQ81jKMj_uaHfqK3eA4xywYgD2xVPDg-Ht44HLzLadIJlhOD8y7iJZqyD6bskfmYMXsnPInqeXTMhf_xll8r4P77PrmEBbX3JFVsES3vYzcOnBSTFIA_npWqSX_VBCRL2r_1gOvkqPUh8megGrq7JPetqT-GB08ruDeKpjavMWLHe4I3vN2l64WyPfOMRgeRNd97ilFjCLL40wxEerya8J8xuKGlev6GjV7ec_0VACJS51-iz45041-imRX9LdJm8ezuEufFxNJNRk5pWWRJQIDAQAB"
+  },
+  "envelope": {
+    "type": "cocoar.secret",
+    "version": 1,
+    "kid": "crosslang-test",
+    "alg": "RSA-OAEP-AES256-GCM",
+    "wk": "igJIKNk57cccYpyX0y-TFezpx939oXvYE-uxEGYiP89DCeN4HMJ4-qasEaynPY-gERnjesV0M71AUsV6YR_l2UUwFhhqrv8A3aQEo49tLin3h9WNwjvsoq-etgMAIt2YJJtKyBgGlFfCRBvgfPgOMrCc9XwX70kNSOEO_A3g5j32XNtm9Y9xaIzWzgA9aGu_I2pNjH13GDw6ZMvsSnuD2wIYZuv485UTWYfouyn8t_W6sppaf551oVV3WqG6ROP0cXT3AvMO6mQnaP8HRys8hUP6oiwOr2oBJwujJaNwKf1mTMb48EljU4DFI0mOrXu1y3qb-T0Ehi5sIgtPE0Z0vw",
+    "walg": "RSA-OAEP-256",
+    "iv": "bkOOW8_zpTatqn5e",
+    "ct": "WFUrzfIXHh8tMoxjkodw70Fskk4Yn7pDAlVw",
+    "tag": "jEy5IpSMULhgy5QoT7wm8w"
+  }
+}

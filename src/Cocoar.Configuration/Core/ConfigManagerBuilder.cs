@@ -22,6 +22,11 @@ public sealed class ConfigManagerBuilder
 
     private readonly List<Action<ConfigManager>> _afterBuildActions = new();
 
+    // Service-backed (Layer-2, ADR-006) rules contributed by the DI package's UseServiceBackedConfiguration.
+    // They are appended AFTER the Layer-1 rules (later precedence) and, when sp-gated, stay dormant until the
+    // container is built. Kept separate from _rules so Layer 1 stays eager and byte-identical.
+    private readonly List<ConfigRule> _serviceBackedRules = new();
+
     internal ConfigManagerBuilder(ConfigManager manager)
     {
         _manager = manager;
@@ -153,6 +158,33 @@ public sealed class ConfigManagerBuilder
         return this;
     }
 
+    /// <summary>
+    /// Internal seam used by the DI package's <c>UseServiceBackedConfiguration</c> to append satellite-supplied
+    /// service-backed (Layer-2, ADR-006) rules. They are placed AFTER the Layer-1 rules (later precedence). The
+    /// sp-gated ones are dormant during the eager build and activate on a post-container recompute.
+    /// </summary>
+    internal ConfigManagerBuilder AddServiceBackedRules(IEnumerable<ConfigRule> rules)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        _serviceBackedRules.AddRange(rules);
+        return this;
+    }
+
+    /// <summary>
+    /// Combines the Layer-1 rules with any appended service-backed (Layer-2) rules and records the Layer-2
+    /// start index on the manager (the boundary the activation recompute restores the prefix below).
+    /// </summary>
+    private ConfigRule[] CombineWithServiceBackedRules(ConfigRule[] layer1Rules)
+    {
+        if (_serviceBackedRules.Count == 0)
+        {
+            return layer1Rules;
+        }
+
+        _manager.ServiceBackedLayerStartIndex = layer1Rules.Length;
+        return layer1Rules.Concat(_serviceBackedRules).ToArray();
+    }
+
     internal ConfigManager Build()
     {
         ConfigRule[] configuredRules;
@@ -166,6 +198,8 @@ public sealed class ConfigManagerBuilder
             var rulesBuilder = new RulesBuilder();
             configuredRules = (_rules ?? (_ => []))(rulesBuilder);
         }
+
+        configuredRules = CombineWithServiceBackedRules(configuredRules);
 
         _manager.Configure(
             configuredRules,
@@ -196,6 +230,8 @@ public sealed class ConfigManagerBuilder
             var rulesBuilder = new RulesBuilder();
             configuredRules = (_rules ?? (_ => []))(rulesBuilder);
         }
+
+        configuredRules = CombineWithServiceBackedRules(configuredRules);
 
         _manager.Configure(
             configuredRules,

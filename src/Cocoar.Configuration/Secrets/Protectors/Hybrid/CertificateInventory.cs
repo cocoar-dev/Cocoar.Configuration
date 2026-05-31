@@ -202,6 +202,78 @@ internal sealed class CertificateInventory : IDisposable
         }
     }
 
+    /// <summary>
+    /// Exports the SubjectPublicKeyInfo (DER) of the certificate the decryption engine prefers
+    /// (the first in the current ordering) — for publishing as the encryption public key. Returns
+    /// only public-key bytes; the <see cref="X509Certificate2"/> is never exposed. Returns
+    /// <see langword="null"/> when no usable RSA certificate is present. Runs under the write lock
+    /// because <see cref="GetOrLoadCertificate"/> mutates the cache.
+    /// </summary>
+    internal byte[]? TryExportPreferredPublicKey()
+        => TryExportPreferredPublicKey(kidPath: null, kidPathWithSep: null);
+
+    /// <summary>
+    /// Like <see cref="TryExportPreferredPublicKey()"/> but restricted to the certificates physically
+    /// under the <c>{folder}/{kid}</c> subfolder — the per-tenant (kid = tenant) publishing path. The
+    /// preferred (first-ordered, i.e. newest per the configured comparer) cert in that subfolder is
+    /// exported; older certs in the same subfolder remain available for decryption only. Returns
+    /// <see langword="null"/> when that kid has no usable RSA certificate.
+    /// </summary>
+    internal byte[]? TryExportPreferredPublicKey(string kid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kid);
+        var kidPath = Path.GetFullPath(Path.Combine(_folderPath, kid));
+        return TryExportPreferredPublicKey(kidPath, kidPath + Path.DirectorySeparatorChar);
+    }
+
+    private byte[]? TryExportPreferredPublicKey(string? kidPath, string? kidPathWithSep)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            foreach (var certPath in _sortedCertPaths)
+            {
+                if (kidPath is not null && !IsCertUnderKid(certPath, kidPath, kidPathWithSep!))
+                    continue;
+
+                X509Certificate2 cert;
+                try
+                {
+                    cert = GetOrLoadCertificate(certPath);
+                }
+                catch (Exception ex) when (
+                    ex is CryptographicException or IOException or UnauthorizedAccessException
+                       or InvalidOperationException or NotSupportedException)
+                {
+                    // A cert that can't be loaded right now — e.g. a transient file race during
+                    // rotation (delete+recreate / locked / partially written) or a non-usable file —
+                    // is skipped so publishing degrades gracefully (empty result) instead of a 500.
+                    continue;
+                }
+
+                using var rsa = cert.GetRSAPublicKey();
+                if (rsa is null)
+                    continue;
+
+                return rsa.ExportSubjectPublicKeyInfo();
+            }
+
+            return null;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    private static bool IsCertUnderKid(string certPath, string kidPath, string kidPathWithSep)
+    {
+        var certDir = Path.GetDirectoryName(certPath);
+        return certDir != null
+            && (certPath.StartsWith(kidPathWithSep, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(certDir, kidPath, StringComparison.OrdinalIgnoreCase));
+    }
+
     private bool TryDecryptWithCert(string certPath, HybridEnvelope envelope, out byte[] plaintext)
     {
         try

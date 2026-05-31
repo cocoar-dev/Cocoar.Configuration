@@ -29,6 +29,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Reference', link: '/reference/packages' },
+      { text: 'ADR', link: '/adr/' },
       { text: 'Roadmap', link: '/roadmap/overview' },
       { text: 'Changelog', link: '/changelog' },
       { text: 'LLM Docs', link: '/llms-full.txt', target: '_blank' },
@@ -66,6 +67,7 @@ export default defineConfig({
             { text: 'HTTP Polling', link: '/guide/providers/http-polling' },
             { text: 'Microsoft IConfiguration', link: '/guide/providers/microsoft-adapter' },
             { text: 'Static & Observable', link: '/guide/providers/static-observable' },
+            { text: 'Writable Store', link: '/guide/providers/writable-store' },
             { text: 'Custom Providers <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/providers/custom' },
           ],
         },
@@ -75,6 +77,7 @@ export default defineConfig({
             { text: 'DI Setup', link: '/guide/di/setup' },
             { text: 'ASP.NET Core', link: '/guide/di/aspnetcore' },
             { text: 'Lifetimes & Registration <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/di/lifetimes' },
+            { text: 'Service-Backed Config <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/di/service-backed' },
           ],
         },
         {
@@ -98,11 +101,19 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Multi-Tenancy',
+          items: [
+            { text: 'Overview <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/multi-tenancy/overview' },
+          ],
+        },
+        {
           text: 'Secrets',
           items: [
             { text: 'Overview', link: '/guide/secrets/overview' },
             { text: 'Secret<T> & Leases', link: '/guide/secrets/secret-type' },
             { text: 'Encryption Setup', link: '/guide/secrets/encryption-setup' },
+            { text: 'Publishing Encryption Keys <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/key-publishing' },
+            { text: 'Browser & Client Encryption <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/client-encryption' },
             { text: 'CLI Tools', link: '/guide/secrets/cli' },
             { text: 'Certificate Caching <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/certificate-caching' },
             { text: 'Security Model <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/secrets/security-model' },
@@ -169,6 +180,20 @@ export default defineConfig({
             { text: 'ConfigHub', link: '/roadmap/confighub' },
             { text: 'Cloud Providers', link: '/roadmap/cloud-providers' },
             { text: 'Database Provider', link: '/roadmap/database-provider' },
+          ],
+        },
+      ],
+      '/adr/': [
+        {
+          text: 'Architecture Decision Records',
+          items: [
+            { text: 'Overview', link: '/adr/' },
+            { text: 'ADR-001 · Capabilities System', link: '/adr/ADR-001-capabilities-system' },
+            { text: 'ADR-002 · Atomic Reactive Updates', link: '/adr/ADR-002-atomic-reactive-updates' },
+            { text: 'ADR-003 · Provider Consistency', link: '/adr/ADR-003-provider-consistency-empty-objects' },
+            { text: 'ADR-004 · Aggregate Rules', link: '/adr/ADR-004-aggregate-rules' },
+            { text: 'ADR-005 · Multi-Tenant Configuration', link: '/adr/ADR-005-multi-tenant-configuration' },
+            { text: 'ADR-006 · DI-aware Configuration', link: '/adr/ADR-006-di-aware-configuration' },
           ],
         },
       ],

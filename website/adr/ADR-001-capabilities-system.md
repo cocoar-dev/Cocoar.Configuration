@@ -36,7 +36,7 @@ builder.AddCocoarConfiguration(rule => [
 
 | Pattern | Why It Fails |
 |---------|--------------|
-| **Dictionary<object, object>** | No type safety, can't compose multiple metadata types, external global state |
+| **Dictionary&lt;object, object>** | No type safety, can't compose multiple metadata types, external global state |
 | **Reflection Attributes** | Compile-time only, can't configure same type differently in different contexts |
 | **Method Parameters** | Destroys fluent API, parameter explosion, not extensible from other assemblies |
 | **Builder Internal State** | Core must know about ALL extension metadata types → circular dependencies |

@@ -90,13 +90,13 @@ rule.For<DbSettings>().FromFile("config.json")
 ```csharp
 // v2.0
 rule.File(accessor => {
-    var tenant = accessor.GetRequiredConfig<TenantSettings>();
+    var tenant = accessor.GetConfig<TenantSettings>();
     return FileSourceRuleOptions.FromFilePath($"tenant-{tenant.Id}.json");
 }).For<TenantConfig>()
 
 // v3.0
 rule.For<TenantConfig>().FromFile(accessor => {
-    var tenant = accessor.GetRequiredConfig<TenantSettings>();
+    var tenant = accessor.GetConfig<TenantSettings>();
     return FileSourceRuleOptions.FromFilePath($"tenant-{tenant.Id}.json");
 })
 ```
@@ -114,7 +114,7 @@ rule.File("premium-features.json")
 // v3.0 — When(Func<IConfigurationAccessor, bool>)
 rule.For<PremiumFeatures>().FromFile("premium-features.json")
     .When(accessor => {
-        var tenant = accessor.GetRequiredConfig<TenantSettings>();
+        var tenant = accessor.GetConfig<TenantSettings>();
         return tenant.Tier == "Premium";
     })
 ```
@@ -215,7 +215,7 @@ builder.AddCocoarConfiguration(rule => [
 
     rule.For<PremiumFeatures>().FromFile("premium.json")
         .When(accessor => {
-            var tenant = accessor.GetRequiredConfig<TenantSettings>();
+            var tenant = accessor.GetConfig<TenantSettings>();
             return tenant.Tier == "Premium";
         }),
 

@@ -18,13 +18,14 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
 {
     private readonly ConfigManagerCapabilityScope _capabilityScope = capabilityScope ?? throw new ArgumentNullException(nameof(capabilityScope));
 
-    private void RegisterProtector(IRuntimeSecretDecryptor protector)
+    private void RegisterProtectorAndKeyInfo(IRuntimeSecretDecryptor protector, ISecretEncryptionKeyInfoProvider keyInfo)
     {
         var composition = _capabilityScope.Owner.GetComposition();
         if (composition == null) return;
 
         var recomposer = _capabilityScope.Recompose(composition);
         recomposer.AddAs<IRuntimeSecretDecryptor>(protector);
+        recomposer.AddAs<ISecretEncryptionKeyInfoProvider>(keyInfo);
         recomposer.Build();
     }
 
@@ -65,10 +66,12 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
             config.CertificateComparer,
             includeSubdirectories: 0);  // Flat structure, no subdirectories
 
-        // In single-kid mode with the new architecture, we create a kid folder on the fly
-        // or we need to handle this differently. Actually, let's just register for the single kid.
+        // Single-kid mode: respond only to the configured kid (plus any explicit additional kids).
         var protector = new SingleKidProtectorWrapper(inventory, config.ForceSingleKid!, config.AdditionalKids);
-        RegisterProtector(protector);
+
+        // Publish the current encryption public key for this single, unambiguous kid.
+        var keyInfo = new InventoryKeyInfoProvider(inventory, config.ForceSingleKid!);
+        RegisterProtectorAndKeyInfo(protector, keyInfo);
     }
 
     private void ApplyMultiKidMode(CertificateProtectorConfig config, IConfigurationAccessor configAccessor)
@@ -86,9 +89,11 @@ internal sealed class HybridProtectorConfigurator(ConfigManagerCapabilityScope c
             config.CertificateComparer,
             includeSubdirectories: -1);  // Unlimited recursive - watches all kid folders
 
-        // Register ONE protector that handles all kids dynamically
+        // Register ONE protector that handles all kids dynamically, plus a folder-aware key-info
+        // provider that publishes the current public key per kid (= per tenant) on demand.
         var protector = new X509HybridFolderSecretProtector(globalInventory);
-        RegisterProtector(protector);
+        var keyInfo = new FolderKeyInfoProvider(globalInventory);
+        RegisterProtectorAndKeyInfo(protector, keyInfo);
     }
 
     private static void ValidateCertificateStructure(CertificateProtectorConfig config)

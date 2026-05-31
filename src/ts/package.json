@@ -1,0 +1,14 @@
+{
+  "name": "cocoar-configuration-ts",
+  "private": true,
+  "packageManager": "pnpm@11.2.2",
+  "description": "TypeScript client libraries for Cocoar.Configuration (pnpm + Turborepo monorepo).",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "dev": "turbo run dev"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
+  }
+}

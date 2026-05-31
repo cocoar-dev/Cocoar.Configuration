@@ -8,22 +8,43 @@ namespace Cocoar.Configuration.Http;
 /// <summary>
 /// HTTP configuration provider supporting one-time fetch, polling, and Server-Sent Events (SSE).
 /// </summary>
-public sealed class HttpProvider(HttpProviderOptions options)
-    : ConfigurationProvider<HttpProviderOptions, HttpProviderQueryOptions>(options), IDisposable
+public sealed class HttpProvider
+    : ConfigurationProvider<HttpProviderOptions, HttpProviderQueryOptions>, IDisposable
 {
-    private readonly HttpClient _client = CreateClient(options);
+    // Owned client (handler / default path) — created once and disposed by us. Null for the service-backed path.
+    private readonly HttpClient? _ownedClient;
+
+    // Service-backed (Layer-2) path: a factory over IHttpClientFactory. Re-invoked PER fetch / SSE connection so
+    // the factory can hand out a client with a rotated, pooled handler (HandlerLifetime). Clients it returns are
+    // factory-owned and never disposed here.
+    private readonly Func<HttpClient>? _clientFactory;
+
     private bool _disposed;
     private int _consecutiveFailures;
 
-    private static HttpClient CreateClient(HttpProviderOptions opts)
+    public HttpProvider(HttpProviderOptions options)
+        : base(options)
     {
-        if (opts.Handler is not null)
+        if (options.ClientFactory is { } factory)
         {
-            return new(opts.Handler, disposeHandler: false);
+            _clientFactory = factory;
         }
-
-        return new();
+        else if (options.Handler is not null)
+        {
+            _ownedClient = new(options.Handler, disposeHandler: false);
+        }
+        else
+        {
+            _ownedClient = new();
+        }
     }
+
+    /// <summary>
+    /// The <see cref="HttpClient"/> for a single fetch or SSE connection. Service-backed: a fresh, pooled-handler
+    /// client from the factory each call (the canonical <c>IHttpClientFactory</c> usage — cheap, not disposed).
+    /// Owned: the single long-lived client we created.
+    /// </summary>
+    internal HttpClient AcquireClient() => _clientFactory is not null ? _clientFactory() : _ownedClient!;
 
     public override async Task<byte[]> FetchConfigurationBytesAsync(HttpProviderQueryOptions query, CancellationToken ct = default)
     {
@@ -63,7 +84,13 @@ public sealed class HttpProvider(HttpProviderOptions options)
         }
 
         _disposed = true;
-        Safety.DisposeQuietly(_client);
+
+        // Only dispose a client we created. A client sourced from IHttpClientFactory is owned by the factory's
+        // handler pool — disposing it here would be wrong (and there is none to dispose in that path).
+        if (_ownedClient is not null)
+        {
+            Safety.DisposeQuietly(_ownedClient);
+        }
     }
 
     /// <summary>
@@ -71,12 +98,13 @@ public sealed class HttpProvider(HttpProviderOptions options)
     /// </summary>
     internal async Task<byte[]> FetchAsync(HttpProviderQueryOptions query, CancellationToken ct)
     {
-        var url = BuildUrl(_client, query.Url);
+        var client = AcquireClient();
+        var url = BuildUrl(client, query.Url);
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         ApplyHeaders(req, query.Headers);
 
-        var resp = await _client.SendAsync(req, ct).ConfigureAwait(false);
+        var resp = await client.SendAsync(req, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
     }
@@ -115,8 +143,6 @@ public sealed class HttpProvider(HttpProviderOptions options)
     internal int IncrementFailureCount() => Interlocked.Increment(ref _consecutiveFailures);
 
     internal int FailureThreshold => ProviderOptions.ErrorConsecutiveFailureThreshold;
-
-    internal HttpClient Client => _client;
 
     internal HttpProviderOptions Options => ProviderOptions;
 
@@ -169,7 +195,7 @@ public sealed class HttpProvider(HttpProviderOptions options)
         var failures = provider.IncrementFailureCount();
         if (failures >= provider.FailureThreshold)
         {
-            var url = BuildUrl(provider._client, query.Url);
+            var url = query.Url; // the configured path/URL; avoid acquiring a client on the failure path
             Trace.TraceWarning(
                 "HttpProvider: {0} consecutive failures for '{1}' " +
                 "(threshold: {2}). Last error: {3}: {4}. " +

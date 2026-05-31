@@ -4,18 +4,35 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 
 ## Projects
 
+### Core & providers
+- **SimplifiedCoreExample** – Pure core library usage without DI (`ConfigManager` only)
 - **BasicUsage** – Common ASP.NET Core pattern with file + environment overrides
-- **FileLayering** – Multiple JSON file layering (base + env + local)  
-- **DynamicDependencies** – Later rules derive values from earlier configurations
-- **ConditionalRulesExample** – Using `When()` with config-aware predicates for conditional rule execution
-- **AspNetCoreExample** – Minimal API exposing configuration via endpoints
-- **GenericProviderAPI** – Using the generic provider registration API
-- **HttpPollingExample** – Demonstrates pattern for remote/polling configuration
-- **MicrosoftAdapterExample** – Integrating `IConfigurationSource` providers
+- **FileLayering** – Multiple JSON file layering (base + env + local)
 - **StaticProviderExample** – Static seeding with JSON strings and factory functions
-- **SimplifiedCoreExample** – Pure core library usage without DI (ConfigManager only)
-- **ExposeExample** – Interface exposure without DI frameworks
+- **CommandLineExample** – Command-line argument provider with configurable prefixes
+- **HttpPollingExample** – Remote/polling configuration pattern
+- **MicrosoftAdapterExample** – Bridging existing `IConfiguration`/`IConfigurationSource` providers
+- **GenericProviderAPI** – Using the generic provider registration API
+
+### Rules, dependencies & reactivity
+- **ConditionalRulesExample** – `When()` with config-aware predicates for conditional rule execution
+- **DynamicDependencies** – Later rules derive values from earlier configurations
+- **AggregateRules** – Composable rule grouping (`FromFiles` sugar) with byte-level JSON merge
 - **TupleReactiveExample** – Tuple-based reactive multi-config snapshot & aligned emission demo
+
+### Multi-tenancy
+- **MultiTenancyExample** – The same type resolves to a different value per tenant: one flat rule list with a global base + a `.TenantScoped()` overlay whose file path is interpolated from `accessor.Tenant`; sparse per-tenant inheritance
+
+### DI & ASP.NET Core
+- **ExposeExample** – Interface exposure without DI frameworks
+- **AspNetCoreExample** – Minimal API exposing configuration via endpoints
+- **ServiceBackedConfig** – DI-aware service-backed configuration (ADR-006): eager Layer-1 + lazy `IServiceProvider`-gated Layer-2 that activates on host start via a recompute
+- **TestingOverridesExample** – Test isolation with `CocoarTestConfiguration` (`Replace`/`Append` overrides)
+
+### Writable store & secrets
+- **WritableStoreExample** – Writable sparse-overlay store (`FromStore`): set/reset/clear plus `DescribeAsync` provenance
+- **SecretsBasicExample** – Basic `Secret<T>` usage with a self-signed certificate
+- **SecretsCertificateExample** – Production-ready secrets with certificate-from-file decryption of pre-encrypted values
 
 ## Running an Example
 ```pwsh
@@ -36,15 +53,17 @@ Currently examples use `ProjectReference` to always reflect the latest API. To t
 ```
 (And any adapter/provider packages you need.)
 
-## CI / Build
-Examples are excluded from packing. Build manually if needed:
+## Building
+Examples are excluded from packing. The build is directory-based — there is no solution file. Build them along with the rest of the source tree:
 ```pwsh
-dotnet build src/Examples/Examples.sln -c Release
+dotnet build ./src -c Release
 ```
 
 ## Adding a New Example
 1. Create `src/Examples/<Name>/<Name>.csproj` (copy one of the existing ones)
-2. Add `Program.cs` with top-level statements
-3. Add the project to `Examples.sln` (or let someone run `dotnet sln add` later)
+2. Add `Program.cs` with top-level statements (or a `Main`)
+3. Add it to the list above
 
-Feel free to keep examples minimal—prefer a single `Program.cs` unless scenario requires more.
+The directory-based build picks up the new project automatically — no solution file to update.
+
+Feel free to keep examples minimal—prefer a single `Program.cs` unless the scenario requires more.

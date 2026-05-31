@@ -1,7 +1,10 @@
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Flags;
 using Cocoar.Configuration.Flags.Internal;
+using Cocoar.Configuration.Providers.Abstractions;
 using Cocoar.Configuration.Reactive;
+using Cocoar.Configuration.Secrets.Core;
+using Cocoar.Configuration.Secrets.SecretTypes;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cocoar.Configuration.DI;
@@ -31,6 +34,74 @@ internal static class ServiceDescriptorEmitter
 
         EmitFlagsServices(services, configManager);
         EmitEntitlementsServices(services, configManager);
+        EmitProviderContributedServices(services, configManager);
+        EmitSecretsKeyProviderServices(services, configManager);
+    }
+
+    /// <summary>
+    /// Discovers provider options that implement <see cref="IProviderServiceRegistration"/> and applies the
+    /// extra service registrations they contribute (e.g. WritableStore's <c>IWritableStore&lt;T&gt;</c> /
+    /// <c>IWritableStoreOverlay&lt;T&gt;</c>). Registrations may be eager singleton instances or resolve-time
+    /// factories. Collisions on the same service type are last-rule-wins; emission is ordered by service type
+    /// full name for determinism.
+    /// </summary>
+    private static void EmitProviderContributedServices(IServiceCollection services, ConfigManager configManager)
+    {
+        var registrations = new Dictionary<Type, ProviderServiceRegistration>();
+
+        foreach (var rule in configManager.Rules)
+        {
+            IProviderConfiguration options;
+            try
+            {
+                options = rule.ResolveProviderOptions(configManager);
+            }
+            catch
+            {
+                // A rule whose options can't be resolved at setup time contributes no services here;
+                // the recompute pipeline surfaces any real failure.
+                continue;
+            }
+
+            if (options is not IProviderServiceRegistration provider)
+            {
+                continue;
+            }
+
+            foreach (var registration in provider.GetServiceRegistrations(rule.ConcreteType))
+            {
+                registrations[registration.ServiceType] = registration; // last-rule-wins
+            }
+        }
+
+        foreach (var (serviceType, registration) in registrations.OrderBy(kvp => kvp.Key.FullName))
+        {
+            if (registration.Instance is not null)
+            {
+                services.AddSingleton(serviceType, registration.Instance);
+            }
+            else
+            {
+                services.AddSingleton(serviceType, registration.Factory!);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Registers the public <see cref="ISecretEncryptionKeyProvider"/> when a publishable encryption
+    /// key is configured — single-kid and folder/multi-tenant secrets each compose an
+    /// <see cref="ISecretEncryptionKeyInfoProvider"/>. The provider resolves the capability lazily per
+    /// call so certificate rotation is reflected. Not registered when no secrets are configured.
+    /// </summary>
+    private static void EmitSecretsKeyProviderServices(IServiceCollection services, ConfigManager configManager)
+    {
+        var keyInfoProviders = configManager.CapabilityScope.Owner.GetComposition()
+            ?.GetAll<ISecretEncryptionKeyInfoProvider>();
+        if (keyInfoProviders is null || keyInfoProviders.Count == 0)
+            return;
+
+        services.AddSingleton<ISecretEncryptionKeyProvider>(
+            sp => new SecretEncryptionKeyProvider(sp.GetRequiredService<ConfigManager>().CapabilityScope));
     }
 
     private static void EmitFlagsServices(IServiceCollection services, ConfigManager configManager)

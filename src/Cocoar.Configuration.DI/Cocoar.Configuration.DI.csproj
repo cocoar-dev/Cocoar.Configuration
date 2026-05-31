@@ -12,6 +12,8 @@
 
     <ItemGroup>
       <PackageReference Include="Cocoar.Capabilities" />
+      <!-- IHostedLifecycleService: activates service-backed (Layer-2, ADR-006) configuration on host start. -->
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     </ItemGroup>
 
 </Project>

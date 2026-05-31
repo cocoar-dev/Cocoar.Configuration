@@ -137,6 +137,32 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
     }
 
     /// <summary>
+    /// Runs a recompute from <paramref name="startIndex"/> directly to completion and updates health — the same
+    /// post-recompute work the <see cref="ScheduleRecompute"/> lambda does, but awaitable and WITHOUT the
+    /// cancel-on-reschedule scheduler. Used by the DI Layer-2 activation so a concurrent change cannot cancel it
+    /// and so health reflects a degraded Layer-2 source. Never throws (failures are caught + health updated,
+    /// matching the scheduler path).
+    /// </summary>
+    public async Task RecomputeAndUpdateHealthAsync(
+        IReadOnlyList<IRuleManager> ruleManagers,
+        IConfigurationAccessor configAccessor,
+        int startIndex,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await RecomputeAllConfigurationsSafeAsync(ruleManagers, configAccessor, startIndex, cancellationToken).ConfigureAwait(false);
+            _state.UpdateHealth();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.RuntimeRecomputeFailed(ex);
+            _state.UpdateHealth();
+        }
+    }
+
+    /// <summary>
     /// Async variant of <see cref="InitializeAndCompute"/>. Used by <see cref="ConfigManager.InitializeAsync"/>.
     /// </summary>
     public async Task InitializeAndComputeAsync(

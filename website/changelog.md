@@ -1,6 +1,43 @@
 # Changelog
 
-## [Unreleased]
+## [5.1.0] — 2026-05-31
+
+### Added
+
+**WritableStore — writable override layer**
+- A writable, application-controlled layer for *overridable defaults*: the normal sources supply defaults; the app overrides individual values at runtime.
+- `IWritableStore<T>` (type-safe facade) and `IWritableStoreOverlay<T>` (raw key-path surface) in `Cocoar.Configuration.Abstractions`
+- **Sparse writes** — `SetAsync(x => x.Smtp.Port, value)` persists only the touched leaf; unset keys keep inheriting from lower layers
+- `ResetAsync(...)` removes an override (falls back to the inherited default); an explicit `null` override is distinct from reset
+- `DescribeAsync()` returns per-key provenance (`StoreEntry`: base, effective, `IsSet`) for management UIs
+- `.FromStore()` rule extension; file-based backend by default, pluggable `IStoreBackend`
+- `IWritableStore<T>` / `IWritableStoreOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
+- Secret-typed members cannot be overridden via WritableStore (throws `NotSupportedException`)
+- `IProviderServiceRegistration` gained resolve-time factory registration support
+
+**Multi-Tenancy** (ADR-005)
+- The same configuration type resolves to different values per tenant, layered on a shared global base
+- `.TenantScoped()` rule marker + `Tenant` on `IConfigurationAccessor` — author one flat rule list (no second surface)
+- `ITenantConfigurationAccessor` lifecycle: `InitializeTenantAsync` / `EnsureTenantInitializedAsync` / `RemoveTenantAsync`
+- Per-tenant access: `GetConfigForTenant` / `GetReactiveConfigForTenant` / `GetFeatureFlagsForTenant` / `GetEntitlementsForTenant` / `GetWritableStoreForTenant`
+- Tenant-only types excluded from the global DI plan; per-tenant flags/entitlements need no source-generator change
+- Tenant config consumption (DI, no ASP.NET dependency): scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `AddCocoarTenantResolver<TService>(s => s.TenantId)` resolves the current tenant from any DI service (HTTP via `IHttpContextAccessor`) — no hand-written adapter
+- ASP.NET Core: `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+
+**Service-Backed (DI-aware) configuration** (ADR-006)
+- Two-layer model: eager `UseConfiguration` (Layer 1) + lazy `UseServiceBackedConfiguration` (Layer 2), whose provider factories receive the `IServiceProvider`
+- `FromStore((sp, a) => …)`, `FromHttp((sp, a) => …)`, `FromService<TService>(s => …)` — use `IHttpClientFactory` / Marten / EF without giving up the no-DI core
+- Activated on host start via `IHostedLifecycleService` (a recompute, never a rebuild — live reactive views stay valid)
+- Public `ServiceBackedProviderBuilder<T>` seam for third-party `(sp, a)` provider overloads
+
+**Secrets — encryption-key publishing**
+- Publish the public half of the secrets encryption key so a browser/CLI can build `cocoar.secret` envelopes — `ISecretEncryptionKeyProvider` (`GetCurrentKey()` / `GetCurrentKeyForTenant(tenantId)`) returns exactly one current public key (the newest cert; older certs stay decrypt-only)
+- ASP.NET Core `MapSecretEncryptionKey()` (single-tenant) / `MapTenantSecretEncryptionKey()` (per-tenant; tenant from `ITenantContext`) at `/.well-known/cocoar/encryption-key` — one key per request, never a list, no cross-tenant exposure
+- `SecretEnvelope<T>` typed secret-overlay writes; WritableStore `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes (per tenant via `GetWritableStoreForTenant<T>(id).SetSecretAsync(...)`)
+
+**Custom-provider authoring**
+- Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for a provider's change stream without referencing System.Reactive
+- `FromFile(a => …)` config-aware file-path overload — the natural shape for per-tenant file rules (resolves the path from the accessor per recompute)
 
 ### Changed
 
@@ -8,6 +45,9 @@
 - Secret payloads now (de)serialize with lenient options: **enums as names** (safe against enum reordering) and **case-insensitive** property matching.
 - Reading still accepts numeric enums and any casing → **existing encrypted secrets remain fully readable**, no migration.
 - Recommendation: when encrypting an enum secret with the CLI, pass the **name** (e.g. `Active`) rather than the ordinal.
+
+**Multi-tenancy — clearer error for a tenant-only type read globally**
+- Reading a type whose every rule is `.TenantScoped()` from the global pipeline now throws a **targeted** error pointing at `GetConfigForTenant<T>(id)` / `GetReactiveConfigForTenant<T>(id)` — for both `GetConfig<T>()` and `GetReactiveConfig<T>()` — instead of the generic "no rule registered" message (a rule does exist; it is just tenant-scoped).
 
 ## [5.0.0] — 2026-03-24
 

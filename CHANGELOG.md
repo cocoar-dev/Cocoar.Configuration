@@ -1,10 +1,47 @@
 # Changelog
 
-## [Unreleased]
+## [5.1.0] - 2026-05-31
+
+### Added
+
+- **WritableStore provider** — a writable, application-controlled override layer for *overridable defaults*: the normal sources (files, environment, …) supply defaults, and the application overrides individual values at runtime.
+  - `IWritableStore<T>` (type-safe facade) and `IWritableStoreOverlay<T>` (raw key-path surface) in `Cocoar.Configuration.Abstractions`
+  - **Sparse writes** — `SetAsync(x => x.Smtp.Port, value)` persists only the touched leaf; unset keys keep inheriting from the lower layers
+  - `ResetAsync(...)` removes an override (value falls back to the inherited default); an explicit `null` override is distinct from reset
+  - `DescribeAsync()` returns per-key provenance (`StoreEntry`: base value, effective value, `IsSet`) for management UIs
+  - `.FromStore()` rule extension; file-based backend by default with a pluggable `IStoreBackend`
+  - `IWritableStore<T>` / `IWritableStoreOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
+  - WritableStoreExample example project
+- `IProviderServiceRegistration` now supports resolve-time factory registrations (`ProviderServiceRegistration.Singleton(type, factory)`) in addition to eager instances
+- **Multi-Tenancy** — the same configuration type resolves to different values per tenant, layered on a shared global base (ADR-005)
+  - `ITenantConfigurationAccessor` lifecycle on `ConfigManager`: `InitializeTenantAsync` / `EnsureTenantInitializedAsync` / `IsTenantInitialized` / `RemoveTenantAsync`
+  - `.TenantScoped()` rule marker + `Tenant` on `IConfigurationAccessor` (default-interface member, non-breaking) — author one flat rule list, no second surface
+  - Per-tenant access: `GetConfigForTenant<T>` / `GetReactiveConfigForTenant<T>` / `GetFeatureFlagsForTenant<T>` / `GetEntitlementsForTenant<T>` / `GetWritableStoreForTenant<T>`
+  - Tenant-only types are excluded from the global DI plan (avoids the captive-dependency bug); per-tenant flags/entitlements need no source-generator change
+  - Tenant config consumption (DI, no ASP.NET dependency): scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `AddCocoarTenantResolver<TService>(s => s.TenantId)` resolves the current tenant from any DI service (HTTP via `IHttpContextAccessor`) — no hand-written adapter
+  - ASP.NET Core: `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+- **Service-Backed (DI-aware) configuration** — a two-layer model so config providers can use DI-managed services (ADR-006)
+  - `UseServiceBackedConfiguration(...)` (DI package) — Layer-2 rules whose provider factories receive the application `IServiceProvider`
+  - `FromStore((sp, a) => IStoreBackend)`, `FromHttp((sp, a) => HttpClient)`, and `FromService<TService>(s => config)` overloads
+  - providers can use `IHttpClientFactory` / Marten / EF without giving up the no-DI core; activated on host start via `IHostedLifecycleService` (a recompute, never a rebuild)
+  - public `ServiceBackedProviderBuilder<T>` seam so third-party provider packages can author their own `(sp, a)` overloads
+  - ServiceBackedConfig example project
+- **Secrets encryption-key publishing** — publish the public half of the configured secrets encryption key so a browser/CLI producer can build `cocoar.secret` envelopes
+  - `ISecretEncryptionKeyProvider` (`GetCurrentKey()` / `GetCurrentKeyForTenant(tenantId)`) returns exactly one current public key — the newest cert (per the configured comparer); older certs stay decrypt-only for rotation
+  - ASP.NET Core `MapSecretEncryptionKey()` (single-tenant) and `MapTenantSecretEncryptionKey()` (per-tenant; tenant from `ITenantContext`) at `/.well-known/cocoar/encryption-key` — one key per request, never a list, no cross-tenant exposure
+  - `SecretEnvelope<T>` for typed secret-overlay writes; WritableStore `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes
+- Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for authoring a custom provider's change stream without referencing System.Reactive
+- `FromFile(a => …)` config-aware file-path overload (resolves the path from the accessor per recompute) — the natural shape for per-tenant file rules
 
 ### Changed
 
 - Secret payloads (the decrypted value of `Secret<T>`) now (de)serialize with lenient options: **enums as names** (round-trip-safe if the enum is later reordered) and **case-insensitive** property matching. Reading still accepts numeric enums and any casing, so **existing encrypted secrets remain fully readable** — no migration. Only the in-memory form of newly serialized typed secret values changes (enum name instead of ordinal); encrypted envelopes at rest are unaffected.
+- Reading a tenant-only type (every rule `.TenantScoped()`) from the global pipeline now throws a **targeted** error pointing at `GetConfigForTenant<T>(id)` / `GetReactiveConfigForTenant<T>(id)` — for both `GetConfig<T>()` and `GetReactiveConfig<T>()` — instead of the misleading generic "no configuration rule is registered" message (a rule does exist; it is just tenant-scoped). Matches the existing mixed-scope-tuple guard.
+
+### Notes
+
+- Secret-typed members (`Secret<T>` / `ISecret<T>`) cannot be overridden via WritableStore — the typed facade throws `NotSupportedException` (manage secrets via the Secrets CLI/provider).
+- Overlay values serialize with vanilla options (enums as strings) and overlay keys are aligned to the lower layers' casing, so an override **replaces** the base key rather than creating a casing-variant sibling.
 
 ## [5.0.0] - 2026-03-24
 
@@ -157,7 +194,7 @@ See [Migration Guide v4→v5](website/guide/migration/v4-to-v5.md) for all patte
 ## [4.1.0] - 2026-01-11
 
 ### Fixed
-- **Provider consistency bug**: Optional rules now consistently return empty objects with C# defaults when sources are unavailable, instead of inconsistently returning null. This fixes a bug where source-based providers (File, HTTP) behaved differently than collection-based providers (Environment, CommandLine). See [ADR-003](docs/adr/ADR-003-provider-consistency-empty-objects.md) for details.
+- **Provider consistency bug**: Optional rules now consistently return empty objects with C# defaults when sources are unavailable, instead of inconsistently returning null. This fixes a bug where source-based providers (File, HTTP) behaved differently than collection-based providers (Environment, CommandLine). See [ADR-003](website/adr/ADR-003-provider-consistency-empty-objects.md) for details.
   - All providers now return `{}` on failure, resulting in configuration objects with C# property defaults
   - Failures are tracked via health monitoring with `Degraded` status
   - Eliminates need for workarounds like adding fake `FromEnvironment()` rules

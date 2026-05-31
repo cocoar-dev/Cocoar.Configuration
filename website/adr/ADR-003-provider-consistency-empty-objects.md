@@ -33,8 +33,8 @@ rule.For<Config>().FromCommandLine("--app:")
 rule.For<Config>().FromFile("config.json")
 // File doesn't exist → Throws FileNotFoundException → null (unavailable)
 
-// HttpPollingProvider
-rule.For<Config>().FromHttpPolling("http://api/config")
+// HttpProvider
+rule.For<Config>().FromHttp("http://api/config")
 // Endpoint down → Throws → null (unavailable)
 ```
 
@@ -97,8 +97,8 @@ The system has **asymmetric failure handling**:
 - App continues with last known good configuration for all types
 
 **Optional Rules** (`Required: false`, default):
-- Provider throws → `HandleFailure()` returns `SkipResult()` with `include: false`
-- `ProcessRuleResult()` sets `LastJsonContribution = null` for that rule
+- Provider throws → `HandleFailure()` skips the rule's contribution
+- `LastJsonContribution` is left `null` for that rule
 - Recompute **continues** with other rules
 - If this was the **only rule** for a type → Type not in `mergedConfigs` → **GetConfig returns null**
 
@@ -115,10 +115,10 @@ This behavior is **intentional per documentation**, but creates the problem: **"
 ---
 
 ## Decision
-Fix: All providers now return empty JSON objects (`{}`) when they have no data, regardless of reason. Health monitoring tracks source availability separately.**
+
+**All providers return empty JSON objects (`{}`) when they have no data, regardless of reason. Health monitoring tracks source availability separately.**
 
 This fixes the inconsistency bug and aligns all providers with the correct "graceful degradation" behavior that was already working for collection-based providers.
-**All providers will return empty JSON objects (`{}`) when they have no data, regardless of reason. Health monitoring will track source availability separately.**
 
 ### Core Principle
 
@@ -149,7 +149,7 @@ This fixes the inconsistency bug and aligns all providers with the correct "grac
 // All providers work the same way
 rule.For<Config>().FromFile("config.json")           // Always returns object
 rule.For<Config>().FromEnvironment("APP_")           // Always returns object
-rule.For<Config>().FromHttpPolling("http://api")     // Always returns object
+rule.For<Config>().FromHttp("http://api")            // Always returns object
 ```
 
 **2. Predictability**
@@ -186,18 +186,14 @@ rule.For<Config>().FromFile("config.json")  // ✅ Clear intent
 
 **5. Better Observability**
 ```csharp
-// Health monitoring shows the real issue
-{
-  "status": "Degraded",
-  "rules": [
-    {
-      "type": "Config",
-      "status": "Down",
-      "error": "File not found: config.json",
-      "timestamp": "2025-01-11T10:30:00Z"
-    }
-  ]
-}
+// Data still flows (Config has C# defaults), but health reflects the real issue.
+// Overall status is derived from per-rule outcomes by the health tracker:
+manager.HealthStatus;  // HealthStatus.Degraded — an optional rule failed
+manager.IsHealthy;     // false
+
+// Per-rule detail is tracked on the rule manager:
+//   LastOutcome           → RuleExecutionOutcome.Failed
+//   LastFailureException  → FileNotFoundException("config.json")
 ```
 
 **6. Graceful Degradation**
@@ -212,8 +208,8 @@ rule.For<Config>().FromFile("config.json")  // ✅ Clear intent
 **Change in RuleManager:**
 
 ```csharp
-// Current:
-private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
+// Before:
+private ReadOnlyMemory<byte> HandleFailure(Exception ex)
 {
     LastOutcome = RuleExecutionOutcome.Failed;
     LastFailureException = ex;
@@ -224,11 +220,11 @@ private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
     }
 
     _logger.OptionalRuleFailed(ex, ...);
-    return SkipResult();  // ❌ Returns include: false
+    // ❌ Skipped the rule's contribution → type may be absent → null
 }
 
-// New:
-private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
+// After:
+private ReadOnlyMemory<byte> HandleFailure(Exception ex)
 {
     LastOutcome = RuleExecutionOutcome.Failed;
     LastFailureException = ex;  // ✅ Still tracked for health
@@ -239,7 +235,7 @@ private (bool include, ReadOnlyMemory<byte> bytes) HandleFailure(Exception ex)
     }
 
     _logger.OptionalRuleFailed(ex, ...);
-    return EmptyObjectResult();  // ✅ Returns include: true, bytes: "{}"
+    return EmptyObjectResult();  // ✅ Contributes "{}"u8 → object with C# defaults
 }
 ```
 
@@ -271,7 +267,9 @@ It becomes a **static configuration safety check** rather than a runtime availab
 
 ## Consequences
 
-### Bug fixed** - All providers now behave identically (as intended)
+### Positive
+
+✅ **Bug fixed** - All providers now behave identically (as intended)
 ✅ **Predictability** - Types are always available if configured
 ✅ **No workarounds needed** - Eliminates environment var hacks
 ✅ **No null checks** - Simpler consumer code
@@ -284,50 +282,37 @@ It becomes a **static configuration safety check** rather than a runtime availab
 ⚠️ **Behavioral change** - Code checking for null to detect optional rule failures will no longer see null
 ⚠️ **Documentation update** - PART2 article needs revision to reflect correct behavior
 
-### Not a Breaking (If Needed)
+### Not a Breaking Change (In Practice)
 
-Users who were working around the bug by checking for null to detect failures:
-
-**Before (working around the buga breaking change because:
+Users who were working around the bug by checking for null to detect failures may need to adjust, but this is not a breaking change because:
 - The documented intent was "graceful degradation" for optional rules
 - Collection providers already demonstrated the correct behavior (returning `{}`)
 - The null return was inconsistent and required hacky workarounds
 - All 349 tests passed without modification after the fix
-- No legitimate use case for "optional rule returns null" that isn't better served by health monitoringects
-⚠️ **Documentation update** - PART2 article needs revision
-⚠️ **Migration required** - Users relying on null checks need adjustment
+- No legitimate use case for "optional rule returns null" that isn't better served by health monitoring
 
-### Migrausing the proper API):**
+### Migration (If Needed)
+
+Replace null checks (which were a workaround for the bug) with the proper health API:
+
 ```csharp
 var config = manager.GetConfig<OptionalConfig>();
 UseConfig(config);  // Always works, may have defaults
 
-// Proper way to check if source is healthy:
-var health = manager.GetHealthService().GetCurrentSnapshot();
-var rule = health.Rules.FirstOrDefault(r => r.ConfigType == "OptionalConfig");
-if (rule?.Status == RuleResultStatus.Down)
+// Proper way to check if the configuration is healthy:
+if (!manager.IsHealthy)
 {
-    _logger.LogWarning("Config source unavailable: {Error}", rule.ErrorMessage);
+    // manager.HealthStatus is Degraded when an optional rule failed.
+    // Per-rule detail (LastOutcome, LastFailureException) is exposed through
+    // the rule managers for diagnostics and ConfigHub observability.
+    _logger.LogWarning("Configuration is degraded: {Status}", manager.HealthStatus);
 }
 ```
 
 **Note:** Most code won't need changes - checking for null was a workaround for the bug, and most users either:
 1. Used DI injection (never saw null)
-2. Used the config directly (relied on defaults) to reflect the fixed behavior:
-
-**Before (testing buggy behavior):**
-3. Had workarounds like adding `FromEnvironment("FAKE_")` rules (no longer needed)csharp
-var config = manager.GetConfig<OptionalConfig>();
-UseConfig(config);  // Always works, may have defaults
-
-// Optional: Check if source is healthy
-var health = manager.GetHealthService().GetCurrentSnapshot();
-var rule = health.Rules.FirstOrDefault(r => r.ConfigType == "OptionalConfig");
-if (rule?.Status == RuleResultStatus.Down)
-{
-    _logger.LogWarning("Config source unavailable: {Error}", rule.ErrorMessage);
-}
-```
+2. Used the config directly (relied on defaults)
+3. Had workarounds like adding `FromEnvironment("FAKE_")` rules (no longer needed)
 
 ### Testing Impact
 
@@ -344,8 +329,8 @@ Assert.NotNull(result);  // Returns empty object
 Assert.Equal(default, result.SomeProperty);  // C# defaults present
 
 // Check health instead:
-var health = manager.GetHealthService().GetCurrentSnapshot();
-Assert.Equal(ConfigurationHealthStatus.Degraded, health.Status);
+Assert.Equal(HealthStatus.Degraded, manager.HealthStatus);
+Assert.False(manager.IsHealthy);
 ```
 
 ---
