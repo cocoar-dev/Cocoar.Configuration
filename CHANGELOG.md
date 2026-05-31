@@ -18,7 +18,8 @@
   - `.TenantScoped()` rule marker + `Tenant` on `IConfigurationAccessor` (default-interface member, non-breaking) — author one flat rule list, no second surface
   - Per-tenant access: `GetConfigForTenant<T>` / `GetReactiveConfigForTenant<T>` / `GetFeatureFlagsForTenant<T>` / `GetEntitlementsForTenant<T>` / `GetWritableStoreForTenant<T>`
   - Tenant-only types are excluded from the global DI plan (avoids the captive-dependency bug); per-tenant flags/entitlements need no source-generator change
-  - ASP.NET Core: scoped `ITenantReactiveConfig<T>` + `ITenantContext`, and `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+  - Tenant config consumption (DI, no ASP.NET dependency): scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `AddCocoarTenantResolver<TService>(s => s.TenantId)` resolves the current tenant from any DI service (HTTP via `IHttpContextAccessor`) — no hand-written adapter
+  - ASP.NET Core: `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
 - **Service-Backed (DI-aware) configuration** — a two-layer model so config providers can use DI-managed services (ADR-006)
   - `UseServiceBackedConfiguration(...)` (DI package) — Layer-2 rules whose provider factories receive the application `IServiceProvider`
   - `FromStore((sp, a) => IStoreBackend)`, `FromHttp((sp, a) => HttpClient)`, and `FromService<TService>(s => config)` overloads
@@ -26,7 +27,8 @@
   - public `ServiceBackedProviderBuilder<T>` seam so third-party provider packages can author their own `(sp, a)` overloads
   - ServiceBackedConfig example project
 - **Secrets encryption-key publishing** — publish the public half of the configured secrets encryption key so a browser/CLI producer can build `cocoar.secret` envelopes
-  - `ISecretEncryptionKeyProvider` (DI) and ASP.NET Core `MapSecretEncryptionKeyEndpoints()` under `/.well-known/cocoar/encryption-keys`
+  - `ISecretEncryptionKeyProvider` (`GetCurrentKey()` / `GetCurrentKeyForTenant(tenantId)`) returns exactly one current public key — the newest cert (per the configured comparer); older certs stay decrypt-only for rotation
+  - ASP.NET Core `MapSecretEncryptionKey()` (single-tenant) and `MapTenantSecretEncryptionKey()` (per-tenant; tenant from `ITenantContext`) at `/.well-known/cocoar/encryption-key` — one key per request, never a list, no cross-tenant exposure
   - `SecretEnvelope<T>` for typed secret-overlay writes; WritableStore `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes
 - Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for authoring a custom provider's change stream without referencing System.Reactive
 - `FromFile(a => …)` config-aware file-path overload (resolves the path from the accessor per recompute) — the natural shape for per-tenant file rules

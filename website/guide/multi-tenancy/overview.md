@@ -57,13 +57,23 @@ var store = manager.GetWritableStoreForTenant<SmtpSettings>("acme");    // per-t
 
 A type whose **every** rule is `.TenantScoped()` has no global value. Injecting it into a long-lived (singleton) consumer would be a captive-dependency bug — it would freeze one tenant forever, since the container cannot know the runtime tenant. The DI planner therefore **excludes** purely tenant-scoped types from the global plan. A type that *also* has a global base rule stays injectable (its base value is a valid global config). Consuming services inject the `ConfigManager` / `ITenantConfigurationAccessor` and call `…ForTenant(currentTenant)`.
 
-### Scoped per-request injection (ASP.NET Core)
+### Scoped per-request injection (DI)
 
-So scoped/transient services don't have to thread the tenant id by hand, `Cocoar.Configuration.AspNetCore` offers a **scoped** `ITenantReactiveConfig<T>` that resolves the *current request's* tenant for you. You supply a scoped `ITenantContext` (only your app knows where the tenant lives — a claim, header, or route value); the adapter delegates to `GetReactiveConfigForTenant<T>(tenant)`.
+So scoped/transient services don't have to thread the tenant id by hand, a **scoped** `ITenantReactiveConfig<T>` (in `Cocoar.Configuration.DI`) resolves the *current* tenant for you. It reads the tenant from a scoped `ITenantContext` and delegates to `GetReactiveConfigForTenant<T>(tenant)`.
+
+You don't hand-write an `ITenantContext` — point a **resolver** at whatever already knows the tenant:
 
 ```csharp
-// Register the adapter + a default ITenantContext that reads the tenant from the request:
-builder.Services.AddCocoarTenantReactiveConfig(http => http.Request.RouteValues["tenant"]?.ToString());
+// Register the scoped adapter:
+builder.Services.AddCocoarTenantReactiveConfig();
+
+// ...then point a resolver at your existing tenant service:
+builder.Services.AddCocoarTenantResolver<ApplicationTenantService>(s => s.TenantId);
+
+// ...or, for plain HTTP, at IHttpContextAccessor — no AspNetCore-specific API needed:
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCocoarTenantResolver<IHttpContextAccessor>(
+    a => a.HttpContext?.Request.RouteValues["tenant"]?.ToString());
 
 // Ensure the tenant pipeline is warm before it is consumed (e.g. request-start middleware):
 app.Use(async (ctx, next) =>
@@ -80,7 +90,9 @@ public sealed class SmtpSender(ITenantReactiveConfig<SmtpSettings> smtp)
 }
 ```
 
-The singleton `IReactiveConfig<T>` is **untouched** — it stays the global view, so singletons keep working. A singleton that needs a specific tenant still calls `GetReactiveConfigForTenant<T>(id)` explicitly (it has no ambient request tenant).
+The selector is re-evaluated on every access, so the tenant can become known after the scope starts (e.g. post-auth-middleware). The singleton `IReactiveConfig<T>` is **untouched** — it stays the global view, so singletons keep working. A singleton that needs a specific tenant still calls `GetReactiveConfigForTenant<T>(id)` explicitly (it has no ambient request tenant).
+
+Without DI there is no ambient scope to resolve from — pass the tenant explicitly with the `…ForTenant(id)` methods.
 
 ## Feature flags & entitlements per tenant
 
@@ -134,8 +146,11 @@ A tenant decrypts its own secret with its own certificate; it cannot decrypt ano
 
 Each tenant pipeline runs the full rule list with its **own** provider subscriptions, so a change to a live global base source (file / observable / HTTP) propagates to every initialized tenant on its own debounced recompute and re-emits on that tenant's `IReactiveConfig<T>`. A tenant that masks the changed key with its own override does not emit. No coordinator to configure; consistency is **per-tenant eventual** (a global change lands tenant-by-tenant as each rebuild finishes).
 
+## Tuples across tenant scopes
+
+A `ValueTuple` mixing a global-only type and a tenant-overridable one is **fully supported** — each element is read from the relevant pipeline's atomic snapshot. The global accessor skips `.TenantScoped()` overlays (you get base values); the per-tenant accessor gives effective values. The same holds for tuple-typed `IFeatureFlags` / `IEntitlements`. The one case that errors is a *global* tuple containing a type whose **every** rule is `.TenantScoped()` — it has no global value, so read it per tenant (`GetReactiveConfigForTenant<…>(id)`). ("Scope" is a property of a rule, not of a type — a type can carry both global and tenant-scoped rules.)
+
 ## Limits in this version
 
-- **Mixed-scope tuples** — `IReactiveConfig<(Global, TenantScoped)>` / `IFeatureFlags<(Global, TenantScoped)>` are **not supported** (they would show transient skew during fan-out). Use same-scope tuples.
 - **Resource use** scales linearly with initialized tenants × base rules (each tenant re-runs the base). Acceptable for a host-bounded active-tenant set; a shared seed-from-global optimization is a future, API-compatible change.
 - **Eviction** is explicit (`RemoveTenantAsync`) only — no idle eviction.

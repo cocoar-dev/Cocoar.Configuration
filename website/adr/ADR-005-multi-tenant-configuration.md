@@ -115,7 +115,7 @@ The tenant dimension is unified by the factory + bundle:
 
 - **Feature Flags / Entitlements** become tenant-aware **without a source-generator change**: the generated flag class already reads an injected `IReactiveConfig<TConfig>`; tenant-awareness means constructing it with the **tenant's** `IReactiveConfig`. `GetFeatureFlagsForTenant<TFlags>(id)` is a per-`(tenant, TFlags)` factory/cache over the existing generated class. The context-aware evaluator and the REST endpoints (`MapFeatureFlagEndpoints`) gain a tenant dimension (e.g. a route segment).
 - **WritableStore** per tenant: reads fall out of the factory (`FromStore(BackendFor(tenant))`; file backend = a folder per tenant); writes go through a per-tenant `GetWritableStoreForTenant<T>(id)` facade pointing at the tenant's backend.
-- **Secrets** are already tenant-capable via folder mode (`kid` = tenant subfolder routes decryption); a tenant writes its encrypted envelope to its own backend, decrypted with its own cert.
+- **Secrets** are tenant-capable via folder mode (`kid` = tenant subfolder routes decryption); a tenant writes its encrypted envelope to its own backend, decrypted with its own cert. **Encryption-key publishing is per tenant too:** `GetCurrentKeyForTenant(tenantId)` / `MapTenantSecretEncryptionKey` return that tenant's **single current public key** — the newest cert in its subfolder (older certs stay decrypt-only for rotation) — resolved from `ITenantContext`, never a list and never another tenant's key. See [Publishing Encryption Keys](/guide/secrets/key-publishing).
 
 ### 8. No-DI core preserved
 
@@ -160,7 +160,7 @@ Tenant methods live on a **new** `ITenantConfigurationAccessor` that `ConfigMana
 ✅ Captive-dependency class of bugs avoided by design (explicit `…ForTenant(id)` only)
 
 ⚠️ Structural rework of `ConfigManager`'s "one state per manager" ownership model (mechanical but not an additive extension; `ConfigManager` is sealed) — **done**: extracted into `TenantPipeline`, global path byte-identical
-⚠️ Per-tenant eventual consistency (vs. ADR-002 global atomicity) — observable for tuples spanning a global-only and a tenant-scoped type; **mixed-scope tuples are not supported in v1**
+⚠️ Per-tenant eventual consistency (vs. ADR-002 global atomicity) — a global base change lands tenant-by-tenant. Tuples stay atomic *within* a pipeline; mixed-scope tuples ARE supported (each element is read from one pipeline's snapshot), and a tuple's global-only element read per tenant is just an eventual-consistent copy — not a tuple-internal skew.
 ⚠️ Resource use scales linearly with initialized tenants × base rules (each tenant re-runs the global base); acceptable for a host-bounded active-tenant set, and the seed-from-global optimization can reclaim it later without an API change
 ⚠️ Each tenant holds its own subscription to live base sources — for an SSE/HTTP base that is N connections to the config server; document and revisit with seed-from-global if it bites at scale
 
@@ -169,7 +169,7 @@ Tenant methods live on a **new** `ITenantConfigurationAccessor` that `ConfigMana
 ## Open questions (implementation-level)
 
 - **Fan-out throttle at scale:** with full-list-per-tenant, a global base change fans out as one independent debounced recompute per initialized tenant; whether a cross-pipeline throttle is needed depends on tenant/subscriber counts. Becomes pressing only if seed-from-global lands (a single coordinator then drives all tenants).
-- **Mixed-scope tuples:** **decided — not supported in v1.** `IReactiveConfig<(Global, TenantScoped)>` / `IFeatureFlags<(Global, TenantScoped)>` would show transient skew; only same-scope tuples are supported.
+- **Tuples across scopes:** **resolved — supported.** Each element is read from the relevant pipeline's atomic snapshot (global skips `.TenantScoped()` overlays; per-tenant is effective). A *global* tuple with a type whose every rule is `.TenantScoped()` throws (no global value) — read it per tenant. ("Scope" is a rule property, not a type property; the earlier "not supported" framing was wrong.)
 - **Idle-read freshness contract:** moot in v1 — idle initialized tenants self-update via their own subscriptions, so a sync read is current. (Re-opens only with seed-from-global's stale-mark model.)
 
 ---

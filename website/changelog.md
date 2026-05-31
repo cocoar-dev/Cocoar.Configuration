@@ -21,7 +21,8 @@
 - `ITenantConfigurationAccessor` lifecycle: `InitializeTenantAsync` / `EnsureTenantInitializedAsync` / `RemoveTenantAsync`
 - Per-tenant access: `GetConfigForTenant` / `GetReactiveConfigForTenant` / `GetFeatureFlagsForTenant` / `GetEntitlementsForTenant` / `GetWritableStoreForTenant`
 - Tenant-only types excluded from the global DI plan; per-tenant flags/entitlements need no source-generator change
-- ASP.NET Core: scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
+- Tenant config consumption (DI, no ASP.NET dependency): scoped `ITenantReactiveConfig<T>` + `ITenantContext`; `AddCocoarTenantResolver<TService>(s => s.TenantId)` resolves the current tenant from any DI service (HTTP via `IHttpContextAccessor`) — no hand-written adapter
+- ASP.NET Core: `MapTenantFeatureFlagEndpoints()` / `MapTenantEntitlementEndpoints()`
 
 **Service-Backed (DI-aware) configuration** (ADR-006)
 - Two-layer model: eager `UseConfiguration` (Layer 1) + lazy `UseServiceBackedConfiguration` (Layer 2), whose provider factories receive the `IServiceProvider`
@@ -30,8 +31,9 @@
 - Public `ServiceBackedProviderBuilder<T>` seam for third-party `(sp, a)` provider overloads
 
 **Secrets — encryption-key publishing**
-- Publish the public half of the secrets encryption key (`ISecretEncryptionKeyProvider`; ASP.NET Core `MapSecretEncryptionKeyEndpoints()` at `/.well-known/cocoar/encryption-keys`) so a browser/CLI can build `cocoar.secret` envelopes
-- `SecretEnvelope<T>` typed secret-overlay writes; WritableStore `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes
+- Publish the public half of the secrets encryption key so a browser/CLI can build `cocoar.secret` envelopes — `ISecretEncryptionKeyProvider` (`GetCurrentKey()` / `GetCurrentKeyForTenant(tenantId)`) returns exactly one current public key (the newest cert; older certs stay decrypt-only)
+- ASP.NET Core `MapSecretEncryptionKey()` (single-tenant) / `MapTenantSecretEncryptionKey()` (per-tenant; tenant from `ITenantContext`) at `/.well-known/cocoar/encryption-key` — one key per request, never a list, no cross-tenant exposure
+- `SecretEnvelope<T>` typed secret-overlay writes; WritableStore `SetSecretAsync` / `SetSecretEnvelopeAsync` accept pre-encrypted envelopes (per tenant via `GetWritableStoreForTenant<T>(id).SetSecretAsync(...)`)
 
 **Custom-provider authoring**
 - Public `ProviderObservable` / `ProviderDisposable` helpers (in `Cocoar.Configuration.Providers.Abstractions`) for a provider's change stream without referencing System.Reactive

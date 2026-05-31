@@ -136,6 +136,37 @@ internal class ReactiveConfigurationFactory(
             throw new InvalidOperationException($"Cannot create IReactiveConfig<{tupleType.Name}>. The following tuple element types are not configured/exposed: {string.Join(", ", invalid)}");
         }
 
+        // In the GLOBAL pipeline (no tenant), a type whose EVERY rule is .TenantScoped() has no global value —
+        // its rules skip when there is no tenant. Surface that precisely instead of the generic "Missing
+        // configuration" from the tuple ctor; the fix is to read the tuple per tenant. (Mixed-scope tuples are
+        // otherwise fully supported: each element comes from this pipeline's snapshot.)
+        if (string.IsNullOrEmpty(accessor.Tenant))
+        {
+            var tenantScopedOnly = new List<string>();
+            foreach (var et in elementTypes.Distinct())
+            {
+                var concreteEt = et;
+                if (et.IsInterface && bindingRegistry.TryGetConcreteType(et, out var ct))
+                {
+                    concreteEt = ct;
+                }
+
+                var typeRules = rules.Where(r => r.ConcreteType == concreteEt).ToList();
+                if (typeRules.Count > 0 && typeRules.All(r => r.Options?.TenantScoped == true))
+                {
+                    tenantScopedOnly.Add(et.Name);
+                }
+            }
+
+            if (tenantScopedOnly.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create IReactiveConfig<{tupleType.Name}> in the global pipeline: type(s) " +
+                    $"{string.Join(", ", tenantScopedOnly)} have only .TenantScoped() rules, so they have no " +
+                    $"global value. Use GetReactiveConfigForTenant<{tupleType.Name}>(tenantId) instead.");
+            }
+        }
+
         // Prime each distinct element type's reactive config
         foreach (var et in elementTypes.Distinct())
         {
