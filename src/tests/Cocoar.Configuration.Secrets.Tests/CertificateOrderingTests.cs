@@ -32,9 +32,9 @@ public class CertificateOrderingTests : IDisposable
         var cert02Path = Path.Combine(_tempBasePath, "02-middle.pfx");
         var cert03Path = Path.Combine(_tempBasePath, "03-new.pfx");
 
-        var cert01 = X509CertificateGenerator.GenerateAndSave(cert01Path, _password, "CN=Cert01");
-        var cert02 = X509CertificateGenerator.GenerateAndSave(cert02Path, _password, "CN=Cert02");
-        var cert03 = X509CertificateGenerator.GenerateAndSave(cert03Path, _password, "CN=Cert03");
+        var cert01 = X509CertificateGenerator.GenerateAndSavePfx(cert01Path, _password, "CN=Cert01");
+        var cert02 = X509CertificateGenerator.GenerateAndSavePfx(cert02Path, _password, "CN=Cert02");
+        var cert03 = X509CertificateGenerator.GenerateAndSavePfx(cert03Path, _password, "CN=Cert03");
 
         try
         {
@@ -61,11 +61,11 @@ public class CertificateOrderingTests : IDisposable
         var cert02Path = Path.Combine(_tempBasePath, "cert-b.pfx");
         var cert03Path = Path.Combine(_tempBasePath, "cert-c.pfx");
 
-        var cert01 = X509CertificateGenerator.GenerateAndSave(cert01Path, _password, "CN=Cert01");
+        var cert01 = X509CertificateGenerator.GenerateAndSavePfx(cert01Path, _password, "CN=Cert01");
         Thread.Sleep(100);
-        var cert02 = X509CertificateGenerator.GenerateAndSave(cert02Path, _password, "CN=Cert02");
+        var cert02 = X509CertificateGenerator.GenerateAndSavePfx(cert02Path, _password, "CN=Cert02");
         Thread.Sleep(100);
-        var cert03 = X509CertificateGenerator.GenerateAndSave(cert03Path, _password, "CN=Cert03");
+        var cert03 = X509CertificateGenerator.GenerateAndSavePfx(cert03Path, _password, "CN=Cert03");
 
         try
         {
@@ -95,9 +95,9 @@ public class CertificateOrderingTests : IDisposable
         var cert02Path = Path.Combine(_tempBasePath, "cert.02.pfx");
         var cert03Path = Path.Combine(_tempBasePath, "cert.03.pfx");
 
-        var cert01 = X509CertificateGenerator.GenerateAndSave(cert01Path, _password, "CN=Cert01");
-        var cert02 = X509CertificateGenerator.GenerateAndSave(cert02Path, _password, "CN=Cert02");
-        var cert03 = X509CertificateGenerator.GenerateAndSave(cert03Path, _password, "CN=Cert03");
+        var cert01 = X509CertificateGenerator.GenerateAndSavePfx(cert01Path, _password, "CN=Cert01");
+        var cert02 = X509CertificateGenerator.GenerateAndSavePfx(cert02Path, _password, "CN=Cert02");
+        var cert03 = X509CertificateGenerator.GenerateAndSavePfx(cert03Path, _password, "CN=Cert03");
 
         try
         {
@@ -140,9 +140,9 @@ public class CertificateOrderingTests : IDisposable
         var mediumCertPath = Path.Combine(_tempBasePath, "medium.pfx");
         var largeCertPath = Path.Combine(_tempBasePath, "large.pfx");
 
-        var smallCert = X509CertificateGenerator.GenerateAndSave(smallCertPath, _password, "CN=Small", keySize: 2048);
-        var mediumCert = X509CertificateGenerator.GenerateAndSave(mediumCertPath, _password, "CN=Medium", keySize: 3072);
-        var largeCert = X509CertificateGenerator.GenerateAndSave(largeCertPath, _password, "CN=Large", keySize: 4096);
+        var smallCert = X509CertificateGenerator.GenerateAndSavePfx(smallCertPath, _password, "CN=Small", keySize: 2048);
+        var mediumCert = X509CertificateGenerator.GenerateAndSavePfx(mediumCertPath, _password, "CN=Medium", keySize: 3072);
+        var largeCert = X509CertificateGenerator.GenerateAndSavePfx(largeCertPath, _password, "CN=Large", keySize: 4096);
 
         try
         {

@@ -29,7 +29,7 @@ dotnet pack ./src -c Release
 
 ## Architecture Overview
 
-**Cocoar.Configuration** is a reactive, strongly-typed configuration library for .NET 8.0+. The architecture follows a modular, capabilities-driven design.
+**Cocoar.Configuration** is a reactive, strongly-typed configuration library for .NET 9.0+ (multi-targets `net9.0` and `net10.0`). The architecture follows a modular, capabilities-driven design.
 
 ### Core Components
 
@@ -72,7 +72,7 @@ capabilityScope.Compose(this).WithPrimary(new ConcreteTypePrimary<T>(...));
 SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 ```
 
-**Zero External Dependencies** - Shipped packages have no non-Microsoft dependencies. The reactive internals (`Reactive/Internal/`) are lightweight replacements for the subset of System.Reactive the library used (Subject, BehaviorSubject, Select/Where/DistinctUntilChanged). This is intentional — do not add System.Reactive back. The public API (`IReactiveConfig<T> : IObservable<T>`) uses only BCL types; consumers are free to use System.Reactive on their side. Test projects still reference System.Reactive as a test dependency.
+**Zero External Dependencies** - Core shipped packages have no non-Microsoft dependencies. (Opt-in integration packages are the deliberate exception: `Cocoar.Configuration.WritableStore.Marten` takes a Marten dependency. Consumers who don't reference it pay nothing.) The reactive internals (`Reactive/Internal/`) are lightweight replacements for the subset of System.Reactive the library used (Subject, BehaviorSubject, Select/Where/DistinctUntilChanged). This is intentional — do not add System.Reactive back. The public API (`IReactiveConfig<T> : IObservable<T>`) uses only BCL types; consumers are free to use System.Reactive on their side. Test projects still reference System.Reactive as a test dependency.
 
 **Reactive Tuples** - `IReactiveConfig<(T1, T2)>` provides atomic multi-config updates. Multiple configs always update together, preventing inconsistent state.
 
@@ -90,6 +90,7 @@ SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 | `Cocoar.Configuration.AspNetCore` | ASP.NET Core integration, health endpoints, feature flag/entitlement REST endpoints (incl. per-tenant), secrets encryption-key endpoints, scoped tenant config adapter |
 | `Cocoar.Configuration.Http` | Remote config provider (polling, SSE, one-time fetch) |
 | `Cocoar.Configuration.MicrosoftAdapter` | Bridge to existing `IConfiguration` sources |
+| `Cocoar.Configuration.WritableStore.Marten` | Marten (PostgreSQL) WritableStore backend (`MartenStoreBackend`, `FromMartenStore()`); tenant-aware via Marten database-per-tenant. Opt-in integration package that takes a Marten dependency. |
 | `Cocoar.Configuration.Analyzers` | Roslyn analyzers (COCFG001, 002, 003, 005, 006) and source generator (COCFLAG001-003). COCFG004 was removed — enforced by `where T : class` constraint instead. |
 | `Cocoar.Configuration.Secrets.Cli` | Global .NET tool for encrypting/decrypting secrets in config files |
 

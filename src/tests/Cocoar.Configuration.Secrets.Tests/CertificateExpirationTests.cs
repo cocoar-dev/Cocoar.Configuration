@@ -28,7 +28,7 @@ public class CertificateExpirationTests : IDisposable
     {
         // Generate certificate valid for 1 year (minimum)
         var certPath = Path.Combine(_tempPath, "valid.pfx");
-        X509CertificateGenerator.GenerateAndSave(certPath, _password, "CN=Valid", validYears: 1, keySize: 2048, overwrite: true);
+        X509CertificateGenerator.GenerateAndSavePfx(certPath, _password, "CN=Valid", validYears: 1, keySize: 2048, overwrite: true);
         
         // Redirect console output to capture any messages
         using var sw = new StringWriter();
@@ -61,7 +61,7 @@ public class CertificateExpirationTests : IDisposable
     {
         // Generate certificate valid for 1 year
         var certPath = Path.Combine(_tempPath, "valid.pfx");
-        X509CertificateGenerator.GenerateAndSave(certPath, _password, "CN=Valid", validYears: 1, keySize: 2048, overwrite: true);
+        X509CertificateGenerator.GenerateAndSavePfx(certPath, _password, "CN=Valid", validYears: 1, keySize: 2048, overwrite: true);
         
         // Redirect console output to verify no warning
         using var sw = new StringWriter();

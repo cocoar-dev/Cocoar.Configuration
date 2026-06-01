@@ -11,6 +11,7 @@
     <Project Path="tests/Cocoar.Configuration.Providers.Tests/Cocoar.Configuration.Providers.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.Secrets.Tests/Cocoar.Configuration.Secrets.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.AspNetCore.Tests/Cocoar.Configuration.AspNetCore.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.WritableStore.Marten.Tests/Cocoar.Configuration.WritableStore.Marten.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.MultiTenant.Tests/Cocoar.Configuration.MultiTenant.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.ServiceBacked.Tests/Cocoar.Configuration.ServiceBacked.Tests.csproj" />
   </Folder>
@@ -38,6 +39,7 @@
   <Project Path="Cocoar.Configuration.AspNetCore/Cocoar.Configuration.AspNetCore.csproj" />
   <Project Path="Cocoar.Configuration.DI/Cocoar.Configuration.DI.csproj" Id="87b248db-0c23-4f1c-a6df-8707e4b74153" />
   <Project Path="Cocoar.Configuration.Http/Cocoar.Configuration.Http.csproj" />
+  <Project Path="Cocoar.Configuration.WritableStore.Marten/Cocoar.Configuration.WritableStore.Marten.csproj" />
   <Project Path="Cocoar.Configuration.MicrosoftAdapter/Cocoar.Configuration.MicrosoftAdapter.csproj" />
   <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />
   <Project Path="Cocoar.Configuration.Abstractions/Cocoar.Configuration.Abstractions.csproj" />

@@ -135,7 +135,7 @@ builder.Services.AddCocoarConfiguration(c => c.UseConfiguration(rule => [
 
     rule.For<AppConfig>().FromCommandLine(accessor =>
     {
-        var tenant = accessor.GetRequiredConfig<TenantSettings>();
+        var tenant = accessor.GetConfig<TenantSettings>()!;
         return new CommandLineRuleOptions
         {
             Prefix = $"{tenant.Name}_",

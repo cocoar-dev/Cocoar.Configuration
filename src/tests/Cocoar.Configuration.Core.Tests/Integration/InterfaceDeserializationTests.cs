@@ -56,7 +56,7 @@ public class InterfaceDeserializationTests
             ]));
 
         // Act
-        var config = configManager.GetRequiredConfig<AppConfiguration>();
+        var config = configManager.GetConfig<AppConfiguration>()!;
 
         // Assert
         Assert.NotNull(config);
@@ -89,7 +89,7 @@ public class InterfaceDeserializationTests
                 ]));
 
             // Act
-            var config = configManager.GetRequiredConfig<AppConfiguration>();
+            var config = configManager.GetConfig<AppConfiguration>()!;
 
             // Assert
             Assert.NotNull(config);
@@ -157,7 +157,7 @@ public class InterfaceDeserializationTests
             ]));
 
         // Act
-        var config = configManager.GetRequiredConfig<ComplexConfiguration>();
+        var config = configManager.GetConfig<ComplexConfiguration>()!;
 
         // Assert
         Assert.NotNull(config.Logging);
@@ -227,7 +227,7 @@ public class InterfaceDeserializationTests
             ]));
 
         // Act
-        var config = configManager.GetRequiredConfig<NestedConfiguration>();
+        var config = configManager.GetConfig<NestedConfiguration>()!;
 
         // Assert
         Assert.NotNull(config);
@@ -313,7 +313,7 @@ public class InterfaceDeserializationTests
             ]));
 
         // Act
-        var config = configManager.GetRequiredConfig<DeepConfiguration>();
+        var config = configManager.GetConfig<DeepConfiguration>()!;
 
         // Assert
         Assert.NotNull(config.Logging);

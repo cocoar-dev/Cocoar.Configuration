@@ -32,16 +32,6 @@ public interface IConfigurationAccessor
     bool TryGetConfig<T>(out T? value) where T : class;
 
     /// <summary>
-    /// Gets configuration, throwing if not found.
-    /// </summary>
-    /// <remarks>
-    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
-    /// </remarks>
-    [Obsolete("Use GetConfig<T>() instead - it now throws if no rule is registered. " +
-              "This method will be removed in a future version.")]
-    T GetRequiredConfig<T>();
-
-    /// <summary>
     /// Gets a configuration instance from the cached snapshot.
     /// </summary>
     /// <remarks>
@@ -57,16 +47,6 @@ public interface IConfigurationAccessor
     /// </summary>
     /// <returns>True if configuration exists for the type; false otherwise.</returns>
     bool TryGetConfig(Type type, out object? value);
-
-    /// <summary>
-    /// Gets configuration, throwing if not found.
-    /// </summary>
-    /// <remarks>
-    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
-    /// </remarks>
-    [Obsolete("Use GetConfig(Type) instead - it now throws if no rule is registered. " +
-              "This method will be removed in a future version.")]
-    object GetRequiredConfig(Type type);
 
     JsonElement? GetConfigAsJson(Type type);
 

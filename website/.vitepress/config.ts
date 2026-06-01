@@ -68,6 +68,7 @@ export default defineConfig({
             { text: 'Microsoft IConfiguration', link: '/guide/providers/microsoft-adapter' },
             { text: 'Static & Observable', link: '/guide/providers/static-observable' },
             { text: 'Writable Store', link: '/guide/providers/writable-store' },
+            { text: 'Marten Store', link: '/guide/providers/marten-store' },
             { text: 'Custom Providers <span class="badge-adv" title="Advanced topic"></span>', link: '/guide/providers/custom' },
           ],
         },

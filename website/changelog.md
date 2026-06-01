@@ -2,7 +2,22 @@
 
 ## [Unreleased]
 
+> **v6.0.0** — major release. The headline change is the move off .NET 8.
+
+### Breaking
+- **Dropped .NET 8 support.** All packages now multi-target `net9.0` and `net10.0` (was `net8.0` / `net9.0`). Consumers must target .NET 9 or later.
+- `Microsoft.Extensions.*` dependencies moved to the `10.0.x` line, aligned with .NET 10. `10.0.x` ships a native `net9.0` target, so .NET 9 consumers take no runtime hit.
+
+### Removed
+- `IConfigurationAccessor.GetRequiredConfig<T>()` / `GetRequiredConfig(Type)` — deprecated since v5; use `GetConfig<T>()` / `GetConfig(Type)` (identical throw-on-missing behavior).
+- `FromMicrosoftSource(...)` — use `FromIConfiguration(IConfiguration)`.
+- `X509CertificateGenerator.GenerateAndSave(...)` — use `GenerateAndSavePfx(...)` / `GenerateAndSavePem(...)`.
+
 ### Added
+
+**Marten store backend** (`Cocoar.Configuration.WritableStore.Marten`)
+- New opt-in package: `MartenStoreBackend` persists WritableStore overrides in [Marten](https://martendb.io/) (PostgreSQL) — one `CocoarConfigDocument` per configuration type.
+- `FromMartenStore()` service-backed (Layer-2) rule extension resolves the `IDocumentStore` from DI. Combine with `.TenantScoped()` for **database-per-tenant** configuration: each tenant's overlay lives in its own database (Marten multi-tenancy), selected from `accessor.Tenant`.
 
 **WritableStore — batch writes (`PatchAsync`)**
 - `IWritableStore<T>.PatchAsync(b => b.Set(...).SetSecret(...).Reset(...))` applies any number of mutations as **one** atomic write and **one** recompute — a form save no longer fires one recompute (and one backend round-trip) per field. The single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` now delegate to it.

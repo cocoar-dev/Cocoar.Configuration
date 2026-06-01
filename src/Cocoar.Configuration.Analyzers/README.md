@@ -52,7 +52,7 @@ Validates that rules appear after their dependencies.
 ```csharp
 // ❌ Error:
 rule.For<DerivedConfig>()
-    .When(accessor => accessor.GetRequiredConfig<ApiSettings>().IsEnabled),
+    .When(accessor => accessor.GetConfig<ApiSettings>()!.IsEnabled),
 rule.For<ApiSettings>().FromFile("api.json"),
 // COCFG002: ApiSettings not available - move this rule after ApiSettings rule
 ```

@@ -227,6 +227,8 @@ rules.For<SmtpSettings>().FromStore((accessor, current) =>
 
 `ReadAsync` returns empty `{}` when nothing is stored (consistent with the [provider contract](/guide/providers/overview#the-provider-contract)), so an unwritten overlay is an invisible layer.
 
+For a ready-made PostgreSQL backend — including **tenant-aware, database-per-tenant** storage where each tenant's configuration lives in its own database — see the [Marten Store](/guide/providers/marten-store) package.
+
 ## How it works
 
 ```

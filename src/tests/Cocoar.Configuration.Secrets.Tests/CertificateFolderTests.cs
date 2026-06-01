@@ -29,7 +29,7 @@ public class CertificateFolderTests : IDisposable
     
     private X509Certificate2 GenerateTestCert(string path, string subject)
     {
-        X509CertificateGenerator.GenerateAndSave(path, _password, subject, validYears: 1, keySize: 2048, overwrite: true);
+        X509CertificateGenerator.GenerateAndSavePfx(path, _password, subject, validYears: 1, keySize: 2048, overwrite: true);
         return CertificateHelper.LoadFromFile(path, _password);
     }
 

@@ -22,7 +22,7 @@ public class SecretsFluentApiTests
         try
         {
             // Generate certificate explicitly
-            X509CertificateGenerator.GenerateAndSave(
+            X509CertificateGenerator.GenerateAndSavePfx(
                 pfxPath,
                 null,  // Password-less certificate
                 "CN=Test Certificate",
@@ -58,7 +58,7 @@ public class SecretsFluentApiTests
         try
         {
             // Generate certificate explicitly
-            X509CertificateGenerator.GenerateAndSave(
+            X509CertificateGenerator.GenerateAndSavePfx(
                 pfxPath,
                 null,  // Password-less certificate
                 "CN=Test Certificate",
@@ -106,14 +106,14 @@ public class SecretsFluentApiTests
         try
         {
             // Generate certificates explicitly
-            X509CertificateGenerator.GenerateAndSave(
+            X509CertificateGenerator.GenerateAndSavePfx(
                 pfxPath1,
                 null,  // Password-less certificate
                 "CN=Test Certificate 1",
                 validYears: 1,
                 keySize: 2048);
 
-            X509CertificateGenerator.GenerateAndSave(
+            X509CertificateGenerator.GenerateAndSavePfx(
                 pfxPath2,
                 null,  // Password-less certificate
                 "CN=Test Certificate 2",

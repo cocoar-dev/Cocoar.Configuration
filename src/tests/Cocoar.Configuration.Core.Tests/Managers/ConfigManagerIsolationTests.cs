@@ -210,7 +210,7 @@ public class ConfigManagerIsolationTests : IDisposable
         var configManager = ConfigManager.Create(c => c.UseConfiguration(rules).UseLogger(NullLogger.Instance));
         TrackForDisposal(configManager);
 
-        var result = configManager.GetRequiredConfig<DatabaseConfig>();
+        var result = configManager.GetConfig<DatabaseConfig>()!;
 
         Assert.NotNull(result);
         Assert.Equal(expectedConfig.ConnectionString, result.ConnectionString);
@@ -233,7 +233,7 @@ public class ConfigManagerIsolationTests : IDisposable
 
 #pragma warning disable CS0618 // Type or member is obsolete
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            configManager.GetRequiredConfig<ApiConfig>());
+            configManager.GetConfig<ApiConfig>()!);
 #pragma warning restore CS0618
 
         Assert.Contains("ApiConfig", exception.Message);

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>Marten (PostgreSQL document store) backend for the Cocoar.Configuration WritableStore. Persists writable configuration overlays as documents, with first-class support for Marten database-per-tenant multi-tenancy so each tenant's configuration lives in its own database.</Description>
+    <PackageTags>configuration;marten;postgresql;postgres;writable-store;multi-tenancy;document-store;dependency-injection</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The DI package supplies the service-backed (Layer-2) FromStore((sp,a)=>IStoreBackend) seam this builds on. -->
+    <ProjectReference Include="..\Cocoar.Configuration.DI\Cocoar.Configuration.DI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Marten" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+</Project>

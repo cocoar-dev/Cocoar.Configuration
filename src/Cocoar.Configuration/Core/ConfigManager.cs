@@ -242,20 +242,11 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
         return _accessor.TryGetConfig(out value);
     }
 
-#pragma warning disable CS0618 // Type or member is obsolete
-    public T GetRequiredConfig<T>() => _accessor.GetRequiredConfig<T>();
-#pragma warning restore CS0618
-
     /// <inheritdoc cref="GetConfig{T}"/>
     public object GetConfig(Type type) => _accessor.GetConfig(type);
 
     /// <inheritdoc cref="TryGetConfig{T}(out T?)"/>
     public bool TryGetConfig(Type type, out object? value) => _accessor.TryGetConfig(type, out value);
-
-#pragma warning disable CS0618 // Type or member is obsolete
-    /// <inheritdoc cref="GetRequiredConfig{T}"/>
-    public object GetRequiredConfig(Type type) => _accessor.GetRequiredConfig(type);
-#pragma warning restore CS0618
 
     /// <summary>
     /// Gets the current configuration snapshot for the specified type serialized as a <see cref="JsonElement"/>.
