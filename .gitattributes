@@ -1,0 +1,19 @@
+# Normalize all text files to LF in the repository (cross-platform .NET repo).
+# Without this, line endings drifted (mixed CRLF/LF) because core.autocrlf was unset.
+* text=auto eol=lf
+
+# Windows-only scripts must stay CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.pfx binary
+*.snk binary
+*.zip binary
+*.gz binary
