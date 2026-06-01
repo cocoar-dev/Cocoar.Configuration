@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cocoar.Configuration.Providers;
-using Cocoar.Json.Mutable;
 using Xunit;
 
 namespace Cocoar.Configuration.Providers.Tests.WritableStore;
@@ -10,9 +9,6 @@ namespace Cocoar.Configuration.Providers.Tests.WritableStore;
 public class SparseOverlayMutatorTests
 {
     private static byte[] Empty => "{}"u8.ToArray();
-
-    private static MutableJsonObject Base(string json)
-        => (MutableJsonObject)MutableJsonDocument.Parse(Encoding.UTF8.GetBytes(json));
 
     private static JsonElement Parse(byte[] bytes)
     {
@@ -24,7 +20,7 @@ public class SparseOverlayMutatorTests
     [Trait("Type", "Unit")]
     public void Set_CreatesNestedSparsePath_OnlyTouchedLeaf()
     {
-        var result = SparseOverlayMutator.Set(Empty, "Nested.Count", JsonValue.Create(7), baseDom: null);
+        var result = SparseOverlayMutator.Set(Empty, "Nested.Count", JsonValue.Create(7));
 
         var root = Parse(result);
         Assert.Equal(7, root.GetProperty("Nested").GetProperty("Count").GetInt32());
@@ -35,42 +31,36 @@ public class SparseOverlayMutatorTests
 
     [Fact]
     [Trait("Type", "Unit")]
-    public void Set_AlignsCasingToBase_CamelCaseBase()
+    public void Set_KeepsGivenCasing_NoAlignment()
     {
-        var baseDom = Base("{\"smtp\":{\"port\":25}}");
-
-        var result = SparseOverlayMutator.Set(Empty, "Smtp.Port", JsonValue.Create(587), baseDom);
+        // The overlay keeps whatever casing the caller used; aligning to a lower layer is now the pipeline
+        // merge's job (case-insensitive), not the mutator's.
+        var result = SparseOverlayMutator.Set(Empty, "Smtp.Port", JsonValue.Create(587));
 
         var root = Parse(result);
-        // The override must land on the base's exact key casing, not create PascalCase siblings.
-        Assert.True(root.TryGetProperty("smtp", out var smtp));
-        Assert.Equal(587, smtp.GetProperty("port").GetInt32());
-        Assert.False(root.TryGetProperty("Smtp", out _));
+        Assert.Equal(587, root.GetProperty("Smtp").GetProperty("Port").GetInt32());
     }
 
     [Fact]
     [Trait("Type", "Unit")]
-    public void Set_DescendsBaseByBaseKey_NotDriftedOverlayKey()
+    public void Set_CaseInsensitiveMatch_UpdatesExistingKey_NoSibling()
     {
-        // The overlay already holds an intermediate key that is byte-different from the base's key
-        // (case-insensitively equal). The base descent must still follow the BASE's casing so the new
-        // leaf aligns to the base layer's deeper key, independent of the drifted overlay key's casing.
-        var seeded = Encoding.UTF8.GetBytes("{\"Smtp\":{\"host\":\"h\"}}");
-        var baseDom = Base("{\"smtp\":{\"port\":25}}");
+        var seeded = Encoding.UTF8.GetBytes("{\"Smtp\":{\"Port\":25}}");
 
-        var result = SparseOverlayMutator.Set(seeded, "Smtp.Port", JsonValue.Create(587), baseDom);
+        var result = SparseOverlayMutator.Set(seeded, "smtp.port", JsonValue.Create(587));
 
         var root = Parse(result);
-        // Leaf aligned to the base's "port" casing — not the resolver default "Port".
-        Assert.Equal(587, root.GetProperty("Smtp").GetProperty("port").GetInt32());
-        Assert.False(root.GetProperty("Smtp").TryGetProperty("Port", out _));
+        // Existing key matched case-insensitively → its value updated, casing preserved, no PascalCase/lowercase sibling.
+        Assert.Equal(587, root.GetProperty("Smtp").GetProperty("Port").GetInt32());
+        Assert.False(root.TryGetProperty("smtp", out _));
+        Assert.False(root.GetProperty("Smtp").TryGetProperty("port", out _));
     }
 
     [Fact]
     [Trait("Type", "Unit")]
     public void Set_ExplicitNull_WritesJsonNull()
     {
-        var result = SparseOverlayMutator.Set(Empty, "Host", valueNode: null, baseDom: null);
+        var result = SparseOverlayMutator.Set(Empty, "Host", null);
 
         var root = Parse(result);
         Assert.Equal(JsonValueKind.Null, root.GetProperty("Host").ValueKind);
@@ -80,7 +70,7 @@ public class SparseOverlayMutatorTests
     [Trait("Type", "Unit")]
     public void Set_DefaultValuedLeaf_IsPersisted()
     {
-        var result = SparseOverlayMutator.Set(Empty, "Port", JsonValue.Create(0), baseDom: null);
+        var result = SparseOverlayMutator.Set(Empty, "Port", JsonValue.Create(0));
 
         var root = Parse(result);
         Assert.True(root.TryGetProperty("Port", out var port));
@@ -91,8 +81,8 @@ public class SparseOverlayMutatorTests
     [Trait("Type", "Unit")]
     public void Set_SecondLeafUnderSameParent_KeepsBoth()
     {
-        var first = SparseOverlayMutator.Set(Empty, "Smtp.Port", JsonValue.Create(587), baseDom: null);
-        var second = SparseOverlayMutator.Set(first, "Smtp.Host", JsonValue.Create("h"), baseDom: null);
+        var first = SparseOverlayMutator.Set(Empty, "Smtp.Port", JsonValue.Create(587));
+        var second = SparseOverlayMutator.Set(first, "Smtp.Host", JsonValue.Create("h"));
 
         var root = Parse(second);
         Assert.Equal(587, root.GetProperty("Smtp").GetProperty("Port").GetInt32());

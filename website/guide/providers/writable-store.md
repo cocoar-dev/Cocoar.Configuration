@@ -88,6 +88,53 @@ JsonNode?     raw       = await storage.Overlay.ReadOverlayAsync(); // the raw s
 
 `ReadAsync` returns only what the overlay holds — **not** the merged result. For the effective value use `IReactiveConfig<T>.CurrentValue` or `IConfigurationAccessor.GetConfig<T>()`.
 
+## Batch writes — one save, one recompute
+
+When more than one value changes together (a form save, an import), batch them with `PatchAsync`. Every mutation is applied under a **single** atomic read-merge-write — one write to the backend, one recompute — instead of one per property:
+
+```csharp
+await storage.PatchAsync(b => b
+    .Set(x => x.Host, "smtp.example.com")
+    .Set(x => x.Port, 587)
+    .Set(x => x.UseSsl, true)
+    .Reset(x => x.Timeout));            // mix sets and resets freely
+```
+
+A 20-field form save triggers **one** recompute and **one** backend write, not 20 — and subscribers of `IReactiveConfig<T>` never observe a half-applied state. For a database-backed `IStoreBackend` this also collapses 20 round-trips into a single transaction.
+
+The single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` are thin shorthands over `PatchAsync` for the one-property case.
+
+### Write semantics — presence-based
+
+There is no "magic null": what you call is exactly what happens.
+
+| In the patch | Effect |
+|---|---|
+| `Set(x => x.Host, "v")` | sets the value |
+| `Set(x => x.Host, null)` | sets an **explicit `null`** — only compiles where `null` is valid for the member (`string?`, `int?`, …) |
+| *(Set not called)* | the property is **left untouched** |
+| `Reset(x => x.Host)` | **removes** the override (restores inheritance) |
+
+This is the only model that lets you set `null` explicitly *and* delete an override — they are different operations. Mapping external input (an HTTP body, an `Optional<T>` DTO's presence flags, …) onto these calls is **your** code's job; the library stays typed and never guesses.
+
+### Secrets in a batch
+
+Secret-typed members use `SetSecret` with a pre-encrypted [envelope](/guide/secrets/client-encryption):
+
+```csharp
+await storage.PatchAsync(b => b
+    .Set(x => x.Port, 587)
+    .SetSecret(x => x.ApiKey, envelope));
+```
+
+When gathering values is itself asynchronous (e.g. encrypting the envelope), use the async overload so you can `await` inside:
+
+```csharp
+await storage.PatchAsync(async b =>
+    b.Set(x => x.Port, 587)
+     .SetSecret(x => x.ApiKey, await EncryptAsync(apiKey)));
+```
+
 ## Provenance for a management UI
 
 `DescribeAsync()` returns, per key, the base value, the effective value, and whether it is currently overridden — everything a "default vs. override, with reset" UI needs:
@@ -109,19 +156,19 @@ foreach (var entry in await storage.DescribeAsync())
 
 ## Raw overlay surface
 
-For dynamic or non-expressible paths, use `IWritableStoreOverlay<T>` (also resolvable directly from DI, or via `storage.Overlay`). Key paths are dotted; their segments must match the persisted JSON property names:
+For dynamic or non-expressible paths, use `IWritableStoreOverlay<T>` (also resolvable directly from DI, or via `storage.Overlay`). Key paths are dotted; their segments correspond to the JSON property names:
 
 ```csharp
 await storage.Overlay.SetAsync("Smtp.Port", JsonValue.Create(587));
 await storage.Overlay.ResetAsync("Smtp.Port");
 ```
 
-The typed facade aligns key casing to the lower layers for you; with the raw surface that responsibility is yours. Do **not** use the raw surface for secret paths.
+Key-path segments match the lower layers **case-insensitively** (the pipeline merges layers case-insensitively), so an override lands on the existing key regardless of casing — no need to mirror the exact casing of the base. Do **not** use the raw surface for secret paths.
 
 ## Arrays and secrets
 
 - **Arrays are replaced wholesale.** `SetAsync(x => x.Hosts, list)` overrides the entire array — there is no element-level merge. Per-element selectors (`x => x.Hosts[2]`) are rejected.
-- **Secrets are not overridable.** Members typed as `Secret<T>` / `ISecret<T>` throw `NotSupportedException` on the typed facade — an overlay write would replace the encrypted secret with a mask. Manage secrets via the Secrets CLI/provider.
+- **Secrets need a pre-encrypted envelope.** A *plaintext* write of a `Secret<T>` / `ISecret<T>` member (via `Set` / `SetAsync`) throws `NotSupportedException` — it would persist the secret in the clear. To override a secret, use `SetSecret` (in a patch) or `SetSecretAsync` with a pre-encrypted [`SecretEnvelope<T>`](/guide/secrets/client-encryption). Resetting a secret override **is** allowed — it only removes the key and exposes no plaintext.
 
 ## Writing your own endpoints
 
@@ -138,6 +185,18 @@ app.MapPut("/admin/smtp/port", async (
 
     log.LogInformation("Admin override SMTP.Port = {Port}", port); // audit
     await storage.SetAsync(x => x.Port, port);  // then persist (sparse) → recompute → reactive emit
+    return Results.NoContent();
+})
+.RequireAuthorization("AdminPolicy");
+
+// A full form save — many fields at once, one atomic write, one recompute:
+app.MapPut("/admin/smtp", async (SmtpForm form, IWritableStore<SmtpSettings> storage) =>
+{
+    // validate/normalize `form` here, then map your DTO onto the typed patch:
+    await storage.PatchAsync(b => b
+        .Set(x => x.Host, form.Host)
+        .Set(x => x.Port, form.Port)
+        .Set(x => x.UseSsl, form.UseSsl));
     return Results.NoContent();
 })
 .RequireAuthorization("AdminPolicy");
@@ -172,10 +231,10 @@ rules.For<SmtpSettings>().FromStore((accessor, current) =>
 
 ```
 IWritableStore<T>.SetAsync(x => x.Port, 587)
-    → resolve "Port" to a dotted key path + align casing to the lower layers
+    → resolve "Port" to a dotted key path
     → atomically read-merge-write the sparse overlay leaf to the backend
     → signal the provider's change observable
-    → engine recompute (debounced) merges layers byte-for-byte
+    → engine recompute (debounced) merges layers byte-for-byte, case-insensitively
     → IReactiveConfig<T> emits the new effective value
 ```
 

@@ -71,6 +71,18 @@ public static class Program
         await storage.ClearAsync();
         await WaitUntilAsync(() => !manager.GetConfig<SmtpSettings>()!.UseSsl);
         Print("After ClearAsync()", manager.GetConfig<SmtpSettings>()!);
+
+        // Batch write: change several fields in ONE atomic call → ONE write, ONE recompute.
+        // (A form save changes N fields together; PatchAsync avoids N separate recomputes,
+        //  and subscribers never observe a half-applied state.)
+        await storage.PatchAsync(b => b
+            .Set(x => x.Host, "smtp.batch.example.com")
+            .Set(x => x.Port, 2525)
+            .Set(x => x.UseSsl, true));
+        await WaitUntilAsync(() => manager.GetConfig<SmtpSettings>()!.Port == 2525);
+        Print("After PatchAsync (3 fields, 1 recompute)", manager.GetConfig<SmtpSettings>()!);
+
+        await storage.ClearAsync(); // tidy up
     }
 
     private static void Print(string label, SmtpSettings s) =>

@@ -12,29 +12,36 @@ namespace Cocoar.Configuration.Providers;
 /// </summary>
 internal static class OverlayPathResolver
 {
+    /// <summary>Non-generic overload used by the batch-patch adapter when mutations are stored as <see cref="LambdaExpression"/>.</summary>
+    internal static string ResolveKeyPath(LambdaExpression selector, Type rootType, bool allowSecretMembers = false)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return ResolveCore(selector.Body, selector.ToString(), allowSecretMembers);
+    }
+
     internal static string ResolveKeyPath<T, TValue>(Expression<Func<T, TValue>> selector, bool allowSecretMembers = false)
     {
         ArgumentNullException.ThrowIfNull(selector);
+        return ResolveCore(selector.Body, selector.ToString(), allowSecretMembers);
+    }
 
-        var body = Unwrap(selector.Body);
+    private static string ResolveCore(Expression body, string selectorText, bool allowSecretMembers)
+    {
+        body = Unwrap(body)!;
 
         var members = new List<MemberInfo>();
         var current = body;
         while (current is MemberExpression memberExpression)
         {
             if (memberExpression.Member is not PropertyInfo and not FieldInfo)
-            {
-                throw Unsupported(selector);
-            }
+                throw Unsupported(selectorText);
 
             members.Add(memberExpression.Member);
             current = Unwrap(memberExpression.Expression);
         }
 
         if (current is not ParameterExpression || members.Count == 0)
-        {
-            throw Unsupported(selector);
-        }
+            throw Unsupported(selectorText);
 
         members.Reverse(); // root → leaf
 
@@ -148,9 +155,9 @@ internal static class OverlayPathResolver
         return false;
     }
 
-    private static NotSupportedException Unsupported<T, TValue>(Expression<Func<T, TValue>> selector)
+    private static NotSupportedException Unsupported(string selectorText)
         => new(
-            $"Selector '{selector}' is not supported. Only simple member-access chains are allowed " +
+            $"Selector '{selectorText}' is not supported. Only simple member-access chains are allowed " +
             "(no method calls, indexers, or array element access). " +
             "Use the raw Overlay surface for dynamic key paths.");
 }

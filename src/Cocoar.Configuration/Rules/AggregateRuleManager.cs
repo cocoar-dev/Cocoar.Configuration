@@ -97,7 +97,7 @@ internal sealed class AggregateRuleManager : IRuleManager
                     if (node is MutableJsonObject obj && obj.Properties.Count > 0)
                     {
                         merged ??= new MutableJsonObject();
-                        MutableJsonMerge.Merge(merged, obj);
+                        MutableJsonMerge.Merge(merged, obj, Core.ConfigMergeOptions.CaseInsensitive);
                         anyContributed = true;
                     }
                 }

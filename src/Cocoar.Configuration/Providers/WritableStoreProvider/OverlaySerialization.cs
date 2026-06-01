@@ -41,4 +41,8 @@ internal static class OverlaySerialization
     /// </summary>
     internal static JsonNode? SerializeValue<TValue>(TValue value)
         => JsonSerializer.SerializeToNode(value, WriteOptions);
+
+    /// <summary>Non-generic overload for runtime-typed values (used by the batch-patch adapter).</summary>
+    internal static JsonNode? SerializeValue(object? value, Type valueType)
+        => JsonSerializer.SerializeToNode(value, valueType, WriteOptions);
 }
