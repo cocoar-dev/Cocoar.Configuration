@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [6.0.0] — 2026-06-01
 
-> **v6.0.0** — major release. The headline change is the move off .NET 8.
+> Major release. The headline change is the move off .NET 8.
 
 ### Breaking
 - **Dropped .NET 8 support.** All packages now multi-target `net9.0` and `net10.0` (was `net8.0` / `net9.0`). Consumers must target .NET 9 or later.
