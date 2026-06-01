@@ -1,3 +1,7 @@
+---
+description: Per-tenant pipeline bundles on a shared global base, .TenantScoped() rules, accessor.Tenant, …ForTenant reads, scoped ITenantReactiveConfig, per-tenant flags/secrets/WritableStore, global fan-out
+---
+
 # Multi-Tenancy
 
 Multi-tenant applications need the **same configuration type to resolve to different values per tenant** — a global default for everything, with each tenant overriding only the keys it sets and inheriting the rest.

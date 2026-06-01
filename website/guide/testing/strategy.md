@@ -1,3 +1,7 @@
+---
+description: Test-at-the-right-layer principles, test project structure, in-memory TestProviders with no I/O in Core.Tests, trait filters (Unit/Stress), deterministic active-waiting over fixed delays
+---
+
 # Testing Strategy
 
 Test behavior at the right layer, avoid redundancy, and isolate concerns.

@@ -1,3 +1,7 @@
+---
+description: "FromEnvironment provider, case-insensitive prefix filtering, __ and : nesting to JSON, final-override pattern, dynamic per-tenant prefix"
+---
+
 # Environment Variables Provider
 
 The environment variable provider reads environment variables and converts them to nested JSON.

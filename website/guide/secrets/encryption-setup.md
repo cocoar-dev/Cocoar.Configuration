@@ -1,3 +1,7 @@
+---
+description: UseSecretsSetup with X.509 hybrid encryption (RSA-OAEP + AES-256-GCM), UseCertificateFromFile/WithKeyId single-cert, PFX/PEM formats, certificate-folder mode
+---
+
 # Encryption Setup
 
 Secrets are encrypted with X.509 certificates using hybrid encryption: RSA-OAEP wraps an AES-256-GCM data encryption key.

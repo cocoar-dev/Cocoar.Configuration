@@ -1,3 +1,7 @@
+---
+description: COCFG diagnostics reference — COCFG001 secret path conflicts, COCFG002 rule dependency ordering, COCFG003 required-rule validation, COCFG005/006 duplicate and static-provider ordering
+---
+
 # Configuration Diagnostics
 
 ## COCFG001 — Secret Path Conflict {#cocfg001}

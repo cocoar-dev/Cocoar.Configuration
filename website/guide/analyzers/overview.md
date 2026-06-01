@@ -1,3 +1,7 @@
+---
+description: Built-in Roslyn analyzers (COCFG001-006) and the flags/entitlements source generator, diagnostics-at-a-glance table, suppression via pragma, attribute, and .editorconfig
+---
+
 # Analyzers & Source Generator
 
 Cocoar.Configuration includes Roslyn analyzers and a source generator out of the box — no separate package install needed. They ship as part of the `Cocoar.Configuration` NuGet package.

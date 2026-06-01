@@ -1,3 +1,7 @@
+---
+description: Optional rules degrade gracefully to empty {} with Degraded health, Required() rolls back the recompute on failure with Unhealthy status and startup exception
+---
+
 # Required vs Optional Rules
 
 Every rule is **optional by default**. This controls what happens when a provider fails — file not found, HTTP timeout, parse error.

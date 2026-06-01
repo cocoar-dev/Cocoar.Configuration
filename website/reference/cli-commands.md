@@ -1,3 +1,7 @@
+---
+description: cocoar-secrets CLI reference — encrypt, decrypt, generate-cert, convert-cert, cert-info; options, exit codes, RSA-OAEP-SHA256 + AES-256-GCM envelope
+---
+
 # CLI Commands Reference
 
 ## Installation

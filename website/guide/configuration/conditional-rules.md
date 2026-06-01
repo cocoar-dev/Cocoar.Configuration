@@ -1,3 +1,7 @@
+---
+description: Conditionally enable rules with .When(accessor) over earlier config state, Skipped health status, dynamic source selection, COCFG002 rule-order checking
+---
+
 # Conditional Rules
 
 Rules can be conditionally enabled based on the current configuration state. This is one of the most powerful features in Cocoar.Configuration — rules can depend on the results of earlier rules.

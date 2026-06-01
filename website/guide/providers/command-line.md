@@ -1,3 +1,7 @@
+---
+description: "FromCommandLine provider, switch-prefix filtering, key=value/key value/boolean-flag formats, : and __ nesting, custom prefixes, highest-priority override"
+---
+
 # Command Line Provider
 
 The command line provider parses command-line arguments into JSON configuration.

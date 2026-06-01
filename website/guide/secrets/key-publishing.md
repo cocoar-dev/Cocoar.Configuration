@@ -1,3 +1,7 @@
+---
+description: Exposing public keys via MapSecretEncryptionKey and MapTenantSecretEncryptionKey on /.well-known/cocoar/encryption-key, single- vs multi-tenant, ITenantContext, response shape
+---
+
 # Publishing Encryption Keys <Badge type="info" text="ADV" />
 
 Secrets are encrypted with the **public** half of an X.509 certificate and decrypted server-side with the private half (see [Encryption Setup](/guide/secrets/encryption-setup)). To let an **external producer** — a browser form, a CLI, another service — build a `cocoar.secret` envelope your server can later decrypt, you publish the **public key** over an HTTP endpoint.

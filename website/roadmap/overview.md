@@ -1,3 +1,7 @@
+---
+description: Roadmap overview and priorities — ConfigHub portal, cloud KMS providers (Azure Key Vault, AWS), database provider; current limitations and Apache-2.0 commitment
+---
+
 # Roadmap
 
 Cocoar.Configuration is the open-source foundation — fully functional today for configuration, feature flags, entitlements, and secrets. Here's what we're building next.

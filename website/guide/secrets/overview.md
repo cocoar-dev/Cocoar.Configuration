@@ -1,3 +1,7 @@
+---
+description: Built-in encrypted-at-rest secrets via X.509 certificates and cocoar.secret envelopes, Secret<T> properties, lease-based decrypted access with memory zeroing
+---
+
 # Secrets Overview
 
 Cocoar.Configuration has built-in support for secrets — configuration values that are encrypted at rest and protected in memory. No separate package needed.

@@ -1,3 +1,7 @@
+---
+description: Runnable example projects in src/Examples — file layering, conditional rules, providers (command-line, HTTP, custom), tuple reactive, secrets, ASP.NET Core, testing overrides
+---
+
 # Examples
 
 Runnable example projects demonstrating individual features. Each is a standalone .NET project in [`src/Examples/`](https://github.com/cocoar-dev/Cocoar.Configuration/tree/develop/src/Examples).

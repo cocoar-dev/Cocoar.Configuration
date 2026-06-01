@@ -1,3 +1,7 @@
+---
+description: Extend ConfigurationProvider<TOptions,TQuery>, FetchConfigurationBytesAsync/ChangesAsBytes, GenerateProviderKey caching, fluent FromProvider extension, service-backed DI providers, change detection, secret envelopes
+---
+
 # Building Custom Providers
 
 If the built-in providers don't cover your data source, you can build your own by extending `ConfigurationProvider`.

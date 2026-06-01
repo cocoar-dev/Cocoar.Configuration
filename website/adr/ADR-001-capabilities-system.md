@@ -1,3 +1,7 @@
+---
+description: Use the Cocoar.Capabilities library for type-safe metadata attachment to builders across assembly boundaries, avoiding circular dependencies
+---
+
 # ADR-001: Using Cocoar.Capabilities for Cross-Assembly Extensibility
 
 **Status:** Accepted  

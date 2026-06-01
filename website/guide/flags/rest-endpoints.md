@@ -1,3 +1,7 @@
+---
+description: MapFeatureFlagEndpoints/MapEntitlementEndpoints GET/POST routes, custom path prefixes, RequireAuthorization and middleware chaining, error status codes, resolver-backed POST evaluation
+---
+
 # REST Evaluation Endpoints
 
 The ASP.NET Core package provides REST endpoints for evaluating flags and entitlements over HTTP.

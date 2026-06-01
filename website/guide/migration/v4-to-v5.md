@@ -1,3 +1,7 @@
+---
+description: v4 to v5 — ConfigManager.Create builder API, 10+ packages consolidated to 7, feature flags & entitlements, HttpPolling renamed to Http, Flag<T> to FeatureFlag<T>, health and resolver API renames
+---
+
 # Migration v4 → v5
 
 v5.0 introduces the **ConfigManager Builder API**, **package consolidation** (10+ packages → 7), **feature flags & entitlements**, **HTTP provider rename**, and several **API renames**.

@@ -1,3 +1,7 @@
+---
+description: Cocoar versus IOptions — direct injection, ordered rule layering, IReactiveConfig updates, atomic multi-config tuples, required rollback, built-in flags and secrets
+---
+
 # Why Cocoar.Configuration?
 
 ## The Problem with IOptions

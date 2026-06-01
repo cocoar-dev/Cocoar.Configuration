@@ -1,3 +1,7 @@
+---
+description: Per-tenant pipeline bundles on a shared global base, one flat rule list with .TenantScoped(), explicit …ForTenant(id) reads, automatic fan-out, eventual consistency
+---
+
 # ADR-005: Multi-Tenant Configuration
 
 **Status:** Accepted — implemented on `feature/multitenant`

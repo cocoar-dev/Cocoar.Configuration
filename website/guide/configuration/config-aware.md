@@ -1,3 +1,7 @@
+---
+description: Rules that read earlier results via IConfigurationAccessor (GetConfig/TryGetConfig) to derive dynamic file paths and HTTP endpoints, with COCFG002 order enforcement
+---
+
 # Config-Aware Rules
 
 Rules can read the results of earlier rules to make decisions. This turns the rule list into a pipeline where configuration drives configuration.

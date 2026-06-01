@@ -1,3 +1,7 @@
+---
+description: Marten/PostgreSQL writable-store backend, FromMartenStore service-backed rule, database-per-tenant via .TenantScoped, CocoarConfigDocument storage model, single-process reactivity and HA notes
+---
+
 # Marten Store
 
 `Cocoar.Configuration.WritableStore.Marten` is a ready-made [Writable Store](/guide/providers/writable-store) backend that persists overrides in [Marten](https://martendb.io/) (a PostgreSQL document store). Its headline feature is **tenant-aware, database-per-tenant** storage: with Marten multi-tenancy, each tenant's configuration overlay lives in that tenant's own database.

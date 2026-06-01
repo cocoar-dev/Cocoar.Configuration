@@ -1,3 +1,7 @@
+---
+description: v2 to v3 Type-First API migration — rule.File().For<T>() becomes rule.For<T>().FromFile(), config-aware .When(IConfigurationAccessor), provider-method rename table
+---
+
 # Migration v2 → v3
 
 v3.0 introduces the **Type-First API pattern** for rule building and **config-aware conditional rules**.

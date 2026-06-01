@@ -1,3 +1,7 @@
+---
+description: DI lifetimes — Scoped config types, Singleton IReactiveConfig<T>, AsSingleton/AsTransient/AsScoped, keyed services, exposed-type lifetimes, deterministic ordering
+---
+
 # Lifetimes & Registration
 
 ## How Resolution Works

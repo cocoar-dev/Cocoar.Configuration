@@ -1,3 +1,7 @@
+---
+description: Install Cocoar.Configuration packages, define a POCO config class, wire FromFile rules in ASP.NET Core, console, and DI setups
+---
+
 # Getting Started
 
 ## Install

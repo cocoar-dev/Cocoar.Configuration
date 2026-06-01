@@ -1,3 +1,7 @@
+---
+description: Group sub-rules into one unit with FromFiles file-layering shorthand and Aggregate() over mixed providers, aggregate-level vs sub-rule Required semantics
+---
+
 # Aggregate Rules <Badge type="info" text="ADV" />
 
 Aggregate rules group multiple sub-rules into a single logical unit. The group merges its sub-rules internally and presents one result to the configuration engine.

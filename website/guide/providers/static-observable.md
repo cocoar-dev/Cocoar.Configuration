@@ -1,3 +1,7 @@
+---
+description: FromStaticJson/FromStatic fixed-value providers and FromObservable wrapping IObservable<T> or IObservable<string>, BehaviorSubject for WebSocket/gRPC/queue/test updates
+---
+
 # Static & Observable Providers
 
 These two providers serve different use cases but share a common trait: they don't read from external sources like files or HTTP endpoints.

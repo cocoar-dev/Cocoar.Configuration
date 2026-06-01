@@ -1,3 +1,7 @@
+---
+description: Provider contract (FetchConfigurationBytesAsync, ChangesAsBytes), built-in providers, key-based instance caching, provider vs query options, lifecycle
+---
+
 # Providers Overview
 
 A provider is a data source that delivers configuration as JSON. Every rule connects a configuration type to a provider:

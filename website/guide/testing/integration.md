@@ -1,3 +1,7 @@
+---
+description: Bridging the xUnit AsyncLocal context gap, TestConfigurationContext fixture pattern, CocoarTestConfiguration.Apply/Clear in constructors, WebApplicationFactory integration tests
+---
+
 # Integration Testing
 
 ## The AsyncLocal Gap

@@ -1,3 +1,7 @@
+---
+description: Declaring Secret<T> and ISecret<T> properties for strings, byte arrays and numbers, Open() leases and SecretLease<T> that zero decrypted bytes on dispose
+---
+
 # Secret\<T\> & Leases
 
 `Secret<T>` is a property type that holds a value encrypted in memory. You access the decrypted value through a **lease** — a short-lived handle that zeros the decrypted bytes when disposed.

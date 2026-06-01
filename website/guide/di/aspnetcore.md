@@ -1,3 +1,7 @@
+---
+description: Cocoar.Configuration.AspNetCore — WebApplicationBuilder.AddCocoarConfiguration, health endpoint, feature flag and entitlement REST endpoints, injecting config
+---
+
 # ASP.NET Core Integration
 
 The `Cocoar.Configuration.AspNetCore` package adds ASP.NET Core-specific features on top of the DI package: health endpoints, feature flag endpoints, and `WebApplicationBuilder` extensions.

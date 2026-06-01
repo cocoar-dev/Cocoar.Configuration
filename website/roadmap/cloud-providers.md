@@ -1,3 +1,7 @@
+---
+description: Planned native cloud KMS providers — FromAzureKeyVault (Managed Identity, rotation) and FromAwsSecretsManager (IAM, ARN), layered via the existing rule system
+---
+
 # Cloud Providers
 
 Native providers for Azure Key Vault and AWS Secrets Manager — so you can load secrets and configuration from your existing cloud KMS without building a custom provider.

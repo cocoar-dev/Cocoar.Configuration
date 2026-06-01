@@ -1,3 +1,7 @@
+---
+description: Transactional all-or-nothing recompute with tuple-reactive subscriptions and reference-equality change detection; no IOptionsMonitor partial-update races
+---
+
 # ADR-002: Atomic Reactive Configuration Updates
 
 **Status:** Accepted  

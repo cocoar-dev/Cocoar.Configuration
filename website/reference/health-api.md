@@ -1,3 +1,7 @@
+---
+description: Health API reference — HealthStatus enum, ConfigManager.IsHealthy, IFlagsHealthSource, ASP.NET Core health check, OpenTelemetry meters and Activity source
+---
+
 # Health API Reference
 
 ## HealthStatus Enum

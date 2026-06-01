@@ -1,3 +1,7 @@
+---
+description: cocoar-secrets global .NET tool — encrypt values to JSON envelopes (incl. from stdin), generate self-signed certs, convert password-protected PFX to password-less
+---
+
 # CLI Tools
 
 The `cocoar-secrets` CLI tool encrypts values and manages certificates from the command line.

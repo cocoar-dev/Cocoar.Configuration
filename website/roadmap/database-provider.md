@@ -1,3 +1,7 @@
+---
+description: Planned FromDatabase() provider over ADO.NET (SQL Server, PostgreSQL, MySQL, SQLite) — JSON columns, polling, config-aware queries, LISTEN/NOTIFY, multi-tenant config
+---
+
 # Database Provider
 
 A native provider for loading configuration from relational databases — SQL Server, PostgreSQL, MySQL, and others via ADO.NET.

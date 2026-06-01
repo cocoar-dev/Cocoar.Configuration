@@ -1,3 +1,7 @@
+---
+description: FromFile JSON provider, directory file watcher, AppContext.BaseDirectory path resolution, debouncing, path-traversal protection, optional vs Required, dynamic paths
+---
+
 # File Provider
 
 The file provider reads JSON configuration files from disk and watches for changes.

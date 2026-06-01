@@ -1,3 +1,7 @@
+---
+description: '@cocoar/secrets TypeScript library — fetchEncryptionKey and encryptSecret build cocoar.secret envelopes client-side via WebCrypto so plaintext never reaches the server, multi-tenant'
+---
+
 # Browser & Client Encryption <Badge type="info" text="ADV" />
 
 [Publishing Encryption Keys](/guide/secrets/key-publishing) exposes your server's **public** key so an external producer can build a `cocoar.secret` envelope. **`@cocoar/secrets`** is that producer for the browser and Node — a tiny, zero-dependency TypeScript library that encrypts a value with the published key so the **plaintext never reaches your server**; only the encrypted envelope does.

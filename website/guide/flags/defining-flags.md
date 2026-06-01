@@ -1,3 +1,7 @@
+---
+description: Defining IFeatureFlags<TConfig> partial classes, FeatureFlag<TResult> and FeatureFlag<TContext,TResult> delegates, tuple multi-config, ExpiresAt, source-generated Config property
+---
+
 # Defining Feature Flags
 
 Feature flags are `partial class` types that implement `IFeatureFlags<TConfig>` and define flag properties as delegates. The source generator produces the constructor and `Config` property automatically.

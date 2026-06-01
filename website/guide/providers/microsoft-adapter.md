@@ -1,3 +1,7 @@
+---
+description: FromIConfiguration adapter bridging Microsoft IConfiguration, colon-key flattening to nested JSON, .Select section filtering, GetReloadToken change detection, gradual migration
+---
+
 # Microsoft IConfiguration Adapter
 
 The Microsoft adapter bridges an existing `IConfiguration` into Cocoar's rule system. Use it to migrate gradually or to reuse configuration sources that only exist as Microsoft providers.

@@ -1,3 +1,7 @@
+---
+description: FromHttp provider — one-time fetch, polling, SSE, SSE-with-fallback, failure threshold, dynamic endpoints, client-certificate and encrypted-secret token auth
+---
+
 # HTTP Provider
 
 The HTTP provider fetches configuration from a remote endpoint. It supports one-time fetch, periodic polling, and real-time Server-Sent Events (SSE).

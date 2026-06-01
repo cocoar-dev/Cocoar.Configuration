@@ -1,3 +1,7 @@
+---
+description: Index of Cocoar.Configuration's Architecture Decision Records (ADR-001 through ADR-006) capturing the rationale behind key design choices
+---
+
 # Architecture Decision Records
 
 These ADRs capture the **why** behind Cocoar.Configuration's key design choices — the context, the decision, the trade-offs, and the alternatives that were rejected. They are decision *records* (point-in-time rationale and history), not how-to guides; for usage, start with the [Guide](/guide/getting-started).

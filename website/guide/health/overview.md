@@ -1,3 +1,7 @@
+---
+description: HealthStatus enum (Unknown/Healthy/Degraded/Unhealthy), per-rule required vs optional outcomes, expired feature flags, startup-throw vs runtime-rollback, accessing health via ConfigManager
+---
+
 # Health Monitoring
 
 Cocoar.Configuration tracks the health of every configuration rule and reports an overall status. This lets you detect misconfigurations, missing files, and stale feature flags — at startup and at runtime.

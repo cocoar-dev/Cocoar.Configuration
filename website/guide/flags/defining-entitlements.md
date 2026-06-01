@@ -1,3 +1,7 @@
+---
+description: Defining IEntitlements<TConfig> partial classes, Entitlement<TResult> and Entitlement<TContext,TResult> delegates, tuple multi-config, permanent business logic with no ExpiresAt
+---
+
 # Defining Entitlements
 
 Entitlements are `partial class` types that implement `IEntitlements<TConfig>` and define entitlement properties as delegates. Unlike feature flags, entitlements have no expiration date — they represent permanent business logic.

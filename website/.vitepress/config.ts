@@ -24,7 +24,7 @@ export default defineConfig({
       dark: '/logo_dark.svg',
     },
 
-    siteTitle: 'Cocoar.Configuration v5',
+    siteTitle: 'Cocoar.Configuration v6',
 
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
@@ -32,7 +32,7 @@ export default defineConfig({
       { text: 'ADR', link: '/adr/' },
       { text: 'Roadmap', link: '/roadmap/overview' },
       { text: 'Changelog', link: '/changelog' },
-      { text: 'LLM Docs', link: '/llms-full.txt', target: '_blank' },
+      { text: 'LLM Docs', link: '/llms.txt', target: '_blank' },
       { text: 'NuGet', link: 'https://www.nuget.org/packages/Cocoar.Configuration' },
     ],
 

@@ -1,3 +1,7 @@
+---
+description: v3 to v4 — no public API breaks; adds test overrides, Secret<T> X.509 encryption, secrets CLI, COCFG analyzers; internal provider contract moves from JsonElement to byte[] (custom providers only)
+---
+
 # Migration v3 → v4
 
 v3.x to v4.0 was an incremental release. There are **no breaking changes** to the public API.

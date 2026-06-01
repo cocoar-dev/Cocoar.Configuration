@@ -1,3 +1,7 @@
+---
+description: Roslyn diagnostics reference — COCFG001-006 (secret conflicts, rule ordering, required rules, duplicates) and COCFLAG001-003 flags; severities and suppression
+---
+
 # Analyzer Diagnostics Reference
 
 All diagnostics ship with the `Cocoar.Configuration` package. No separate install needed.

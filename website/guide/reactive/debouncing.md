@@ -1,3 +1,7 @@
+---
+description: Trailing-edge debounce coalescing rapid source changes — 300ms default, UseDebounce config, cross-provider coalescing, recompute-from-earliest-changed-rule, during-run changes
+---
+
 # Debouncing
 
 When a configuration source changes, the engine doesn't recompute immediately. It waits for a quiet period to coalesce rapid changes into a single recompute.

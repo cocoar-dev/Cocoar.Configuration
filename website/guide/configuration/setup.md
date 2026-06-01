@@ -1,3 +1,7 @@
+---
+description: Auto-registration of rule types as Scoped, the setup lambda with ConcreteType<T>().ExposeAs<I>(), Interface<I>().DeserializeTo<T>(), lifetimes, disabling auto-registration
+---
+
 # Setup & Type Exposure
 
 Setup controls how configuration types are registered and exposed. It's the optional second parameter to `UseConfiguration()`.

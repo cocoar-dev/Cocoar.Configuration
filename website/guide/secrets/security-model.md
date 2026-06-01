@@ -1,3 +1,7 @@
+---
+description: Memory-safety guarantees of the lease pattern (Array.Clear/ZeroMemory, stackalloc keys), hybrid RSA-OAEP-SHA256 + AES-256-GCM encryption, certificate rotation
+---
+
 # Security Model
 
 This page explains the memory safety guarantees, encryption design, and certificate rotation behind the secrets system.

@@ -1,3 +1,7 @@
+---
+description: AddCocoarConfiguration for Microsoft.Extensions.DI — auto-registration, ConcreteType/ExposeAs/Interface DeserializeTo, DisableAutoRegistration, flags, secrets
+---
+
 # DI Setup
 
 `AddCocoarConfiguration()` registers everything into Microsoft.Extensions.DependencyInjection — configuration types, reactive wrappers, feature flags, and entitlements.

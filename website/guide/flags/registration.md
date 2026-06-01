@@ -1,3 +1,7 @@
+---
+description: Registering flags/entitlements via UseFeatureFlags/UseEntitlements, Register<T>, global/class/property-level resolvers, priority cascade, Core-only no-DI overload
+---
+
 # Registration
 
 Feature flags and entitlements are registered on the `ConfigManagerBuilder` using `UseFeatureFlags()` and `UseEntitlements()`.

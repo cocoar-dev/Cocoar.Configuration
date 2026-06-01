@@ -1,3 +1,7 @@
+---
+description: Two-layer DI-aware config (ADR-006) — UseServiceBackedConfiguration with (sp,a) factories, FromHttp via IHttpClientFactory, FromStore, FromService, host-start activation
+---
+
 # Service-Backed Configuration
 
 Some configuration sources need a service from your application container *to load* — an `IHttpClientFactory`, a Marten `IDocumentStore`, an EF `IDbContextFactory<T>`. But `AddCocoarConfiguration` runs **before** `BuildServiceProvider()`, so those services don't exist yet. This is a hard boundary in every framework: config that needs the container can't also *bootstrap* the container.

@@ -1,3 +1,7 @@
+---
+description: AggregateRuleManager wraps N sub-rules, byte-merges their results, and contains inner Required failures within the aggregate boundary; FromFiles sugar
+---
+
 # ADR-004: Aggregate Rules with Isolated Execution Boundary
 
 **Status:** Accepted

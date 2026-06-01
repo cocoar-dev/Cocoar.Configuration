@@ -1,3 +1,7 @@
+---
+description: AddCocoarConfigurationHealthCheck() for ASP.NET Core health checks, custom name and tags, HealthStatus to HealthCheckResult mapping, /health endpoint integration
+---
+
 # ASP.NET Core Health Checks
 
 Cocoar.Configuration integrates with the standard ASP.NET Core health check system. One line registers it; the health endpoint then reflects configuration status alongside your other health checks.

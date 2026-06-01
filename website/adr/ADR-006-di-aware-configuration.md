@@ -1,3 +1,7 @@
+---
+description: Two-layer model — eager no-DI UseConfiguration plus lazy UseServiceBackedConfiguration whose (sp,a) factories resolve container services, activated by a hosted service
+---
+
 # ADR-006: DI-aware Configuration (Two-Layer Model)
 
 **Status:** Accepted — implemented on `feature/multitenant`

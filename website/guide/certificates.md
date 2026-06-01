@@ -1,3 +1,7 @@
+---
+description: X.509 certificates in Cocoar — why password-less, protecting PFX via file permissions on Linux/macOS/Windows and Docker/Kubernetes
+---
+
 # Working with Certificates
 
 This guide explains how Cocoar.Configuration uses X.509 certificates, why we require them to be password-less, and how to manage them securely. These principles apply everywhere in the library where certificates are used.

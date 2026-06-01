@@ -1,3 +1,7 @@
+---
+description: Partial re-evaluation, SHA-256 hash-based change detection, zero steady-state cost, one instance per config type, provider sharing by key, reference-equality reactive pipeline, 300ms debounce
+---
+
 # Performance Characteristics
 
 This page describes the qualitative performance characteristics of Cocoar.Configuration — what the system does (and avoids doing) at each stage so you can reason about cost in your application.

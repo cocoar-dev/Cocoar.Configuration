@@ -1,3 +1,7 @@
+---
+description: COCFLAG diagnostics — COCFLAG001 non-static ExpiresAt, COCFLAG002 abstract type in Register<T>, COCFLAG003 missing summary docs, plus the flags/entitlements source generator
+---
+
 # Flags Diagnostics & Source Generator
 
 ## COCFLAG001 — Non-Static ExpiresAt {#cocflag001}

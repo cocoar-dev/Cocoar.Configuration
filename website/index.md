@@ -1,5 +1,6 @@
 ---
 layout: home
+description: Reactive, strongly-typed, layered configuration for .NET — IReactiveConfig<T>, atomic tuple updates, memory-safe Secret<T>, feature flags and entitlements
 
 hero:
   name: Cocoar.Configuration

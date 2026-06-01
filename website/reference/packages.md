@@ -1,3 +1,7 @@
+---
+description: NuGet package breakdown — Abstractions, Core, DI, AspNetCore, Http, MicrosoftAdapter, WritableStore.Marten, Analyzers, Secrets CLI; dependency graph and which to install
+---
+
 # Package Overview
 
 ## Packages

@@ -1,3 +1,7 @@
+---
+description: Incremental IOptions/IConfiguration migration — FromIConfiguration bridge, IOptionsMonitor to IReactiveConfig, PostConfigure as last-write-wins rule, mapping table
+---
+
 # Migrating from IOptions
 
 This guide walks you through migrating an existing ASP.NET Core application from Microsoft's `IOptions<T>` / `IConfiguration` to Cocoar.Configuration. The migration is **incremental** -- you can move one type at a time, and both systems run side by side throughout the process.

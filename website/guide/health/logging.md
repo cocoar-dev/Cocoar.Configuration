@@ -1,3 +1,7 @@
+---
+description: Microsoft.Extensions.Logging with source-generated LoggerMessage, Cocoar.Configuration log categories, event IDs by Debug/Information/Warning level, filtering by prefix
+---
+
 # Logging & Diagnostics
 
 Cocoar.Configuration uses `Microsoft.Extensions.Logging` with source-generated log messages (`[LoggerMessage]`) for structured, high-performance logging. This page covers how to configure log output and interpret the diagnostics the library emits.

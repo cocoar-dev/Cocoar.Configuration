@@ -1,3 +1,7 @@
+---
+description: FromStore writable override layer, sparse leaf persistence, IWritableStore<T> SetAsync/ResetAsync/PatchAsync, reset vs explicit null, DescribeAsync provenance, secrets, IStoreBackend
+---
+
 # Writable Store Provider
 
 The writable store is a **writable, application-controlled override layer**. Every other provider is an external source you read from — it is the one layer your application can write to at runtime.

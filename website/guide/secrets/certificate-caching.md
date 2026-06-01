@@ -1,3 +1,7 @@
+---
+description: UseCertificatesFromFolder time-limited private-key caching (cacheDurationSeconds), FileSystemWatcher auto-discovery, two-level cache, zero-downtime certificate rotation
+---
+
 # Certificate Caching
 
 <Badge type="info" text="ADV" />

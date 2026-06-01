@@ -1,3 +1,7 @@
+---
+description: IReactiveConfig<(T1, T2)> for atomic multi-config updates — same-snapshot guarantee, per-element change detection, 2–8+ arities, automatic DI registration
+---
+
 # Reactive Tuples
 
 When multiple configuration types need to stay in sync, use `IReactiveConfig<(T1, T2)>`. All types update together — you never see a mix of old and new values.

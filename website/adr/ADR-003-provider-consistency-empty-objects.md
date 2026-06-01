@@ -1,3 +1,7 @@
+---
+description: All providers return empty JSON objects on missing/unavailable data so types always carry C# defaults; failures tracked separately via health monitoring
+---
+
 # ADR-003: Fix Provider Inconsistency - Optional Rules Always Return Objects
 
 **Status:** Accepted

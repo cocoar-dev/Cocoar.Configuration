@@ -1,3 +1,7 @@
+---
+description: CocoarTestConfiguration with AsyncLocal isolation, ReplaceConfiguration vs AppendConfiguration, independent ReplaceSecretsSetup with AllowPlaintext for parallel-safe tests
+---
+
 # Test Overrides
 
 `CocoarTestConfiguration` lets you replace or extend configuration in tests without touching real files, environment variables, or HTTP endpoints. It uses `AsyncLocal<T>` for isolation — each test gets its own configuration context, parallel-safe.

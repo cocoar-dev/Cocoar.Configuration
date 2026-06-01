@@ -1,3 +1,7 @@
+---
+description: Feature flags vs entitlements as pure functions over config, FeatureFlag<T>/Entitlement<T> delegates, ExpiresAt health signal, the litmus test, Cocoar vs LaunchDarkly
+---
+
 # Feature Flags vs Entitlements
 
 Cocoar.Configuration has built-in support for two related but distinct concepts: **feature flags** and **entitlements**.

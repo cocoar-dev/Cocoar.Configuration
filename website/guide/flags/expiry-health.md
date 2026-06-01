@@ -1,3 +1,7 @@
+---
+description: Flag ExpiresAt lifecycle, Degraded health when expired, IFeatureFlagsDescriptors.All/Expired, health endpoint integration, compile-time static-date validation, define-to-cleanup lifecycle
+---
+
 # Expiry & Health
 
 Feature flags have a built-in lifecycle: they are created, deployed, and eventually removed. The expiry system tracks this lifecycle and signals when cleanup is overdue.

@@ -1,3 +1,7 @@
+---
+description: "IReactiveConfig<T> : IObservable<T> — CurrentValue, Subscribe, replay-1 BehaviorSubject semantics, reference-equality change detection, atomic swap, Scoped vs Singleton"
+---
+
 # IReactiveConfig\<T\>
 
 Every configuration type automatically gets a reactive counterpart. `IReactiveConfig<T>` lets you subscribe to live configuration changes without polling.

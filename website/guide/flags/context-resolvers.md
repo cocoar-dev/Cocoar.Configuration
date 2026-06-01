@@ -1,3 +1,7 @@
+---
+description: IContextResolver<TRequest,TContext> hydrating request DTOs into domain context, global/class/property registration levels, Scoped lifetime, evaluation pipeline for contextual flags
+---
+
 # Context Resolvers
 
 Context resolvers bridge HTTP request data to your domain model. They turn a simple request DTO into a rich context object that flags and entitlements use for evaluation.

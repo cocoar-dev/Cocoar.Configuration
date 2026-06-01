@@ -1,3 +1,7 @@
+---
+description: ConfigHub management portal (commercial) — push config to fleets via FromConfigHub(), secret/cert lifecycle, feature flag control, health dashboard, OTLP telemetry
+---
+
 # ConfigHub
 
 The most common question: *"This is great, but how do I manage configuration across 100 instances without SSH-ing into each one?"*

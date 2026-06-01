@@ -1,3 +1,7 @@
+---
+description: Rule anatomy with For<T>().FromFile, top-to-bottom property-by-property JSON merge layering, last-write-wins, and Select to extract a sub-document
+---
+
 # Rules & Layering
 
 Rules are the central concept in Cocoar.Configuration. A rule connects a **configuration type** to a **data source** and defines how they interact.
