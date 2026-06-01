@@ -16,7 +16,7 @@ dotnet add package Cocoar.Configuration.DI            # + Microsoft.Extensions.D
 dotnet add package Cocoar.Configuration.AspNetCore     # + health endpoints, feature flags
 ```
 
-You only need **one** — each includes everything above it. Requires .NET 8+.
+You only need **one** — each includes everything above it. Requires .NET 9+.
 
 ## Quick Start
 

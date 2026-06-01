@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+> **v6.0.0** — major release.
+
+### Breaking
+- **Dropped .NET 8 support.** All packages now multi-target `net9.0` and `net10.0` (was `net8.0` / `net9.0`). Consumers must target .NET 9 or later.
+- `Microsoft.Extensions.*` dependencies moved to the `10.0.x` line, aligned with .NET 10. `10.0.x` ships a native `net9.0` target, so .NET 9 consumers take no runtime hit.
+
+### Added
+- **`Cocoar.Configuration.Marten`** — opt-in Marten (PostgreSQL) WritableStore backend. `MartenStoreBackend` persists overrides as one `CocoarConfigDocument` per configuration type; `FromMartenStore()` (service-backed, Layer-2) resolves the `IDocumentStore` from DI and, combined with `.TenantScoped()`, gives **database-per-tenant** configuration (each tenant's overlay in its own database).
+- **WritableStore `PatchAsync`** — `IWritableStore<T>.PatchAsync(b => b.Set(...).SetSecret(...).Reset(...))` applies any number of mutations as one atomic write and one recompute; single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` delegate to it.
+
+### Changed
+- Configuration **layer merging is now case-insensitive** on property names (via Cocoar.Json.Mutable 1.2.0), consistent with how the effective config is read back.
+
+### Fixed
+- Resetting a secret-typed member no longer throws `NotSupportedException` (removing an override exposes no plaintext).
+
 ## [5.1.0] - 2026-05-31
 
 ### Added

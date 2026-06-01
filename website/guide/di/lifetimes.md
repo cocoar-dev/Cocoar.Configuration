@@ -89,7 +89,7 @@ Same as the default — useful for being explicit or overriding an interface's l
 
 ## Keyed Services
 
-Register the same configuration type under different keys (requires .NET 8+):
+Register the same configuration type under different keys (keyed services, .NET 9+):
 
 ```csharp
 setup.ConcreteType<AppSettings>().AsSingleton("primary"),

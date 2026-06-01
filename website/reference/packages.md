@@ -6,48 +6,48 @@
 
 Lightweight interfaces for decoupled architecture. Reference this from libraries that need to accept configuration without depending on the full implementation.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** None
 - **Key types:** `IConfigurationAccessor`, `IReactiveConfig<T>`, `ISecret<T>`, `SecretLease<T>`
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.Abstractions" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration.Abstractions" Version="6.*" />
 ```
 
 ### Cocoar.Configuration
 
 The core library. Includes providers, reactive engine, secrets, feature flags, and entitlements.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** Cocoar.Configuration.Abstractions, Cocoar.Configuration.Analyzers (build-time), Cocoar.Capabilities, Cocoar.FileSystem, Cocoar.Json.Mutable, Microsoft.Extensions.Logging.Abstractions
 - **Key types:** `ConfigManager`, `Secret<T>`, `IFeatureFlags<TConfig>`, `IEntitlements<TConfig>`, `FeatureFlag<T>`, `Entitlement<T>`
 
 ```xml
-<PackageReference Include="Cocoar.Configuration" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.DI
 
 Microsoft.Extensions.DependencyInjection integration.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** Cocoar.Configuration, Cocoar.Capabilities
 - **Key types:** `AddCocoarConfiguration()` extension method
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.DI" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration.DI" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.AspNetCore
 
 ASP.NET Core integration — includes DI and adds health checks, feature flag/entitlement REST endpoints.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** Cocoar.Configuration, Cocoar.Configuration.DI, Microsoft.AspNetCore.App (FrameworkReference)
 - **Key types:** `AddCocoarConfigurationHealthCheck()`, `MapFeatureFlagEndpoints()`, `MapEntitlementEndpoints()`
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.AspNetCore" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration.AspNetCore" Version="6.*" />
 ```
 
 ::: tip
@@ -58,24 +58,36 @@ AspNetCore includes DI, which includes Core — you only need one `PackageRefere
 
 Remote configuration provider with support for one-time fetch, polling, and Server-Sent Events (SSE). Separate package to avoid forcing an HTTP dependency on all consumers.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** Cocoar.Configuration
 - **Key types:** `FromHttp()` extension method, `HttpRuleOptions`
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.Http" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration.Http" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.MicrosoftAdapter
 
 Bridge from `Microsoft.Extensions.Configuration` sources (Azure Key Vault, custom providers, etc.) into Cocoar.Configuration.
 
-- **Target:** .NET 8.0 / .NET 9.0
+- **Target:** .NET 9.0 / .NET 10.0
 - **Dependencies:** Cocoar.Configuration, Microsoft.Extensions.Configuration.*
 - **Key types:** `FromIConfiguration()` extension method
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" Version="5.*" />
+<PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" Version="6.*" />
+```
+
+### Cocoar.Configuration.Marten
+
+Marten (PostgreSQL document store) backend for the WritableStore. Persists writable configuration overlays as documents, with first-class support for Marten database-per-tenant multi-tenancy so each tenant's configuration lives in its own database. Opt-in package — it intentionally takes a Marten dependency; consumers who don't reference it pay nothing.
+
+- **Target:** .NET 9.0 / .NET 10.0
+- **Dependencies:** Cocoar.Configuration.DI, Marten
+- **Key types:** `MartenStoreBackend`, `CocoarConfigDocument`, `FromMartenStore()` extension method
+
+```xml
+<PackageReference Include="Cocoar.Configuration.Marten" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.Analyzers
