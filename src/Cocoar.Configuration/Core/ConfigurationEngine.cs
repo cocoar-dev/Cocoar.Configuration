@@ -411,7 +411,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
             }
 
             var mergedConfig = GetOrCreateMergedConfig(mergedConfigs, ruleManager.TypeDefinition);
-            MutableJsonMerge.Merge(mergedConfig, lastContribution);
+            MutableJsonMerge.Merge(mergedConfig, lastContribution, ConfigMergeOptions.CaseInsensitive);
 
             _state.UpdateConfiguration(ruleManager.TypeDefinition, mergedConfig);
         }
@@ -500,7 +500,7 @@ internal class ConfigurationEngine : IDisposable, IAsyncDisposable
         // Lock on mergedConfig to prevent readers from serializing while we're merging
         lock (mergedConfig)
         {
-            MutableJsonMerge.Merge(mergedConfig, newContribution);
+            MutableJsonMerge.Merge(mergedConfig, newContribution, ConfigMergeOptions.CaseInsensitive);
         }
 
         ruleManager.LastJsonContribution = newContribution;

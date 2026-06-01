@@ -298,7 +298,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
 
             if (manager.LastJsonContribution is { } contribution)
             {
-                MutableJsonMerge.Merge(merged, contribution);
+                MutableJsonMerge.Merge(merged, contribution, ConfigMergeOptions.CaseInsensitive);
             }
         }
 

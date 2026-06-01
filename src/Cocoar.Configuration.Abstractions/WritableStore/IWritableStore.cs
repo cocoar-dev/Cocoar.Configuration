@@ -68,6 +68,21 @@ public interface IWritableStore<T> where T : class
     Task<IReadOnlyList<StoreEntry>> DescribeAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Applies one or more property mutations atomically: one lock acquisition, one write to storage,
+    /// one recompute. Prefer this over multiple <see cref="SetAsync{TValue}"/> calls whenever more than
+    /// one property changes together (e.g. a form save), so a 20-field save triggers one recompute, not 20.
+    /// The mutations are applied when <paramref name="configure"/> returns — there is no separate commit step.
+    /// </summary>
+    Task PatchAsync(Action<IWritableStorePatch<T>> configure, CancellationToken ct = default);
+
+    /// <summary>
+    /// Async-callback overload of <see cref="PatchAsync(Action{IWritableStorePatch{T}}, CancellationToken)"/>
+    /// for when gathering values is asynchronous (e.g. <c>await</c> encrypting a secret envelope inline).
+    /// The mutations are applied after the returned task completes.
+    /// </summary>
+    Task PatchAsync(Func<IWritableStorePatch<T>, Task> configureAsync, CancellationToken ct = default);
+
+    /// <summary>
     /// The raw, key-path overlay surface for dynamic or non-expressible paths.
     /// </summary>
     IWritableStoreOverlay<T> Overlay { get; }

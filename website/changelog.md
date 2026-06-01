@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+**WritableStore — batch writes (`PatchAsync`)**
+- `IWritableStore<T>.PatchAsync(b => b.Set(...).SetSecret(...).Reset(...))` applies any number of mutations as **one** atomic write and **one** recompute — a form save no longer fires one recompute (and one backend round-trip) per field. The single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` now delegate to it.
+- Async overload `PatchAsync(async b => …)` for when gathering values is asynchronous (e.g. encrypting a `SecretEnvelope<T>` inline).
+- New `IWritableStorePatch<T>` builder: `Set` (value, including an explicit `null`), `SetSecret` (pre-encrypted envelope), `Reset`. Presence-based semantics — present = set, absent = untouched, `Reset` = remove the override.
+
+### Fixed
+- Resetting a secret-typed member (`ResetAsync(x => x.Secret)`, or `Reset` inside a patch) no longer throws `NotSupportedException` — removing an override exposes no plaintext, so it is now allowed (symmetry with `SetSecretAsync`).
+
+### Changed
+- Configuration **layer merging is now case-insensitive** on property names (via Cocoar.Json.Mutable 1.2.0), consistent with how the effective config is read back (System.Text.Json case-insensitive, like `IConfiguration`). A higher layer overrides a lower-layer key regardless of casing — no more case-variant sibling keys. Invisible to typed access; internal-only for most consumers.
+
 ## [5.1.0] — 2026-05-31
 
 ### Added
@@ -12,7 +27,7 @@
 - `DescribeAsync()` returns per-key provenance (`StoreEntry`: base, effective, `IsSet`) for management UIs
 - `.FromStore()` rule extension; file-based backend by default, pluggable `IStoreBackend`
 - `IWritableStore<T>` / `IWritableStoreOverlay<T>` are DI-injectable (single shared singleton) — write your own endpoints with your own validation/normalization/logging
-- Secret-typed members cannot be overridden via WritableStore (throws `NotSupportedException`)
+- Secret-typed members: a *plaintext* override throws `NotSupportedException`; override them via `SetSecretAsync` with a pre-encrypted `SecretEnvelope<T>`
 - `IProviderServiceRegistration` gained resolve-time factory registration support
 
 **Multi-Tenancy** (ADR-005)

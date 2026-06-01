@@ -129,7 +129,7 @@ internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDi
 
             if (manager.LastJsonContribution is { } contribution)
             {
-                MutableJsonMerge.Merge(merged, contribution);
+                MutableJsonMerge.Merge(merged, contribution, ConfigMergeOptions.CaseInsensitive);
             }
         }
 

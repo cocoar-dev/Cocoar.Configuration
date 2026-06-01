@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Cocoar.Capabilities" Version="1.2.0" />
     <PackageVersion Include="Cocoar.FileSystem" Version="2.2.0" />
-    <PackageVersion Include="Cocoar.Json.Mutable" Version="1.0.0" />
+    <PackageVersion Include="Cocoar.Json.Mutable" Version="1.2.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
