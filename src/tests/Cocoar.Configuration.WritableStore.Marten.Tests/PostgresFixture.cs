@@ -14,11 +14,10 @@ public sealed class PostgresFixture : IAsyncLifetime
     private const string TenantADatabase = "tenant_a";
     private const string TenantBDatabase = "tenant_b";
 
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithDatabase("postgres")
-        .WithUsername("postgres")
-        .WithPassword("postgres")
-        .Build();
+    // Built inside InitializeAsync, NOT in a field initializer: PostgreSqlBuilder.Build() validates Docker
+    // availability and throws DockerUnavailableException when no Docker daemon is reachable (e.g. GitHub
+    // macOS runners). Constructing it inside the try lets that throw be caught so the tests skip, not fail.
+    private PostgreSqlContainer? _container;
 
     /// <summary>True once the container is up and the tenant databases exist.</summary>
     public bool Available { get; private set; }
@@ -30,6 +29,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         try
         {
+            _container = new PostgreSqlBuilder()
+                .WithDatabase("postgres")
+                .WithUsername("postgres")
+                .WithPassword("postgres")
+                .Build();
+
             await _container.StartAsync();
 
             foreach (var database in new[] { TenantADatabase, TenantBDatabase })
@@ -51,8 +56,8 @@ public sealed class PostgresFixture : IAsyncLifetime
         }
     }
 
-    /// <summary>Connection string to the default (single-tenant) database.</summary>
-    public string DefaultConnectionString => _container.GetConnectionString();
+    /// <summary>Connection string to the default (single-tenant) database. Only valid when <see cref="Available"/>.</summary>
+    public string DefaultConnectionString => _container!.GetConnectionString();
 
     /// <summary>Connection string to a specific tenant's database (database-per-tenant).</summary>
     public string ConnectionStringForTenantA => ConnectionStringFor(TenantADatabase);
@@ -61,12 +66,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     public string ConnectionStringForTenantB => ConnectionStringFor(TenantBDatabase);
 
     private string ConnectionStringFor(string database)
-        => _container.GetConnectionString()
+        => _container!.GetConnectionString()
             .Replace("Database=postgres", $"Database={database}", StringComparison.OrdinalIgnoreCase);
 
     public async Task DisposeAsync()
     {
-        if (Available)
+        if (_container is not null)
         {
             await _container.DisposeAsync();
         }
