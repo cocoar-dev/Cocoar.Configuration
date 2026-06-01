@@ -87,10 +87,6 @@ rule.For<PremiumFeatures>().FromFile("premium.json")
     .When(accessor => accessor.GetConfig<TenantSettings>()!.IsPremium)
 ```
 
-:::warning GetRequiredConfig is deprecated
-`GetRequiredConfig<T>()` still exists but is deprecated — it has identical behavior to `GetConfig<T>()`. Use `GetConfig<T>()` in all new code.
-:::
-
 ## Startup vs Runtime Behavior
 
 | Scenario | Startup | Runtime Recompute |

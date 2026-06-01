@@ -30,7 +30,7 @@ class Program
         var certPath = Path.Combine(Path.GetTempPath(), "cocoar-secrets-demo.pfx");
         
         // Explicit certificate generation (password-less)
-        X509CertificateGenerator.GenerateAndSave(
+        X509CertificateGenerator.GenerateAndSavePfx(
             certPath,
             null,  // Password-less certificate
             "CN=Dev Secrets",

@@ -51,14 +51,12 @@ public class HttpProviderSmokeTests
         var services = new ServiceCollection();
         services.AddCocoarConfiguration(c => c.UseConfiguration(rules => [
             // Provide base settings with Url via in-memory Microsoft IConfigurationSource (adapter)
-            rules.For<MyHttpSettings>().FromMicrosoftSource(cm => new(
+            rules.For<MyHttpSettings>().FromIConfiguration(
                     new ConfigurationBuilder()
-                        .AddInMemoryCollection(new Dictionary<string, string?> { ["Remote:Url"] = "https://example.com/api/config" })
-                        .Sources[0],
-                    configurationPrefix: "Remote"
-                )),
+                        .AddInMemoryCollection(new Dictionary<string, string?> { ["Url"] = "https://example.com/api/config" })
+                        .Build()),
             rules.For<MyCfg>().FromHttp(configManager => new(
-                    url: configManager.GetRequiredConfig<MyHttpSettings>().Url,
+                    url: configManager.GetConfig<MyHttpSettings>()!.Url,
                     // Give CI plenty of time; we will actively wait for the change
                     pollInterval: TimeSpan.FromMilliseconds(50),
                     handler: handler

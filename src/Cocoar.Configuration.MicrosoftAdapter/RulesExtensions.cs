@@ -26,19 +26,4 @@ public static class RulesExtensions
             _ => new MicrosoftConfigurationProviderQueryOptions(),
             typeof(T)
         );
-
-    /// <summary>
-    /// Creates a Microsoft configuration source rule with custom options.
-    /// </summary>
-    [Obsolete("Use FromIConfiguration(IConfiguration) instead.")]
-    public static
-        ProviderRuleBuilder<MicrosoftConfigurationSourceProvider, MicrosoftConfigurationSourceProviderOptions,
-            MicrosoftConfigurationSourceProviderQueryOptions> FromMicrosoftSource<T>(this TypedProviderBuilder<T> builder,
-            Func<IConfigurationAccessor, MicrosoftConfigurationSourceRuleOptions> optionsFactory)
-        where T : class
-        => new(
-            cm => optionsFactory(cm).ToProviderOptions(),
-            cm => optionsFactory(cm).ToQueryOptions(),
-            typeof(T)
-        );
 }

@@ -37,7 +37,7 @@ class Program
         // Generate a password-less self-signed certificate for development explicitly
         var devCertPath = Path.Combine(Path.GetTempPath(), "cocoar-dev-demo.pfx");
         
-        X509CertificateGenerator.GenerateAndSave(
+        X509CertificateGenerator.GenerateAndSavePfx(
             devCertPath,
             null,  // Password-less certificate
             "CN=Dev Secrets",
@@ -85,7 +85,7 @@ class Program
         // In real production, you'd use: .UseCertificateFromFile("certs/prod.pfx")
         var prodCertPath = Path.Combine(Path.GetTempPath(), "cocoar-prod-demo.pfx");
         
-        X509CertificateGenerator.GenerateAndSave(
+        X509CertificateGenerator.GenerateAndSavePfx(
             prodCertPath,
             null,  // Password-less certificate
             "CN=Production Secrets",

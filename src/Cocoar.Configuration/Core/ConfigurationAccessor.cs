@@ -187,16 +187,6 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     }
 
     /// <summary>
-    /// Gets configuration, throwing if not found.
-    /// </summary>
-    /// <remarks>
-    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
-    /// </remarks>
-    [Obsolete("Use GetConfig<T>() instead - it now throws if no rule is registered. " +
-              "This method will be removed in a future version.")]
-    public T GetRequiredConfig<T>() => (T)GetConfig(typeof(T));
-
-    /// <summary>
     /// Gets a configuration instance from the cached snapshot.
     /// During recompute, falls back to on-demand deserialization.
     /// </summary>
@@ -283,16 +273,6 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
             return false;
         }
     }
-
-    /// <summary>
-    /// Gets configuration, throwing if not found.
-    /// </summary>
-    /// <remarks>
-    /// This method is deprecated. GetConfig now has the same behavior - it throws if no rule is registered.
-    /// </remarks>
-    [Obsolete("Use GetConfig(Type) instead - it now throws if no rule is registered. " +
-              "This method will be removed in a future version.")]
-    public object GetRequiredConfig(Type type) => GetConfig(type);
 
     public JsonElement? GetConfigAsJson(Type type) => _state.GetConfigurationAsJson(type);
 }

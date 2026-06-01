@@ -8,6 +8,11 @@
 - **Dropped .NET 8 support.** All packages now multi-target `net9.0` and `net10.0` (was `net8.0` / `net9.0`). Consumers must target .NET 9 or later.
 - `Microsoft.Extensions.*` dependencies moved to the `10.0.x` line, aligned with .NET 10. `10.0.x` ships a native `net9.0` target, so .NET 9 consumers take no runtime hit.
 
+### Removed
+- `IConfigurationAccessor.GetRequiredConfig<T>()` / `GetRequiredConfig(Type)` — deprecated since v5; use `GetConfig<T>()` / `GetConfig(Type)` (identical throw-on-missing behavior).
+- `FromMicrosoftSource(...)` — use `FromIConfiguration(IConfiguration)`.
+- `X509CertificateGenerator.GenerateAndSave(...)` — use `GenerateAndSavePfx(...)` / `GenerateAndSavePem(...)`.
+
 ### Added
 - **`Cocoar.Configuration.Marten`** — opt-in Marten (PostgreSQL) WritableStore backend. `MartenStoreBackend` persists overrides as one `CocoarConfigDocument` per configuration type; `FromMartenStore()` (service-backed, Layer-2) resolves the `IDocumentStore` from DI and, combined with `.TenantScoped()`, gives **database-per-tenant** configuration (each tenant's overlay in its own database).
 - **WritableStore `PatchAsync`** — `IWritableStore<T>.PatchAsync(b => b.Set(...).SetSecret(...).Reset(...))` applies any number of mutations as one atomic write and one recompute; single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` delegate to it.

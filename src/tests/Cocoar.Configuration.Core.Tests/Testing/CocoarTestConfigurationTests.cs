@@ -427,7 +427,7 @@ public class ConfigManagerIntegrationTests
             })
         ]));
 
-        var config = configManager.GetRequiredConfig<TestConfig>();
+        var config = configManager.GetConfig<TestConfig>()!;
 
         // Assert - Test overrides are used
         Assert.Equal("test-connection", config.Connection);
@@ -454,7 +454,7 @@ public class ConfigManagerIntegrationTests
             })
         ]));
 
-        var config = configManager.GetRequiredConfig<TestConfig>();
+        var config = configManager.GetConfig<TestConfig>()!;
 
         // Assert - Test override merged (last-write-wins)
         Assert.Equal(999, config.MaxConnections);
@@ -474,7 +474,7 @@ public class ConfigManagerIntegrationTests
             })
         ]));
 
-        var config = configManager.GetRequiredConfig<TestConfig>();
+        var config = configManager.GetConfig<TestConfig>()!;
 
         // Assert - Normal behavior
         Assert.Equal("normal-connection", config.Connection);
@@ -504,7 +504,7 @@ public class ConfigManagerIntegrationTests
             })
         ]));
 
-        var config = configManager.GetRequiredConfig<TestConfig>();
+        var config = configManager.GetConfig<TestConfig>()!;
 
         // Assert
         Assert.Equal("applied-connection", config.Connection);
@@ -751,7 +751,7 @@ public class ConfigManagerSetupIntegrationTests
 
         // Assert
         Assert.True(testSetupCalled);
-        var config = configManager.GetRequiredConfig<TestConfig>();
+        var config = configManager.GetConfig<TestConfig>()!;
         Assert.Equal("test", config.Value);
     }
 

@@ -152,28 +152,6 @@ public static class X509CertificateGenerator
     }
 
     /// <summary>
-    /// Generates a self-signed certificate and saves it as a PFX file.
-    /// </summary>
-    /// <param name="outputPath">Path where the certificate will be saved.</param>
-    /// <param name="password">Password for PFX file.</param>
-    /// <param name="subject">Certificate subject (e.g., "CN=MyApp").</param>
-    /// <param name="validYears">Validity period in years (default: 1).</param>
-    /// <param name="keySize">RSA key size in bits: 2048, 3072, or 4096 (default: 2048).</param>
-    /// <param name="overwrite">If true, overwrites existing files; otherwise throws if files exist.</param>
-    /// <returns>The generated certificate.</returns>
-    [Obsolete("Use GenerateAndSavePfx or GenerateAndSavePem instead.")]
-    public static X509Certificate2 GenerateAndSave(
-        string outputPath,
-        string password,
-        string subject,
-        int validYears = 1,
-        int keySize = 2048,
-        bool overwrite = false)
-    {
-        return GenerateAndSavePfx(outputPath, password, subject, validYears, keySize, overwrite);
-    }
-
-    /// <summary>
     /// Converts a certificate from PFX to PEM format.
     /// </summary>
     /// <param name="pfxPath">Path to input PFX file.</param>
