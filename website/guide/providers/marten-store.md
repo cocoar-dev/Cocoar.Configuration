@@ -1,9 +1,9 @@
 # Marten Store
 
-`Cocoar.Configuration.Marten` is a ready-made [Writable Store](/guide/providers/writable-store) backend that persists overrides in [Marten](https://martendb.io/) (a PostgreSQL document store). Its headline feature is **tenant-aware, database-per-tenant** storage: with Marten multi-tenancy, each tenant's configuration overlay lives in that tenant's own database.
+`Cocoar.Configuration.WritableStore.Marten` is a ready-made [Writable Store](/guide/providers/writable-store) backend that persists overrides in [Marten](https://martendb.io/) (a PostgreSQL document store). Its headline feature is **tenant-aware, database-per-tenant** storage: with Marten multi-tenancy, each tenant's configuration overlay lives in that tenant's own database.
 
 ```shell
-dotnet add package Cocoar.Configuration.Marten
+dotnet add package Cocoar.Configuration.WritableStore.Marten
 ```
 
 It is an opt-in integration package — it intentionally takes a Marten dependency. Consumers who don't reference it pay nothing.
@@ -46,7 +46,7 @@ A `null`/blank tenant uses Marten's default tenant — the single-database case,
 
 ## Storage model
 
-Overrides are stored as one [`CocoarConfigDocument`](https://github.com/cocoar-dev/cocoar.configuration/tree/develop/src/Cocoar.Configuration.Marten) per configuration type:
+Overrides are stored as one [`CocoarConfigDocument`](https://github.com/cocoar-dev/cocoar.configuration/tree/develop/src/Cocoar.Configuration.WritableStore.Marten) per configuration type:
 
 - `Id` — the storage key (the configuration type's full name, e.g. `MyApp.Settings.TenantSettings`).
 - `Json` — the sparse overlay JSON the writable store reads and writes.

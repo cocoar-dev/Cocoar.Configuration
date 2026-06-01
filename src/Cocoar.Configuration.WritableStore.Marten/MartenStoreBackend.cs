@@ -2,7 +2,7 @@ using System.Text;
 using Cocoar.Configuration.Providers;
 using global::Marten;
 
-namespace Cocoar.Configuration.Marten;
+namespace Cocoar.Configuration.WritableStore.Marten;
 
 /// <summary>
 /// An <see cref="IStoreBackend"/> that persists WritableStore overlays as <see cref="CocoarConfigDocument"/>

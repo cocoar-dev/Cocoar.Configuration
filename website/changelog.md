@@ -15,7 +15,7 @@
 
 ### Added
 
-**Marten store backend** (`Cocoar.Configuration.Marten`)
+**Marten store backend** (`Cocoar.Configuration.WritableStore.Marten`)
 - New opt-in package: `MartenStoreBackend` persists WritableStore overrides in [Marten](https://martendb.io/) (PostgreSQL) — one `CocoarConfigDocument` per configuration type.
 - `FromMartenStore()` service-backed (Layer-2) rule extension resolves the `IDocumentStore` from DI. Combine with `.TenantScoped()` for **database-per-tenant** configuration: each tenant's overlay lives in its own database (Marten multi-tenancy), selected from `accessor.Tenant`.
 

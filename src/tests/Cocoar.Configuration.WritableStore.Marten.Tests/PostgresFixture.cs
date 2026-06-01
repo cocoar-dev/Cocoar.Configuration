@@ -1,6 +1,6 @@
 using Testcontainers.PostgreSql;
 
-namespace Cocoar.Configuration.Marten.Tests;
+namespace Cocoar.Configuration.WritableStore.Marten.Tests;
 
 /// <summary>
 /// Spins up a throwaway PostgreSQL container for the Marten backend tests and creates one database per test

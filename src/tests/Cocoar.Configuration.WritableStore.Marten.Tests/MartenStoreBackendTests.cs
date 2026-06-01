@@ -1,7 +1,7 @@
 using System.Text;
 using global::Marten;
 
-namespace Cocoar.Configuration.Marten.Tests;
+namespace Cocoar.Configuration.WritableStore.Marten.Tests;
 
 /// <summary>
 /// Integration tests for <see cref="MartenStoreBackend"/> against a real PostgreSQL instance. They self-skip

@@ -4,7 +4,7 @@ using Cocoar.Configuration.Providers;
 using global::Marten;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Cocoar.Configuration.Marten;
+namespace Cocoar.Configuration.WritableStore.Marten;
 
 /// <summary>
 /// Service-backed (Layer-2, ADR-006) rule factory that backs a WritableStore with Marten. Valid only inside

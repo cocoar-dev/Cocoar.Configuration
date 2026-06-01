@@ -78,7 +78,7 @@ Bridge from `Microsoft.Extensions.Configuration` sources (Azure Key Vault, custo
 <PackageReference Include="Cocoar.Configuration.MicrosoftAdapter" Version="6.*" />
 ```
 
-### Cocoar.Configuration.Marten
+### Cocoar.Configuration.WritableStore.Marten
 
 Marten (PostgreSQL document store) backend for the WritableStore. Persists writable configuration overlays as documents, with first-class support for Marten database-per-tenant multi-tenancy so each tenant's configuration lives in its own database. Opt-in package — it intentionally takes a Marten dependency; consumers who don't reference it pay nothing.
 
@@ -87,7 +87,7 @@ Marten (PostgreSQL document store) backend for the WritableStore. Persists writa
 - **Key types:** `MartenStoreBackend`, `CocoarConfigDocument`, `FromMartenStore()` extension method
 
 ```xml
-<PackageReference Include="Cocoar.Configuration.Marten" Version="6.*" />
+<PackageReference Include="Cocoar.Configuration.WritableStore.Marten" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.Analyzers

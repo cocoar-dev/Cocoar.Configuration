@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Cocoar.Configuration.Marten\Cocoar.Configuration.Marten.csproj" />
+    <ProjectReference Include="..\..\Cocoar.Configuration.WritableStore.Marten\Cocoar.Configuration.WritableStore.Marten.csproj" />
   </ItemGroup>
 
   <ItemGroup>

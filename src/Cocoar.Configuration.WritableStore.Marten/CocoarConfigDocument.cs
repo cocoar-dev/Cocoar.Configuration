@@ -1,4 +1,4 @@
-namespace Cocoar.Configuration.Marten;
+namespace Cocoar.Configuration.WritableStore.Marten;
 
 /// <summary>
 /// The Marten document that persists one WritableStore overlay. There is one document per configuration type:

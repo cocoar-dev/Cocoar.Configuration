@@ -14,7 +14,7 @@
 - `X509CertificateGenerator.GenerateAndSave(...)` — use `GenerateAndSavePfx(...)` / `GenerateAndSavePem(...)`.
 
 ### Added
-- **`Cocoar.Configuration.Marten`** — opt-in Marten (PostgreSQL) WritableStore backend. `MartenStoreBackend` persists overrides as one `CocoarConfigDocument` per configuration type; `FromMartenStore()` (service-backed, Layer-2) resolves the `IDocumentStore` from DI and, combined with `.TenantScoped()`, gives **database-per-tenant** configuration (each tenant's overlay in its own database).
+- **`Cocoar.Configuration.WritableStore.Marten`** — opt-in Marten (PostgreSQL) WritableStore backend. `MartenStoreBackend` persists overrides as one `CocoarConfigDocument` per configuration type; `FromMartenStore()` (service-backed, Layer-2) resolves the `IDocumentStore` from DI and, combined with `.TenantScoped()`, gives **database-per-tenant** configuration (each tenant's overlay in its own database).
 - **WritableStore `PatchAsync`** — `IWritableStore<T>.PatchAsync(b => b.Set(...).SetSecret(...).Reset(...))` applies any number of mutations as one atomic write and one recompute; single-value `SetAsync` / `SetSecretAsync` / `ResetAsync` delegate to it.
 
 ### Changed
