@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [6.1.0] — 2026-06-03
 
 ### Added
 - **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (`true`/`false` → boolean, integers/floats → number, `null`/`~` → null); quoted and block scalars stay strings.
