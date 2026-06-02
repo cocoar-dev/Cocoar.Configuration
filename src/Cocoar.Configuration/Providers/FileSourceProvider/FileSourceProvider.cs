@@ -12,7 +12,7 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
     private readonly SimpleSubject<FileSystemChange> _changeSubject = new();
     private readonly ResilientFileSystemMonitor _monitor;
     private readonly CancellationTokenSource _cts = new();
-    private bool _disposed;
+    private int _disposed;
 
     public FileSourceProvider(FileSourceProviderOptions options) : base(options)
     {
@@ -142,17 +142,23 @@ public sealed class FileSourceProvider : ConfigurationProvider<FileSourceProvide
 
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
-            return;
+            return; // already disposed (race-safe)
         }
 
-        _disposed = true;
+        try
+        {
+            _cts.Cancel();
+        }
+        catch (Exception)
+        {
+            // A cancellation callback faulting must not prevent the rest of Dispose from running.
+        }
 
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _monitor?.Dispose();
-        _changeSubject?.Dispose();
+        _cts.Dispose();
+        _monitor.Dispose();
+        _changeSubject.Dispose();
     }
 
     /// <summary>
