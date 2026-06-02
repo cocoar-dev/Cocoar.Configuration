@@ -106,9 +106,32 @@ internal sealed class SseObservable(HttpProvider provider, HttpProviderQueryOpti
         // Reset failure counters on successful connection
         provider.ResetFailureCount();
 
+        var idleTimeout = provider.Options.SseReadIdleTimeout;
+
         while (!ct.IsCancellationRequested)
         {
-            var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+            string? line;
+            if (idleTimeout is { } idle && idle > TimeSpan.Zero)
+            {
+                // Bound each read: a half-open connection (server/network died without FIN) would otherwise
+                // block ReadLineAsync forever — HttpClient.Timeout does not cover the streamed body. On idle,
+                // throw so RunAsync treats it as a dead connection and reconnects with backoff.
+                using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                readCts.CancelAfter(idle);
+                try
+                {
+                    line = await reader.ReadLineAsync(readCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    throw new TimeoutException(
+                        $"SSE read idle for {idle.TotalSeconds:F0}s; treating the connection as dead and reconnecting.");
+                }
+            }
+            else
+            {
+                line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+            }
 
             if (line is null)
             {
