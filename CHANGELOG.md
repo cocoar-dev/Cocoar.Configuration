@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (booleans, numbers, null); quoted and block scalars stay strings.
+- **dotenv** — `FromDotEnv(path)` built into the core package (no dependency): `KEY=value`, `#` comments, optional `export` prefix, quotes, inline comments, and `:`/`__` key nesting; reactive.
+
+### Changed
+- Extracted a reusable `FileBackedProvider` base (watching, path/symlink security, debounce, disposal); `FileSourceProvider` is now a thin subclass (behavior unchanged).
+- Documented the provider-contract invariants on `ConfigurationProvider` / `IProviderConfiguration`.
+- Added a parameterless `FromCommandLine()`.
+
+### Fixed
+- **Observable provider**: fetch no longer hangs on a cold / complete-without-emit source, and no longer leaks its one-shot subscription.
+- **HTTP provider**: dispose the `HttpResponseMessage` after fetch; optional `SseReadIdleTimeout` reconnects a half-open SSE stream.
+- `FileSourceProvider.Dispose` is race-safe and guards cancellation.
+
+### Removed
+- Dead internal `MicrosoftConfigurationSource*` types (the `FromMicrosoftSource` API was removed in 6.0.0).
+
 ## [6.0.0] - 2026-06-01
 
 > Major release. The headline change is the move off .NET 8.

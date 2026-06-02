@@ -62,6 +62,8 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/guide/providers/overview' },
             { text: 'File', link: '/guide/providers/file' },
+            { text: 'YAML', link: '/guide/providers/yaml' },
+            { text: 'Dotenv (.env)', link: '/guide/providers/dotenv' },
             { text: 'Environment Variables', link: '/guide/providers/environment' },
             { text: 'Command Line', link: '/guide/providers/command-line' },
             { text: 'HTTP Polling', link: '/guide/providers/http-polling' },

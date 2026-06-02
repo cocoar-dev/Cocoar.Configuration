@@ -14,6 +14,7 @@
     <Project Path="tests/Cocoar.Configuration.WritableStore.Marten.Tests/Cocoar.Configuration.WritableStore.Marten.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.MultiTenant.Tests/Cocoar.Configuration.MultiTenant.Tests.csproj" />
     <Project Path="tests/Cocoar.Configuration.ServiceBacked.Tests/Cocoar.Configuration.ServiceBacked.Tests.csproj" />
+    <Project Path="tests/Cocoar.Configuration.Yaml.Tests/Cocoar.Configuration.Yaml.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="Examples/AspNetCoreExample/AspNetCoreExample.csproj" />
@@ -44,4 +45,5 @@
   <Project Path="Cocoar.Configuration/Cocoar.Configuration.csproj" />
   <Project Path="Cocoar.Configuration.Abstractions/Cocoar.Configuration.Abstractions.csproj" />
   <Project Path="Cocoar.Configuration.Secrets.Cli/Cocoar.Configuration.Secrets.Cli.csproj" />
+  <Project Path="Cocoar.Configuration.Yaml/Cocoar.Configuration.Yaml.csproj" />
 </Solution>
