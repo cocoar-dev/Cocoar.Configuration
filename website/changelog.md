@@ -1,5 +1,27 @@
 # Changelog
 
+## [6.1.0] — 2026-06-03
+
+### Added
+- **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (`true`/`false` → boolean, integers/floats → number, `null`/`~` → null); quoted and block scalars stay strings.
+- **`Cocoar.Configuration.Toml`** — new opt-in TOML file provider (`FromTomlFile`) with reactive file-watching (takes a Tomlyn dependency). TOML is strongly typed, so its values (strings, integers, floats, booleans, dates, arrays, tables, arrays-of-tables) map unambiguously to JSON — no scalar-style guessing as in YAML. Date/time values are emitted as ISO-8601 strings.
+- **dotenv** — `FromDotEnv(path)` built into the core package (no dependency): `KEY=value` lines, `#` comments, optional `export` prefix, single/double quotes, inline comments, and `:`/`__` key nesting; reactive.
+- **INI** — `FromIniFile(path)` built into the **core** package (no dependency): classic `[section]` headers, `key=value` lines, `;`/`#` whole-line comments, `.`/`:` nesting (matching the environment-variable convention), and quote stripping. Inline comments are **not** stripped, so values containing `;`/`#` (e.g. connection strings) survive intact. Values are strings; the binder coerces. Reactive.
+- **Kubernetes ConfigMap / Secret support** — opt-in `followSymlinks` parameter on `FromFile` / `FromYamlFile` / `FromDotEnv` (and `FileSourceProviderOptions.FollowSymlinks`). A ConfigMap-mounted file is a symlink whose content is updated by an atomic swap of the sibling `..data` symlink rather than by rewriting the file. With `followSymlinks` enabled, the symlinked file is read (its resolved final target must still resolve **within** the configured directory — an escaping symlink is rejected) and the atomic swap is detected and hot-reloaded (via Cocoar.FileSystem 2.3.0 symlink-target tracking). **Off by default** — symlinks remain rejected as defense in depth.
+
+### Changed
+- Extracted a reusable `FileBackedProvider` base (watching, path/symlink security, debounce, disposal) so file-format providers share one implementation; `FileSourceProvider` is now a thin subclass (behavior unchanged).
+- Documented the provider-contract invariants on `ConfigurationProvider` / `IProviderConfiguration`.
+- Added a parameterless `FromCommandLine()` (default `--`, no key filter).
+
+### Fixed
+- **Observable provider**: fetch no longer hangs on a cold / complete-without-emit source, and no longer leaks its one-shot subscription on synchronous replay.
+- **HTTP provider**: the `HttpResponseMessage` is now disposed after fetch; added optional `SseReadIdleTimeout` that reconnects a half-open SSE stream.
+- `FileSourceProvider.Dispose` is race-safe and guards cancellation.
+
+### Removed
+- Dead internal `MicrosoftConfigurationSource*` types (the `FromMicrosoftSource` API was removed in 6.0.0).
+
 ## [6.0.0] — 2026-06-01
 
 > Major release. The headline change is the move off .NET 8.

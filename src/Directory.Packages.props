@@ -4,9 +4,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Cocoar.Capabilities" Version="1.2.0" />
-    <PackageVersion Include="Cocoar.FileSystem" Version="2.2.0" />
+    <PackageVersion Include="Cocoar.FileSystem" Version="2.3.0" />
     <PackageVersion Include="Cocoar.Json.Mutable" Version="1.2.0" />
     <PackageVersion Include="Marten" Version="9.3.4" />
+    <PackageVersion Include="Tomlyn" Version="2.3.2" />
+    <PackageVersion Include="YamlDotNet" Version="18.0.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

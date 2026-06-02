@@ -6,8 +6,9 @@ public sealed class FileSourceRuleOptions
     public string Filename { get; }
     public TimeSpan? DebounceTime { get; }
     public TimeSpan? PollingInterval { get; }
-    
-    public FileSourceRuleOptions(string directory, string filename, TimeSpan? debounceTime = null, TimeSpan? pollingInterval = null)
+    public bool FollowSymlinks { get; }
+
+    public FileSourceRuleOptions(string directory, string filename, TimeSpan? debounceTime = null, TimeSpan? pollingInterval = null, bool followSymlinks = false)
     {
         if (string.IsNullOrWhiteSpace(directory))
         {
@@ -23,9 +24,10 @@ public sealed class FileSourceRuleOptions
         Filename = filename;
         DebounceTime = debounceTime;
         PollingInterval = pollingInterval;
+        FollowSymlinks = followSymlinks;
     }
 
-    public static FileSourceRuleOptions FromFilePath(string filePath, TimeSpan? debounceTime = null, TimeSpan? pollingInterval = null)
+    public static FileSourceRuleOptions FromFilePath(string filePath, TimeSpan? debounceTime = null, TimeSpan? pollingInterval = null, bool followSymlinks = false)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -43,9 +45,9 @@ public sealed class FileSourceRuleOptions
             throw new ArgumentException("filePath must include a filename", nameof(filePath));
         }
 
-        return new(directory, filename, debounceTime, pollingInterval);
+        return new(directory, filename, debounceTime, pollingInterval, followSymlinks);
     }
 
-    public FileSourceProviderOptions ToProviderOptions() => new(Directory, PollingInterval);
+    public FileSourceProviderOptions ToProviderOptions() => new(Directory, PollingInterval, FollowSymlinks);
     public FileSourceProviderQueryOptions ToQueryOptions() => new(Filename, DebounceTime);
 }
