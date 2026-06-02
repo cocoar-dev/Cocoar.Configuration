@@ -5,6 +5,7 @@
 ### Added
 - **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (booleans, numbers, null); quoted and block scalars stay strings.
 - **dotenv** — `FromDotEnv(path)` built into the core package (no dependency): `KEY=value`, `#` comments, optional `export` prefix, quotes, inline comments, and `:`/`__` key nesting; reactive.
+- **Kubernetes ConfigMap / Secret support** — opt-in `followSymlinks` on `FromFile` / `FromYamlFile` / `FromDotEnv` (and `FileSourceProviderOptions.FollowSymlinks`). A ConfigMap-mounted file is a symlink whose content is updated by an atomic `..data` symlink swap; with this enabled the file is read (its resolved target must still stay within the configured directory — escaping symlinks are rejected) and the atomic swap is detected and hot-reloaded (via Cocoar.FileSystem 2.3.0 symlink-target tracking). Default off — symlinks remain rejected as before.
 
 ### Changed
 - Extracted a reusable `FileBackedProvider` base (watching, path/symlink security, debounce, disposal); `FileSourceProvider` is now a thin subclass (behavior unchanged).

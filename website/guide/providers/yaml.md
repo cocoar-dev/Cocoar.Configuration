@@ -4,7 +4,7 @@ description: "FromYamlFile provider (Cocoar.Configuration.Yaml) — reactive .ya
 
 # YAML Provider
 
-`Cocoar.Configuration.Yaml` reads `.yaml` / `.yml` files into the configuration pipeline, with the same reactive file-watching, path resolution, and security as the [File provider](/guide/providers/file). Opt-in package (it takes a YamlDotNet dependency).
+`Cocoar.Configuration.Yaml` reads `.yaml` / `.yml` files into the configuration pipeline, with the same reactive file-watching, path resolution, and security as the [File provider](/guide/providers/file) — including `followSymlinks: true` for [Kubernetes ConfigMap / Secret mounts](/guide/providers/file#kubernetes-configmap-secret-mounts). Opt-in package (it takes a YamlDotNet dependency).
 
 ```shell
 dotnet add package Cocoar.Configuration.Yaml

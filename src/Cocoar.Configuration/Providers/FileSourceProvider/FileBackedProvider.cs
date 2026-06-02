@@ -23,10 +23,20 @@ public abstract class FileBackedProvider
 
     protected FileBackedProvider(FileSourceProviderOptions options) : base(options)
     {
-        _monitor = ResilientFileSystemMonitor
+        var monitorBuilder = ResilientFileSystemMonitor
             .Watch(options.Directory, "*")
-            .WithPollingFallback(options.PollingInterval)
-            .Build();
+            .WithPollingFallback(options.PollingInterval);
+
+        if (options.FollowSymlinks)
+        {
+            // Kubernetes ConfigMap/Secret mounts update content by atomically swapping a sibling
+            // "..data" symlink — the watched file's name and metadata are unchanged. Tracking the
+            // resolved symlink target lets the monitor detect that swap and emit a change for the
+            // user-visible file. (Capability lives in Cocoar.FileSystem 2.3.0+.)
+            monitorBuilder = monitorBuilder.WithSymlinkTargetTracking();
+        }
+
+        _monitor = monitorBuilder.Build();
 
         // Background task for event processing — observe faults so they don't go unnoticed
         var monitorTask = Task.Run(async () => await ProcessFileSystemEventsAsync(_cts.Token).ConfigureAwait(false));
@@ -144,12 +154,34 @@ public abstract class FileBackedProvider
                 $"If this file is created later at runtime, mark the rule as Optional.", fullPath);
         }
 
-        // Reject symlinks / reparse points to prevent symlink escape attacks
+        // Symlink / reparse-point handling. By default symlinks are rejected (defense in depth against
+        // symlink-escape). When FollowSymlinks is enabled (e.g. Kubernetes ConfigMap/Secret mounts, where
+        // every key is a symlink), the symlink is allowed only if its resolved final target stays within
+        // the configured directory — preserving the escape protection.
         var fileInfo = new FileInfo(fullPath);
         if ((fileInfo.Attributes & FileAttributes.ReparsePoint) != 0)
         {
-            throw new UnauthorizedAccessException(
-                $"Symlinks are not allowed for config files: {fullPath}");
+            if (!ProviderOptions.FollowSymlinks)
+            {
+                throw new UnauthorizedAccessException(
+                    $"Symlinks are not allowed for config files: {fullPath}. " +
+                    $"Enable FollowSymlinks to read symlinked files (e.g. Kubernetes ConfigMap/Secret mounts).");
+            }
+
+            var finalTarget = fileInfo.ResolveLinkTarget(returnFinalTarget: true);
+            if (finalTarget is not null)
+            {
+                var resolvedFull = Path.GetFullPath(finalTarget.FullName);
+                if (!resolvedFull.StartsWith(baseDirWithSep, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(resolvedFull, baseDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new UnauthorizedAccessException(
+                        $"Symlink target escapes the configured directory: '{filename}' resolves to " +
+                        $"'{resolvedFull}', outside '{baseDir}'.");
+                }
+            }
+            // The OS re-resolves the link on the read below; a swap between this check and the read is
+            // only exploitable by something that can already write into the mount, which is out of scope.
         }
 
         // Use FileReader for secure file reading with shared access and BOM handling

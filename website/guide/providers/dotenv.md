@@ -4,7 +4,7 @@ description: "FromDotEnv provider (core, no dependency) — .env KEY=value parsi
 
 # Dotenv (.env) Provider
 
-`FromDotEnv` reads a 12-factor-style `.env` file into the configuration pipeline. It is **built into the core package** (no extra dependency) and uses the same reactive file-watching as the [File provider](/guide/providers/file).
+`FromDotEnv` reads a 12-factor-style `.env` file into the configuration pipeline. It is **built into the core package** (no extra dependency) and uses the same reactive file-watching as the [File provider](/guide/providers/file) — including `followSymlinks: true` for [Kubernetes ConfigMap / Secret mounts](/guide/providers/file#kubernetes-configmap-secret-mounts).
 
 ```csharp
 builder.AddCocoarConfiguration(c => c
