@@ -4,7 +4,9 @@
 
 ### Added
 - **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (booleans, numbers, null); quoted and block scalars stay strings.
+- **`Cocoar.Configuration.Toml`** — new opt-in TOML file provider (`FromTomlFile`) with reactive file-watching (Tomlyn dependency). TOML's typed values (string/int/float/bool/datetime/array/table/array-of-tables) map unambiguously to JSON.
 - **dotenv** — `FromDotEnv(path)` built into the core package (no dependency): `KEY=value`, `#` comments, optional `export` prefix, quotes, inline comments, and `:`/`__` key nesting; reactive.
+- **INI** — `FromIniFile(path)` built into the core package (no dependency): `[section]` headers, `key=value`, `;`/`#` whole-line comments, `.`/`:` nesting, quote stripping; values containing `;`/`#` (e.g. connection strings) are kept; reactive.
 - **Kubernetes ConfigMap / Secret support** — opt-in `followSymlinks` on `FromFile` / `FromYamlFile` / `FromDotEnv` (and `FileSourceProviderOptions.FollowSymlinks`). A ConfigMap-mounted file is a symlink whose content is updated by an atomic `..data` symlink swap; with this enabled the file is read (its resolved target must still stay within the configured directory — escaping symlinks are rejected) and the atomic swap is detected and hot-reloaded (via Cocoar.FileSystem 2.3.0 symlink-target tracking). Default off — symlinks remain rejected as before.
 
 ### Changed
