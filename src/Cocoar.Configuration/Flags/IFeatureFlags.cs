@@ -5,8 +5,12 @@ namespace Cocoar.Configuration.Flags;
 /// Implement this on a partial class — the source generator produces the constructor, Config property,
 /// and <c>IsExpired</c> property.
 /// </summary>
-/// <typeparam name="TConfig">The configuration type (or value tuple of types) this flag class reads from.</typeparam>
-public interface IFeatureFlags<TConfig> where TConfig : class
+/// <typeparam name="TConfig">
+/// The configuration type this flag class reads from, or a value tuple of types to read from several at once.
+/// Unconstrained on purpose: the generator maps this straight onto <c>IReactiveConfig&lt;TConfig&gt;</c>, which is
+/// equally unconstrained, and a <c>class</c> constraint would reject the documented tuple form.
+/// </typeparam>
+public interface IFeatureFlags<TConfig>
 {
     /// <summary>
     /// When should these flags be removed from code?
