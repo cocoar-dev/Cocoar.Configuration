@@ -38,6 +38,12 @@ internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDi
     internal ConfigurationState State { get; }
     internal ProviderRegistry ProviderRegistry { get; }
     internal ConfigurationAccessor Accessor { get; }
+
+    /// <summary>
+    /// The accessor handed to the engine for rule factories and <c>.When()</c> predicates. Resolves in-flight
+    /// pass state before the committed backplane; never handed to application code.
+    /// </summary>
+    internal ConfigurationAccessor RecomputeAccessor { get; }
     internal ReactiveConfigManager ReactiveConfigManager { get; }
     internal ReactiveConfigurationFactory ReactiveFactory { get; }
     internal ConfigurationEngine Engine { get; }
@@ -73,6 +79,13 @@ internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDi
         ProviderRegistry = new ProviderRegistry(_logger, enableDiagnostics: false, factory: providerFactory);
         Accessor = new ConfigurationAccessor(State, _bindingRegistry, _logger, Rules, tenantId);
         Accessor.SetCapabilityScope(_capabilityScope);
+
+        // Rule factories must observe the pass they are running in, not the last committed one — see
+        // guide/configuration/config-aware.md ("Re-evaluation on Change"). That is why the engine gets its own
+        // accessor: application-facing reads keep seeing committed state only.
+        RecomputeAccessor = new ConfigurationAccessor(
+            State, _bindingRegistry, _logger, Rules, tenantId, preferPendingState: true);
+        RecomputeAccessor.SetCapabilityScope(_capabilityScope);
         ReactiveConfigManager = new ReactiveConfigManager(_logger, _bindingRegistry);
 
         // Reactive reads bind to the global ConfigManager for the global pipeline (byte-identical) and to this
@@ -84,24 +97,19 @@ internal sealed class TenantPipeline : IWritableStoreHost, IDisposable, IAsyncDi
         Engine = new ConfigurationEngine(State, _logger);
     }
 
-    /// <param name="recomputeAccessor">
-    /// The <see cref="IConfigurationAccessor"/> handed to the engine for recompute-window fallback reads and
-    /// provider option factories. For the global pipeline this is the owning <see cref="ConfigManager"/>
-    /// (byte-identical to before); for a tenant pipeline it is the tenant's own accessor.
-    /// </param>
-    internal void Initialize(IConfigurationAccessor recomputeAccessor, Action<int> scheduleRecompute)
+    internal void Initialize(Action<int> scheduleRecompute)
     {
         Engine.InitializeAndCompute(
-            Rules, RuleManagers, ProviderRegistry, recomputeAccessor,
+            Rules, RuleManagers, ProviderRegistry, RecomputeAccessor,
             _bindingRegistry, _capabilityScope, scheduleRecompute, _debounceMilliseconds);
         ReactiveConfigManager.SetBackplane(State.Backplane);
         Volatile.Write(ref _initialized, 1);
     }
 
-    internal async Task InitializeAsync(IConfigurationAccessor recomputeAccessor, Action<int> scheduleRecompute, CancellationToken cancellationToken)
+    internal async Task InitializeAsync(Action<int> scheduleRecompute, CancellationToken cancellationToken)
     {
         await Engine.InitializeAndComputeAsync(
-            Rules, RuleManagers, ProviderRegistry, recomputeAccessor,
+            Rules, RuleManagers, ProviderRegistry, RecomputeAccessor,
             _bindingRegistry, _capabilityScope, scheduleRecompute, _debounceMilliseconds, cancellationToken).ConfigureAwait(false);
         ReactiveConfigManager.SetBackplane(State.Backplane);
         Volatile.Write(ref _initialized, 1);

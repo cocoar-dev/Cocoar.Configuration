@@ -81,7 +81,12 @@ internal sealed class RuleManager : IRuleManager
 
         var queryOptions = _rule.ResolveQueryOptions(accessor);
         EnsureSubscription(queryOptions);
-        var newTransformKey = ComputeTransformKey(_rule.Options);
+
+        // The query says WHAT is read — file name, URL, environment prefix — and a config-aware factory may
+        // return a different one on the next pass. It is not part of the provider key (a file provider is keyed
+        // by directory), so without folding it in here the cached bytes of the PREVIOUS query would stay valid
+        // and the rule would keep serving the old source forever.
+        var newTransformKey = ComputeTransformKey(_rule.Options) + "|" + ComputeQueryKey(queryOptions);
         _cache.UpdateTransformKey(newTransformKey);
 
         try

@@ -18,7 +18,9 @@ public sealed class StaticJsonProvider(StaticJsonProviderOptions options)
     public override Task<byte[]> FetchConfigurationBytesAsync(StaticJsonProviderQueryOptions query,
         CancellationToken ct = default)
     {
-        return Task.FromResult(_cachedBytes);
+        // Callers may zero the array they receive, and one provider instance is shared by every
+        // rule with identical payload, so the cached buffer must never leave this object.
+        return Task.FromResult((byte[])_cachedBytes.Clone());
     }
 
     public override IObservable<byte[]> ChangesAsBytes(StaticJsonProviderQueryOptions queryOptions)

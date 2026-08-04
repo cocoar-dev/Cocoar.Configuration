@@ -177,8 +177,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
             composer?.Build();
             _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
 
-            // The global pipeline's recompute accessor is `this` — byte-identical to before.
-            _global.Initialize(this, ScheduleRecompute);
+            _global.Initialize(ScheduleRecompute);
         }
         return this;
     }
@@ -194,7 +193,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
             composer?.Build();
             _capabilityScope.Owner.GetComposition()?.UsingEach<IDeferredConfiguration>(c => c.Apply());
 
-            await _global.InitializeAsync(this, ScheduleRecompute, cancellationToken).ConfigureAwait(false);
+            await _global.InitializeAsync(ScheduleRecompute, cancellationToken).ConfigureAwait(false);
         }
         return this;
     }
@@ -340,7 +339,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     internal string HealthDescription => _state.HealthDescription;
 
     internal void ScheduleRecompute(int startIndex) =>
-        _engine.ScheduleRecompute(_ruleManagers, this, startIndex);
+        _engine.ScheduleRecompute(_ruleManagers, _global.RecomputeAccessor, startIndex);
 
     internal Task? CurrentRecomputeTask => _engine.CurrentRecomputeTask;
 
@@ -350,7 +349,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// concurrent provider-change signal cannot cancel activation before Layer 2 has committed (ADR-006 §7 readiness).
     /// </summary>
     internal Task RecomputeNowAsync(int startIndex, CancellationToken cancellationToken = default) =>
-        _engine.RecomputeAndUpdateHealthAsync(_ruleManagers, this, startIndex, cancellationToken);
+        _engine.RecomputeAndUpdateHealthAsync(_ruleManagers, _global.RecomputeAccessor, startIndex, cancellationToken);
 
     /// <summary>
     /// Runs the same direct recompute on every already-initialized tenant pipeline from <paramref name="startIndex"/>.
@@ -384,7 +383,7 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
                 // isolates the narrow dispose-race (a tenant removed mid-fan-out can surface ObjectDisposed /
                 // index races from its health update) so one removed/faulting tenant never blocks the others.
                 await pipeline.Engine.RecomputeAndUpdateHealthAsync(
-                    pipeline.RuleManagers, pipeline.Accessor, startIndex, cancellationToken).ConfigureAwait(false);
+                    pipeline.RuleManagers, pipeline.RecomputeAccessor, startIndex, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -505,8 +504,8 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
             // lock-ordering hazards a shared seed-from-global path would carry. The trade-off is linear resource use
             // (N tenants re-run the base); the seed-from-global sharing optimization is a documented, deferred TODO.
             await pipeline.InitializeAsync(
-                pipeline.Accessor,
-                startIndex => pipeline.Engine.ScheduleRecompute(pipeline.RuleManagers, pipeline.Accessor, startIndex),
+                startIndex => pipeline.Engine.ScheduleRecompute(
+                    pipeline.RuleManagers, pipeline.RecomputeAccessor, startIndex),
                 cancellationToken).ConfigureAwait(false);
 
             return pipeline;
