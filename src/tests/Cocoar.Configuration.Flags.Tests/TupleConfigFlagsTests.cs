@@ -1,3 +1,5 @@
+using Cocoar.Configuration.Core;
+using Cocoar.Configuration.Providers;
 using Cocoar.Configuration.Reactive;
 using NSubstitute;
 
@@ -55,6 +57,43 @@ public class TupleConfigFlagsTests
             new TenantConfig { AllowExperiments = false }));
 
         Assert.False(new RolloutFlags(reactive).NewCheckout());
+    }
+
+    /// <summary>
+    /// The path that actually matters: registration via <c>UseFeatureFlags</c> and resolution through
+    /// <c>GetFeatureFlags&lt;T&gt;()</c>, which reflects over the generated constructor and calls
+    /// <c>ConfigManager.GetReactiveConfig&lt;TConfig&gt;()</c> with the tuple type. Constructing the class
+    /// directly (as the tests above do) would not exercise that.
+    /// </summary>
+    [Fact]
+    public void FlagClass_WithTupleConfig_ResolvesThroughTheConfigManager()
+    {
+        using var manager = ConfigManager.Create(c => c
+            .UseConfiguration(rules =>
+            [
+                rules.For<FeatureConfig>().FromStaticJson("""{"NewCheckoutEnabled":true}"""),
+                rules.For<TenantConfig>().FromStaticJson("""{"AllowExperiments":true}"""),
+            ])
+            .UseFeatureFlags(flags => [flags.Register<RolloutFlags>()]));
+
+        var flags = manager.GetFeatureFlags<RolloutFlags>();
+
+        Assert.True(flags.NewCheckout());
+    }
+
+    /// <summary>Same for the entitlement path, which resolves through its own setup and cache.</summary>
+    [Fact]
+    public void EntitlementClass_WithTupleConfig_ResolvesThroughTheConfigManager()
+    {
+        using var manager = ConfigManager.Create(c => c
+            .UseConfiguration(rules =>
+            [
+                rules.For<FeatureConfig>().FromStaticJson("""{"NewCheckoutEnabled":false}"""),
+                rules.For<TenantConfig>().FromStaticJson("""{"AllowExperiments":true}"""),
+            ])
+            .UseEntitlements(e => [e.Register<TenantEntitlements>()]));
+
+        Assert.True(manager.GetEntitlements<TenantEntitlements>().MayExperiment());
     }
 
     [Fact]
