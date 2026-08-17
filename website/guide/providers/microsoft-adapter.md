@@ -87,8 +87,11 @@ If a third-party library provides configuration through `IConfiguration`, pass i
 rule.For<VaultConfig>().FromIConfiguration(vaultConfiguration)
 ```
 
+## Collections
+
+Microsoft collection keys such as `KnownNetworks:0` and `KnownNetworks:1` bind to `List<T>` and one-dimensional array properties. The adapter's raw JSON keeps those indices as object-property names, and Cocoar's target-aware deserializer materializes the collection in numeric order. Index gaps are compacted like they are by the Microsoft binder.
+
 ## Limitations <Badge type="info" text="ADV" />
 
-- **Array keys**: Microsoft uses `Key:0`, `Key:1` for arrays. The adapter converts these to JSON object properties (`"0": "value"`, `"1": "value"`), not JSON arrays. This matches Microsoft's own `IConfiguration` behavior.
 - **Performance**: The adapter reads ALL key-value pairs from `IConfiguration` on each fetch. For very large configurations (thousands of keys), consider using `.Select()` to scope to the relevant section.
 - **One-way bridge**: Changes flow FROM Microsoft configuration TO Cocoar. Cocoar does not write back to `IConfiguration`.

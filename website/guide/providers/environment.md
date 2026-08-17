@@ -1,5 +1,5 @@
 ---
-description: "FromEnvironment provider, case-insensitive prefix filtering, __ and : nesting to JSON, final-override pattern, dynamic per-tenant prefix"
+description: "FromEnvironment provider, case-insensitive prefix filtering, __ and : nesting, indexed collections, final-override pattern, dynamic per-tenant prefix"
 ---
 
 # Environment Variables Provider
@@ -61,6 +61,35 @@ APP_Database:Host=localhost
 # Produces:
 # { "Database": { "Host": "localhost" } }
 ```
+
+## Collections
+
+Use numeric path segments to bind `List<T>` and one-dimensional arrays, following the Microsoft configuration convention:
+
+```shell
+APP_ForwardedHeaders__KnownNetworks__0=10.10.10.0/24
+APP_ForwardedHeaders__KnownNetworks__1=10.20.0.0/16
+```
+
+```json
+{
+  "ForwardedHeaders": {
+    "KnownNetworks": ["10.10.10.0/24", "10.20.0.0/16"]
+  }
+}
+```
+
+Indices are ordered numerically. Gaps are compacted, matching the Microsoft binder: indices `0`, `2`, and `4` produce a three-element collection.
+
+A JSON array can alternatively be supplied as one environment variable. This interpretation is only applied when the target property is a collection; other target types do not gain collection semantics:
+
+```shell
+APP_ForwardedHeaders__KnownNetworks='["10.10.10.0/24","10.20.0.0/16"]'
+```
+
+::: warning Collection overrides
+Cocoar configuration layers replace collections as a whole. An indexed environment-variable contribution therefore replaces an array from an earlier file rule; provide every element that the effective collection should contain.
+:::
 
 ## Common Pattern
 

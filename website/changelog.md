@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.0.1] — 2026-08-17
+
+### Fixed
+- Environment, command-line, dotenv, INI, and Microsoft-adapter values with indexed children (`Key__0`, `Key:0`) now bind to `List<T>` and one-dimensional arrays. A collection can also be supplied as a JSON-array string in one value; numeric dictionary keys remain object properties.
+
+### Documentation
+- Documented indexed collection binding and collection replacement across Cocoar layers. The runnable Microsoft-adapter example now compares Microsoft binding, direct environment binding, and adapter binding with the same indexed values.
+
+### Maintenance
+- Updated the PostgreSQL testcontainer dependency to consume the patched SSH.NET release and refreshed documentation build dependencies where compatible security fixes were available.
+
 ## [6.0.0] — 2026-06-01
 
 > Major release. The headline change is the move off .NET 8.

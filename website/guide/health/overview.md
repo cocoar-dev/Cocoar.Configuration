@@ -48,6 +48,7 @@ Health behaves differently depending on when a failure occurs:
 **During startup:**
 - Required rule failures **throw immediately** — the application won't start with missing critical configuration
 - Optional rule failures are recorded and health starts as `Degraded`
+- A final merged configuration that cannot be deserialized throws even when its contributing rules are optional, because there is no valid initial snapshot to publish
 
 **At runtime (after a config change):**
 - Required rule failures **roll back** the entire recompute — the last known good configuration is preserved
