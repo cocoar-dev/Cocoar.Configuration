@@ -1,5 +1,17 @@
 # Changelog
 
+## [6.1.1] — 2026-08-17
+
+### Fixed
+- Config-aware provider options, query values, and `.When()` predicates now observe the current recompute pass, so changes to derived file paths, HTTP URLs, environment prefixes, tenant configuration, and service-backed configuration propagate immediately instead of lagging or remaining stale.
+- Environment, command-line, dotenv, INI, and Microsoft-adapter values with indexed children (`Key__0`, `Key:0`) now bind to `List<T>` and one-dimensional arrays. A collection can also be supplied as a JSON-array string in one value; numeric dictionary keys remain object properties.
+
+### Documentation
+- Documented indexed collection binding and collection replacement across Cocoar layers. The runnable Microsoft-adapter example now compares Microsoft binding, direct environment binding, and adapter binding with the same indexed values.
+
+### Maintenance
+- Updated the PostgreSQL testcontainer dependency to consume the patched SSH.NET release and refreshed documentation build dependencies where compatible security fixes were available.
+
 ## [6.1.0] — 2026-06-03
 
 ### Added

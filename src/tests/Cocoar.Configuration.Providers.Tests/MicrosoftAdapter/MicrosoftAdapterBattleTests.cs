@@ -163,6 +163,31 @@ public class MicrosoftAdapterBattleTests : IDisposable
     [Fact]
     [Trait("Type", "Integration")]
     [Trait("Provider", "MicrosoftAdapter")]
+    public void ConfigManager_BindsIndexedConfigurationChildrenToCollection()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ForwardedHeaders:KnownNetworks:4"] = "10.40.0.0/16",
+                ["ForwardedHeaders:KnownNetworks:0"] = "10.10.0.0/16",
+                ["ForwardedHeaders:KnownNetworks:2"] = "10.20.0.0/16"
+            })
+            .Build();
+
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(
+            rules => [rules.For<CollectionConfig>().FromIConfiguration(configuration)]));
+
+        var config = manager.GetConfig<CollectionConfig>();
+
+        Assert.NotNull(config);
+        Assert.Equal(
+            ["10.10.0.0/16", "10.20.0.0/16", "10.40.0.0/16"],
+            config.ForwardedHeaders.KnownNetworks);
+    }
+
+    [Fact]
+    [Trait("Type", "Integration")]
+    [Trait("Provider", "MicrosoftAdapter")]
     public void ConfigManager_IntegratesWithIConfiguration()
     {
         var configuration = new ConfigurationBuilder()
@@ -342,6 +367,16 @@ public class MicrosoftAdapterBattleTests : IDisposable
     private class LoggingProvidersConfig
     {
         public bool Console { get; set; }
+    }
+
+    private class CollectionConfig
+    {
+        public ForwardedHeadersConfig ForwardedHeaders { get; set; } = new();
+    }
+
+    private class ForwardedHeadersConfig
+    {
+        public List<string> KnownNetworks { get; set; } = [];
     }
 
     /// <summary>
