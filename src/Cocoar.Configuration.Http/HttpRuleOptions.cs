@@ -44,6 +44,14 @@ public sealed class HttpRuleOptions
     /// </summary>
     public int ErrorConsecutiveFailureThreshold { get; }
 
+    /// <summary>
+    /// When set, an SSE connection that receives no data within this window is treated as dead and
+    /// reconnected (with backoff). Default <c>null</c> = no read-idle timeout. Only meaningful when
+    /// <see cref="ServerSentEvents"/> is true. Set this only if your SSE server sends periodic data or
+    /// heartbeat comments; otherwise a legitimately idle config stream would reconnect needlessly.
+    /// </summary>
+    public TimeSpan? SseReadIdleTimeout { get; }
+
     public HttpRuleOptions(
         string url,
         TimeSpan? pollInterval = null,
@@ -51,7 +59,8 @@ public sealed class HttpRuleOptions
         TimeSpan? fallbackPollInterval = null,
         IReadOnlyDictionary<string, string>? headers = null,
         HttpMessageHandler? handler = null,
-        int errorConsecutiveFailureThreshold = 3)
+        int errorConsecutiveFailureThreshold = 3,
+        TimeSpan? sseReadIdleTimeout = null)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -65,6 +74,7 @@ public sealed class HttpRuleOptions
         Headers = headers;
         Handler = handler;
         ErrorConsecutiveFailureThreshold = errorConsecutiveFailureThreshold <= 0 ? 3 : errorConsecutiveFailureThreshold;
+        SseReadIdleTimeout = sseReadIdleTimeout;
     }
 
     internal HttpProviderOptions ToProviderOptions() => new(
@@ -72,7 +82,8 @@ public sealed class HttpRuleOptions
         ServerSentEvents,
         FallbackPollInterval,
         ErrorConsecutiveFailureThreshold,
-        Handler);
+        Handler,
+        sseReadIdleTimeout: SseReadIdleTimeout);
 
     internal HttpProviderQueryOptions ToQueryOptions() => new(Url, Headers);
 }

@@ -9,12 +9,23 @@ public sealed class ObservableProvider<T>(ObservableProviderOptions<T> options)
 {
     public override async Task<byte[]> FetchConfigurationBytesAsync(ObservableProviderQuery query, CancellationToken ct = default)
     {
-        var tcs = new TaskCompletionSource<byte[]>();
+        // Fetch is a one-shot, non-blocking snapshot: take whatever the source replays synchronously
+        // (e.g. a BehaviorSubject), otherwise degrade to an empty object and let ChangesAsBytes deliver
+        // real values reactively. This avoids hanging the recompute on a cold/late source, handles
+        // OnCompleted-without-emit, and always disposes the subscription (no leak even on synchronous replay).
+        var tcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var ctr = ct.Register(() => tcs.TrySetCanceled(ct));
-        IDisposable? sub = null;
-        sub = ProviderOptions.Observable.Subscribe(
-            value => { tcs.TrySetResult(ConvertToBytes(value)); sub?.Dispose(); },
-            ex => { tcs.TrySetException(ex); sub?.Dispose(); });
+
+        var sub = ProviderOptions.Observable.Subscribe(
+            value => tcs.TrySetResult(ConvertToBytes(value)),
+            ex => tcs.TrySetException(ex),
+            () => tcs.TrySetResult("{}"u8.ToArray()));
+
+        // No synchronous value (cold/late source): return an empty snapshot now. The reactive stream
+        // (ChangesAsBytes) will trigger a recompute when the first real value arrives.
+        tcs.TrySetResult("{}"u8.ToArray());
+        sub.Dispose();
+
         return await tcs.Task.ConfigureAwait(false);
     }
 

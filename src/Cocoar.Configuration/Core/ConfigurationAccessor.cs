@@ -25,19 +25,29 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     private readonly ExposureRegistry _bindingRegistry;
     private readonly ILogger _logger;
     private readonly List<ConfigRule> _rules;
+    private readonly bool _preferPendingState;
     private ConfigManagerCapabilityScope? _capabilityScope;
 
+    /// <param name="preferPendingState">
+    /// Resolve from the configuration state before the backplane. The backplane only ever holds the last
+    /// COMMITTED snapshot, so a rule factory reading it mid-recompute sees the previous pass — which is what
+    /// made config-aware rules (derived paths, URLs, values) lag or freeze. The engine's accessor sets this so
+    /// factories observe the in-flight pass, exactly as guide/configuration/config-aware.md describes; accessors
+    /// handed to application code leave it false and keep reading committed state only.
+    /// </param>
     public ConfigurationAccessor(
         ConfigurationState state,
         ExposureRegistry bindingRegistry,
         ILogger logger,
         List<ConfigRule> rules,
-        string? tenant = null)
+        string? tenant = null,
+        bool preferPendingState = false)
     {
         _state = state;
         _bindingRegistry = bindingRegistry;
         _logger = logger;
         _rules = rules;
+        _preferPendingState = preferPendingState;
         Tenant = tenant;
     }
 
@@ -59,6 +69,11 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     /// <exception cref="InvalidOperationException">No configuration rule is registered for type T.</exception>
     public T? GetConfig<T>() where T : class
     {
+        if (_preferPendingState && HasConfigurationInState(typeof(T)))
+        {
+            return FallbackDeserialize<T>();
+        }
+
         // First try the backplane (has cached instances after initialization)
         try
         {
@@ -196,6 +211,11 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     /// <exception cref="InvalidOperationException">No configuration rule is registered for the type.</exception>
     public object GetConfig(Type type)
     {
+        if (_preferPendingState && HasConfigurationInState(type))
+        {
+            return FallbackDeserialize(type);
+        }
+
         // First try the backplane
         try
         {
@@ -212,6 +232,21 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
 
         // Fallback: during recompute phase, deserialize on-demand
         return FallbackDeserialize(type);
+    }
+
+    /// <summary>
+    /// Whether the configuration state can serve this type right now. A type whose rules have not run yet in the
+    /// current pass has no entry, so the caller falls back to the committed backplane instead of throwing.
+    /// </summary>
+    private bool HasConfigurationInState(Type type)
+    {
+        var targetType = type;
+        if (type.IsInterface && _bindingRegistry.TryGetConcreteType(type, out var concreteType))
+        {
+            targetType = concreteType;
+        }
+
+        return _state.TryGetConfiguration(targetType, out var json) && json != null;
     }
 
     private object FallbackDeserialize(Type type)

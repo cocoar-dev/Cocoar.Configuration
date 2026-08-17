@@ -31,6 +31,14 @@ public sealed class HttpProviderOptions : IProviderConfiguration
     public int ErrorConsecutiveFailureThreshold { get; }
 
     /// <summary>
+    /// When set, an SSE connection that receives no data within this window is treated as dead and
+    /// reconnected (with backoff). Default <c>null</c> = no read-idle timeout. Only meaningful when
+    /// <see cref="ServerSentEvents"/> is true. Set this only if your SSE server sends periodic data or
+    /// heartbeat comments; otherwise a legitimately idle config stream would reconnect needlessly.
+    /// </summary>
+    public TimeSpan? SseReadIdleTimeout { get; }
+
+    /// <summary>
     /// Optional custom handler for the underlying HttpClient. Not serialized for provider key generation.
     /// </summary>
     [JsonIgnore]
@@ -53,7 +61,8 @@ public sealed class HttpProviderOptions : IProviderConfiguration
         TimeSpan? fallbackPollInterval = null,
         int errorConsecutiveFailureThreshold = 3,
         HttpMessageHandler? handler = null,
-        Func<HttpClient>? clientFactory = null)
+        Func<HttpClient>? clientFactory = null,
+        TimeSpan? sseReadIdleTimeout = null)
     {
         PollInterval = pollInterval;
         ServerSentEvents = serverSentEvents;
@@ -61,6 +70,7 @@ public sealed class HttpProviderOptions : IProviderConfiguration
         ErrorConsecutiveFailureThreshold = errorConsecutiveFailureThreshold <= 0 ? 3 : errorConsecutiveFailureThreshold;
         Handler = handler;
         ClientFactory = clientFactory;
+        SseReadIdleTimeout = sseReadIdleTimeout;
     }
 
     private static readonly JsonSerializerOptions ProviderKeyOptions = new()

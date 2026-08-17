@@ -104,7 +104,7 @@ public sealed class HttpProvider
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         ApplyHeaders(req, query.Headers);
 
-        var resp = await client.SendAsync(req, ct).ConfigureAwait(false);
+        using var resp = await client.SendAsync(req, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
     }

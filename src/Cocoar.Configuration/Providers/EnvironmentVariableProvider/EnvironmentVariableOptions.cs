@@ -8,6 +8,6 @@ public record EnvironmentVariableProviderQueryOptions(string? EnvironmentPrefix 
 
 public record EnvironmentVariableProviderOptions() : IProviderConfiguration
 {
-    public string GenerateProviderKey() => "Environment:Global";
+    public string? GenerateProviderKey() => "Environment:Global";
 }
 

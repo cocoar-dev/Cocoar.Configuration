@@ -39,13 +39,7 @@ public class HttpProviderSmokeTests
     public async Task ConfigManager_Recompute_OnChange_Required()
     {
         // two responses: first value=1 then value=2
-        var queue = new Queue<HttpResponseMessage>(new[]
-        {
-            new HttpResponseMessage(HttpStatusCode.OK)
-                { Content = new StringContent("{ \"Value\": 1 }", Encoding.UTF8, "application/json") },
-            new HttpResponseMessage(HttpStatusCode.OK)
-                { Content = new StringContent("{ \"Value\": 2 }", Encoding.UTF8, "application/json") }
-        });
+        var queue = new Queue<string>(new[] { "{ \"Value\": 1 }", "{ \"Value\": 2 }" });
         var handler = new QueueHandler(queue);
 
         var services = new ServiceCollection();
@@ -165,23 +159,24 @@ public class HttpProviderSmokeTests
 
     private sealed class QueueHandler : HttpMessageHandler
     {
-        private readonly Queue<HttpResponseMessage> _queue;
-        private HttpResponseMessage? _last;
-        public QueueHandler(Queue<HttpResponseMessage> queue) => _queue = queue;
+        private readonly Queue<string> _queue;
+        private string _lastJson = "{ }";
+        public QueueHandler(Queue<string> queue) => _queue = queue;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             if (_queue.Count > 0)
             {
-                _last = _queue.Dequeue();
-                return Task.FromResult(_last);
+                _lastJson = _queue.Dequeue();
             }
 
-            // Return last known response to keep config steady
-            var fallback = _last ?? new HttpResponseMessage(HttpStatusCode.OK)
-                { Content = new StringContent("{ }", Encoding.UTF8, "application/json") };
-            return Task.FromResult(fallback);
+            // Fresh response per call — real handlers never reuse a (disposable) HttpResponseMessage instance,
+            // and the provider disposes each response after reading it.
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_lastJson, Encoding.UTF8, "application/json")
+            });
         }
     }
 }

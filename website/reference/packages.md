@@ -94,6 +94,30 @@ Marten (PostgreSQL document store) backend for the WritableStore. Persists writa
 <PackageReference Include="Cocoar.Configuration.WritableStore.Marten" Version="6.*" />
 ```
 
+### Cocoar.Configuration.Yaml
+
+YAML file provider. Reads `.yaml`/`.yml` files into the configuration pipeline with reactive file-watching. Plain YAML scalars are mapped to their JSON types (booleans, numbers, null) so they bind like JSON; quoted and block scalars stay strings. Opt-in package — it takes a YamlDotNet dependency. (The `.env` / dotenv provider, `FromDotEnv()`, is built into the core package and needs no dependency.)
+
+- **Target:** .NET 9.0 / .NET 10.0
+- **Dependencies:** Cocoar.Configuration, YamlDotNet
+- **Key types:** `YamlFileProvider`, `FromYamlFile()` extension method
+
+```xml
+<PackageReference Include="Cocoar.Configuration.Yaml" Version="6.*" />
+```
+
+### Cocoar.Configuration.Toml
+
+TOML file provider. Reads `.toml` files into the configuration pipeline with reactive file-watching. TOML's typed values (strings, integers, floats, booleans, dates, arrays, tables, arrays-of-tables) map unambiguously to JSON so they bind like JSON. Opt-in package — it takes a Tomlyn dependency. (The `.ini` and `.env` providers are built into the core package and need no dependency.)
+
+- **Target:** .NET 9.0 / .NET 10.0
+- **Dependencies:** Cocoar.Configuration, Tomlyn
+- **Key types:** `TomlFileProvider`, `FromTomlFile()` extension method
+
+```xml
+<PackageReference Include="Cocoar.Configuration.Toml" Version="6.*" />
+```
+
 ### Cocoar.Configuration.Analyzers
 
 Roslyn analyzers (COCFG001–006) and source generator (COCFLAG001–003). Ships as a build-time dependency of the core package — you don't need to install it separately.

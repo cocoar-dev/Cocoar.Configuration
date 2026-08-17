@@ -37,6 +37,12 @@ The parser supports several formats:
 --Database__Port=5432
 ```
 
+::: warning Values that start with a switch prefix
+In the two-argument `--key value` form, a value that itself begins with a switch prefix (e.g. `--port -5`)
+is parsed as a **boolean flag** (`--port` → `true`), not as the value `-5`. Use the `=` form for such
+values: `--port=-5`.
+:::
+
 ## Prefix Filtering
 
 Filter arguments by a prefix to avoid collisions:

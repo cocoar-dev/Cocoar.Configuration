@@ -1,8 +1,9 @@
 # Changelog
 
-## [6.0.1] - 2026-08-17
+## [6.1.1] - 2026-08-17
 
 ### Fixed
+- Config-aware provider options, query values, and `.When()` predicates now observe the current recompute pass, so changes to derived file paths, HTTP URLs, environment prefixes, tenant configuration, and service-backed configuration propagate immediately instead of lagging or remaining stale.
 - Environment, command-line, dotenv, INI, and Microsoft-adapter values with indexed children (`Key__0`, `Key:0`) now bind to `List<T>` and one-dimensional arrays. A collection can also be supplied as a JSON-array string in one value; numeric dictionary keys remain object properties.
 
 ### Documentation
@@ -10,6 +11,28 @@
 
 ### Maintenance
 - Updated the PostgreSQL testcontainer dependency to consume the patched SSH.NET release and refreshed documentation build dependencies where compatible security fixes were available.
+
+## [6.1.0] - 2026-06-03
+
+### Added
+- **`Cocoar.Configuration.Yaml`** — new opt-in YAML file provider (`FromYamlFile`) with reactive file-watching. Plain YAML scalars map to JSON types (booleans, numbers, null); quoted and block scalars stay strings.
+- **`Cocoar.Configuration.Toml`** — new opt-in TOML file provider (`FromTomlFile`) with reactive file-watching (Tomlyn dependency). TOML's typed values (string/int/float/bool/datetime/array/table/array-of-tables) map unambiguously to JSON.
+- **dotenv** — `FromDotEnv(path)` built into the core package (no dependency): `KEY=value`, `#` comments, optional `export` prefix, quotes, inline comments, and `:`/`__` key nesting; reactive.
+- **INI** — `FromIniFile(path)` built into the core package (no dependency): `[section]` headers, `key=value`, `;`/`#` whole-line comments, `.`/`:` nesting, quote stripping; values containing `;`/`#` (e.g. connection strings) are kept; reactive.
+- **Kubernetes ConfigMap / Secret support** — opt-in `followSymlinks` on `FromFile` / `FromYamlFile` / `FromDotEnv` (and `FileSourceProviderOptions.FollowSymlinks`). A ConfigMap-mounted file is a symlink whose content is updated by an atomic `..data` symlink swap; with this enabled the file is read (its resolved target must still stay within the configured directory — escaping symlinks are rejected) and the atomic swap is detected and hot-reloaded (via Cocoar.FileSystem 2.3.0 symlink-target tracking). Default off — symlinks remain rejected as before.
+
+### Changed
+- Extracted a reusable `FileBackedProvider` base (watching, path/symlink security, debounce, disposal); `FileSourceProvider` is now a thin subclass (behavior unchanged).
+- Documented the provider-contract invariants on `ConfigurationProvider` / `IProviderConfiguration`.
+- Added a parameterless `FromCommandLine()`.
+
+### Fixed
+- **Observable provider**: fetch no longer hangs on a cold / complete-without-emit source, and no longer leaks its one-shot subscription.
+- **HTTP provider**: dispose the `HttpResponseMessage` after fetch; optional `SseReadIdleTimeout` reconnects a half-open SSE stream.
+- `FileSourceProvider.Dispose` is race-safe and guards cancellation.
+
+### Removed
+- Dead internal `MicrosoftConfigurationSource*` types (the `FromMicrosoftSource` API was removed in 6.0.0).
 
 ## [6.0.0] - 2026-06-01
 

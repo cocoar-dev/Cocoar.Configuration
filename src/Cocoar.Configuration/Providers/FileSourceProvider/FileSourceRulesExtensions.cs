@@ -6,14 +6,15 @@ namespace Cocoar.Configuration.Providers;
 public static class FileSourceRulesExtensions
 {
     /// <summary>
-    /// Creates a file-based configuration rule from a file path.
+    /// Creates a file-based configuration rule from a file path. Set <paramref name="followSymlinks"/>
+    /// to read symlinked files and detect atomic symlink-target swaps (e.g. Kubernetes ConfigMap mounts).
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        FromFile<T>(this TypedProviderBuilder<T> builder, string filePath)
+        FromFile<T>(this TypedProviderBuilder<T> builder, string filePath, bool followSymlinks = false)
         where T : class
         => new(
-            cm => FileSourceRuleOptions.FromFilePath(filePath).ToProviderOptions(),
-            cm => FileSourceRuleOptions.FromFilePath(filePath).ToQueryOptions(),
+            cm => FileSourceRuleOptions.FromFilePath(filePath, followSymlinks: followSymlinks).ToProviderOptions(),
+            cm => FileSourceRuleOptions.FromFilePath(filePath, followSymlinks: followSymlinks).ToQueryOptions(),
             typeof(T)
         );
 
@@ -34,11 +35,11 @@ public static class FileSourceRulesExtensions
     /// <c>a => $"tenants/{a.Tenant}/db.json"</c>. The path is resolved from the accessor on each recompute.
     /// </summary>
     public static ProviderRuleBuilder<FileSourceProvider, FileSourceProviderOptions, FileSourceProviderQueryOptions>
-        FromFile<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, string> pathFactory)
+        FromFile<T>(this TypedProviderBuilder<T> builder, Func<IConfigurationAccessor, string> pathFactory, bool followSymlinks = false)
         where T : class
         => new(
-            cm => FileSourceRuleOptions.FromFilePath(pathFactory(cm)).ToProviderOptions(),
-            cm => FileSourceRuleOptions.FromFilePath(pathFactory(cm)).ToQueryOptions(),
+            cm => FileSourceRuleOptions.FromFilePath(pathFactory(cm), followSymlinks: followSymlinks).ToProviderOptions(),
+            cm => FileSourceRuleOptions.FromFilePath(pathFactory(cm), followSymlinks: followSymlinks).ToQueryOptions(),
             typeof(T)
         );
 }

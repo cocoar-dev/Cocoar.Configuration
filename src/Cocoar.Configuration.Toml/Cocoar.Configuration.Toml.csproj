@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Description>TOML file configuration provider for Cocoar.Configuration. Reads .toml files into the configuration pipeline with reactive file-watching, mapping TOML's typed values (strings, integers, floats, booleans, dates, arrays, tables) to JSON so they bind like JSON config.</Description>
+    <PackageTags>configuration;toml;file;reactive;tomlyn</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" />
+  </ItemGroup>
+
+</Project>

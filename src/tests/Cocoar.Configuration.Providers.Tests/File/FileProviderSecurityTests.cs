@@ -193,6 +193,103 @@ public class FileProviderSecurityTests
         Assert.Contains("Symlinks are not allowed", ex.Message);
     }
 
+    // ──────────────────────────────────────────────
+    // S-02b: Symlink following (opt-in, FollowSymlinks) — e.g. Kubernetes ConfigMap mounts
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "FileSourceProvider")]
+    public async Task Symlink_ToFileInsideDirectory_WithFollowSymlinks_Succeeds()
+    {
+        if (!CanCreateSymlinks())
+        {
+            _output.WriteLine("Skipping: symlink creation requires elevated privileges on this OS");
+            return;
+        }
+
+        using var tempDir = TempDirectoryHelper.Create();
+        var realFile = Path.Combine(tempDir.Path, "real.json");
+        System.IO.File.WriteAllText(realFile, """{"followed": true}""");
+
+        var symlinkPath = Path.Combine(tempDir.Path, "link.json");
+        System.IO.File.CreateSymbolicLink(symlinkPath, realFile);
+
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(tempDir.Path, followSymlinks: true));
+        var query = new FileSourceProviderQueryOptions("link.json");
+
+        var bytes = await provider.FetchConfigurationBytesAsync(query);
+
+        Assert.Contains("followed", System.Text.Encoding.UTF8.GetString(bytes));
+        _output.WriteLine("Inside-directory symlink read with FollowSymlinks enabled");
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "FileSourceProvider")]
+    public async Task Symlink_ToFileOutsideDirectory_WithFollowSymlinks_StillThrows()
+    {
+        // Even with FollowSymlinks on, a symlink whose target escapes the configured directory is rejected.
+        if (!CanCreateSymlinks())
+        {
+            _output.WriteLine("Skipping: symlink creation requires elevated privileges on this OS");
+            return;
+        }
+
+        using var tempDir = TempDirectoryHelper.Create();
+        using var outsideDir = TempDirectoryHelper.Create();
+
+        var outsideFile = Path.Combine(outsideDir.Path, "secret.json");
+        System.IO.File.WriteAllText(outsideFile, """{"leaked": true}""");
+
+        var symlinkPath = Path.Combine(tempDir.Path, "linked.json");
+        System.IO.File.CreateSymbolicLink(symlinkPath, outsideFile);
+
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(tempDir.Path, followSymlinks: true));
+        var query = new FileSourceProviderQueryOptions("linked.json");
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => provider.FetchConfigurationBytesAsync(query));
+
+        Assert.Contains("escapes the configured directory", ex.Message);
+        _output.WriteLine($"Escaping symlink still blocked with FollowSymlinks on: {ex.Message}");
+    }
+
+    [Fact]
+    [Trait("Type", "Unit")]
+    [Trait("Provider", "FileSourceProvider")]
+    public async Task ConfigMapStyle_ChainedSymlink_WithFollowSymlinks_Succeeds()
+    {
+        // Mimics a Kubernetes ConfigMap layout: the user-visible file is a symlink that resolves through
+        // an intermediate *directory* symlink to the real file in a versioned data dir — all inside the
+        // mount. config.json -> data/config.json ; data -> data_v1 (dir) ; data_v1/config.json (real).
+        if (!CanCreateSymlinks())
+        {
+            _output.WriteLine("Skipping: symlink creation requires elevated privileges on this OS");
+            return;
+        }
+
+        using var tempDir = TempDirectoryHelper.Create();
+
+        var dataVersionDir = Path.Combine(tempDir.Path, "data_v1");
+        Directory.CreateDirectory(dataVersionDir);
+        System.IO.File.WriteAllText(Path.Combine(dataVersionDir, "config.json"), """{"source": "configmap"}""");
+
+        // Intermediate directory symlink (relative target), then the user-visible file symlink.
+        Directory.CreateSymbolicLink(Path.Combine(tempDir.Path, "data"), "data_v1");
+        System.IO.File.CreateSymbolicLink(
+            Path.Combine(tempDir.Path, "config.json"),
+            Path.Combine("data", "config.json"));
+
+        var provider = new FileSourceProvider(new FileSourceProviderOptions(tempDir.Path, followSymlinks: true));
+        var query = new FileSourceProviderQueryOptions("config.json");
+
+        var bytes = await provider.FetchConfigurationBytesAsync(query);
+
+        Assert.Contains("configmap", System.Text.Encoding.UTF8.GetString(bytes));
+        _output.WriteLine("ConfigMap-style chained symlink read with FollowSymlinks enabled");
+    }
+
     private static bool CanCreateSymlinks()
     {
         var testDir = Path.Combine(Path.GetTempPath(), "cocoar_symlink_test_" + Guid.NewGuid().ToString("N"));

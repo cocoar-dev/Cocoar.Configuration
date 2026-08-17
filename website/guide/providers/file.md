@@ -1,5 +1,5 @@
 ---
-description: FromFile JSON provider, directory file watcher, AppContext.BaseDirectory path resolution, debouncing, path-traversal protection, optional vs Required, dynamic paths
+description: FromFile JSON provider, directory file watcher, AppContext.BaseDirectory path resolution, debouncing, path-traversal protection, Kubernetes ConfigMap symlink support (followSymlinks), optional vs Required, dynamic paths
 ---
 
 # File Provider
@@ -43,8 +43,10 @@ File saves often trigger multiple file system events in rapid succession. The en
 The file provider includes path traversal protection:
 
 - Resolves the full path and validates it stays within the configured directory
-- Rejects symlinks and reparse points to prevent symlink escape attacks
+- **Rejects symlinks and reparse points by default** to prevent symlink-escape attacks
 - Throws `UnauthorizedAccessException` on violations
+
+To read symlinked files — e.g. [Kubernetes ConfigMap / Secret mounts](#kubernetes-configmap-secret-mounts) — opt in with `followSymlinks`. Even then, a symlink whose resolved target escapes the configured directory is still rejected.
 
 ## Advanced Options <Badge type="info" text="ADV" />
 
@@ -65,6 +67,28 @@ rule.For<AppSettings>().FromFile(accessor =>
 |---|---|---|
 | `DebounceTime` | None (uses engine default) | Per-file debounce for change events |
 | `PollingInterval` | 10 seconds | Fallback polling interval when file system events are unreliable |
+| `FollowSymlinks` | `false` | Read symlinked files and detect atomic symlink-target swaps (see [Kubernetes ConfigMap / Secret mounts](#kubernetes-configmap-secret-mounts)) |
+
+## Kubernetes ConfigMap / Secret mounts
+
+A file mounted from a Kubernetes **ConfigMap** or **Secret** is a *symlink*: each key (e.g. `appsettings.json`) links through a sibling `..data` symlink to the real file in a timestamped directory. Kubernetes updates the volume by **atomically swapping the `..data` symlink** — it never rewrites the file you point at.
+
+Because symlinks are rejected by default, opt in with `followSymlinks: true`:
+
+```csharp
+rule.For<AppSettings>().FromFile("/etc/config/appsettings.json", followSymlinks: true)
+```
+
+This does two things:
+
+- **Reads** the symlinked file. The resolved final target must still resolve *within* the mount directory — an escaping symlink is rejected, so the path-traversal guarantees hold.
+- **Hot-reloads** on the atomic `..data` swap, even though the watched file's name and timestamp are unchanged — the resolved symlink target is tracked for change detection.
+
+`followSymlinks` is available on `FromFile`, [`FromYamlFile`](/guide/providers/yaml), and [`FromDotEnv`](/guide/providers/dotenv) (and as `FollowSymlinks` on `FileSourceProviderOptions`). It is **off by default**, so non-Kubernetes deployments keep the stricter symlink rejection.
+
+::: tip Reload latency
+The atomic `..data` swap does **not** trigger the instant OS file watcher — the file you point at is unchanged, only its symlink target moves. So a ConfigMap update is caught by the directory watcher's **periodic re-scan** (roughly every minute), plus kubelet's own propagation delay, rather than instantly. This interval is not currently tunable, and it's in line with how Kubernetes itself propagates ConfigMap changes (typically tens of seconds). Plan for **~1–2 minutes** end-to-end, not sub-second.
+:::
 
 ## Missing Files
 

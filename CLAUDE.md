@@ -91,6 +91,7 @@ SetupDefinition.GetComposer(builder).Add(new ServiceLifetimeCapability<T>(...));
 | `Cocoar.Configuration.Http` | Remote config provider (polling, SSE, one-time fetch) |
 | `Cocoar.Configuration.MicrosoftAdapter` | Bridge to existing `IConfiguration` sources |
 | `Cocoar.Configuration.WritableStore.Marten` | Marten (PostgreSQL) WritableStore backend (`MartenStoreBackend`, `FromMartenStore()`); tenant-aware via Marten database-per-tenant. Opt-in integration package that takes a Marten dependency. |
+| `Cocoar.Configuration.Yaml` | YAML file provider (`FromYamlFile`), reactive watching, scalar type-inference. Opt-in; takes a YamlDotNet dependency. (dotenv `FromDotEnv` lives in core — no dependency.) |
 | `Cocoar.Configuration.Analyzers` | Roslyn analyzers (COCFG001, 002, 003, 005, 006) and source generator (COCFLAG001-003). COCFG004 was removed — enforced by `where T : class` constraint instead. |
 | `Cocoar.Configuration.Secrets.Cli` | Global .NET tool for encrypting/decrypting secrets in config files |
 
