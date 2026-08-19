@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **`Cocoar.Configuration.ConfigHub`** — new opt-in ConfigHub delivery provider with bearer-authenticated JSON snapshots, ETag-based conditional refresh, SSE invalidation, reconnect reconciliation, and optional polling fallback. Static and config-aware `FromConfigHub()` rules support endpoint and token rotation without serializing delivery credentials.
+
+### Documentation
+- Added the ConfigHub provider guide, package reference, installation paths, and an updated ConfigHub roadmap that distinguishes the available runtime provider from the separately developed management portal.
+
 ## [6.1.1] - 2026-08-17
 
 ### Fixed

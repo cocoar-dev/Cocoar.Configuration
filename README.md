@@ -18,6 +18,13 @@ dotnet add package Cocoar.Configuration.AspNetCore     # + health endpoints, fea
 
 You only need **one** — each includes everything above it. Requires .NET 9+.
 
+Optional provider packages add only the integration you need:
+
+```shell
+dotnet add package Cocoar.Configuration.ConfigHub      # ConfigHub delivery and live invalidation
+dotnet add package Cocoar.Configuration.Http           # Generic remote configuration via HTTP
+```
+
 ## Quick Start
 
 ```csharp
@@ -64,6 +71,7 @@ app.Run();
 | Command Line | `.FromCommandLine("--prefix")` | Core |
 | Static / Observable | `.FromStaticJson()` / `.FromObservable()` | Core |
 | WritableStore (writable overlay) | `.FromStore()` | Core |
+| ConfigHub | `.FromConfigHub(url, token)` | [ConfigHub](https://www.nuget.org/packages/Cocoar.Configuration.ConfigHub) |
 | HTTP | `.FromHttp(url)` | [Http](https://www.nuget.org/packages/Cocoar.Configuration.Http) |
 | Microsoft IConfiguration | `.FromIConfiguration(config)` | [MicrosoftAdapter](https://www.nuget.org/packages/Cocoar.Configuration.MicrosoftAdapter) |
 
