@@ -111,7 +111,10 @@ internal static class ServiceDescriptorEmitter
 
         services.AddSingleton<IFeatureFlagsDescriptors>(capability.Descriptors);
         foreach (var r in capability.Registrations)
+        {
             services.Add(new ServiceDescriptor(r.Descriptor.Type, r.Descriptor.Type, ServiceLifetime.Singleton));
+            EmitReactiveServiceForClassConfig(services, r.Descriptor.Type, typeof(IFeatureFlags<>));
+        }
 
         // Register all resolver types with lifetimes from Capabilities
         EmitResolverServices(services,
@@ -132,7 +135,10 @@ internal static class ServiceDescriptorEmitter
 
         services.AddSingleton<IEntitlementsDescriptors>(capability.Descriptors);
         foreach (var r in capability.Registrations)
+        {
             services.Add(new ServiceDescriptor(r.Descriptor.Type, r.Descriptor.Type, ServiceLifetime.Singleton));
+            EmitReactiveServiceForClassConfig(services, r.Descriptor.Type, typeof(IEntitlements<>));
+        }
 
         // Register all resolver types with lifetimes from Capabilities
         EmitResolverServices(services,
@@ -214,6 +220,33 @@ internal static class ServiceDescriptorEmitter
                     serviceLifetime));
             }
         }
+    }
+
+    /// <summary>
+    /// A flag or entitlement class is registered as its own implementation type, so the container builds it and
+    /// must resolve the <see cref="IReactiveConfig{T}"/> its generated constructor asks for. When the class reads
+    /// from a value tuple of configs — the documented "Multiple Config Sources" pattern — that service type is not
+    /// one of the per-config-type registrations emitted from the rule plan, so it has to be added here.
+    /// </summary>
+    private static void EmitReactiveServiceForClassConfig(
+        IServiceCollection services, Type flagClassType, Type openFlagInterface)
+    {
+        var configType = flagClassType.GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == openFlagInterface)
+            ?.GetGenericArguments()[0];
+
+        if (configType is null)
+        {
+            return;
+        }
+
+        var reactiveType = typeof(IReactiveConfig<>).MakeGenericType(configType);
+        if (services.Any(d => d.ServiceType == reactiveType))
+        {
+            return;
+        }
+
+        EmitReactiveService(services, configType);
     }
 
     private static void EmitReactiveService(IServiceCollection services, Type serviceType)
