@@ -5,6 +5,10 @@ export default defineConfig({
   title: 'Cocoar.Configuration',
   description: 'Reactive, strongly-typed configuration for .NET',
 
+  // skill/ holds the hand-written header of the generated Agent Skill (scripts/sync-skill.mjs),
+  // not a docs page.
+  srcExclude: ['skill/**'],
+
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo_light.svg' }],
     ['link', { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'LLM documentation (summary)' }],

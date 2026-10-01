@@ -129,6 +129,7 @@ Read these ADRs to understand important design choices:
 
 - `website/` - VitePress documentation site (single source of truth for user-facing docs)
 - `website/adr/` - Architecture Decision Records (ADR-001 through ADR-006), published in the docs site under the **ADR** top-nav
+- `skills/cocoar-configuration/` - Agent Skill shipped in the `Cocoar.Configuration` package. **Generated** from `website/guide` + `website/reference` by `node website/scripts/sync-skill.mjs` — never edit it by hand. After any docs change, re-run the script and commit the result (CI runs `--check`). A new docs page must be added to `SECTIONS` (or `EXCLUDED`) in the script; the hand-written part is `website/skill/SKILL.header.md`.
 - `src/Examples/` - Runnable example projects demonstrating individual features
 
 ## Local Working Files

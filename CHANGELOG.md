@@ -4,6 +4,7 @@
 
 ### Added
 - **`Cocoar.Configuration.ConfigHub`** — new opt-in ConfigHub delivery provider with bearer-authenticated JSON snapshots, ETag-based conditional refresh, SSE invalidation, reconnect reconciliation, and optional polling fallback. Static and config-aware `FromConfigHub()` rules support endpoint and token rotation without serializing delivery credentials.
+- **Agent Skill in the `Cocoar.Configuration` package** — a `SKILL.md` with the package table and the mistakes a coding assistant makes without the docs, plus every guide and reference page as a reference file, indexed by the same descriptions that feed `llms.txt`. It is generated from the documentation (`website/scripts/sync-skill.mjs`, verified in CI) and ships in a `skills/` folder at the package root, so it takes no part in consumers' builds or IDEs. Install it with [agentskills-cli](https://mysticmind.github.io/agentskills-cli/): `agentskills-cli add Cocoar.Configuration`.
 
 ### Documentation
 - Added the ConfigHub provider guide, package reference, installation paths, and an updated ConfigHub roadmap that distinguishes the available runtime provider from the separately developed management portal.
