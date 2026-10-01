@@ -1,0 +1,39 @@
+name: Verify Agent Skill
+
+# The skill in the Cocoar.Configuration package is generated from the docs; a docs change without
+# the regenerated skill would ship a package that contradicts the site. Its own workflow because
+# the validation workflows only run for src/** changes and a docs-only change must be caught too.
+
+on:
+  pull_request:
+    branches: [ develop ]
+    paths:
+      - 'website/**'
+      - 'skills/**'
+      - '.github/workflows/07-verify-agent-skill.yml'
+  push:
+    branches: [ develop ]
+    paths:
+      - 'website/**'
+      - 'skills/**'
+      - '.github/workflows/07-verify-agent-skill.yml'
+
+jobs:
+  verify:
+    name: Agent skill matches the docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify the agent skill matches the docs
+        run: node website/scripts/sync-skill.mjs --check

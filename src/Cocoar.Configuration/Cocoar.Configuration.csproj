@@ -31,6 +31,17 @@
           Visible="false" />
   </ItemGroup>
 
+  <!-- The Agent Skill (skills/cocoar-configuration, generated from the docs by
+       website/scripts/sync-skill.mjs) ships in a skills/ folder at the package root. Not under
+       contentFiles on purpose: NuGet turns contentFiles into project items of every consumer, and
+       dozens of linked markdown files in each project's Solution Explorer is noise nobody asked
+       for. A root folder takes no part in consumers' builds or IDEs; skill tooling
+       (agentskills-cli add Cocoar.Configuration) reads it from there. -->
+  <ItemGroup>
+    <None Include="../../skills/cocoar-configuration/**/*"
+          Pack="true"
+          PackagePath="skills/cocoar-configuration/"
+          Visible="false" />
+  </ItemGroup>
 
-  
 </Project>

@@ -1,6 +1,4 @@
----
-description: NuGet package breakdown — Abstractions, Core, DI, AspNetCore, ConfigHub, Http, MicrosoftAdapter, WritableStore.Marten, Analyzers, Secrets CLI; dependency graph and which to install
----
+<!-- Generated from website/reference/packages.md by website/scripts/sync-skill.mjs. Do not edit; edit the docs page. -->
 
 # Package Overview
 
@@ -54,9 +52,9 @@ ASP.NET Core integration — includes DI and adds health checks, feature flag/en
 <PackageReference Include="Cocoar.Configuration.AspNetCore" Version="6.*" />
 ```
 
-::: tip
-AspNetCore includes DI, which includes Core — you only need one `PackageReference`.
-:::
+> **Tip**
+>
+> AspNetCore includes DI, which includes Core — you only need one `PackageReference`.
 
 ### Cocoar.Configuration.Http
 
@@ -201,7 +199,7 @@ agentskills-cli add Cocoar.Configuration
 
 That places the skill in `.claude/skills/` for Claude Code and `.agents/skills/` for Cursor, Codex, Copilot and other agents that read the standard; `-g` installs it globally instead. Without the tool, copy `skills/cocoar-configuration/` out of the package into the same folders by hand.
 
-The skill is generated from these docs, so it says what the docs say for the version you reference. The same content is available online as [llms.txt](/llms.txt) (an index with one line per page) and [llms-full.txt](/llms-full.txt) (everything in one file) for assistants that fetch documentation instead of reading local files.
+The skill is generated from these docs, so it says what the docs say for the version you reference. The same content is available online as [llms.txt](https://docs.cocoar.dev/configuration/llms.txt) (an index with one line per page) and [llms-full.txt](https://docs.cocoar.dev/configuration/llms-full.txt) (everything in one file) for assistants that fetch documentation instead of reading local files.
 
 ## License
 

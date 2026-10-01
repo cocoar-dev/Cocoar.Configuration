@@ -1,0 +1,116 @@
+<!-- Generated from website/guide/providers/environment.md by website/scripts/sync-skill.mjs. Do not edit; edit the docs page. -->
+
+# Environment Variables Provider
+
+The environment variable provider reads environment variables and converts them to nested JSON.
+
+```csharp
+rule.For<AppSettings>().FromEnvironment("APP_")
+```
+
+## How It Works
+
+1. Reads all environment variables at evaluation time
+2. Filters by prefix (if specified)
+3. Strips the prefix from matching keys
+4. Converts flat key-value pairs to nested JSON
+
+This provider is **static** — it reads environment variables once per recompute and does not watch for changes. Environment variables typically don't change during a process lifetime.
+
+## Prefix Filtering
+
+The prefix filters which variables are included. Matching is case-insensitive:
+
+```csharp
+// Only variables starting with "APP_"
+rule.For<AppSettings>().FromEnvironment("APP_")
+
+// All environment variables (no filtering)
+rule.For<AppSettings>().FromEnvironment()
+```
+
+With prefix `APP_`, the variable `APP_MaxRetries=10` becomes `{ "MaxRetries": 10 }`.
+
+## Nesting Convention
+
+Use `__` (double underscore) or `:` to create nested JSON structures. A single `_` is treated as a literal character:
+
+```shell
+# Double underscore = nesting
+APP_Database__Host=localhost
+APP_Database__Port=5432
+
+# Produces:
+# { "Database": { "Host": "localhost", "Port": 5432 } }
+```
+
+```shell
+# Single underscore = literal
+APP_App_Name=MyApp
+
+# Produces:
+# { "App_Name": "MyApp" }
+```
+
+```shell
+# Colon also works
+APP_Database:Host=localhost
+
+# Produces:
+# { "Database": { "Host": "localhost" } }
+```
+
+## Collections
+
+Use numeric path segments to bind `List<T>` and one-dimensional arrays, following the Microsoft configuration convention:
+
+```shell
+APP_ForwardedHeaders__KnownNetworks__0=10.10.10.0/24
+APP_ForwardedHeaders__KnownNetworks__1=10.20.0.0/16
+```
+
+```json
+{
+  "ForwardedHeaders": {
+    "KnownNetworks": ["10.10.10.0/24", "10.20.0.0/16"]
+  }
+}
+```
+
+Indices are ordered numerically. Gaps are compacted, matching the Microsoft binder: indices `0`, `2`, and `4` produce a three-element collection.
+
+A JSON array can alternatively be supplied as one environment variable. This interpretation is only applied when the target property is a collection; other target types do not gain collection semantics:
+
+```shell
+APP_ForwardedHeaders__KnownNetworks='["10.10.10.0/24","10.20.0.0/16"]'
+```
+
+> **Warning: Collection overrides**
+>
+> Cocoar configuration layers replace collections as a whole. An indexed environment-variable contribution therefore replaces an array from an earlier file rule; provide every element that the effective collection should contain.
+
+## Common Pattern
+
+Environment variables are typically the last rule, overriding everything else:
+
+```csharp
+rule => [
+    rule.For<AppSettings>().FromFile("appsettings.json").Required(),
+    rule.For<AppSettings>().FromFile($"appsettings.{env}.json"),
+    rule.For<AppSettings>().FromEnvironment("APP_"),  // Final override
+]
+```
+
+This lets you override any config property via environment variables without touching files — useful for containers, CI/CD, and local development.
+
+## Dynamic Prefix
+
+Use the factory overload to derive the prefix from earlier config:
+
+```csharp
+rule.For<TenantConfig>().FromEnvironment(accessor =>
+{
+    var tenant = accessor.GetConfig<TenantSettings>();
+    return new EnvironmentVariableRuleOptions($"TENANT_{tenant.TenantId}_");
+})
+```
