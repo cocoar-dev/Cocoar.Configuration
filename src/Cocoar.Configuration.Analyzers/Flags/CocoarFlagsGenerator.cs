@@ -16,6 +16,8 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
 {
     private const string IFeatureFlagsFqn = "Cocoar.Configuration.Flags.IFeatureFlags";
     private const string IEntitlementsFqn = "Cocoar.Configuration.Flags.IEntitlements";
+    private const string FlagsBuilderFqn = "Cocoar.Configuration.Flags.FlagsBuilder";
+    private const string EntitlementsBuilderFqn = "Cocoar.Configuration.Flags.EntitlementsBuilder";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -92,6 +94,11 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
 
         var typeSymbol = ctx.SemanticModel.GetTypeInfo(typeArgSyntax, ct).Type as INamedTypeSymbol;
         if (typeSymbol == null)
+            return null;
+
+        // The syntax predicate matches every one-type-argument .Register<T>() — DI containers included
+        // (Autofac's builder.Register<IService>(...)). Only Cocoar's own registration methods count.
+        if (!IsCocoarRegistration(invocation, ctx.SemanticModel, ct))
             return null;
 
         if (typeSymbol.IsAbstract)
@@ -182,6 +189,16 @@ public sealed class CocoarFlagsGenerator : IIncrementalGenerator
         }
 
         return null;
+    }
+
+    private static bool IsCocoarRegistration(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken ct)
+    {
+        var symbolInfo = model.GetSymbolInfo(invocation, ct);
+        // A constraint violation leaves the call unbound; the candidate still tells which Register it was.
+        var method = symbolInfo.Symbol as IMethodSymbol
+            ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        var containingType = method?.ContainingType?.OriginalDefinition.ToDisplayString();
+        return containingType is FlagsBuilderFqn or EntitlementsBuilderFqn;
     }
 
     private static bool ImplementsInterface(INamedTypeSymbol symbol, string interfaceFqn)

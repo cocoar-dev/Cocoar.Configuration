@@ -33,15 +33,10 @@ public class BadFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<BadFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -68,15 +63,10 @@ public abstract class AbstractFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<AbstractFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -101,15 +91,10 @@ public abstract class AbstractEntitlements
 
 public class Registrar
 {
-    public void Setup(IEntRegistrar registrar)
+    public void Setup(EntitlementsBuilder registrar)
     {
         registrar.Register<AbstractEntitlements>();
     }
-}
-
-public interface IEntRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -142,15 +127,10 @@ public class GoodFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<GoodFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -160,6 +140,64 @@ public interface IFlagRegistrar
         Assert.Empty(flagDiagnostics);
         Assert.NotNull(generatedSource);
         Assert.Contains("2099", generatedSource);
+    }
+
+    [Fact]
+    public void ForeignRegister_AbstractType_DoesNotEmitDiagnostic()
+    {
+        // Autofac-style container call: builder.Register<IGlobalLifetimeScope>(ctx => ...)
+        var source = @"
+using System;
+
+public interface IGlobalLifetimeScope { }
+
+public class ContainerBuilder
+{
+    public void Register<T>(Func<T> factory) where T : class { }
+}
+
+public class Setup
+{
+    public void Run(ContainerBuilder builder)
+    {
+        builder.Register<IGlobalLifetimeScope>(() => null!);
+    }
+}
+";
+
+        var (diagnostics, generatedSource) = RunGenerator(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id.StartsWith("COCFLAG"));
+        Assert.Null(generatedSource);
+    }
+
+    [Fact]
+    public void ForeignRegister_FlagsType_IsIgnored()
+    {
+        var source = @"
+using System;
+using Cocoar.Configuration.Flags;
+
+public abstract class AbstractFlags
+{
+    public FeatureFlag<bool> SomeFlag { get; }
+}
+
+public interface IOtherRegistrar
+{
+    void Register<T>() where T : class;
+}
+
+public class Setup
+{
+    public void Run(IOtherRegistrar registrar) => registrar.Register<AbstractFlags>();
+}
+";
+
+        var (diagnostics, generatedSource) = RunGenerator(source);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id.StartsWith("COCFLAG"));
+        Assert.Null(generatedSource);
     }
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string? GeneratedSource) RunGenerator(string source)
@@ -176,6 +214,11 @@ public interface IFlagRegistrar
         // Add runtime assemblies needed for compilation
         var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         references.Add(MetadataReference.CreateFromFile(Path.Combine(runtimeDir, "System.Runtime.dll")));
+
+        // The generator only reacts to Cocoar's own FlagsBuilder/EntitlementsBuilder.Register<T>().
+        var builderAssembly = typeof(FlagsBuilder).Assembly.Location;
+        if (references.OfType<PortableExecutableReference>().All(r => r.FilePath != builderAssembly))
+            references.Add(MetadataReference.CreateFromFile(builderAssembly));
 
         var compilation = CSharpCompilation.Create(
             "TestAssembly",

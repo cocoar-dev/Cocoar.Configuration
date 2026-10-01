@@ -31,15 +31,10 @@ public class MyFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<MyFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -83,15 +78,10 @@ public class MultiFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<MultiFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -128,15 +118,10 @@ public class DetFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<DetFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -164,15 +149,10 @@ public class EmptyFlags
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar registrar)
+    public void Setup(FlagsBuilder registrar)
     {
         registrar.Register<EmptyFlags>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -207,15 +187,10 @@ public class PlanEntitlements
 
 public class Registrar
 {
-    public void Setup(IEntRegistrar registrar)
+    public void Setup(EntitlementsBuilder registrar)
     {
         registrar.Register<PlanEntitlements>();
     }
-}
-
-public interface IEntRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -263,21 +238,11 @@ public class MyEntitlements
 
 public class Registrar
 {
-    public void Setup(IFlagRegistrar flagReg, IEntRegistrar entReg)
+    public void Setup(FlagsBuilder flagReg, EntitlementsBuilder entReg)
     {
         flagReg.Register<MyFlags>();
         entReg.Register<MyEntitlements>();
     }
-}
-
-public interface IFlagRegistrar
-{
-    void Register<T>() where T : class;
-}
-
-public interface IEntRegistrar
-{
-    void Register<T>() where T : class;
 }
 ";
 
@@ -332,6 +297,11 @@ public class UnregisteredFlags
         // Add runtime assemblies needed for compilation
         var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         references.Add(MetadataReference.CreateFromFile(Path.Combine(runtimeDir, "System.Runtime.dll")));
+
+        // The generator only reacts to Cocoar's own FlagsBuilder/EntitlementsBuilder.Register<T>().
+        var builderAssembly = typeof(FlagsBuilder).Assembly.Location;
+        if (references.OfType<PortableExecutableReference>().All(r => r.FilePath != builderAssembly))
+            references.Add(MetadataReference.CreateFromFile(builderAssembly));
 
         var compilation = CSharpCompilation.Create(
             "TestAssembly",
