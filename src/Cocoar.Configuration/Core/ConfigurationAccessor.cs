@@ -28,13 +28,14 @@ internal partial class ConfigurationAccessor : IConfigurationAccessor
     private readonly bool _preferPendingState;
     private ConfigManagerCapabilityScope? _capabilityScope;
 
-    /// <param name="preferPendingState">
-    /// Resolve from the configuration state before the backplane. The backplane only ever holds the last
-    /// COMMITTED snapshot, so a rule factory reading it mid-recompute sees the previous pass — which is what
-    /// made config-aware rules (derived paths, URLs, values) lag or freeze. The engine's accessor sets this so
-    /// factories observe the in-flight pass, exactly as guide/configuration/config-aware.md describes; accessors
-    /// handed to application code leave it false and keep reading committed state only.
-    /// </param>
+    /// <remarks>
+    /// <paramref name="preferPendingState"/> resolves from the configuration state before the backplane. The
+    /// backplane only ever holds the last COMMITTED snapshot, so a rule factory reading it mid-recompute sees the
+    /// previous pass — which is what made config-aware rules (derived paths, URLs, values) lag or freeze. The
+    /// engine's accessor sets it so factories observe the in-flight pass, exactly as
+    /// guide/configuration/config-aware.md describes; accessors handed to application code leave it false and
+    /// keep reading committed state only.
+    /// </remarks>
     public ConfigurationAccessor(
         ConfigurationState state,
         ExposureRegistry bindingRegistry,
