@@ -1,5 +1,5 @@
 ---
-description: NuGet package breakdown — Abstractions, Core, DI, AspNetCore, Http, MicrosoftAdapter, WritableStore.Marten, Analyzers, Secrets CLI; dependency graph and which to install
+description: NuGet package breakdown — Abstractions, Core, DI, AspNetCore, ConfigHub, Http, MicrosoftAdapter, WritableStore.Marten, Analyzers, Secrets CLI; dependency graph and which to install
 ---
 
 # Package Overview
@@ -68,6 +68,18 @@ Remote configuration provider with support for one-time fetch, polling, and Serv
 
 ```xml
 <PackageReference Include="Cocoar.Configuration.Http" Version="6.*" />
+```
+
+### Cocoar.Configuration.ConfigHub
+
+ConfigHub-specific delivery provider. It loads authenticated, authoritative JSON snapshots and uses Server-Sent Events only to invalidate the current snapshot. ETag validation, reconnect reconciliation, and optional polling fallback keep instances current without trusting event payloads as configuration.
+
+- **Target:** .NET 9.0 / .NET 10.0
+- **Dependencies:** Cocoar.Configuration
+- **Key types:** `FromConfigHub()` extension method, `ConfigHubRuleOptions`
+
+```xml
+<PackageReference Include="Cocoar.Configuration.ConfigHub" Version="6.*" />
 ```
 
 ### Cocoar.Configuration.MicrosoftAdapter
@@ -145,6 +157,7 @@ Abstractions (no deps)
     ▼
   Core ◄──── Analyzers (build-time)
     │
+    ├──► ConfigHub
     ├──► Http
     ├──► MicrosoftAdapter
     │
@@ -165,12 +178,13 @@ Each arrow means "depends on". Installing a downstream package brings all upstre
 | Console app or library with DI | `Cocoar.Configuration.DI` |
 | Library without DI | `Cocoar.Configuration` |
 | Interface-only dependency | `Cocoar.Configuration.Abstractions` |
+| ConfigHub-managed configuration | Add `Cocoar.Configuration.ConfigHub` |
 | Remote config (polling / SSE) | Add `Cocoar.Configuration.Http` |
 | Existing `IConfiguration` sources | Add `Cocoar.Configuration.MicrosoftAdapter` |
 
 ## External Dependencies
 
-All shipped packages have **zero non-Microsoft external dependencies**. The only third-party packages are Cocoar ecosystem libraries (`Cocoar.Capabilities`, `Cocoar.FileSystem`, `Cocoar.Json.Mutable`).
+Dependencies stay local to the package that needs them. `Cocoar.Configuration.ConfigHub` and `Cocoar.Configuration.Http` add no dependency beyond the core package and the .NET BCL. Format and persistence integrations intentionally bring their documented libraries, such as YamlDotNet, Tomlyn, and Marten; the core uses Cocoar ecosystem libraries and Microsoft abstractions.
 
 `System.Reactive` is **not** a dependency — the library uses lightweight internal reactive primitives. Consumers are free to use System.Reactive on their side (the public API is `IObservable<T>`, which is BCL).
 

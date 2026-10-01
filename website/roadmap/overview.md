@@ -10,7 +10,7 @@ Cocoar.Configuration is the open-source foundation — fully functional today fo
 
 | Initiative | Status | Impact |
 |---|---|---|
-| [ConfigHub](/roadmap/confighub) | In Design | Management portal for config, secrets, and flags at scale |
+| [ConfigHub](/roadmap/confighub) | Provider available; portal in design | Management portal for config, secrets, and flags at scale |
 | [Cloud Providers](/roadmap/cloud-providers) | Planned | Azure Key Vault, AWS Secrets Manager |
 | [Database Provider](/roadmap/database-provider) | Planned | Tenant-specific config from SQL |
 

@@ -6,6 +6,8 @@ description: Optional rules degrade gracefully to empty {} with Degraded health,
 
 Every rule is **optional by default**. This controls what happens when a provider fails — file not found, HTTP timeout, parse error.
 
+`Required()` applies to failures while fetching or transforming an individual rule. A deserialization failure in the final merged configuration is different: no valid initial snapshot can be published, so startup fails regardless of which contributing rules are optional. During a runtime recompute, the last valid snapshot is retained instead.
+
 ## Optional Rules (Default)
 
 When an optional rule fails, the system continues with graceful degradation:
@@ -97,6 +99,7 @@ rule.For<PremiumFeatures>().FromFile("premium.json")
 |---|---|---|
 | Required rule fails | App throws, does not start | Rolls back, keeps last good state |
 | Optional rule fails | Continues with defaults | Continues with defaults |
+| Merged configuration cannot be deserialized | App throws, does not start | Rolls back, keeps last good state |
 | All rules succeed | Config loaded normally | New snapshot replaces old one |
 
 This dual behavior means: strict validation at startup (catch misconfigurations early), resilient behavior at runtime (never lose working state because of a transient failure).

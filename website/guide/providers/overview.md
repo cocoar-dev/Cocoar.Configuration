@@ -34,6 +34,7 @@ On failure, providers return an empty JSON object `{}` — never null. This mean
 | [Static JSON](/guide/providers/static-observable#static-json) | `.FromStaticJson("{...}")` | No | Core |
 | [Observable](/guide/providers/static-observable#observable) | `.FromObservable(obs)` | Yes | Core |
 | [Writable Store](/guide/providers/writable-store) | `.FromStore()` | Yes (on write) | Core |
+| [ConfigHub](/guide/providers/confighub) | `.FromConfigHub(url, token)` | SSE invalidation / polling fallback | ConfigHub |
 | [HTTP](/guide/providers/http-polling) | `.FromHttp(url)` | Polling / SSE / one-time | Http |
 | [Microsoft IConfiguration](/guide/providers/microsoft-adapter) | `.FromIConfiguration(config)` | IConfiguration reload token | MicrosoftAdapter |
 

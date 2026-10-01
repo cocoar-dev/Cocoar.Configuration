@@ -19,6 +19,7 @@ You only need **one** of these — install the highest one you need.
 Optional packages for additional providers:
 
 ```shell
+dotnet add package Cocoar.Configuration.ConfigHub          # ConfigHub delivery + live invalidation
 dotnet add package Cocoar.Configuration.Http               # Remote config via HTTP
 dotnet add package Cocoar.Configuration.MicrosoftAdapter   # Bridge existing IConfiguration
 ```

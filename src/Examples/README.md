@@ -11,7 +11,7 @@ This directory contains runnable examples for **Cocoar.Configuration**. Each sub
 - **StaticProviderExample** – Static seeding with JSON strings and factory functions
 - **CommandLineExample** – Command-line argument provider with configurable prefixes
 - **HttpPollingExample** – Remote/polling configuration pattern
-- **MicrosoftAdapterExample** – Bridging existing `IConfiguration`/`IConfigurationSource` providers
+- **MicrosoftAdapterExample** – Bridging existing `IConfiguration` providers and comparing indexed collection binding with Cocoar's environment provider
 - **GenericProviderAPI** – Using the generic provider registration API
 
 ### Rules, dependencies & reactivity

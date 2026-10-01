@@ -97,9 +97,10 @@ public class ConfigAwareRollbackAndTenantTests
         source.OnNext("""{"Name":"two"}""");
 
         await ActiveWaitHelpers.WaitUntilAsync(
-            () => mgr.GetConfigForTenant<DerivedCfg>("acme")!.Value == "acme-two",
+            () => mgr.GetConfigForTenant<DerivedCfg>("acme")!.Value == "acme-two"
+                && mgr.GetConfigForTenant<DerivedCfg>("globex")!.Value == "globex-two",
             timeout: TimeSpan.FromSeconds(5),
-            description: "tenant acme to follow the base change");
+            description: "both tenants to follow the base change");
 
         Assert.Equal("acme-two", mgr.GetConfigForTenant<DerivedCfg>("acme")!.Value);
         Assert.Equal("globex-two", mgr.GetConfigForTenant<DerivedCfg>("globex")!.Value);

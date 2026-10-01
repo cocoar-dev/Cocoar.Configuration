@@ -33,13 +33,7 @@ internal static class ConfigurationDeserializer
             PropertyNameCaseInsensitive = true
         };
 
-        options.Converters.Add(new StringToPrimitiveConverter<bool>());
-        options.Converters.Add(new StringToPrimitiveConverter<int>());
-        options.Converters.Add(new StringToPrimitiveConverter<double>());
-        options.Converters.Add(new StringToPrimitiveConverter<float>());
-        options.Converters.Add(new StringToPrimitiveConverter<long>());
-        options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
-        options.Converters.Add(new JsonStringEnumConverter());
+        AddBuiltInConverters(options);
 
         ApplySerializerCapabilities(options, capabilityScope);
 
@@ -53,19 +47,24 @@ internal static class ConfigurationDeserializer
             PropertyNameCaseInsensitive = true
         };
 
+        AddBuiltInConverters(options);
+        options.Converters.Add(new InterfaceConverter(new Dictionary<Type, Type>(deserializationMap)));
+
+        ApplySerializerCapabilities(options, capabilityScope);
+
+        return options;
+    }
+
+    private static void AddBuiltInConverters(JsonSerializerOptions options)
+    {
         options.Converters.Add(new StringToPrimitiveConverter<bool>());
         options.Converters.Add(new StringToPrimitiveConverter<int>());
         options.Converters.Add(new StringToPrimitiveConverter<double>());
         options.Converters.Add(new StringToPrimitiveConverter<float>());
         options.Converters.Add(new StringToPrimitiveConverter<long>());
         options.Converters.Add(new StringToPrimitiveConverter<DateTime>());
+        options.Converters.Add(new ConfigurationCollectionConverterFactory());
         options.Converters.Add(new JsonStringEnumConverter());
-        
-        options.Converters.Add(new InterfaceConverter(new Dictionary<Type, Type>(deserializationMap)));
-
-        ApplySerializerCapabilities(options, capabilityScope);
-
-        return options;
     }
 
     private static void ApplySerializerCapabilities(JsonSerializerOptions options, ConfigManagerCapabilityScope? capabilityScope)

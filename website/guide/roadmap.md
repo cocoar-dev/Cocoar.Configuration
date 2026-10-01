@@ -4,4 +4,4 @@ description: Pointer to the full roadmap — ConfigHub, cloud providers, databas
 
 # What's Next
 
-See the full [Roadmap](/roadmap/overview) for what's planned — including ConfigHub, cloud providers, database provider, and more.
+See the full [Roadmap](/roadmap/overview) for the available ConfigHub runtime provider and the planned ConfigHub portal, cloud providers, database provider, and more.

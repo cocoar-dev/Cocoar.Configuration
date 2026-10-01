@@ -1,5 +1,5 @@
 ---
-description: ConfigHub management portal (commercial) — push config to fleets via FromConfigHub(), secret/cert lifecycle, feature flag control, health dashboard, OTLP telemetry
+description: ConfigHub management portal roadmap and the available Cocoar.Configuration.ConfigHub delivery provider
 ---
 
 # ConfigHub
@@ -41,14 +41,16 @@ Rich per-rule health snapshots, recompute timing, provider error rates, configur
 ConfigHub connects to your instances via the standard provider model. It's just another configuration source — the library doesn't know or care whether the bytes come from a file, HTTP endpoint, or ConfigHub:
 
 ```csharp
+using Cocoar.Configuration.ConfigHub;
+
 builder.AddCocoarConfiguration(c => c
     .UseConfiguration(rule => [
-        rule.For<AppSettings>().FromFile("appsettings.json"),     // Local defaults
-        rule.For<AppSettings>().FromConfigHub(),                   // Remote overrides from ConfigHub
+        rule.For<AppSettings>().FromFile("appsettings.json"),
+        rule.For<AppSettings>().FromConfigHub(deliveryUrl, deliveryToken),
     ]));
 ```
 
-The `FromConfigHub()` provider uses the existing reactive pipeline — changes pushed from ConfigHub trigger the same recompute/merge/notify cycle as a file change. No special runtime behavior.
+The open-source [`Cocoar.Configuration.ConfigHub` provider](/guide/providers/confighub) is available as one dedicated opt-in package. It loads authoritative JSON snapshots, uses SSE as an invalidation signal, and feeds changes through the existing recompute/merge/notify pipeline.
 
 ### Data Flow
 
@@ -77,6 +79,6 @@ The library does **not** phone home, require a license key, or degrade without C
 
 ## Status
 
-ConfigHub is in the design phase. Architecture, data model, and provider protocol are being defined. A private preview is planned after the cloud providers ship.
+The runtime delivery provider and its protocol integration are implemented in the open-source library. The hosted ConfigHub management portal, data model, and operational features described above remain in design; a private preview is planned after the cloud providers ship.
 
 If you're interested in early access, watch the [GitHub repository](https://github.com/cocoar-dev/Cocoar.Configuration) for announcements.

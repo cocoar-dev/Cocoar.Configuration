@@ -68,6 +68,7 @@ export default defineConfig({
             { text: 'INI', link: '/guide/providers/ini' },
             { text: 'Environment Variables', link: '/guide/providers/environment' },
             { text: 'Command Line', link: '/guide/providers/command-line' },
+            { text: 'ConfigHub', link: '/guide/providers/confighub' },
             { text: 'HTTP Polling', link: '/guide/providers/http-polling' },
             { text: 'Microsoft IConfiguration', link: '/guide/providers/microsoft-adapter' },
             { text: 'Static & Observable', link: '/guide/providers/static-observable' },

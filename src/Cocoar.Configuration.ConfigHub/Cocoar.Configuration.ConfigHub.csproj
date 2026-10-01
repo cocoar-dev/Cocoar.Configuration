@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>ConfigHub provider for Cocoar.Configuration with authenticated snapshots, ETag validation, Server-Sent Events invalidation, and polling fallback.</Description>
+    <PackageTags>configuration;confighub;remote-config;sse;server-sent-events;etag;distributed;reactive</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cocoar.Configuration\Cocoar.Configuration.csproj" />
+  </ItemGroup>
+</Project>
