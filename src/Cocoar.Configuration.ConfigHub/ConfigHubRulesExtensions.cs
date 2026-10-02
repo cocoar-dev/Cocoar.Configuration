@@ -18,6 +18,8 @@ public static class ConfigHubRulesExtensions
     /// <param name="fallbackPollInterval">Optional interval for conditional safety-net polling.</param>
     /// <param name="sseReadIdleTimeout">Optional maximum idle time before reconnecting the SSE stream.</param>
     /// <param name="handler">Optional caller-owned HTTP handler. The provider does not dispose it.</param>
+    /// <param name="dimensions">Optional dimensions this client reports (key → value), e.g. the server name.</param>
+    /// <param name="warningMode">How warnings about the reported dimensions are treated (default: warn).</param>
     public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
@@ -25,7 +27,9 @@ public static class ConfigHubRulesExtensions
             string deliveryToken,
             TimeSpan? fallbackPollInterval = null,
             TimeSpan? sseReadIdleTimeout = null,
-            HttpMessageHandler? handler = null)
+            HttpMessageHandler? handler = null,
+            IReadOnlyDictionary<string, string>? dimensions = null,
+            ConfigHubWarningMode warningMode = ConfigHubWarningMode.Warn)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -35,7 +39,30 @@ public static class ConfigHubRulesExtensions
             deliveryToken,
             fallbackPollInterval,
             sseReadIdleTimeout,
-            handler);
+            handler,
+            dimensions,
+            warningMode);
+
+        return new(
+            _ => options.ToProviderOptions(),
+            _ => options.ToQueryOptions(),
+            typeof(T));
+    }
+
+    /// <summary>
+    /// Adds a ConfigHub-backed configuration layer from prepared options, e.g.
+    /// <c>new ConfigHubRuleOptions(url, token).WithDimension("server", Environment.MachineName)</c>.
+    /// </summary>
+    /// <param name="builder">The typed rule builder.</param>
+    /// <param name="options">Endpoint, credential, reported dimensions and warning handling.</param>
+    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
+        FromConfigHub<T>(
+            this TypedProviderBuilder<T> builder,
+            ConfigHubRuleOptions options)
+        where T : class
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(options);
 
         return new(
             _ => options.ToProviderOptions(),

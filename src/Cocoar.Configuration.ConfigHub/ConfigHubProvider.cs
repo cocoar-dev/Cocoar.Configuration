@@ -12,6 +12,12 @@ namespace Cocoar.Configuration.ConfigHub;
 public sealed class ConfigHubProvider
     : ConfigurationProvider<ConfigHubProviderOptions, ConfigHubProviderQueryOptions>, IDisposable
 {
+    /// <summary>Request header carrying the reported dimensions.</summary>
+    public const string DimensionHeader = "ConfigHub-Dimension";
+
+    /// <summary>Response header carrying warnings about the reported dimensions.</summary>
+    public const string WarningHeader = "ConfigHub-Warning";
+
     private static readonly TimeSpan InitialReconnectDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan MaxReconnectDelay = TimeSpan.FromSeconds(30);
 
@@ -82,6 +88,11 @@ public sealed class ConfigHubProvider
             }
 
             using var response = await _client.SendAsync(request, ct).ConfigureAwait(false);
+            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotModified)
+            {
+                HandleWarnings(query, response);
+            }
+
             if (response.StatusCode == HttpStatusCode.NotModified)
             {
                 if (response.Headers.ETag is { } refreshedEntityTag)
@@ -108,7 +119,46 @@ public sealed class ConfigHubProvider
         var request = new HttpRequestMessage(HttpMethod.Get, query.Url);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", query.DeliveryToken);
+        if (query.DimensionHeaderValue is { } dimensions)
+        {
+            request.Headers.TryAddWithoutValidation(DimensionHeader, dimensions);
+        }
+
         return request;
+    }
+
+    /// <summary>
+    /// ConfigHub still delivers when a reported dimension is missing, unknown or not allowed —
+    /// without the affected layer — and says so in a response header. Changes are logged and
+    /// passed to the callback; in <see cref="ConfigHubWarningMode.Fail"/> the fetch fails.
+    /// </summary>
+    private static void HandleWarnings(ConfigHubProviderQueryOptions query, HttpResponseMessage response)
+    {
+        IReadOnlyList<string> warnings = response.Headers.TryGetValues(WarningHeader, out var values)
+            ? values.SelectMany(v => v.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).ToList()
+            : [];
+
+        if (query.SetWarnings(warnings))
+        {
+            if (warnings.Count > 0)
+            {
+                Trace.TraceWarning("ConfigHub '{0}' reported: {1}.", query.Url, string.Join("; ", warnings));
+            }
+
+            try
+            {
+                query.OnWarnings?.Invoke(warnings);
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceWarning("ConfigHub warning callback failed: {0}: {1}.", ex.GetType().Name, ex.Message);
+            }
+        }
+
+        if (warnings.Count > 0 && query.WarningMode == ConfigHubWarningMode.Fail)
+        {
+            throw new ConfigHubWarningException(warnings);
+        }
     }
 
     private sealed class ChangeObservable(ConfigHubProvider provider, ConfigHubProviderQueryOptions query)

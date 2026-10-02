@@ -140,6 +140,9 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
 
     internal ConfigManagerCapabilityScope CapabilityScope => _capabilityScope;
 
+    /// <summary>The logger configured with <c>UseLogger</c>, for satellite packages.</summary>
+    internal ILogger Logger => _logger;
+
     /// <summary>
     /// Set by <c>UseFeatureFlags</c>. Null when feature flags have not been configured.
     /// </summary>
