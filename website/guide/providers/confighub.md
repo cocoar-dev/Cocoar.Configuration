@@ -25,11 +25,49 @@ builder.AddCocoarConfiguration(configuration => configuration
 
 The local file supplies defaults. The later ConfigHub layer overrides the properties present in its snapshot and participates in the normal atomic merge and notification pipeline.
 
+## Configuration Classes
+
+Each typed rule requests one root object using `typeof(T).Name`. For
+`AppSettings`, ConfigHub stores a document such as:
+
+```json
+{
+  "AppSettings": { "Message": "Hello" },
+  "MailSettings": { "Host": "smtp.example" }
+}
+```
+
+ConfigHub merges the product, dimension and access documents first, then returns
+only `AppSettings` to the rule. A missing class returns `{}`, preserving lower
+layer defaults. Use an alias when the external name should stay independent of
+the .NET type name:
+
+```csharp
+rule.For<AppSettings>().FromConfigHub(deliveryUrl, deliveryToken, alias: "Application")
+// Or: new ConfigHubRuleOptions(deliveryUrl, deliveryToken, alias: "Application")
+```
+
+The alias is one literal root property, including when it contains punctuation.
+Delivery and automatic schema registration use the same key. Two different types
+with the same simple name at one endpoint need different aliases.
+`FromConfigHub` returns a `ConfigHubRuleBuilder`; it supports normal rule options
+such as `Required`, `When` and `Named`, but does not expose `Select` or `MountAt`.
+Move an existing `.Select("Storage")` to `alias: "Storage"` and store that class
+under the matching root object.
+
+## Server-Owned Contract
+
+ConfigHub owns the language-neutral HTTP/SSE contract. Use the
+[Provider API Git entry point](https://github.com/cocoar-dev/ConfigHub/blob/feature/dimension-layers/docs/api/index.md)
+for the normative protocol, OpenAPI document, current integration branches and
+review instructions. The Configuration team owns this provider and its optional
+manager extension; server and NuGet versions evolve independently.
+
 ## Delivery Protocol
 
 The provider treats the JSON snapshot as the only authoritative configuration:
 
-1. It fetches the endpoint with `Accept: application/json` and `Authorization: Bearer <delivery-token>`.
+1. It fetches the endpoint with `Accept: application/json`, `Authorization: Bearer <delivery-token>` and `ConfigHub-Class: <URL-escaped class name or alias>`.
 2. It stores the response ETag and opens the same endpoint with `Accept: text/event-stream`.
 3. An SSE event containing a `data` field invalidates the snapshot; the event payload itself is never parsed as configuration.
 4. The provider conditionally refetches with `If-None-Match`. A `304 Not Modified` produces no configuration update.
@@ -37,12 +75,17 @@ The provider treats the JSON snapshot as the only authoritative configuration:
 
 SSE reconnects use exponential backoff. A periodic conditional poll can run alongside it as an additional safety net.
 
+The class header is also sent on SSE connections. Invalidations remain access-wide;
+snapshot ETags include the selected class. The low-level `ConfigHubProviderQueryOptions`
+can omit `classKey` for legacy full-document delivery; typed rules always set it.
+
 ## Options
 
 | Option | Default | Description |
 |---|---|---|
 | `url` | Required | Absolute HTTP or HTTPS ConfigHub delivery URL |
 | `deliveryToken` | Required | Bearer token for the delivery endpoint |
+| `alias` | `typeof(T).Name` | Optional root property key used for delivery and registration |
 | `fallbackPollInterval` | `null` | Optional conditional poll running alongside SSE |
 | `sseReadIdleTimeout` | `null` | Reconnect if neither events nor keep-alive lines arrive in this interval |
 | `handler` | `null` | Optional caller-owned `HttpMessageHandler`, useful for custom transport or tests |
@@ -148,19 +191,54 @@ Opt in once; both are derived from what the configuration already declares:
 builder.AddCocoarConfiguration(c => c
     .UseConfiguration(rules =>
     [
-        rules.For<StorageSettings>().FromConfigHub(hub).Select("Storage"),
-        rules.For<MailSettings>().FromConfigHub(hub).Select("Mail"),
+        rules.For<StorageSettings>().FromConfigHub(
+            new ConfigHubRuleOptions(deliveryUrl, deliveryToken, alias: "Storage")),
+        rules.For<MailSettings>().FromConfigHub(deliveryUrl, deliveryToken),
     ])
     .UseSecretsSetup(s => s.UseCertificateFromFile("certs/secrets.pfx"))
     .UseConfigHubRegistration(clientName: "MyApp"));
 ```
 
-After the configuration is built, every active `FromConfigHub` rule contributes the schema of its
-type at its `Select` path (`A:B` nests); rules whose `.When()` is false and other providers add
-nothing. One schema is sent per ConfigHub endpoint, with the client name and version (default: the
-entry assembly's version). When secrets are set up, the current public key is reported too. It runs
-in the background; a refusal or an unreachable hub is logged, never thrown, and the server side is
-idempotent, so it can run on every start.
+`UseConfigHubRegistration()` is an optional extension in the ConfigHub package,
+not part of the core manager or individual rules. Name and version default to the
+entry assembly. Destinations, bearer tokens and custom transports are taken from
+active `FromConfigHub` rules; there is no second endpoint configuration.
+
+After the manager is built, a background worker groups those rules by endpoint
+and credential and requests `GET {deliveryUrl}/capabilities` using that credential.
+Protocol version 1 advertises `Features` such as `schema` and `encryption-key`.
+Only advertised functions are used. Missing discovery endpoints (`404`/`501`) or
+unknown protocol versions enable no upstream functions; normal delivery still works.
+The current ConfigHub server accepts all implemented functions, without licensing.
+A future server can restrict both discovery and receiving endpoints independently
+of configuration delivery. Telemetry and feature-flag reports are not implemented
+or advertised yet.
+
+When `schema` is available, each active rule contributes its type under the same
+class key used for delivery. Inactive rules and other providers contribute nothing.
+When `encryption-key` is available and secrets are configured, only the public key
+is reported. Successful unchanged reports are suppressed for this manager lifetime;
+capabilities, active rules, endpoint/token changes and key changes are rediscovered
+every five minutes. Failed reports are retried; each target fails independently.
+Disposing the manager cancels the worker and in-flight requests. Async disposal waits
+for it to stop. Caller-owned transports are never disposed by registration.
+
+```csharp
+.UseConfigHubRegistration(new ConfigHubRegistrationOptions
+{
+    ClientName = "MyApp",
+    ClientVersion = "1.0.0",
+    RefreshInterval = TimeSpan.FromMinutes(5),
+    RequestTimeout = TimeSpan.FromSeconds(15),
+})
+```
+
+Registration never makes configuration required and does not delay startup.
+Omit the extension for configuration delivery alone.
+
+The schema root contains only nonnullable class objects, never direct scalar
+settings. Local `$ref` paths from exported types are rebased under their class
+keys. Nested properties retain their own nullability and secret metadata.
 
 `Secret<T>` properties appear in the schema as the schema of `T`, marked with
 `"x-cocoar-secret": true` (`SecretJsonSchema`), so ConfigHub encrypts what is entered and stores only

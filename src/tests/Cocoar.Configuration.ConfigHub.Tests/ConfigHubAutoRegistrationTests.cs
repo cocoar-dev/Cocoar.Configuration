@@ -12,7 +12,7 @@ namespace Cocoar.Configuration.ConfigHub.Tests;
 
 /// <summary>
 /// The schema ConfigHub gets is derived from the rules: each active <c>FromConfigHub</c> rule adds
-/// its type at its select path; inactive rules and other providers add nothing.
+/// its type under its class key; inactive rules and other providers add nothing.
 /// </summary>
 public sealed class ConfigHubAutoRegistrationTests
 {
@@ -35,15 +35,15 @@ public sealed class ConfigHubAutoRegistrationTests
     }
 
     [Fact]
-    public void SchemasFromRules_OnePropertyPerSelectPath_InactiveAndOtherProvidersLeftOut()
+    public void SchemasFromRules_OnePropertyPerClassKey_InactiveAndOtherProvidersLeftOut()
     {
         using var handler = new HubHandler();
         var options = new ConfigHubRuleOptions(Url, "tok", handler: handler);
         using var manager = ConfigManager.Create(c => c.UseConfiguration(rules =>
         [
-            rules.For<StorageSettings>().FromConfigHub(options).Select("Storage"),
-            rules.For<MailSettings>().FromConfigHub(options).Select("Infra:Mail"),
-            rules.For<MailSettings>().FromConfigHub(options).When(_ => false).Select("Disabled"),
+            rules.For<StorageSettings>().FromConfigHub(new ConfigHubRuleOptions(Url, "tok", handler: handler, alias: "Storage")),
+            rules.For<MailSettings>().FromConfigHub(options),
+            rules.For<MailSettings>().FromConfigHub(options).When(_ => false),
             rules.For<LocalOnly>().FromStaticJson("{}"),
         ]));
 
@@ -51,9 +51,9 @@ public sealed class ConfigHubAutoRegistrationTests
 
         Assert.Equal((Url, "tok"), (url, token));
         var properties = schema["properties"]!.AsObject();
-        Assert.Equal(["Storage", "Infra"], properties.Select(p => p.Key));
+        Assert.Equal(["Storage", "MailSettings"], properties.Select(p => p.Key));
         Assert.True(properties["Storage"]!["properties"]!["ApiKey"]![SecretJsonSchema.Marker]!.GetValue<bool>());
-        Assert.NotNull(properties["Infra"]!["properties"]!["Mail"]!["properties"]!["Host"]);
+        Assert.NotNull(properties["MailSettings"]!["properties"]!["Host"]);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class ConfigHubAutoRegistrationTests
         var options = new ConfigHubRuleOptions(Url, "tok", handler: handler);
 
         using var manager = ConfigManager.Create(c => c
-            .UseConfiguration(rules => [rules.For<StorageSettings>().FromConfigHub(options).Select("Storage")])
+            .UseConfiguration(rules => [rules.For<StorageSettings>().FromConfigHub(new ConfigHubRuleOptions(Url, "tok", handler: handler, alias: "Storage"))])
             .UseConfigHubRegistration("App", "1.2.3", handler));
 
         var put = await handler.Put.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -81,7 +81,7 @@ public sealed class ConfigHubAutoRegistrationTests
                 Put.TrySetResult((request.RequestUri!.ToString(), await request.Content!.ReadAsStringAsync(cancellationToken)));
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                Content = new StringContent(request.RequestUri!.AbsolutePath.EndsWith("/capabilities", StringComparison.Ordinal) ? """{"ProtocolVersion":1,"Features":["schema","encryption-key"]}""" : "{}", Encoding.UTF8, "application/json"),
             };
         }
     }

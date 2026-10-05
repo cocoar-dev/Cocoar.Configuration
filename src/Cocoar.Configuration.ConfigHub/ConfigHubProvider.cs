@@ -119,6 +119,8 @@ public sealed class ConfigHubProvider
         var request = new HttpRequestMessage(HttpMethod.Get, query.Url);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", query.DeliveryToken);
+        if (query.ClassKey is { } classKey)
+            request.Headers.TryAddWithoutValidation("ConfigHub-Class", Uri.EscapeDataString(classKey));
         if (query.DimensionHeaderValue is { } dimensions)
         {
             request.Headers.TryAddWithoutValidation(DimensionHeader, dimensions);

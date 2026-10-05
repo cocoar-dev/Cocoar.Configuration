@@ -40,6 +40,9 @@ public sealed class ConfigHubRuleOptions
     /// <summary>How warnings about the reported dimensions are treated (default: warn).</summary>
     public ConfigHubWarningMode WarningMode { get; }
 
+    /// <summary>Root object key instead of the configuration type's name.</summary>
+    public string? Alias { get; }
+
     /// <summary>Optional callback invoked when the warnings returned by ConfigHub change.</summary>
     [JsonIgnore]
     public Action<IReadOnlyList<string>>? OnWarnings { get; }
@@ -55,6 +58,7 @@ public sealed class ConfigHubRuleOptions
     /// <param name="dimensions">Optional dimensions this client reports (key → value).</param>
     /// <param name="warningMode">How warnings about the reported dimensions are treated.</param>
     /// <param name="onWarnings">Optional callback invoked when the returned warnings change.</param>
+    /// <param name="alias">Root object key instead of the class name.</param>
     public ConfigHubRuleOptions(
         string url,
         string deliveryToken,
@@ -63,7 +67,8 @@ public sealed class ConfigHubRuleOptions
         HttpMessageHandler? handler = null,
         IReadOnlyDictionary<string, string>? dimensions = null,
         ConfigHubWarningMode warningMode = ConfigHubWarningMode.Warn,
-        Action<IReadOnlyList<string>>? onWarnings = null)
+        Action<IReadOnlyList<string>>? onWarnings = null,
+        string? alias = null)
     {
         Url = url;
         DeliveryToken = deliveryToken;
@@ -73,6 +78,8 @@ public sealed class ConfigHubRuleOptions
         Dimensions = dimensions ?? new Dictionary<string, string>();
         WarningMode = warningMode;
         OnWarnings = onWarnings;
+        if (alias is not null) ArgumentException.ThrowIfNullOrWhiteSpace(alias);
+        Alias = alias;
     }
 
     /// <summary>
@@ -96,12 +103,12 @@ public sealed class ConfigHubRuleOptions
 
     private ConfigHubRuleOptions Copy(
         IReadOnlyDictionary<string, string> dimensions, ConfigHubWarningMode mode, Action<IReadOnlyList<string>>? onWarnings)
-        => new(Url, DeliveryToken, FallbackPollInterval, SseReadIdleTimeout, Handler, dimensions, mode, onWarnings);
+        => new(Url, DeliveryToken, FallbackPollInterval, SseReadIdleTimeout, Handler, dimensions, mode, onWarnings, Alias);
 
     internal ConfigHubProviderOptions ToProviderOptions() => new(
         FallbackPollInterval,
         SseReadIdleTimeout,
         Handler);
 
-    internal ConfigHubProviderQueryOptions ToQueryOptions() => new(Url, DeliveryToken, Dimensions, WarningMode, OnWarnings);
+    internal ConfigHubProviderQueryOptions ToQueryOptions(Type type) => new(Url, DeliveryToken, Dimensions, WarningMode, OnWarnings, Alias ?? type.Name);
 }

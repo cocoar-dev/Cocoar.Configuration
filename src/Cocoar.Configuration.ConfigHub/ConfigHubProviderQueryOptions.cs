@@ -42,6 +42,9 @@ public sealed class ConfigHubProviderQueryOptions : IProviderQuery
     /// <summary>How warnings about the reported dimensions are treated.</summary>
     public ConfigHubWarningMode WarningMode { get; }
 
+    /// <summary>Root configuration object selected by ConfigHub; part of the query identity.</summary>
+    public string? ClassKey { get; }
+
     /// <summary>Optional callback invoked when the warnings ConfigHub returns change.</summary>
     [JsonIgnore]
     public Action<IReadOnlyList<string>>? OnWarnings { get; }
@@ -56,12 +59,14 @@ public sealed class ConfigHubProviderQueryOptions : IProviderQuery
     /// <param name="dimensions">Optional dimensions this client reports (key → value).</param>
     /// <param name="warningMode">How warnings about the reported dimensions are treated.</param>
     /// <param name="onWarnings">Optional callback invoked when the returned warnings change.</param>
+    /// <param name="classKey">Class object key; null requests the complete document for low-level clients.</param>
     public ConfigHubProviderQueryOptions(
         string url,
         string deliveryToken,
         IReadOnlyDictionary<string, string>? dimensions = null,
         ConfigHubWarningMode warningMode = ConfigHubWarningMode.Warn,
-        Action<IReadOnlyList<string>>? onWarnings = null)
+        Action<IReadOnlyList<string>>? onWarnings = null,
+        string? classKey = null)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
@@ -82,6 +87,9 @@ public sealed class ConfigHubProviderQueryOptions : IProviderQuery
         Dimensions = NormalizeDimensions(dimensions);
         WarningMode = warningMode;
         OnWarnings = onWarnings;
+        if (classKey is not null && (string.IsNullOrWhiteSpace(classKey) || classKey.Length > 200 || classKey.Any(char.IsControl)))
+            throw new ArgumentException("Class key must contain 1–200 characters without control characters.", nameof(classKey));
+        ClassKey = classKey;
     }
 
     /// <summary>The value of the <c>ConfigHub-Dimension</c> request header, or null without dimensions.</summary>

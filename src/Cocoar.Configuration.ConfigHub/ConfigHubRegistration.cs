@@ -21,10 +21,24 @@ public sealed record ConfigHubRegistrationResult(bool Succeeded, int StatusCode,
 /// What a client tells ConfigHub about itself, next to fetching its configuration: the JSON Schema
 /// of the settings it binds (so ConfigHub can render a typed form) and the public key it opens
 /// secrets with (so ConfigHub can address secrets to it). Both are idempotent on the server.
-/// <see cref="ConfigHubAutoRegistration.UseConfigHubRegistration"/> makes these calls from the rules.
+/// <c>UseConfigHubRegistration</c> makes these calls from the rules.
 /// </summary>
 public static class ConfigHubRegistration
 {
+    /// <summary>Queries accepted upstream functions. An older server without this endpoint accepts none.</summary>
+    public static async Task<ConfigHubCapabilities> GetCapabilitiesAsync(
+        HttpClient client, string deliveryUrl, string deliveryToken, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{deliveryUrl.TrimEnd('/')}/capabilities");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", deliveryToken);
+        using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+        if (response.StatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.NotImplemented)
+            return new ConfigHubCapabilities(1, []);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ConfigHubCapabilities>(cancellationToken: ct).ConfigureAwait(false)
+            ?? new ConfigHubCapabilities(1, []);
+    }
+
     private const string SchemaDialect = "https://json-schema.org/draft/2020-12/schema";
 
     // Settings are described as they are bound: property names unchanged.
@@ -47,13 +61,30 @@ public static class ConfigHubRegistration
         return Document(title, properties);
     }
 
-    internal static JsonObject Document(string title, JsonObject properties) => new()
+    internal static JsonObject Document(string title, JsonObject properties)
     {
-        ["$schema"] = SchemaDialect,
-        ["title"] = title,
-        ["type"] = "object",
-        ["properties"] = properties,
-    };
+        // Exporter references are rooted at the individual type; inserting that type
+        // under a class key must move its references with it (including recursive refs).
+        foreach (var (key, schema) in properties)
+            RebaseReferences(schema, "#/properties/" + key.Replace("~", "~0").Replace("/", "~1"));
+        return new JsonObject
+        {
+            ["$schema"] = SchemaDialect, ["title"] = title,
+            ["type"] = "object", ["properties"] = properties,
+        };
+    }
+
+    private static void RebaseReferences(JsonNode? node, string prefix)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj["$ref"] is JsonValue value && value.TryGetValue<string>(out var reference) && reference.StartsWith('#'))
+                obj["$ref"] = prefix + reference[1..];
+            foreach (var child in obj.Select(p => p.Value)) RebaseReferences(child, prefix);
+        }
+        else if (node is JsonArray array)
+            foreach (var child in array) RebaseReferences(child, prefix);
+    }
 
     /// <summary><c>PUT {deliveryUrl}/schema</c> with the client's name and version.</summary>
     public static async Task<ConfigHubRegistrationResult> RegisterSchemaAsync(

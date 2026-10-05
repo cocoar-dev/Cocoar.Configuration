@@ -19,8 +19,9 @@ public static class ConfigHubRulesExtensions
     /// <param name="sseReadIdleTimeout">Optional maximum idle time before reconnecting the SSE stream.</param>
     /// <param name="handler">Optional caller-owned HTTP handler. The provider does not dispose it.</param>
     /// <param name="dimensions">Optional dimensions this client reports (key → value), e.g. the server name.</param>
+    /// <param name="alias">Optional root object key instead of the configuration class name.</param>
     /// <param name="warningMode">How warnings about the reported dimensions are treated (default: warn).</param>
-    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
+    public static ConfigHubRuleBuilder
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             string url,
@@ -29,7 +30,8 @@ public static class ConfigHubRulesExtensions
             TimeSpan? sseReadIdleTimeout = null,
             HttpMessageHandler? handler = null,
             IReadOnlyDictionary<string, string>? dimensions = null,
-            ConfigHubWarningMode warningMode = ConfigHubWarningMode.Warn)
+            ConfigHubWarningMode warningMode = ConfigHubWarningMode.Warn,
+            string? alias = null)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -41,11 +43,11 @@ public static class ConfigHubRulesExtensions
             sseReadIdleTimeout,
             handler,
             dimensions,
-            warningMode);
+            warningMode, alias: alias);
 
         return new(
             _ => options.ToProviderOptions(),
-            _ => options.ToQueryOptions(),
+            _ => options.ToQueryOptions(typeof(T)),
             typeof(T));
     }
 
@@ -55,7 +57,7 @@ public static class ConfigHubRulesExtensions
     /// </summary>
     /// <param name="builder">The typed rule builder.</param>
     /// <param name="options">Endpoint, credential, reported dimensions and warning handling.</param>
-    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
+    public static ConfigHubRuleBuilder
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             ConfigHubRuleOptions options)
@@ -66,7 +68,7 @@ public static class ConfigHubRulesExtensions
 
         return new(
             _ => options.ToProviderOptions(),
-            _ => options.ToQueryOptions(),
+            _ => options.ToQueryOptions(typeof(T)),
             typeof(T));
     }
 
@@ -75,7 +77,7 @@ public static class ConfigHubRulesExtensions
     /// </summary>
     /// <param name="builder">The typed rule builder.</param>
     /// <param name="optionsFactory">Builds ConfigHub options from the current configuration pass.</param>
-    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
+    public static ConfigHubRuleBuilder
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, ConfigHubRuleOptions> optionsFactory)
@@ -86,7 +88,7 @@ public static class ConfigHubRulesExtensions
 
         return new(
             accessor => optionsFactory(accessor).ToProviderOptions(),
-            accessor => optionsFactory(accessor).ToQueryOptions(),
+            accessor => optionsFactory(accessor).ToQueryOptions(typeof(T)),
             typeof(T));
     }
 }

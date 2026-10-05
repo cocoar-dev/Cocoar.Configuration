@@ -44,6 +44,10 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     private ConfigurationState _state => _global.State;
 
     private int _initialized;
+    private readonly ConcurrentQueue<IDisposable> _ownedResources = new();
+
+    /// <summary>Attaches a satellite resource to the manager's shutdown lifecycle.</summary>
+    internal void OwnResource(IDisposable resource) => _ownedResources.Enqueue(resource);
 
     /// <summary>
     /// Creates and initializes a new <see cref="ConfigManager"/> using the provided configuration.
@@ -547,6 +551,8 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// </summary>
     public void Dispose()
     {
+        while (_ownedResources.TryDequeue(out var resource))
+            Safety.DisposeQuietly(resource);
         foreach (var lazy in _tenants.Values)
         {
             if (lazy.IsValueCreated && lazy.Value.IsCompletedSuccessfully)
@@ -567,6 +573,13 @@ public sealed class ConfigManager : IConfigurationAccessor, ITenantConfiguration
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        while (_ownedResources.TryDequeue(out var resource))
+        {
+            if (resource is IAsyncDisposable asyncResource)
+                await asyncResource.DisposeAsync().ConfigureAwait(false);
+            else
+                Safety.DisposeQuietly(resource);
+        }
         foreach (var lazy in _tenants.Values)
         {
             if (!lazy.IsValueCreated)
