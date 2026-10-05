@@ -20,6 +20,7 @@ internal sealed class TransformCache : IDisposable
     private string? _lastSelectionHash;
     private bool _dirty;
     private bool _dirtyFromTransformChange;
+    private bool _selectionMissing;
 
     /// <summary>
     /// Gets whether the cache is dirty and needs refresh.
@@ -89,6 +90,7 @@ internal sealed class TransformCache : IDisposable
 
             _dirty = false;
             _dirtyFromTransformChange = false;
+            _selectionMissing = false;
         }
     }
 
@@ -123,13 +125,35 @@ internal sealed class TransformCache : IDisposable
                 }
                 _dirty = true;
                 _dirtyFromTransformChange = false;
+                _selectionMissing = false;
 
                 return true; // Data changed
             }
         }
+        catch (KeyNotFoundException)
+        {
+            // A well-formed document without the selected path is new content, not a transient error.
+            // Dropping the cache sends the next recompute through the fetch path, which decides
+            // optional (empty contribution) versus required (rollback) exactly as it does at startup.
+            lock (_lock)
+            {
+                if (_selectionMissing)
+                {
+                    return false; // Already reported; the source still lacks the path
+                }
+
+                _selectionMissing = true;
+                _lastSelectionHash = null;
+                _dirty = true;
+                _cachedBytes?.Dispose();
+                _cachedBytes = null;
+
+                return true;
+            }
+        }
         catch
         {
-            return false; // Ignore transform errors in change handler
+            return false; // Ignore transform errors in change handler (e.g. a document caught mid-write)
         }
     }
 
@@ -149,6 +173,7 @@ internal sealed class TransformCache : IDisposable
         lock (_lock)
         {
             _lastSelectionHash = null;
+            _selectionMissing = false;
             _dirty = true;
             _cachedBytes?.Dispose();
             _cachedBytes = null;
