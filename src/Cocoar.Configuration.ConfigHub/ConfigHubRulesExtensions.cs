@@ -21,7 +21,7 @@ public static class ConfigHubRulesExtensions
     /// <param name="dimensions">Optional dimensions this client reports (key → value), e.g. the server name.</param>
     /// <param name="alias">Optional root object key instead of the configuration class name.</param>
     /// <param name="warningMode">How warnings about the reported dimensions are treated (default: warn).</param>
-    public static ConfigHubRuleBuilder
+    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             string url,
@@ -57,7 +57,7 @@ public static class ConfigHubRulesExtensions
     /// </summary>
     /// <param name="builder">The typed rule builder.</param>
     /// <param name="options">Endpoint, credential, reported dimensions and warning handling.</param>
-    public static ConfigHubRuleBuilder
+    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             ConfigHubRuleOptions options)
@@ -77,7 +77,7 @@ public static class ConfigHubRulesExtensions
     /// </summary>
     /// <param name="builder">The typed rule builder.</param>
     /// <param name="optionsFactory">Builds ConfigHub options from the current configuration pass.</param>
-    public static ConfigHubRuleBuilder
+    public static ProviderRuleBuilder<ConfigHubProvider, ConfigHubProviderOptions, ConfigHubProviderQueryOptions>
         FromConfigHub<T>(
             this TypedProviderBuilder<T> builder,
             Func<IConfigurationAccessor, ConfigHubRuleOptions> optionsFactory)

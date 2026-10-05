@@ -8,6 +8,8 @@ public class ConfigHubClassTests
 {
     public sealed class Settings { public string Message { get; set; } = ""; }
     public sealed class RecursiveSettings { public RecursiveSettings? Next { get; set; } }
+    public sealed class MailSettings { public string Host { get; set; } = ""; }
+    public sealed class Outer { public Settings Inner { get; set; } = new(); }
 
     [Fact]
     public void SchemaReferences_StayInsideTheirClassObject()
@@ -30,7 +32,32 @@ public class ConfigHubClassTests
         Assert.Equal(expected, Uri.UnescapeDataString(handler.ClassKey!));
         var schema = Assert.Single(ConfigHubAutoRegistration.SchemasFromRules(manager, "Demo")).Schema;
         Assert.NotNull(schema["properties"]![expected]!["properties"]!["Message"]);
-        Assert.DoesNotContain(typeof(ConfigHubRuleBuilder).GetMethods(), method => method.Name is "Select" or "MountAt");
+    }
+
+    [Fact]
+    public void Select_ReadsTheTypeFromInsideItsClassObject_RegistrationStillDescribesTheWholeType()
+    {
+        using var handler = new ClassHandler("""{"Mail":{"Primary":{"Host":"smtp"}}}""");
+        var options = new ConfigHubRuleOptions("https://config.example/app", "token", handler: handler, alias: "Shared");
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rule =>
+            [rule.For<MailSettings>().FromConfigHub(options).Select("Mail:Primary").Required()]));
+
+        Assert.Equal("smtp", manager.GetConfig<MailSettings>()!.Host);
+        var shared = Assert.Single(ConfigHubAutoRegistration.SchemasFromRules(manager, "Demo")).Schema["properties"]!["Shared"]!;
+        Assert.NotNull(shared["properties"]!["Host"]);
+    }
+
+    [Fact]
+    public void MountAt_BindsTheClassObjectToANestedProperty_RegistrationStillDescribesTheWholeType()
+    {
+        using var handler = new ClassHandler();
+        var options = new ConfigHubRuleOptions("https://config.example/app", "token", handler: handler, alias: "Inner");
+        using var manager = ConfigManager.Create(c => c.UseConfiguration(rule =>
+            [rule.For<Outer>().FromConfigHub(options).MountAt("Inner").Required()]));
+
+        Assert.Equal("remote", manager.GetConfig<Outer>()!.Inner.Message);
+        var inner = Assert.Single(ConfigHubAutoRegistration.SchemasFromRules(manager, "Demo")).Schema["properties"]!["Inner"]!;
+        Assert.NotNull(inner["properties"]!["Inner"]!["properties"]!["Message"]);
     }
 
     [Fact]
@@ -43,13 +70,13 @@ public class ConfigHubClassTests
         Assert.DoesNotContain("secret", json);
     }
 
-    private sealed class ClassHandler : HttpMessageHandler
+    private sealed class ClassHandler(string body = """{"Message":"remote"}""") : HttpMessageHandler
     {
         public string? ClassKey { get; private set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             ClassKey = request.Headers.GetValues("ConfigHub-Class").Single();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"Message":"remote"}""") });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
         }
     }
 }
