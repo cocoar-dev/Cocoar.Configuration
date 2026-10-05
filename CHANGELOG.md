@@ -17,6 +17,9 @@
 - **Registration now requires discovery** — automatic registration to older servers without `/capabilities` is skipped (delivery remains available). Explicit low-level registration calls remain available. ConfigHub and its provider should be upgraded together for automatic registration.
 - **ConfigHub class selection** — typed `FromConfigHub<T>` rules send `ConfigHub-Class` with `typeof(T).Name`, or the optional `alias`, on snapshot and SSE requests. The server returns only that merged root object. Delivery and schema registration derive the same key. `Select` and `MountAt` keep working as on every other rule and apply to the returned class object; registration ignores them and always reports the full type of the rule under its key. An existing `.Select("Storage")` on a full document becomes `alias: "Storage"`, with the stored settings wrapped under that object. Different types with the same key at one endpoint require distinct aliases. The low-level query API retains full-document delivery when `classKey` is omitted.
 
+### Fixed
+- Updated `Cocoar.Json.Mutable` to 1.2.1, which fixes character escaping in the JSON merge pipeline.
+
 ### Documentation
 - Added the ConfigHub provider guide, package reference, installation paths, and an updated ConfigHub roadmap that distinguishes the available runtime provider from the separately developed management portal.
 
