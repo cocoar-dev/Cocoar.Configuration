@@ -18,6 +18,7 @@
 - **ConfigHub class selection** — typed `FromConfigHub<T>` rules send `ConfigHub-Class` with `typeof(T).Name`, or the optional `alias`, on snapshot and SSE requests. The server returns only that merged root object. Delivery and schema registration derive the same key. `Select` and `MountAt` keep working as on every other rule and apply to the returned class object; registration ignores them and always reports the full type of the rule under its key. An existing `.Select("Storage")` on a full document becomes `alias: "Storage"`, with the stored settings wrapped under that object. Different types with the same key at one endpoint require distinct aliases. The low-level query API retains full-document delivery when `classKey` is omitted.
 
 ### Fixed
+- A rule with `.Select(...)` whose selected path disappears from its source at runtime no longer keeps serving the previous values. The change now triggers a recompute that treats the rule as it would at startup: an optional rule contributes nothing and is reported as failed (health `Degraded`), a required rule keeps the last good snapshot and is reported. Previously the removal was ignored silently and only a restart corrected it.
 - Updated `Cocoar.Json.Mutable` to 1.2.1, which fixes character escaping in the JSON merge pipeline.
 
 ### Documentation
