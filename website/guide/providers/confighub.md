@@ -58,7 +58,7 @@ under the matching root object.
 ## Server-Owned Contract
 
 ConfigHub owns the language-neutral HTTP/SSE contract. Use the
-[Provider API Git entry point](https://github.com/cocoar-dev/ConfigHub/blob/feature/dimension-layers/docs/api/index.md)
+[Provider API Git entry point](https://github.com/cocoar-dev/ConfigHub/blob/develop/docs/api/index.md)
 for the normative protocol, OpenAPI document, current integration branches and
 review instructions. The Configuration team owns this provider and its optional
 manager extension; server and NuGet versions evolve independently.
