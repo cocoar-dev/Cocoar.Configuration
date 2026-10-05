@@ -87,8 +87,8 @@ public static class ConfigHubAutoRegistration
         var types = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
         foreach (var (rule, key) in target.Rules)
         {
-            if (key is null || rule.Options?.SelectPath is not null)
-                throw new InvalidOperationException("ConfigHub registration requires a typed class key without Select.");
+            if (key is null)
+                throw new InvalidOperationException("ConfigHub registration requires a typed class key.");
             if (types.TryGetValue(key, out var previous) && previous != rule.ConcreteType)
                 throw new InvalidOperationException($"ConfigHub class key '{key}' has conflicting types; give one an alias.");
             types[key] = rule.ConcreteType;

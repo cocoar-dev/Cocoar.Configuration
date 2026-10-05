@@ -48,10 +48,21 @@ rule.For<AppSettings>().FromConfigHub(deliveryUrl, deliveryToken, alias: "Applic
 The alias is one literal root property, including when it contains punctuation.
 Delivery and automatic schema registration use the same key. Two different types
 with the same simple name at one endpoint need different aliases.
-`FromConfigHub` returns a `ConfigHubRuleBuilder`; it supports normal rule options
-such as `Required`, `When` and `Named`, but does not expose `Select` or `MountAt`.
-Move an existing `.Select("Storage")` to `alias: "Storage"` and store that class
-under the matching root object.
+
+`FromConfigHub` returns the same rule builder as every other provider, so
+`Required`, `When`, `Named`, `Select` and `MountAt` behave as usual. The class
+key decides which object ConfigHub returns; `Select` and `MountAt` then apply to
+that object on the client:
+
+```csharp
+// The settings lie below "Mail" inside the class "Shared".
+rule.For<MailSettings>().FromConfigHub(deliveryUrl, deliveryToken, alias: "Shared").Select("Mail")
+
+// The class "Storage" is delivered on its own, but binds to AppSettings.Storage.
+rule.For<AppSettings>().FromConfigHub(deliveryUrl, deliveryToken, alias: "Storage").MountAt("Storage")
+```
+
+Most rules need neither: one class per type is the simple case.
 
 ## Server-Owned Contract
 
@@ -214,6 +225,8 @@ or advertised yet.
 
 When `schema` is available, each active rule contributes its type under the same
 class key used for delivery. Inactive rules and other providers contribute nothing.
+The schema is always the full type named in `For<T>()`; `Select` and `MountAt`
+do not change what is registered.
 When `encryption-key` is available and secrets are configured, only the public key
 is reported. Successful unchanged reports are suppressed for this manager lifetime;
 capabilities, active rules, endpoint/token changes and key changes are rediscovered
