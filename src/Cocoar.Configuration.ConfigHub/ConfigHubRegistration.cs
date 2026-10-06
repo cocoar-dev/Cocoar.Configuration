@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization.Metadata;
 using Cocoar.Configuration.Secrets;
 using Cocoar.Configuration.Secrets.SecretTypes;
 
@@ -41,23 +39,17 @@ public static class ConfigHubRegistration
 
     private const string SchemaDialect = "https://json-schema.org/draft/2020-12/schema";
 
-    // Settings are described as they are bound: property names unchanged.
-    private static readonly JsonSerializerOptions SchemaOptions = new()
-    {
-        PropertyNamingPolicy = null,
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-    };
-
     /// <summary>
     /// One schema for a document with one top-level property per section (e.g. <c>Storage</c> →
-    /// <c>StorageSettings</c>). <see cref="Secret{T}"/> properties are marked (<see cref="SecretJsonSchema"/>).
+    /// <c>StorageSettings</c>). <see cref="Secret{T}"/> properties are marked (<see cref="SecretJsonSchema"/>),
+    /// enums are listed by name, and computed properties are left out.
     /// </summary>
     public static JsonObject BuildSchema(IEnumerable<KeyValuePair<string, Type>> sections, string title)
     {
         ArgumentNullException.ThrowIfNull(sections);
         var properties = new JsonObject();
         foreach (var (name, type) in sections)
-            properties[name] = SecretJsonSchema.Export(type, SchemaOptions);
+            properties[name] = ConfigHubSchema.Export(type);
         return Document(title, properties);
     }
 

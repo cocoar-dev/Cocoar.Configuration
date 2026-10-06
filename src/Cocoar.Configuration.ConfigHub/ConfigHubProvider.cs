@@ -23,6 +23,9 @@ public sealed class ConfigHubProvider
 
     private readonly HttpClient _client;
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly Lock _streamsGate = new();
+    private readonly Dictionary<string, SharedStream> _streams = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _conflictingUrls = new(StringComparer.Ordinal);
     private int _disposed;
 
     /// <summary>
@@ -171,46 +174,97 @@ public sealed class ConfigHubProvider
             ArgumentNullException.ThrowIfNull(observer);
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(provider._lifetime.Token);
-            var sink = new SerializedObserver(observer);
-            _ = Task.Run(() => RunAsync(sink, cts.Token), CancellationToken.None);
-            return new Subscription(cts);
-        }
-
-        private async Task RunAsync(SerializedObserver observer, CancellationToken ct)
-        {
-            var tasks = new List<Task>
-            {
-                RunSseLoopAsync(observer, ct),
-            };
+            var subscriber = new Subscriber(provider, query, new SerializedObserver(observer), cts.Token);
+            provider.Attach(subscriber);
 
             if (provider.ProviderOptions.FallbackPollInterval is { } interval)
             {
-                tasks.Add(RunPollingLoopAsync(observer, interval, ct));
+                _ = Task.Run(() => subscriber.RunPollingLoopAsync(interval), CancellationToken.None);
             }
 
-            try
+            return new Subscription(provider, subscriber, cts);
+        }
+    }
+
+    private static string StreamKey(ConfigHubProviderQueryOptions query) => query.Url + "\n" + query.CredentialFingerprint;
+
+    private void Attach(Subscriber subscriber)
+    {
+        var query = subscriber.Query;
+        bool reconcileNow;
+        lock (_streamsGate)
+        {
+            if (!_streams.TryGetValue(StreamKey(query), out var stream))
             {
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                // A stream is never opened with another rule's token, so a second credential for the
+                // same URL gets its own connection. That costs a stream and usually is a mistake.
+                if (_streams.Values.Any(s => s.Url == query.Url) && _conflictingUrls.Add(query.Url))
+                {
+                    Trace.TraceWarning(
+                        "ConfigHub delivery URL '{0}' is used with more than one delivery token; each token keeps its own SSE connection.",
+                        query.Url);
+                }
+
+                stream = new SharedStream(this, query.Url, query.DeliveryToken);
+                _streams[StreamKey(query)] = stream;
+                stream.Start();
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-            }
-            catch (Exception ex)
-            {
-                observer.Error(ex);
-            }
+
+            stream.Subscribers.Add(subscriber);
+            reconcileNow = stream.Connected;
         }
 
-        private async Task RunSseLoopAsync(SerializedObserver observer, CancellationToken ct)
+        // A rule that joins an open stream missed that stream's reconciliation on connect.
+        if (reconcileNow)
         {
-            var reconnectDelay = InitialReconnectDelay;
+            _ = subscriber.RefreshAsync();
+        }
+    }
+
+    private void Detach(Subscriber subscriber)
+    {
+        lock (_streamsGate)
+        {
+            var key = StreamKey(subscriber.Query);
+            if (!_streams.TryGetValue(key, out var stream) || !stream.Subscribers.Remove(subscriber) || stream.Subscribers.Count > 0)
+            {
+                return;
+            }
+
+            _streams.Remove(key);
+            stream.Stop();
+        }
+    }
+
+    /// <summary>
+    /// One rule's interest in a delivery URL. The snapshot request stays per rule, because class and
+    /// dimensions are part of it; only the invalidation signal is shared.
+    /// </summary>
+    private sealed class Subscriber(
+        ConfigHubProvider provider,
+        ConfigHubProviderQueryOptions query,
+        SerializedObserver observer,
+        CancellationToken ct)
+    {
+        private int _generation;
+
+        public ConfigHubProviderQueryOptions Query => query;
+
+        /// <summary>
+        /// Refetches conditionally and retries with backoff until it succeeds. A newer invalidation
+        /// takes over from a retry that is still waiting, so retries never pile up.
+        /// </summary>
+        public async Task RefreshAsync()
+        {
+            var generation = Interlocked.Increment(ref _generation);
+            var retryDelay = InitialReconnectDelay;
 
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    await ConnectAndReadAsync(observer, ct).ConfigureAwait(false);
-                    reconnectDelay = InitialReconnectDelay;
+                    await FetchAndEmitIfChangedAsync().ConfigureAwait(false);
+                    return;
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
@@ -219,67 +273,222 @@ public sealed class ConfigHubProvider
                 catch (Exception ex)
                 {
                     Trace.TraceWarning(
-                        "ConfigHub SSE connection to '{0}' failed: {1}: {2}. Retrying in {3:F1}s.",
+                        "ConfigHub snapshot refresh for '{0}' failed: {1}: {2}. Retrying in {3:F1}s.",
                         query.Url,
                         ex.GetType().Name,
                         ex.Message,
-                        reconnectDelay.TotalSeconds);
+                        retryDelay.TotalSeconds);
                 }
 
-                await Task.Delay(reconnectDelay, ct).ConfigureAwait(false);
-                reconnectDelay = TimeSpan.FromTicks(Math.Min(
-                    reconnectDelay.Ticks * 2,
-                    MaxReconnectDelay.Ticks));
+                try
+                {
+                    await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                if (generation != Volatile.Read(ref _generation))
+                {
+                    return;
+                }
+
+                retryDelay = TimeSpan.FromTicks(Math.Min(retryDelay.Ticks * 2, MaxReconnectDelay.Ticks));
             }
         }
 
-        private async Task ConnectAndReadAsync(SerializedObserver observer, CancellationToken ct)
+        public async Task RunPollingLoopAsync(TimeSpan interval)
         {
-            using var request = ConfigHubProvider.CreateRequest(query, "text/event-stream");
+            try
+            {
+                using var timer = new PeriodicTimer(interval);
+                while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+                {
+                    try
+                    {
+                        await FetchAndEmitIfChangedAsync().ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceWarning(
+                            "ConfigHub fallback poll for '{0}' failed: {1}: {2}.",
+                            query.Url,
+                            ex.GetType().Name,
+                            ex.Message);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+            }
+        }
+
+        private async Task FetchAndEmitIfChangedAsync()
+        {
+            var bytes = await provider.FetchSnapshotAsync(query, useCacheValidator: true, ct)
+                .ConfigureAwait(false);
+            if (bytes is not null)
+            {
+                observer.Next(bytes);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The single SSE connection for one delivery URL and credential. Invalidations are scoped to the
+    /// access and carry no class, so every rule reading from that URL listens on the same connection.
+    /// </summary>
+    private sealed class SharedStream(ConfigHubProvider provider, string url, string deliveryToken)
+    {
+        private readonly CancellationTokenSource _cts = CancellationTokenSource.CreateLinkedTokenSource(provider._lifetime.Token);
+
+        public string Url => url;
+
+        // Guarded by the provider's stream gate.
+        public List<Subscriber> Subscribers { get; } = [];
+        public bool Connected { get; private set; }
+
+        public void Start() => _ = Task.Run(RunAsync, CancellationToken.None);
+
+        public void Stop()
+        {
+            try
+            {
+                _cts.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private async Task RunAsync()
+        {
+            var ct = _cts.Token;
+            var reconnectDelay = InitialReconnectDelay;
+
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await ConnectAndReadAsync(ct).ConfigureAwait(false);
+                        reconnectDelay = InitialReconnectDelay;
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.TraceWarning(
+                            "ConfigHub SSE connection to '{0}' failed: {1}: {2}. Retrying in {3:F1}s.",
+                            url,
+                            ex.GetType().Name,
+                            ex.Message,
+                            reconnectDelay.TotalSeconds);
+                    }
+
+                    await Task.Delay(reconnectDelay, ct).ConfigureAwait(false);
+                    reconnectDelay = TimeSpan.FromTicks(Math.Min(
+                        reconnectDelay.Ticks * 2,
+                        MaxReconnectDelay.Ticks));
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                _cts.Dispose();
+            }
+        }
+
+        private async Task ConnectAndReadAsync(CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", deliveryToken);
             using var response = await provider._client.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
-            // The stream never owns configuration state. This reconciliation closes the gap left by
-            // events that may have been published while the connection was down.
-            await FetchAndEmitIfChangedAsync(observer, ct).ConfigureAwait(false);
-
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            var hasDataField = false;
-
-            while (!ct.IsCancellationRequested)
+            try
             {
-                var line = await ReadLineAsync(reader, ct).ConfigureAwait(false);
-                if (line is null)
-                {
-                    return;
-                }
+                // The stream never owns configuration state. This reconciliation closes the gap left by
+                // events that may have been published while the connection was down.
+                RefreshSubscribers(markConnected: true);
 
-                if (line.Length == 0)
+                await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                var hasDataField = false;
+
+                while (!ct.IsCancellationRequested)
                 {
-                    if (hasDataField)
+                    var line = await ReadLineAsync(reader, ct).ConfigureAwait(false);
+                    if (line is null)
                     {
-                        await FetchAndEmitIfChangedAsync(observer, ct).ConfigureAwait(false);
-                        hasDataField = false;
+                        return;
                     }
 
-                    continue;
+                    if (line.Length == 0)
+                    {
+                        if (hasDataField)
+                        {
+                            RefreshSubscribers(markConnected: false);
+                            hasDataField = false;
+                        }
+
+                        continue;
+                    }
+
+                    if (line[0] == ':')
+                    {
+                        continue;
+                    }
+
+                    var colonIndex = line.IndexOf(':');
+                    var field = colonIndex >= 0 ? line[..colonIndex] : line;
+                    if (string.Equals(field, "data", StringComparison.Ordinal))
+                    {
+                        hasDataField = true;
+                    }
+                }
+            }
+            finally
+            {
+                lock (provider._streamsGate)
+                {
+                    Connected = false;
+                }
+            }
+        }
+
+        private void RefreshSubscribers(bool markConnected)
+        {
+            Subscriber[] subscribers;
+            lock (provider._streamsGate)
+            {
+                if (markConnected)
+                {
+                    Connected = true;
                 }
 
-                if (line[0] == ':')
-                {
-                    continue;
-                }
+                subscribers = [.. Subscribers];
+            }
 
-                var colonIndex = line.IndexOf(':');
-                var field = colonIndex >= 0 ? line[..colonIndex] : line;
-                if (string.Equals(field, "data", StringComparison.Ordinal))
-                {
-                    hasDataField = true;
-                }
+            // Each rule refetches on its own, so one failing class does not hold back the others
+            // or the reading of the next invalidation.
+            foreach (var subscriber in subscribers)
+            {
+                _ = subscriber.RefreshAsync();
             }
         }
 
@@ -302,80 +511,34 @@ public sealed class ConfigHubProvider
                     $"ConfigHub SSE connection received no data for {timeout.TotalSeconds:F0} seconds.");
             }
         }
-
-        private async Task RunPollingLoopAsync(
-            SerializedObserver observer,
-            TimeSpan interval,
-            CancellationToken ct)
-        {
-            using var timer = new PeriodicTimer(interval);
-            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
-            {
-                try
-                {
-                    await FetchAndEmitIfChangedAsync(observer, ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (ct.IsCancellationRequested)
-                {
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceWarning(
-                        "ConfigHub fallback poll for '{0}' failed: {1}: {2}.",
-                        query.Url,
-                        ex.GetType().Name,
-                        ex.Message);
-                }
-            }
-        }
-
-        private async Task FetchAndEmitIfChangedAsync(SerializedObserver observer, CancellationToken ct)
-        {
-            var bytes = await provider.FetchSnapshotAsync(query, useCacheValidator: true, ct)
-                .ConfigureAwait(false);
-            if (bytes is not null)
-            {
-                observer.Next(bytes);
-            }
-        }
     }
 
     private sealed class SerializedObserver(IObserver<byte[]> observer)
     {
         private readonly Lock _gate = new();
-        private bool _stopped;
 
+        // A fallback poll and an invalidation can finish at the same time.
         public void Next(byte[] value)
         {
             lock (_gate)
             {
-                if (!_stopped)
-                {
-                    observer.OnNext(value);
-                }
-            }
-        }
-
-        public void Error(Exception error)
-        {
-            lock (_gate)
-            {
-                if (_stopped)
-                {
-                    return;
-                }
-
-                _stopped = true;
-                observer.OnError(error);
+                observer.OnNext(value);
             }
         }
     }
 
-    private sealed class Subscription(CancellationTokenSource cts) : IDisposable
+    private sealed class Subscription(ConfigHubProvider provider, Subscriber subscriber, CancellationTokenSource cts) : IDisposable
     {
+        private int _disposed;
+
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            provider.Detach(subscriber);
             try
             {
                 cts.Cancel();

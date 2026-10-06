@@ -16,10 +16,12 @@ builder.AddCocoarConfiguration(configuration => configuration
     [
         rule.For<AppSettings>().FromFile("appsettings.json"),
         rule.For<AppSettings>().FromConfigHub(
-            "https://config.example/api/config/my-app",
+            "https://config.example/api/config/my-product/my-app",
             Environment.GetEnvironmentVariable("CONFIGHUB_DELIVERY_TOKEN")!),
     ]));
 ```
+
+The delivery URL is the one ConfigHub shows for an access: `/api/config/{product-slug}/{access-slug}`. The provider treats it as opaque and only appends `/capabilities`, `/schema` and `/encryption-key` for registration.
 
 The local file supplies defaults. The later ConfigHub layer overrides the properties present in its snapshot and participates in the normal atomic merge and notification pipeline.
 
@@ -84,9 +86,17 @@ The provider treats the JSON snapshot as the only authoritative configuration:
 
 SSE reconnects use exponential backoff. A periodic conditional poll can run alongside it as an additional safety net.
 
-The class header is also sent on SSE connections. Invalidations remain access-wide;
-snapshot ETags include the selected class. The low-level `ConfigHubProviderQueryOptions`
-can omit `classKey` for legacy full-document delivery; typed rules always set it.
+Invalidations are access-wide and carry no class, so all rules reading from one delivery URL share a
+single SSE connection, however many classes they request. An invalidation, and every reconnect, makes
+each of those rules refetch its own class conditionally. The connection carries only the bearer token;
+class and dimensions stay on the snapshot requests, and snapshot ETags include the selected class. The
+connection closes when the last rule using the URL is gone or the manager is disposed.
+
+Three different delivery URLs mean three connections. Rules that use one URL with different tokens
+never share a connection; that combination is logged as a warning, because it is usually a mistake.
+
+The low-level `ConfigHubProviderQueryOptions` can omit `classKey` for legacy full-document
+delivery; typed rules always set it.
 
 ## Options
 
@@ -128,7 +138,7 @@ rule =>
     {
         var deployment = accessor.GetConfig<DeploymentSettings>()!;
         return new ConfigHubRuleOptions(
-            $"https://config.example/api/config/{deployment.Application}",
+            $"https://config.example/api/config/{deployment.Product}/{deployment.Access}",
             deployment.DeliveryToken,
             fallbackPollInterval: TimeSpan.FromMinutes(5));
     }),
@@ -159,7 +169,7 @@ rule.For<AppSettings>().FromConfigHub(accessor =>
         .WithDimension("region", accessor.GetConfig<HostInfo>()!.Region))
 ```
 
-The provider sends them with every snapshot request and SSE connection as
+The provider sends them with every snapshot request as
 `ConfigHub-Dimension: region=eu, server=APPDEV01` (values URL-escaped). They are part of
 the query identity: when a config-aware rule computes different values, the
 subscription is rebuilt. An empty value removes the dimension.
@@ -251,9 +261,27 @@ The schema root contains only nonnullable class objects, never direct scalar
 settings. Local `$ref` paths from exported types are rebased under their class
 keys. Nested properties retain their own nullability and secret metadata.
 
+### What the Schema Describes
+
+The schema is derived from the configuration types alone, and lists what can be bound, written the
+way every source writes it:
+
+- **Enums** are string enums with their member names (`"enum": ["InMemory", "Smtp", "Postmark"]`),
+  also as list items and dictionary values. A nullable enum is `anyOf` of those names and `null`.
+- **Computed properties** without a setter are left out; constructor-bound properties of records stay.
+- **`required` members** are listed as `required`.
+
+### Secrets in the Schema
+
 `Secret<T>` properties appear in the schema as the schema of `T`, marked with
 `"x-cocoar-secret": true` (`SecretJsonSchema`), so ConfigHub encrypts what is entered and stores only
 the `cocoar.secret` envelope.
+
+> **Warning: Plain-string secrets are reported as plain text fields**
+>
+> The type decides: only `Secret<T>` is marked. A password, token or connection string that is still a
+> `string` is reported as an ordinary text field, so an editor shows and stores it in the clear. Move
+> such settings to `Secret<T>` before enabling registration.
 
 The key is never created implicitly — generate it once per instance with
 `cocoar-secrets generate-cert -o certs/secrets.pfx` ([CLI](../secrets/cli.md)). Without a key, no key
@@ -276,4 +304,4 @@ rule.For<AppSettings>().FromConfigHub(
     handler: handler)
 ```
 
-A rule with a custom handler receives a dedicated provider instance so unrelated rules cannot accidentally share transport state.
+Rules that pass the same handler object share one provider, and with it one SSE connection per delivery URL. A different handler object gets its own provider, so unrelated rules never share transport state.

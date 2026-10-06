@@ -91,12 +91,15 @@ public sealed class ConfigHubOptionsTests
     }
 
     [Fact]
-    public void CustomHandlerDisablesProviderSharingAndRemainsCallerOwned()
+    public void CustomHandlerSharesAProviderOnlyWithItselfAndRemainsCallerOwned()
     {
         var handler = new TrackingHandler();
         var options = new ConfigHubProviderOptions(handler: handler);
 
-        Assert.Null(options.GenerateProviderKey());
+        using var other = new TrackingHandler();
+        Assert.Equal(options.GenerateProviderKey(), new ConfigHubProviderOptions(handler: handler).GenerateProviderKey());
+        Assert.NotEqual(options.GenerateProviderKey(), new ConfigHubProviderOptions(handler: other).GenerateProviderKey());
+        Assert.NotEqual(options.GenerateProviderKey(), new ConfigHubProviderOptions().GenerateProviderKey());
 
         using (var provider = new ConfigHubProvider(options))
         {

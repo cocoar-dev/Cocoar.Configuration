@@ -9,6 +9,9 @@ namespace Cocoar.Configuration.ConfigHub;
 /// </summary>
 public sealed class ConfigHubProviderOptions : IProviderConfiguration
 {
+    // A handler cannot be serialized into the provider key, so each instance gets a stable id instead.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<HttpMessageHandler, string> HandlerIds = new();
+
     private static readonly JsonSerializerOptions ProviderKeyOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
@@ -52,11 +55,14 @@ public sealed class ConfigHubProviderOptions : IProviderConfiguration
         Handler = handler;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Rules with the same options share one provider, and with it one SSE connection per delivery URL.
+    /// A handler is part of that identity by reference: the same handler object shares, another one does not.
+    /// </summary>
     public string? GenerateProviderKey()
         => Handler is null
             ? JsonSerializer.Serialize(this, ProviderKeyOptions)
-            : null;
+            : JsonSerializer.Serialize(this, ProviderKeyOptions) + "|handler:" + HandlerIds.GetValue(Handler, static _ => Guid.NewGuid().ToString("N"));
 
     private static void ValidatePositive(TimeSpan? value, string parameterName)
     {
