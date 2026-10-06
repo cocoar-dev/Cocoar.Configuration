@@ -1,7 +1,5 @@
 using System.Reflection;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization.Metadata;
 using Cocoar.Configuration.Core;
 using Cocoar.Configuration.Rules;
 using Cocoar.Configuration.Secrets;
@@ -23,13 +21,6 @@ public static class ConfigHubAutoRegistration
         LogLevel.Warning, new EventId(2, "RegistrationTargetFailed"), "A ConfigHub registration target failed; other targets continue and this target will be retried");
     private static readonly Action<ILogger, string, int, Exception?> RegistrationRejected = LoggerMessage.Define<string, int>(
         LogLevel.Warning, new EventId(3, "RegistrationRejected"), "ConfigHub rejected registration of {Feature}: HTTP {Status}; retrying later");
-
-    // Settings are described as they are bound: property names unchanged.
-    private static readonly JsonSerializerOptions SchemaOptions = new()
-    {
-        PropertyNamingPolicy = null,
-        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-    };
 
     /// <summary>Starts optional capability-aware registration for the whole manager.</summary>
     /// <param name="builder">The manager being configured.</param>
@@ -93,7 +84,7 @@ public static class ConfigHubAutoRegistration
                 throw new InvalidOperationException($"ConfigHub class key '{key}' has conflicting types; give one an alias.");
             types[key] = rule.ConcreteType;
             var spelling = properties.Select(p => p.Key).FirstOrDefault(p => string.Equals(p, key, StringComparison.OrdinalIgnoreCase)) ?? key;
-            properties[spelling] = SecretJsonSchema.Export(rule.ConcreteType, SchemaOptions);
+            properties[spelling] = ConfigHubSchema.Export(rule.ConcreteType);
         }
         return ConfigHubRegistration.Document(title, properties);
     }

@@ -17,7 +17,7 @@ public sealed class ConfigHubProviderQueryOptions : IProviderQuery
     private IReadOnlyList<string> _lastWarnings = [];
 
     /// <summary>
-    /// Absolute ConfigHub delivery URL, for example <c>https://config.example/api/config/my-app</c>.
+    /// Absolute ConfigHub delivery URL, for example <c>https://config.example/api/config/my-product/my-app</c>.
     /// </summary>
     public string Url { get; }
 
