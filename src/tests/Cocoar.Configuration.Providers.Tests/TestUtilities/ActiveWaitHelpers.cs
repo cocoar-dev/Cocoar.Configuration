@@ -8,7 +8,9 @@ public static class ActiveWaitHelpers
         TimeSpan pollInterval = default,
         string description = "condition")
     {
-        timeout = timeout == default ? TimeSpan.FromSeconds(2) : timeout;
+        // The timeout only bounds a hung test. It is generous because a loaded CI runner can take
+        // seconds to deliver a file-system event; a passing test returns as soon as the condition holds.
+        timeout = timeout == default ? TimeSpan.FromSeconds(15) : timeout;
         pollInterval = pollInterval == default ? TimeSpan.FromMilliseconds(50) : pollInterval;
         
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();

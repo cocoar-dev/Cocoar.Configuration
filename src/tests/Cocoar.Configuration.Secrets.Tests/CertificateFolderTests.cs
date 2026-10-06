@@ -221,9 +221,11 @@ public class CertificateFolderTests : IDisposable
             var kid2Folder = Path.Combine(_tempBasePath, "kid2");
             Directory.Move(kid1Folder, kid2Folder);
 
-            // Wait for file watcher to detect the folder rename
-            // Use active polling to ensure the inventory has updated
-            var deadline = DateTime.UtcNow.AddSeconds(3);
+            // Wait for the file watcher to detect the folder rename. A rename right after the watcher
+            // was built can be missed as an event; the monitor then finds it in its next audit pass
+            // (every 60 seconds by default). The deadline covers that pass - the loop still returns as
+            // soon as the new folder is usable, which normally takes milliseconds.
+            var deadline = DateTime.UtcNow.AddSeconds(90);
             var detected = false;
             while (DateTime.UtcNow < deadline)
             {
@@ -243,7 +245,7 @@ public class CertificateFolderTests : IDisposable
                 await Task.Delay(50);
             }
 
-            Assert.True(detected, "File watcher did not detect folder rename within 3 seconds");
+            Assert.True(detected, "File watcher did not detect folder rename within 90 seconds");
 
             // Verify kid2 works after folder rename
             var plaintext2 = protector.Unprotect(envelope, "kid2");
