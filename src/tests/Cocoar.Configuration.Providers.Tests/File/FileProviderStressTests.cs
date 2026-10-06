@@ -275,32 +275,32 @@ public class FileProviderStressTests
         // Ensure provider disposed before temp file to reduce chance of locked handle during malformed/valid transitions
         using var provider = new FileSourceProvider(options);
         
-        var emissions = new List<JsonElement>();
+        var emissions = new EmissionLog();
         var subscription = provider.ChangesAsBytes(query).Subscribe(e => emissions.Add(e.ToJsonElement()));
-        
+
+        static bool IsEmptyObject(JsonElement emission) =>
+            emission.ValueKind == JsonValueKind.Object && !emission.EnumerateObject().MoveNext();
+        static bool IsRecovered(JsonElement emission) =>
+            emission.TryGetProperty("recovered", out var recovered) && recovered.ValueKind == JsonValueKind.True &&
+            emission.TryGetProperty("value", out var value) && value.GetInt32() == 42;
+
         try
         {
-            // Write malformed JSON - should emit empty object
+            // Malformed JSON must surface as an empty object. Waiting for it before writing again makes
+            // sure the provider really read the malformed content and not the next version of the file.
             file.WriteContent("{ invalid json here }");
-            await Task.Delay(100);
-            
-            // Write valid JSON again
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => emissions.Snapshot().Any(IsEmptyObject),
+                description: "empty object for the malformed file");
+
+            // A read can still catch the file mid-write, so the valid content is the state the provider
+            // has to arrive at, not necessarily the very next emission.
             file.WriteJson(new { recovered = true, value = 42 });
-            await Task.Delay(100);
-            
+            await ActiveWaitHelpers.WaitUntilAsync(
+                () => IsRecovered(emissions.Last),
+                description: "recovered content after the malformed file");
+
             _output.WriteLine($"JSON recovery test completed, received {emissions.Count} emissions");
-            
-            Assert.True(emissions.Count >= 2, "Should have emissions for both malformed and recovered JSON");
-            
-            // Check that malformed JSON resulted in empty object
-            var malformedEmission = emissions[0];
-            Assert.Equal(JsonValueKind.Object, malformedEmission.ValueKind);
-            Assert.True(malformedEmission.EnumerateObject().MoveNext() == false, "Malformed JSON should result in empty object");
-            
-            // Check that recovery worked
-            var recoveredEmission = emissions[^1];
-            Assert.True(recoveredEmission.GetProperty("recovered").GetBoolean());
-            Assert.Equal(42, recoveredEmission.GetProperty("value").GetInt32());
         }
         finally
         {

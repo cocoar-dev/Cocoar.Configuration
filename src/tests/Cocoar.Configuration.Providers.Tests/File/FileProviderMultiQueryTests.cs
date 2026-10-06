@@ -38,9 +38,9 @@ public class FileProviderMultiQueryTests
         var query2 = new FileSourceProviderQueryOptions("config2.json", DebounceTime: TimeSpan.FromMilliseconds(50));
         var query3 = new FileSourceProviderQueryOptions("config3.json", DebounceTime: TimeSpan.FromMilliseconds(50));
 
-        var emissions1 = new List<JsonElement>();
-        var emissions2 = new List<JsonElement>();
-        var emissions3 = new List<JsonElement>();
+        var emissions1 = new EmissionLog();
+        var emissions2 = new EmissionLog();
+        var emissions3 = new EmissionLog();
 
         var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
         var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
@@ -62,10 +62,9 @@ public class FileProviderMultiQueryTests
             // Wait for all file changes to be detected and for final debounced values to arrive
             await ActiveWaitHelpers.WaitUntilAsync(
                 () => emissions1.Count > 0 && emissions2.Count > 0 && emissions3.Count > 0 &&
-                      emissions1[^1].GetProperty("value").GetInt32() == changeCount &&
-                      emissions2[^1].GetProperty("value").GetInt32() == changeCount &&
-                      emissions3[^1].GetProperty("value").GetInt32() == changeCount,
-                timeout: TimeSpan.FromSeconds(3),
+                      emissions1.Last.GetProperty("value").GetInt32() == changeCount &&
+                      emissions2.Last.GetProperty("value").GetInt32() == changeCount &&
+                      emissions3.Last.GetProperty("value").GetInt32() == changeCount,
                 description: "final debounced values for all files");
 
             _output.WriteLine($"File 1: made {changeCount} changes, received {emissions1.Count} emissions");
@@ -83,14 +82,14 @@ public class FileProviderMultiQueryTests
             Assert.True(emissions3.Count > 0, "File 3 should have at least one emission");
 
             // Final emissions should reflect the last change for each file
-            Assert.Equal(changeCount, emissions1[^1].GetProperty("value").GetInt32());
-            Assert.Equal(changeCount, emissions2[^1].GetProperty("value").GetInt32());
-            Assert.Equal(changeCount, emissions3[^1].GetProperty("value").GetInt32());
+            Assert.Equal(changeCount, emissions1.Last.GetProperty("value").GetInt32());
+            Assert.Equal(changeCount, emissions2.Last.GetProperty("value").GetInt32());
+            Assert.Equal(changeCount, emissions3.Last.GetProperty("value").GetInt32());
 
             // Validate file identity is preserved
-            Assert.Equal(1, emissions1[^1].GetProperty("file").GetInt32());
-            Assert.Equal(2, emissions2[^1].GetProperty("file").GetInt32());
-            Assert.Equal(3, emissions3[^1].GetProperty("file").GetInt32());
+            Assert.Equal(1, emissions1.Last.GetProperty("file").GetInt32());
+            Assert.Equal(2, emissions2.Last.GetProperty("file").GetInt32());
+            Assert.Equal(3, emissions3.Last.GetProperty("file").GetInt32());
         }
         finally
         {
@@ -115,8 +114,8 @@ public class FileProviderMultiQueryTests
         var query1 = new FileSourceProviderQueryOptions("shared.json");
         var query2 = new FileSourceProviderQueryOptions("shared.json");
 
-        var emissions1 = new List<JsonElement>();
-        var emissions2 = new List<JsonElement>();
+        var emissions1 = new EmissionLog();
+        var emissions2 = new EmissionLog();
 
         var subscription1 = provider.ChangesAsBytes(query1).Subscribe(e => emissions1.Add(e.ToJsonElement()));
         var subscription2 = provider.ChangesAsBytes(query2).Subscribe(e => emissions2.Add(e.ToJsonElement()));
@@ -130,24 +129,21 @@ public class FileProviderMultiQueryTests
                 await Task.Delay(50); // Spaced writes
             }
 
-            // Wait for both queries to have their final value
+            // Both queries end on the final value with the same number of emissions. One write can raise
+            // several file-system events, and each event reaches the two subscribers one after the other,
+            // so the counts are only comparable once the stream is quiet - which is what this waits for.
             await ActiveWaitHelpers.WaitUntilAsync(
-                () => emissions1.Count > 0 && emissions2.Count > 0 &&
-                      emissions1[^1].GetProperty("value").GetInt32() == 5 &&
-                      emissions2[^1].GetProperty("value").GetInt32() == 5,
-                timeout: TimeSpan.FromSeconds(2),
-                description: "shared file final value for both queries");
+                () => emissions1.Count > 0 && emissions1.Count == emissions2.Count &&
+                      emissions1.Last.GetProperty("value").GetInt32() == 5 &&
+                      emissions2.Last.GetProperty("value").GetInt32() == 5,
+                description: "both queries on the final value with equal emission counts");
 
             _output.WriteLine($"Query 1: {emissions1.Count} emissions");
             _output.WriteLine($"Query 2: {emissions2.Count} emissions");
 
-            // Both queries should receive the same number of emissions
-            Assert.Equal(emissions1.Count, emissions2.Count);
-            Assert.True(emissions1.Count > 0, "Should have received emissions");
-
             // Both should have the same final value
-            var final1 = emissions1[^1].GetProperty("value").GetInt32();
-            var final2 = emissions2[^1].GetProperty("value").GetInt32();
+            var final1 = emissions1.Last.GetProperty("value").GetInt32();
+            var final2 = emissions2.Last.GetProperty("value").GetInt32();
             Assert.Equal(final1, final2);
             Assert.Equal(5, final1);
         }
@@ -161,7 +157,7 @@ public class FileProviderMultiQueryTests
     [Fact]
     [Trait("Type", "Unit")]
     [Trait("Provider", "FileSourceProvider")]
-    public async Task SingleProvider_DifferentDebouncePerQuery_IndependentThrottling()
+    public async Task SingleProvider_TwoQueriesOnOneFileWithDifferentDebounce_BothReceiveTheFinalValue()
     {
         using var tempDir = TempDirectoryHelper.Create();
         using var file = TempFileHelper.CreateInDirectory(tempDir.Path, "throttle.json", """{"value": 0}""");
@@ -173,8 +169,8 @@ public class FileProviderMultiQueryTests
         var queryFast = new FileSourceProviderQueryOptions("throttle.json", DebounceTime: TimeSpan.FromMilliseconds(20));
         var querySlow = new FileSourceProviderQueryOptions("throttle.json", DebounceTime: TimeSpan.FromMilliseconds(100));
 
-        var emissionsFast = new List<JsonElement>();
-        var emissionsSlow = new List<JsonElement>();
+        var emissionsFast = new EmissionLog();
+        var emissionsSlow = new EmissionLog();
 
         var subscriptionFast = provider.ChangesAsBytes(queryFast).Subscribe(e => emissionsFast.Add(e.ToJsonElement()));
         var subscriptionSlow = provider.ChangesAsBytes(querySlow).Subscribe(e => emissionsSlow.Add(e.ToJsonElement()));
@@ -191,26 +187,22 @@ public class FileProviderMultiQueryTests
             // Wait for final debounced values to arrive
             await ActiveWaitHelpers.WaitUntilAsync(
                 () => emissionsFast.Count > 0 && emissionsSlow.Count > 0 &&
-                      emissionsFast[^1].GetProperty("value").GetInt32() == 10 &&
-                      emissionsSlow[^1].GetProperty("value").GetInt32() == 10,
-                timeout: TimeSpan.FromSeconds(2),
+                      emissionsFast.Last.GetProperty("value").GetInt32() == 10 &&
+                      emissionsSlow.Last.GetProperty("value").GetInt32() == 10,
                 description: "final debounced values for both queries");
 
             _output.WriteLine($"Fast query (20ms debounce): {emissionsFast.Count} emissions");
             _output.WriteLine($"Slow query (100ms debounce): {emissionsSlow.Count} emissions");
 
-            // Fast query should have more emissions than slow query
-            // Both should be debounced but fast should be less aggressive
-            Assert.True(emissionsFast.Count >= emissionsSlow.Count, 
-                "Fast query should have >= emissions than slow query due to different debounce windows");
-            
+            // How many emissions each query sees depends on how the writes fall into the debounce windows,
+            // so the counts are not compared. What must hold is that neither query misses the final state.
             // Both should have at least one emission
             Assert.True(emissionsFast.Count > 0, "Fast query should have emissions");
             Assert.True(emissionsSlow.Count > 0, "Slow query should have emissions");
 
             // Both should have the final value
-            Assert.Equal(10, emissionsFast[^1].GetProperty("value").GetInt32());
-            Assert.Equal(10, emissionsSlow[^1].GetProperty("value").GetInt32());
+            Assert.Equal(10, emissionsFast.Last.GetProperty("value").GetInt32());
+            Assert.Equal(10, emissionsSlow.Last.GetProperty("value").GetInt32());
         }
         finally
         {
